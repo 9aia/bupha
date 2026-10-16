@@ -159,18 +159,63 @@ class HandlCi:
         # transitive git refs to a mounted repo resolve to its checkout.
         repos = [repo, *(siblings or {})]
         for name in repos:
-            ctr = ctr.with_exec(["bash", "-c",
-                                 f"if [ -f /work/{repo}/scripts/dev-link.sh ]; then"
-                                 f" bash /work/{repo}/scripts/dev-link.sh /work/{name};"
-                                 f" elif [ -f /work/{name}/scripts/dev-link.sh ]; then"
-                                 f" bash /work/{name}/scripts/dev-link.sh /work/{name};"
-                                 " else sed -i '/# dev-link: begin/,/# dev-link: end/d'"
-                                 f" /work/{name}/Cargo.toml 2>/dev/null || true; fi"])
-            ctr = ctr.with_exec(["bash", "-c",
-                                 _SELF_PATCH_PY
-                                 .replace("REPO_DIR", f"/work/{name}")
-                                 .replace("REPO_NAME", name)])
+            ctr = self._link_repo(ctr, repo, name)
         return ctr
+
+    def _link_repo(
+        self, ctr: dagger.Container, main_repo: str, name: str
+    ) -> dagger.Container:
+        """dev-link + self-patch one mounted repo under /work/<name>."""
+        ctr = ctr.with_exec(["bash", "-c",
+                             f"if [ -f /work/{main_repo}/scripts/dev-link.sh ]; then"
+                             f" bash /work/{main_repo}/scripts/dev-link.sh /work/{name};"
+                             f" elif [ -f /work/{name}/scripts/dev-link.sh ]; then"
+                             f" bash /work/{name}/scripts/dev-link.sh /work/{name};"
+                             " else sed -i '/# dev-link: begin/,/# dev-link: end/d'"
+                             f" /work/{name}/Cargo.toml 2>/dev/null || true; fi"])
+        return ctr.with_exec(["bash", "-c",
+                              _SELF_PATCH_PY
+                              .replace("REPO_DIR", f"/work/{name}")
+                              .replace("REPO_NAME", name)])
+
+    # -- composable primitives (for consumer modules) ------------------------
+
+    @function
+    def workspace(
+        self,
+        source: Source,
+        repo: str = "platform",
+        token: Optional[dagger.Secret] = None,
+        sccache_conf: Optional[dagger.Secret] = None,
+    ) -> dagger.Container:
+        """Workspace container: source at /work/<repo>, caches, dev-link, self-patch."""
+        return self._workspace(source, repo, token, sccache_conf=sccache_conf)
+
+    @function
+    def with_sibling(
+        self,
+        ctr: dagger.Container,
+        name: str,
+        source: dagger.Directory,
+        main_repo: str = "platform",
+    ) -> dagger.Container:
+        """Mount a sibling checkout at /work/<name>, link it, cache its target/."""
+        return self._link_repo(
+            ctr.with_mounted_directory(f"/work/{name}", source)
+               .with_mounted_cache(f"/work/{name}/target",
+                                   dag.cache_volume(f"hl-{name}-target")),
+            main_repo, name)
+
+    @function
+    def run_script(
+        self,
+        ctr: dagger.Container,
+        script: str,
+        authed: bool = False,
+        sccache_env: bool = False,
+    ) -> dagger.Container:
+        """Run a shell script in a workspace container (auth + sccache env)."""
+        return self._exec(ctr, script, authed, sccache_env)
 
     def _exec(
         self,
