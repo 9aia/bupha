@@ -48,6 +48,31 @@ _AUTH_GIT_CONFIG = (
     '@github.com/".insteadOf "https://github.com/" && '
 )
 
+# Appends a `[patch."…/handl-lang/<repo>"]` table pointing the repo's own
+# crates at their local paths — unless one already exists. Needed because
+# transitive git deps can reference the repo's own crates (kit-canonical
+# git-deps platform): without the self-patch cargo sees two sources for
+# the same package (ambiguous -p spec, and stale-`main` code in the dep
+# graph instead of the checkout under test).
+_SELF_PATCH_PY = '''python3 - <<'PYEOF'
+import re, pathlib
+repo_dir = pathlib.Path("REPO_DIR")
+toml = repo_dir / "Cargo.toml"
+key = '[patch."https://github.com/handl-lang/REPO_NAME"]'
+if key not in toml.read_text():
+    rows = []
+    for g in ("crates", "modules"):
+        for t in sorted(repo_dir.glob(f"{g}/*/Cargo.toml")):
+            m = re.search(r'^name = "([^"]+)"', t.read_text(), re.M)
+            if m:
+                rows.append((m.group(1), t.parent))
+    with toml.open("a") as f:
+        f.write("\\n" + key + "\\n")
+        for n, p in rows:
+            rel = p.relative_to(repo_dir.parent)
+            f.write(f'{n} = {{ path = "../{rel}" }}\\n')
+PYEOF'''
+
 
 @object_type
 class HandlCi:
@@ -118,7 +143,7 @@ class HandlCi:
         if sccache_conf is not None:
             ctr = ctr.with_mounted_secret(
                 "/run/secrets/sccache-env", sccache_conf)
-        return (
+        ctr = (
             ctr
             .with_mounted_cache("/usr/local/cargo/registry",
                                 dag.cache_volume("hl-cargo-registry"))
@@ -128,12 +153,24 @@ class HandlCi:
                                 dag.cache_volume(f"hl-{repo}-target"))
             .with_mounted_cache("/sccache",
                                 dag.cache_volume("hl-sccache"))
-            .with_exec(["bash", "-c",
-                        "if [ -f scripts/dev-link.sh ]; then"
-                        f" bash scripts/dev-link.sh /work/{repo};"
-                        " else sed -i '/# dev-link: begin/,/# dev-link: end/d'"
-                        " Cargo.toml; fi"])
         )
+        # dev-link each mounted repo (main repo's script preferred, then
+        # the sibling's own, else strip the block), then self-patch so
+        # transitive git refs to a mounted repo resolve to its checkout.
+        repos = [repo, *(siblings or {})]
+        for name in repos:
+            ctr = ctr.with_exec(["bash", "-c",
+                                 f"if [ -f /work/{repo}/scripts/dev-link.sh ]; then"
+                                 f" bash /work/{repo}/scripts/dev-link.sh /work/{name};"
+                                 f" elif [ -f /work/{name}/scripts/dev-link.sh ]; then"
+                                 f" bash /work/{name}/scripts/dev-link.sh /work/{name};"
+                                 " else sed -i '/# dev-link: begin/,/# dev-link: end/d'"
+                                 f" /work/{name}/Cargo.toml 2>/dev/null || true; fi"])
+            ctr = ctr.with_exec(["bash", "-c",
+                                 _SELF_PATCH_PY
+                                 .replace("REPO_DIR", f"/work/{name}")
+                                 .replace("REPO_NAME", name)])
+        return ctr
 
     def _exec(
         self,
