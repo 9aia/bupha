@@ -87,7 +87,7 @@ class HandlCi:
             .with_exec([
                 "apt-get", "install", "-y", "--no-install-recommends",
                 "git", "curl", "ca-certificates", "python3",
-                "build-essential", "pkg-config", "libssl-dev",
+                "build-essential", "pkg-config", "libssl-dev", "clang", "lld",
             ])
             .with_exec(["sh", "-c",
                         "curl -LsSf https://get.nexte.st/latest/linux"
