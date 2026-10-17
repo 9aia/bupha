@@ -27,6 +27,8 @@ push ──► webhook ──► verify HMAC ──► latest-wins queue ──�
 
 ## vs GitHub Actions
 
+(full table: [docs/comparison.md](docs/comparison.md))
+
 - pushes hit **your** box — no runner minutes, no cold-queue wait,
   secrets and caches never leave the machine
 - the same pipeline runs in CI and locally (`bupha run`); no YAML DSL

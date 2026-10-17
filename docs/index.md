@@ -12,4 +12,5 @@ Diátaxis-structured. Pick by what you need to do.
 - **Explanation** (why): [architecture](explanation/architecture.md)
 
 Project: [CONTRIBUTING](../CONTRIBUTING.md) · [SECURITY](../SECURITY.md) ·
+[comparison](comparison.md) — vs GHA/hosted CI
 [TODO](../TODO.md)
