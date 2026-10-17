@@ -11,8 +11,8 @@ url: /bupha/reference/config.md
 | field | type | required | notes |
 |---|---|---|---|
 | `repos` | `Vec<RepoEntry>` | required | Watched repos — one pending slot each, one global worker. TOML-conventional singular; `repos` kept as alias for existing configs. |
-| `tunnel` | `TunnelCfg` | optional | — |
-| `worktree` | `WorktreeCfg` | optional | — |
+| `tunnel` | `TunnelCfg` | optional | How the listener is exposed publicly (cloudflared, direct, none). |
+| `worktree` | `WorktreeCfg` | optional | Where detached git worktrees for runs are created. |
 
 ## `[[repo]]`
 
@@ -20,7 +20,7 @@ url: /bupha/reference/config.md
 |---|---|---|---|
 | `name` | `string` | required | repository.full_name in the webhook payload ("owner/name") — also the status target repo. |
 | `dir` | `path` | required | Clone to fetch + create detached worktrees from. |
-| `branch` | `string` | optional | — |
+| `branch` | `string` | optional | The ref to watch (e.g. "refs/heads/main"). |
 | `status_repo` | `string` | optional | Status repo override (defaults to `name`). |
 | `runner` | `RunnerCfg` | optional | Per-repo runner override — a full \[repo.runner] table replaces the global \[runner] for this repo. |
 | `queue` | `"latest" | "all"` | optional | Queue policy — `latest` (default) or `all` (run every push). |
@@ -30,7 +30,7 @@ url: /bupha/reference/config.md
 | field | type | required | notes |
 |---|---|---|---|
 | `kind` | `string` | required | "github" today; other forges = new impl crates. |
-| `listen` | `string` | optional | — |
+| `listen` | `string` | optional | Webhook listener bind address ("127.0.0.1:9000"). |
 | `secret_env` | `string` | optional | Env var holding the webhook secret. |
 
 ## `[runner]`
@@ -39,11 +39,11 @@ url: /bupha/reference/config.md
 |---|---|---|---|
 | `kind` | `string` | required | "dagger" | "script" | … — resolved to an impl crate. |
 | `function` | `string` | optional | dagger runner: function to call. |
-| `shards` | `string` | optional | — |
-| `jobs` | `string` | optional | — |
-| `dogfood_jobs` | `string` | optional | — |
-| `sequential` | `bool` | optional | — |
-| `cancel_running` | `bool` | optional | — |
+| `shards` | `string` | optional | dagger runner: shard count for parallel test partitions. |
+| `jobs` | `string` | optional | dagger runner: job parallelism inside a run. |
+| `dogfood_jobs` | `string` | optional | dagger runner: job parallelism for dogfood-style runs (emitted only when the function accepts it). |
+| `sequential` | `bool` | optional | dagger runner: serialise heavy steps (memory-bound boxes). |
+| `cancel_running` | `bool` | optional | Kill an in-flight run when a newer push supersedes it. Invalid with `queue = "all"` (rejected at load). |
 | `sccache_conf` | `string` | optional | Optional env-file (KEY=VAL) mounted as the sccache secret. |
 | `cmd` | `string` | optional | script runner: command run in the worktree. |
 | `token_env` | `string` | optional | Env var naming the token passed to the runner + status sink. |
@@ -56,7 +56,7 @@ url: /bupha/reference/config.md
 |---|---|---|---|
 | `kind` | `string` | optional | "github" | "log" (stdout only) | "none". |
 | `repo` | `string` | optional | owner/repo for the commit-status API. |
-| `context` | `string` | optional | — |
+| `context` | `string` | optional | Status context label (e.g. "ci/bupha"). |
 
 ## `[tunnel]`
 
