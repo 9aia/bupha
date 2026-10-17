@@ -1,25 +1,29 @@
-# Local S3 cache backend (garage)
+# How-to: sccache backend
 
-sccache's backend is decoupled via `~/.config/handl-ci/sccache-env`
-(KEY=VAL file passed to the pipeline as a secret). Current backend:
-a local **garage** container (disk-backed; redis was dropped because
-it is memory-first on an 11 GiB box).
+sccache's backend is decoupled via an env file — set
+`runner.sccache_conf` to a `KEY=VAL` file (mounted into containers as
+a secret). Without it, sccache uses a local cache volume.
 
-    docker run -d --name handl-garage --restart always \
-      -p 9100:3900 -p 9102:3902 \
-      -v $HOME/handl-ci-data/garage:/data \
-      -v $HOME/handl-ci-data/garage.toml:/etc/garage.toml \
-      dxflrs/garage:v1.1.0
+## Local S3 (garage)
 
-Bootstrap: `garage layout assign -z dc1 -c 1G <node>` → `layout apply`
-→ `bucket create handl-ci` → `key create sccache` →
-`bucket allow --read --write --owner handl-ci --key sccache`.
+    docker run -d --name garage --restart always \
+      -v $HOME/bupha-data/garage:/data \
+      -v $HOME/bupha-data/garage.toml:/etc/garage.toml \
+      -p 9100:9100 dxflrs/garage:v1.x.x
 
-sccache-env: `SCCACHE_ENDPOINT=http://172.17.0.1:9100`,
-`SCCACHE_BUCKET=handl-ci`, `SCCACHE_REGION=garage`, AWS_* creds from
-`garage key info sccache`. To move to R2/AWS later, change only the
-env file — endpoint + creds, same protocol.
+Then in the garage CLI: `bucket create bupha-ci` → `key create sccache`
+→ `bucket allow --read --write --owner bupha-ci --key sccache`.
 
-NB: AIStor's minio binaries are license-gated now (server refuses
-bucket ops without `mc license update`) — use garage or an older
-community minio instead.
+Env file:
+
+    SCCACHE_ENDPOINT=http://<docker-gateway>:9100
+    SCCACHE_BUCKET=bupha-ci
+    SCCACHE_REGION=garage
+    SCCACHE_S3_USE_SSL=false
+    AWS_ACCESS_KEY_ID=...
+    AWS_SECRET_ACCESS_KEY=...
+
+## Migrating to hosted S3 (R2 / AWS)
+
+Same file, new values — `SCCACHE_ENDPOINT` to the provider URL, real
+region, new creds. No code changes; that's the point of the env file.

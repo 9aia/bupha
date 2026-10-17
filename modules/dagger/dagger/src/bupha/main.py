@@ -1,16 +1,16 @@
-"""Shared CI primitives for handl-lang repos — one definition, runs anywhere.
+"""Shared CI primitives for rust workspaces — one definition, runs anywhere.
 
 Install into a consumer repo:
 
-    dagger install github.com/handl-lang/ci@main
-    # then:  dag.bupha().test(source)  or  dagger call -m ... test
+    dagger install github.com/9aia/bupha/modules/dagger
+    # then:  dag.bupha().test(source)  or  dagger call test
 
 Same pipeline on a laptop, a VPS, or any orchestrator — the consumer's
 workspace mounts at /work/<repo> and scripts/dev-link.sh rewrites the
 `[patch]` block to the sibling checkouts actually mounted under /work;
-remaining handl-lang git deps resolve over https (float on `main`).
+remaining git deps resolve over https (float on `main`).
 
-Private deps: every handl-lang repo is private → pass a GitHub token as
+Private deps: if the repo's git deps are private → pass a GitHub token as
 `--token` (mounted secret; the insteadOf rewrite runs inside the exec,
 never in an image layer).
 """
@@ -48,17 +48,25 @@ _AUTH_GIT_CONFIG = (
     '@github.com/".insteadOf "https://github.com/" && '
 )
 
-# Appends a `[patch."…/handl-lang/<repo>"]` table pointing the repo's own
+# Appends a `[patch."<repo-git-url>"]` table pointing the repo's own
 # crates at their local paths — unless one already exists. Needed because
-# transitive git deps can reference the repo's own crates (kit-canonical
-# git-deps platform): without the self-patch cargo sees two sources for
-# the same package (ambiguous -p spec, and stale-`main` code in the dep
-# graph instead of the checkout under test).
+# transitive git deps can reference the repo's own crates: without the
+# self-patch cargo sees two sources for the same package (ambiguous -p
+# spec, and stale-`main` code in the dep graph instead of the checkout
+# under test). The patch URL comes from `patch_host` when given, else the
+# repo's own `repository` field in Cargo.toml — any org, zero config.
 _SELF_PATCH_PY = '''python3 - <<'PYEOF'
-import re, pathlib
+import re, pathlib, tomllib
 repo_dir = pathlib.Path("REPO_DIR")
 toml = repo_dir / "Cargo.toml"
 key = '[patch."PATCH_HOST/REPO_NAME"]'
+if "PATCH_HOST" in key:
+    meta = tomllib.loads(toml.read_text())
+    url = (meta.get("workspace", {}).get("package", {})
+               or meta.get("package", {})).get("repository", "")
+    if not url:
+        raise SystemExit("self-patch: no patch_host and no repository in Cargo.toml")
+    key = '[patch."%s"]' % url.removesuffix(".git")
 lines = toml.read_text().splitlines(keepends=True)
 out, skipping = [], False
 for l in lines:
@@ -124,16 +132,16 @@ class Bupha:
     def _workspace(
         self,
         source: dagger.Directory,
-        repo: str = "platform",
+        repo: str = "repo",
         token: Optional[dagger.Secret] = None,
         siblings: Optional[dict] = None,
         sccache_conf: Optional[dagger.Secret] = None,
-        patch_host: str = "github.com/handl-lang",
+        patch_host: str = "",
     ) -> dagger.Container:
         """Base image + source at /work/<repo> + cargo caches + dev-link.
 
         dev-link.sh rewrites Cargo.toml's patch block to only the sibling
-        checkouts present under /work; all other handl-lang git deps then
+        checkouts present under /work; all other git deps then
         resolve from `main` over https (authenticated when token is set).
 
         sccache_conf: optional env file (KEY=VAL per line) with SCCACHE_*
@@ -175,7 +183,8 @@ class Bupha:
         return ctr
 
     def _link_repo(
-        self, ctr: dagger.Container, main_repo: str, name: str
+        self, ctr: dagger.Container, main_repo: str, name: str,
+        patch_host: str = "",
     ) -> dagger.Container:
         """dev-link + self-patch one mounted repo under /work/<name>."""
         ctr = ctr.with_exec(["bash", "-c",
@@ -185,10 +194,12 @@ class Bupha:
                              f" bash /work/{name}/scripts/dev-link.sh /work/{name};"
                              " else sed -i '/# dev-link: begin/,/# dev-link: end/d'"
                              f" /work/{name}/Cargo.toml 2>/dev/null || true; fi"])
-        return ctr.with_exec(["bash", "-c",
-                              _SELF_PATCH_PY
-                              .replace("REPO_DIR", f"/work/{name}")
-                              .replace("REPO_NAME", name)])
+        script = (_SELF_PATCH_PY
+                  .replace("REPO_DIR", f"/work/{name}")
+                  .replace("REPO_NAME", name))
+        if patch_host:
+            script = script.replace("PATCH_HOST", patch_host)
+        return ctr.with_exec(["bash", "-c", script])
 
     # -- composable primitives (for consumer modules) ------------------------
 
@@ -196,7 +207,7 @@ class Bupha:
     def workspace(
         self,
         source: Source,
-        repo: str = "platform",
+        repo: str = "repo",
         token: Optional[dagger.Secret] = None,
         sccache_conf: Optional[dagger.Secret] = None,
     ) -> dagger.Container:
@@ -210,8 +221,8 @@ class Bupha:
         ctr: dagger.Container,
         name: str,
         source: dagger.Directory,
-        main_repo: str = "platform",
-        patch_host: str = "github.com/handl-lang",
+        main_repo: str = "repo",
+        patch_host: str = "",
     ) -> dagger.Container:
         """Mount a sibling checkout at /work/<name>, link it, cache its target/."""
         return self._link_repo(
@@ -253,7 +264,7 @@ class Bupha:
     async def doctor(
         self,
         source: Source,
-        repo: str = "platform",
+        repo: str = "repo",
         token: Optional[dagger.Secret] = None,
         sccache_conf: Optional[dagger.Secret] = None,
     ) -> str:
@@ -279,7 +290,7 @@ class Bupha:
         shard: int = 1,
         shards: int = 1,
         jobs: int = 2,
-        repo: str = "platform",
+        repo: str = "repo",
         token: Optional[dagger.Secret] = None,
         sccache_conf: Optional[dagger.Secret] = None,
     ) -> str:
@@ -301,7 +312,7 @@ class Bupha:
     async def doctests(
         self,
         source: Source,
-        repo: str = "platform",
+        repo: str = "repo",
         token: Optional[dagger.Secret] = None,
         sccache_conf: Optional[dagger.Secret] = None,
     ) -> str:
@@ -319,7 +330,7 @@ class Bupha:
         source: Source,
         shards: int = 1,
         jobs: int = 2,
-        repo: str = "platform",
+        repo: str = "repo",
         token: Optional[dagger.Secret] = None,
         sccache_conf: Optional[dagger.Secret] = None,
     ) -> str:
@@ -352,7 +363,7 @@ class Bupha:
     async def coverage_report(
         self,
         source: Source,
-        repo: str = "platform",
+        repo: str = "repo",
         token: Optional[dagger.Secret] = None,
         sccache_conf: Optional[dagger.Secret] = None,
     ) -> dagger.Directory:
@@ -377,7 +388,7 @@ class Bupha:
     async def coverage_gate(
         self,
         source: Source,
-        repo: str = "platform",
+        repo: str = "repo",
         token: Optional[dagger.Secret] = None,
         sccache_conf: Optional[dagger.Secret] = None,
     ) -> str:
@@ -395,7 +406,7 @@ class Bupha:
         self,
         source: Source,
         script: str,
-        repo: str = "platform",
+        repo: str = "repo",
         token: Optional[dagger.Secret] = None,
         sccache_conf: Optional[dagger.Secret] = None,
     ) -> str:

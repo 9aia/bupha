@@ -7,6 +7,7 @@
 //! caller). N commits during a run = 1 follow-up run on the newest.
 
 use serde::Deserialize;
+use std::collections::VecDeque;
 use std::path::PathBuf;
 
 /// Where pushes come from. Implementations parse their own payload
@@ -26,28 +27,57 @@ pub trait StatusSink: Send + Sync {
     fn post(&self, sha: &str, state: &str, desc: &str);
 }
 
-/// Latest-wins queue state. The running child handle lives in the
-/// runner/CLI layer (`ChildSlot`) so enqueue can kill it without
-/// blocking on this lock.
+/// How a repo's pending work collapses: `latest` keeps one pending
+/// slot (newest wins — CI gates), `all` runs every push in order
+/// (FIFO, bounded). Per-repo via `[[repos]] queue = "..."`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Default)]
+#[serde(rename_all = "lowercase")]
+pub enum QueuePolicy {
+    #[default]
+    Latest,
+    All,
+}
+
+/// Backlog cap for `all` — overflow evicts the oldest pending sha.
+pub const MAX_PENDING: usize = 32;
+
+/// Queue state. The running child handle lives in the runner/CLI layer
+/// (`ChildSlot`) so enqueue can kill it without blocking on this lock.
 #[derive(Default)]
 pub struct Queue {
-    pub pending: Option<String>,
+    pub pending: VecDeque<String>,
     pub running: Option<String>,
     pub cancelled: bool,
+    pub policy: QueuePolicy,
 }
 
 impl Queue {
-    /// Enqueue under latest-wins: replace the pending sha (the old one is
-    /// returned so the caller can mark it superseded). `None` = deduped.
+    pub fn with_policy(policy: QueuePolicy) -> Self {
+        Queue { policy, ..Default::default() }
+    }
+
+    /// `latest`: replace the pending sha (old is returned for a
+    /// superseded status). `all`: append; a full backlog evicts the
+    /// oldest, also returned as superseded. `Duplicate` = deduped.
     pub fn enqueue(&mut self, sha: String) -> EnqueueResult {
         if self.running.as_deref() == Some(sha.as_str())
-            || self.pending.as_deref() == Some(sha.as_str())
+            || self.pending.iter().any(|s| s == &sha)
         {
             return EnqueueResult::Duplicate;
         }
-        EnqueueResult::Queued {
-            superseded: self.pending.replace(sha),
-        }
+        let superseded = match self.policy {
+            QueuePolicy::Latest => self.pending.pop_front(),
+            QueuePolicy::All if self.pending.len() >= MAX_PENDING =>
+                self.pending.pop_front(),
+            QueuePolicy::All => None,
+        };
+        self.pending.push_back(sha);
+        EnqueueResult::Queued { superseded }
+    }
+
+    /// Next sha to run, FIFO.
+    pub fn dequeue(&mut self) -> Option<String> {
+        self.pending.pop_front()
     }
 }
 
@@ -104,6 +134,9 @@ pub struct RepoEntry {
     /// the global [runner] for this repo.
     #[serde(default)]
     pub runner: Option<RunnerCfg>,
+    /// Queue policy — `latest` (default) or `all` (run every push).
+    #[serde(default)]
+    pub queue: QueuePolicy,
 }
 
 impl RepoEntry {
@@ -122,6 +155,7 @@ pub struct WatchedRepo {
     pub status_repo: String,
     /// Global [runner] or the repo's [repos.runner] override.
     pub runner: RunnerCfg,
+    pub policy: QueuePolicy,
 }
 
 impl Config {
@@ -134,6 +168,7 @@ impl Config {
                 status_repo: r.status_repo().to_string(),
                 runner: r.runner.clone().unwrap_or_else(||
                     self.runner.clone()),
+                policy: r.queue,
             }).collect());
         }
         if let Some(r) = &self.repo {
@@ -147,6 +182,7 @@ impl Config {
                 branch: r.branch.clone(),
                 status_repo: self.status.repo.clone(),
                 runner: self.runner.clone(),
+                policy: QueuePolicy::Latest,
             }]);
         }
         Err("no [[repos]] entries and no [repo] configured".into())

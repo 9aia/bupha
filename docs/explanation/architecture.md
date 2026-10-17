@@ -14,5 +14,7 @@ detached worktree → spawned runner child (killable via cancel_running)
 it. Tunnels are supervised children — reaped + respawned on exit.
 
 Why latest-wins: for push-heavy mains, running every commit serially
-is the wrong default — N pushes during a run should mean one follow-up
+is the wrong default — `queue = "all"` opts a repo into run-every-push
+FIFO (bounded at 32; overflow evicts oldest). Per-repo policy in
+`[[repos]]`; the default ""latest" collapses pending to newest. Or: for push-heavy mains — N pushes during a run should mean one follow-up
 on the newest sha, not N stale builds.

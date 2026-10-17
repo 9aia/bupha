@@ -247,7 +247,8 @@ fn cmd_watch(cfg: Arc<Config>) {
     let qfile = PathBuf::from(&cfg.worktree.base).join("queue.json");
     let mut shared = Shared::default();
     for r in watched.iter() {
-        shared.queues.insert(r.name.clone(), Queue::default());
+        shared.queues.insert(r.name.clone(),
+            Queue::with_policy(r.policy));
     }
     if let Ok(text) = std::fs::read_to_string(&qfile) {
         if let Ok(serde_json::Value::Object(m)) =
@@ -255,12 +256,23 @@ fn cmd_watch(cfg: Arc<Config>) {
         {
             for (name, st) in m {
                 if let Some(q) = shared.queues.get_mut(&name) {
-                    q.pending = st.get("pending").and_then(|x| x.as_str())
-                        .map(str::to_string)
-                        .or_else(|| st.get("running").and_then(|x| x.as_str())
-                            .map(str::to_string));
-                    if q.pending.is_some() {
-                        println!("restored pending sha for {name}");
+                    if let Some(arr) = st.get("pending")
+                        .and_then(|x| x.as_array())
+                    {
+                        for v in arr {
+                            if let Some(sha) = v.as_str() {
+                                q.pending.push_back(sha.to_string());
+                            }
+                        }
+                    }
+                    if let Some(sha) = st.get("running")
+                        .and_then(|x| x.as_str())
+                    {   // interrupted run re-queues at the front
+                        q.pending.push_front(sha.to_string());
+                    }
+                    if !q.pending.is_empty() {
+                        println!("restored {} pending sha(s) for {name}",
+                            q.pending.len());
                     }
                 }
             }
@@ -285,7 +297,7 @@ fn cmd_watch(cfg: Arc<Config>) {
                     let mut g = shared.lock().unwrap();
                     loop {
                         let hit = g.queues.iter_mut().find_map(|(n, q)| {
-                            q.pending.take().map(|s| {
+                            q.dequeue().map(|s| {
                                 q.running = Some(s.clone());
                                 q.cancelled = false;
                                 (n.clone(), s)

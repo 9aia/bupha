@@ -1,4 +1,4 @@
-use bupha_core::{Config, EnqueueResult, Queue};
+use bupha_core::{Config, EnqueueResult, Queue, QueuePolicy};
 
 #[test]
 fn queue_latest_wins() {
@@ -11,14 +11,45 @@ fn queue_latest_wins() {
     }
     // duplicate pending dedupes
     assert!(matches!(q.enqueue("b".into()), EnqueueResult::Duplicate));
+    assert_eq!(q.dequeue().as_deref(), Some("b"));  // worker takes it
     q.running = Some("b".into());
     // duplicate running dedupes
     assert!(matches!(q.enqueue("b".into()), EnqueueResult::Duplicate));
     // newer push supersedes pending even while running
-    q.pending = Some("c".into());
+    q.pending.push_back("c".into());
     match q.enqueue("d".into()) {
         EnqueueResult::Queued { superseded: Some(old) } => assert_eq!(old, "c"),
         _ => panic!(),
+    }
+    assert_eq!(q.dequeue().as_deref(), Some("d"));
+    assert_eq!(q.dequeue(), None);
+}
+
+#[test]
+fn queue_all_runs_every_push() {
+    let mut q = Queue::with_policy(QueuePolicy::All);
+    for sha in ["a", "b", "c"] {
+        assert!(matches!(q.enqueue(sha.into()),
+            EnqueueResult::Queued { superseded: None }));
+    }
+    assert!(matches!(q.enqueue("b".into()), EnqueueResult::Duplicate));
+    assert_eq!(q.dequeue().as_deref(), Some("a"));
+    assert_eq!(q.dequeue().as_deref(), Some("b"));
+    assert_eq!(q.dequeue().as_deref(), Some("c"));
+    assert_eq!(q.dequeue(), None);
+}
+
+#[test]
+fn queue_all_evicts_oldest_when_full() {
+    let mut q = Queue::with_policy(QueuePolicy::All);
+    for i in 0..bupha_core::MAX_PENDING {
+        assert!(matches!(q.enqueue(format!("s{i}")),
+            EnqueueResult::Queued { superseded: None }));
+    }
+    match q.enqueue("new".into()) {
+        EnqueueResult::Queued { superseded: Some(old) } =>
+            assert_eq!(old, "s0"),
+        _ => panic!("expected eviction"),
     }
 }
 
@@ -34,6 +65,17 @@ kind = "log"
 name = "o/r"
 dir = "/tmp/x"
 "#;
+
+#[test]
+fn config_repo_queue_policy() {
+    let c: Config = toml::from_str(
+        TOML.replace("dir = \"/tmp/x\"", "dir = \"/tmp/x\"\nqueue = \"all\"")
+            .as_str()).unwrap();
+    assert_eq!(c.watched().unwrap()[0].policy, QueuePolicy::All);
+    // default is latest
+    let c2: Config = toml::from_str(TOML).unwrap();
+    assert_eq!(c2.watched().unwrap()[0].policy, QueuePolicy::Latest);
+}
 
 #[test]
 fn config_multi_repo() {
