@@ -210,6 +210,7 @@ class Bupha:
         repo: str = "repo",
         token: Optional[dagger.Secret] = None,
         sccache_conf: Optional[dagger.Secret] = None,
+        patch_host: str = "",
     ) -> dagger.Container:
         """Workspace container: source at /work/<repo>, caches, dev-link, self-patch."""
         return self._workspace(source, repo, token, sccache_conf=sccache_conf,
@@ -248,6 +249,7 @@ class Bupha:
         script: str,
         authed: bool,
         sccache_env: bool = False,
+        patch_host: str = "",
     ) -> dagger.Container:
         """Run a shell script, prefixed with auth + sccache-env setup."""
         if authed:
