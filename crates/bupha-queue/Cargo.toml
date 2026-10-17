@@ -9,4 +9,5 @@ keywords = ["ci", "bupha"]
 categories = ["development-tools"]
 
 [dependencies]
+serde = { version = "1", features = ["derive"] }
 

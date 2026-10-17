@@ -10,7 +10,7 @@
       unblocks jj/hg + makes git ops unit-testable.
 - [ ] `QueueStore` port — `queue.json` behind load/persist;
       SQLite/remote store = distributed-runner prerequisite.
-- [ ] `Service` port in bupha-deploy — systemd today, launchd/Windows.
+- [ ] `Service` port in bupha-systemd — systemd today, launchd/Windows.
 - [ ] `keyring`-crate secret backends + `dirs`-crate config paths
       (macOS/Windows).
 - [ ] Cache seam — generic `cache` config so file/S3/R2/GCS are a
@@ -31,7 +31,7 @@
 ## Distribution / nits
 - [ ] GHES support — `api_base` on `GitHubStatus`/`register_webhook`.
 - [ ] `bupha init` fuller delegate + optional non-rust skeleton for
-      `runner.kind = "script"`.
+      `runner.kind = "shell"`.
 - [ ] `doctor` checks release.sh deps (cargo-edit, dist, gh) when a
       repo's runner cmd is a release script.
 - [ ] `modules/dagger` dev-link exec dead `elif` — dedupe.

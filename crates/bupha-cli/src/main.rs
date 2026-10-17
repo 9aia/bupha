@@ -17,7 +17,7 @@ use bupha_systemd as deploy;
 use bupha_git::GitVcs;
 use bupha_vcs::Vcs;
 use bupha_queue::{PersistedQueue, QueueStore};
-use bupha_queue_json::JsonQueueStore;
+use bupha_queue_redb::RedbQueueStore;
 use bupha_secret::Secrets;
 use bupha_keyring::KeyringSecrets;
 use bupha_dotenv::DotenvSecrets;
@@ -216,7 +216,7 @@ struct Shared {
     seen: bupha_core::Seen,
 }
 
-fn persist_queue(g: &Shared, store: &JsonQueueStore) {
+fn persist_queue(g: &Shared, store: &RedbQueueStore) {
     let map: std::collections::BTreeMap<String, PersistedQueue> =
         g.queues.iter().map(|(n, q)| (n.clone(), PersistedQueue {
             pending: q.pending.clone(), running: q.running.clone(),
@@ -296,7 +296,9 @@ fn cmd_watch(cfg: Arc<Config>) {
         shared.queues.insert(r.name.clone(),
             Queue::with_policy(r.policy));
     }
-    let store = Arc::new(JsonQueueStore { path: qfile.clone() });
+    let store = Arc::new(RedbQueueStore::open(
+        qfile.with_extension("redb"))
+            .unwrap_or_else(|e| panic!("queue store: {e}")));
     if let Ok(saved) = store.load() {
         for (name, pq) in saved {
             if let Some(q) = shared.queues.get_mut(&name) {

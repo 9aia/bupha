@@ -9,7 +9,7 @@ dogfoods its own CI. Fork freely under MIT.
 config); ports are crates: `bupha-runner`, `bupha-tunnel`,
 `bupha-trigger`, `bupha-status`; impls: `bupha-github` (trigger +
 sink), `bupha-script`/`bupha-dagger` (runners), `bupha-cloudflared`
-(tunnel), `bupha-deploy` (install helpers — `Service` port pending);
+(tunnel), `bupha-systemd` (install helpers — `Service` port pending);
 `bupha` (cli) is the composition root. `modules/dagger/` is the
 shared pipeline module (Python SDK).
 

@@ -1,12 +1,13 @@
 //! QueueStore port — durable queue persistence for the watcher.
 //! JSON-file impl in `bupha-queue-json`; SQLite/remote = new impls.
 
+use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, VecDeque};
 use std::io;
 
 /// One repo's persisted slice: pending backlog + the sha that was
 /// running when the process stopped (re-queued at the front).
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub struct PersistedQueue {
     pub pending: VecDeque<String>,
     pub running: Option<String>,

@@ -8,7 +8,7 @@ members = [
     "crates/bupha-vcs",
     "crates/bupha-git",
     "crates/bupha-queue",
-    "crates/bupha-queue-json",
+    "crates/bupha-queue-redb",
     "crates/bupha-service",
     "crates/bupha-secret",
     "crates/bupha-keyring",
@@ -40,7 +40,7 @@ bupha-trigger = { path = "crates/bupha-trigger", version = "0.1.0" }
 bupha-vcs = { path = "crates/bupha-vcs", version = "0.1.0" }
 bupha-git = { path = "crates/bupha-git", version = "0.1.0" }
 bupha-queue = { path = "crates/bupha-queue", version = "0.1.0" }
-bupha-queue-json = { path = "crates/bupha-queue-json", version = "0.1.0" }
+bupha-queue-redb = { path = "crates/bupha-queue-redb", version = "0.1.0" }
 bupha-service = { path = "crates/bupha-service", version = "0.1.0" }
 bupha-secret = { path = "crates/bupha-secret", version = "0.1.0" }
 bupha-keyring = { path = "crates/bupha-keyring", version = "0.1.0" }
