@@ -147,3 +147,13 @@ kind = "log"
 "#).unwrap();
     assert!(c.watched().is_err());
 }
+
+#[test]
+fn seen_dedups_and_evicts() {
+    let mut seen = bupha_core::Seen::new(2);
+    assert!(seen.insert("d1".into()));
+    assert!(!seen.insert("d1".into()));     // replay
+    assert!(seen.insert("d2".into()));
+    assert!(seen.insert("d3".into()));      // evicts d1
+    assert!(seen.insert("d1".into()));      // d1 forgotten, fresh again
+}

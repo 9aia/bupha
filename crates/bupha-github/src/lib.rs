@@ -46,6 +46,12 @@ impl Trigger for GitHubTrigger {
 
     /// (repository.full_name, ref, sha) — the watcher routes by repo
     /// name and filters the ref per watched repo.
+    fn delivery_id(&self, headers: &[(String, String)]) -> Option<String> {
+        headers.iter()
+            .find(|(k, _)| k.eq_ignore_ascii_case("x-github-delivery"))
+            .map(|(_, v)| v.clone())
+    }
+
     fn parse_push(&self, body: &[u8]) -> Option<PushOutcome> {
         let v: serde_json::Value = serde_json::from_slice(body).ok()?;
         let repo = v.pointer("/repository/full_name")?.as_str()?;

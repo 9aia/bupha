@@ -20,6 +20,12 @@ pub trait Trigger: Send + Sync {
     /// events with nothing to run (e.g. branch deletion), `None` for
     /// malformed bodies.
     fn parse_push(&self, body: &[u8]) -> Option<PushOutcome>;
+    /// Unique delivery id from the request headers (e.g. GitHub's
+    /// `X-GitHub-Delivery`). Used for replay dedup — `None` means the
+    /// trigger has no such concept.
+    fn delivery_id(&self, _headers: &[(String, String)]) -> Option<String> {
+        None
+    }
 }
 
 /// What a parsed payload asks the watcher to do.
@@ -57,6 +63,41 @@ pub enum QueuePolicy {
 
 /// Backlog cap for `all` — overflow evicts the oldest pending sha.
 pub const MAX_PENDING: usize = 32;
+
+/// Bounded dedup set for delivery ids — a replayed webhook reuses the
+/// same id, so `insert` returning false means "already handled".
+/// Oldest ids are evicted past `cap`; memory-only (replays matter
+/// within process uptime).
+pub struct Seen {
+    ids: std::collections::HashSet<String>,
+    order: VecDeque<String>,
+    cap: usize,
+}
+
+impl Seen {
+    pub fn new(cap: usize) -> Self {
+        Seen { ids: Default::default(), order: VecDeque::new(), cap }
+    }
+    /// true = fresh, false = replay/duplicate.
+    pub fn insert(&mut self, id: String) -> bool {
+        if !self.ids.insert(id.clone()) {
+            return false;
+        }
+        self.order.push_back(id);
+        while self.order.len() > self.cap {
+            if let Some(old) = self.order.pop_front() {
+                self.ids.remove(&old);
+            }
+        }
+        true
+    }
+}
+
+impl Default for Seen {
+    fn default() -> Self {
+        Self::new(10_000)
+    }
+}
 
 /// Queue state. The running child handle lives in the runner/CLI layer
 /// (`ChildSlot`) so enqueue can kill it without blocking on this lock.

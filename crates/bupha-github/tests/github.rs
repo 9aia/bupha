@@ -79,3 +79,11 @@ fn parse_push_rejects_non_sha() {
       "repository":{"full_name":"o/r"}}"#;
     assert!(t.parse_push(body.as_bytes()).is_none());
 }
+
+#[test]
+fn delivery_id_header() {
+    let t = bupha_github::GitHubTrigger { secret: "s".into() };
+    let h = vec![("X-GitHub-Delivery".to_string(), "guid-7".to_string())];
+    assert_eq!(t.delivery_id(&h).as_deref(), Some("guid-7"));
+    assert_eq!(t.delivery_id(&[]), None);
+}

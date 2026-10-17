@@ -169,6 +169,8 @@ fn run_job(
 #[derive(Default)]
 struct Shared {
     queues: std::collections::HashMap<String, Queue>,
+    /// dedup for replayed webhook deliveries (X-GitHub-Delivery)
+    seen: bupha_core::Seen,
 }
 
 fn persist_queue(g: &Shared, path: &Path) {
@@ -182,31 +184,6 @@ fn persist_queue(g: &Shared, path: &Path) {
         .is_ok()
     {
         let _ = std::fs::rename(&tmp, path);
-    }
-}
-
-/// Bounded dedup on `X-GitHub-Delivery`: a replayed signed payload
-/// (retried webhook or attacker with the secret) re-enqueues without it.
-struct Deliveries {
-    seen: std::collections::HashSet<String>,
-    order: std::collections::VecDeque<String>,
-}
-
-const MAX_DELIVERIES: usize = 10_000;
-
-impl Deliveries {
-    /// true = first time we've seen this id; false = replay.
-    fn record(&mut self, id: String) -> bool {
-        if !self.seen.insert(id.clone()) {
-            return false;
-        }
-        self.order.push_back(id);
-        if self.order.len() > MAX_DELIVERIES {
-            if let Some(old) = self.order.pop_front() {
-                self.seen.remove(&old);
-            }
-        }
-        true
     }
 }
 
@@ -359,8 +336,6 @@ fn cmd_watch(cfg: Arc<Config>) {
     let server = tiny_http::Server::http(&cfg.trigger.listen)
         .expect("failed to bind listener");
     println!("bupha watch listening on {}", cfg.trigger.listen);
-    let deliveries = Mutex::new(Deliveries {
-        seen: Default::default(), order: Default::default() });
 
     for mut req in server.incoming_requests() {
         let headers: Vec<(String, String)> = req.headers().iter()
@@ -380,10 +355,9 @@ fn cmd_watch(cfg: Arc<Config>) {
             (400, "not a push event")
         } else if !trigger.verify(&body, &headers) {
             (401, "bad signature")
-        } else if headers.iter().any(|(k, v)| {
-            k.eq_ignore_ascii_case("x-github-delivery")
-                && !deliveries.lock().unwrap().record(v.clone())
-        }) {
+        } else if trigger.delivery_id(&headers).map(|id| {
+            !shared.lock().unwrap().seen.insert(id)
+        }).unwrap_or(false) {   // replayed signed payload: same delivery id
             (200, "duplicate delivery")
         } else {
             match trigger.parse_push(&body) {
