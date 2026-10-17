@@ -114,6 +114,7 @@ dependencies = [
  "serde_json",
  "sha2",
  "tiny_http",
+ "toml",
  "ureq",
 ]
 
@@ -167,6 +168,8 @@ version = "0.1.0"
 dependencies = [
  "bupha-core",
  "bupha-runner",
+ "serde",
+ "toml",
 ]
 
 [[package]]
@@ -239,6 +242,8 @@ version = "0.1.0"
 dependencies = [
  "bupha-core",
  "bupha-runner",
+ "serde",
+ "toml",
 ]
 
 [[package]]
@@ -247,6 +252,8 @@ version = "0.1.0"
 dependencies = [
  "bupha-core",
  "bupha-runner",
+ "serde",
+ "toml",
 ]
 
 [[package]]

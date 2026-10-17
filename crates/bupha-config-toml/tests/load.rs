@@ -1,13 +1,13 @@
 use bupha_config::ConfigSource;
 use bupha_config_toml::TomlSource;
 
-fn tmp() -> std::path::PathBuf {
-    std::env::temp_dir().join(format!("bupha-cfg-{}.toml", std::process::id()))
+fn tmp(tag: &str) -> std::path::PathBuf {
+    std::env::temp_dir().join(format!("bupha-cfg-{}-{tag}.toml", std::process::id()))
 }
 
 #[test]
 fn loads_via_env_var() {
-    let f = tmp();
+    let f = tmp("a");
     std::fs::write(&f, "[trigger]\nkind = \"github\"\n[runner]\nkind = \"shell\"\ncmd = \"true\"\n[status]\nkind = \"log\"\n[[repo]]\nname = \"o/r\"\ndir = \"/tmp/r\"\n").unwrap();
     unsafe {
         std::env::set_var("BUPHA_CONFIG", &f);
@@ -22,7 +22,7 @@ fn loads_via_env_var() {
 
 #[test]
 fn explicit_path_and_missing_error() {
-    let f = tmp();
+    let f = tmp("b");
     std::fs::write(&f, "[trigger]\nkind = \"github\"\n[runner]\nkind = \"shell\"\ncmd = \"true\"\n[status]\nkind = \"log\"\n[[repo]]\nname = \"o/r\"\ndir = \"/tmp/r\"\n").unwrap();
     let c = TomlSource {
         path: Some(f.to_string_lossy().into()),

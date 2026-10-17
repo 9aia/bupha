@@ -7,18 +7,29 @@
 //! "~/bupha", cmd = "./ci.sh"` — auth via the user's ssh config
 //! (agent/keys), nothing bupha-specific.
 
-use bupha_core::RunnerCfg;
 use bupha_runner::{RunCtx, RunHandle, Runner};
+use serde::Deserialize;
 use std::io;
 use std::process::Command;
 
+/// ssh runner config — impl-owned fields from `runner.extra`.
+#[derive(Debug, Deserialize)]
+pub struct SshCfg {
+    /// Remote host ("user@host"; ssh config resolves auth).
+    pub remote: Option<String>,
+    /// Remote workdir the worktree syncs into.
+    pub remote_dir: Option<String>,
+    /// Command run remotely (`bash -c`).
+    pub cmd: Option<String>,
+}
+
 /// Remote runner over ssh.
 pub struct SshRunner {
-    cfg: RunnerCfg,
+    cfg: SshCfg,
 }
 
 impl SshRunner {
-    pub fn new(cfg: RunnerCfg) -> Self {
+    pub fn new(cfg: SshCfg) -> Self {
         Self { cfg }
     }
 }

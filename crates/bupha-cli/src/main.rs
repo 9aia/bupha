@@ -117,22 +117,49 @@ enum DestroySub {
 }
 
 fn build_runner(rc: &bupha_core::RunnerCfg, cache: &bupha_core::CacheCfg) -> Arc<dyn Runner> {
-    let mut rc = rc.clone();
-    // Cache backend renders its conf for the runner via the port —
-    // runners receive data, never impls.
-    // `[cache]` wins over the legacy runner.sccache_conf field.
+    // Impls own their config shape — `rc.extra` deserializes into the
+    // matched impl's cfg struct. `[cache]` wins over a legacy
+    // `sccache_conf` entry in `extra`; the resolved conf is injected
+    // back so impls receive data, never backend objects.
+    let mut extra = rc.extra.clone();
     let cache_impl = SccacheConf {
-        conf: cache.conf.clone().or(rc.sccache_conf.clone()),
+        conf: cache.conf.clone().or_else(|| {
+            extra
+                .remove("sccache_conf")
+                .and_then(|v| v.as_str().map(str::to_string))
+        }),
     };
-    rc.sccache_conf = if cache.kind == "none" {
-        None
-    } else {
-        cache_impl.conf()
-    };
+    if cache.kind != "none" {
+        if let Some(conf) = cache_impl.conf() {
+            extra.insert("sccache_conf".into(), toml::Value::String(conf));
+        }
+    }
+    let table = toml::Value::Table(extra);
+    let parse = |v: &toml::Value| -> toml::Table { v.clone().try_into().unwrap() };
+    let _ = parse;
     match rc.kind.as_str() {
-        "dagger" => Arc::new(DaggerRunner::new(rc.clone(), rc.cli_source.clone())),
-        "shell" | "script" => Arc::new(ShellRunner::new(rc.clone())),
-        "ssh" => Arc::new(bupha_ssh::SshRunner::new(rc)),
+        "dagger" => {
+            let dc: bupha_dagger::DaggerCfg = table.clone().try_into().unwrap_or_else(|e| {
+                eprintln!("runner config (dagger): {e}");
+                std::process::exit(2)
+            });
+            let cs = dc.cli_source.clone();
+            Arc::new(DaggerRunner::new(dc, cs))
+        }
+        "shell" | "script" => {
+            let sc: bupha_shell::ShellCfg = table.clone().try_into().unwrap_or_else(|e| {
+                eprintln!("runner config (shell): {e}");
+                std::process::exit(2)
+            });
+            Arc::new(ShellRunner::new(sc))
+        }
+        "ssh" => {
+            let sc: bupha_ssh::SshCfg = table.clone().try_into().unwrap_or_else(|e| {
+                eprintln!("runner config (ssh): {e}");
+                std::process::exit(2)
+            });
+            Arc::new(bupha_ssh::SshRunner::new(sc))
+        }
         other => {
             eprintln!("unknown runner kind '{other}' (dagger|shell|ssh)");
             std::process::exit(2);
@@ -671,7 +698,12 @@ fn cmd_doctor(cfg: &Config) {
             );
         }
         "script" => {
-            let cmd = cfg.runner.cmd.as_deref().unwrap_or("./ci.sh");
+            let cmd = cfg
+                .runner
+                .extra
+                .get("cmd")
+                .and_then(|v| v.as_str())
+                .unwrap_or("./ci.sh");
             check("run cmd", true, cmd, &mut failures);
         }
         other => check(
@@ -712,7 +744,13 @@ fn cmd_doctor(cfg: &Config) {
             &mut failures,
         );
     }
-    if let Some(conf) = &cfg.runner.sccache_conf {
+    let scc = cfg.cache.conf.as_deref().or_else(|| {
+        cfg.runner
+            .extra
+            .get("sccache_conf")
+            .and_then(|v| v.as_str())
+    });
+    if let Some(conf) = scc {
         check(
             "sccache conf",
             Path::new(conf).exists(),
@@ -780,7 +818,9 @@ fn cmd_run(cfg: &Config, function: Option<String>) {
             std::process::exit(2);
         });
     if let Some(f) = function {
-        repo.runner.function = f;
+        repo.runner
+            .extra
+            .insert("function".into(), toml::Value::String(f));
     }
     let runner = build_runner(&repo.runner, &cfg.cache);
     let ctx = RunCtx {

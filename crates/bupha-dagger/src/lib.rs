@@ -2,20 +2,52 @@
 //! its container engine) is only needed when this runner is selected;
 //! the port knows nothing about it.
 
-use bupha_core::RunnerCfg;
 use bupha_runner::{RunCtx, RunHandle, Runner};
+use serde::Deserialize;
 use std::io;
 use std::process::Command;
 
+/// dagger runner config — impl-owned fields, deserialized from
+/// `runner.extra`.
+#[derive(Debug, Deserialize)]
+pub struct DaggerCfg {
+    #[serde(default = "crate::default_function")]
+    pub function: String,
+    #[serde(default = "crate::default_shards")]
+    pub shards: String,
+    #[serde(default = "crate::default_jobs")]
+    pub jobs: String,
+    #[serde(default)]
+    pub dogfood_jobs: String,
+    #[serde(default)]
+    pub sequential: bool,
+    #[serde(default)]
+    pub sccache_conf: Option<String>,
+    #[serde(default)]
+    pub cli_source: Option<String>,
+    #[serde(default)]
+    pub extra_args: Vec<String>,
+}
+
+fn default_function() -> String {
+    "ci".into()
+}
+fn default_shards() -> String {
+    "1".into()
+}
+fn default_jobs() -> String {
+    "1".into()
+}
+
 pub struct DaggerRunner {
-    cfg: RunnerCfg,
-    /// `--cli-source <dir>` from `[runner] cli_source` — for repos
-    /// whose pipeline builds against a sibling checkout.
+    cfg: DaggerCfg,
+    /// `--cli-source <dir>` — for repos whose pipeline builds
+    /// against a sibling checkout.
     cli_source: Option<String>,
 }
 
 impl DaggerRunner {
-    pub fn new(cfg: RunnerCfg, cli_source: Option<String>) -> Self {
+    pub fn new(cfg: DaggerCfg, cli_source: Option<String>) -> Self {
         Self { cfg, cli_source }
     }
 }

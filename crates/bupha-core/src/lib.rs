@@ -14,10 +14,12 @@ use std::path::PathBuf;
 /// the value reaches worktree paths or status URLs. Deliberately not
 /// hex-only: the shape comes from the forge/VCS, not the domain.
 pub fn is_valid_sha(sha: &str) -> bool {
-    (7..=64).contains(&sha.len()) && !sha.contains("..")
+    (7..=64).contains(&sha.len())
+        && !sha.contains("..")
         && !sha.contains('/')
-        && sha.bytes().all(|b|
-            b.is_ascii_alphanumeric() || matches!(b, b'-' | b'_' | b'.'))
+        && sha
+            .bytes()
+            .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'-' | b'_' | b'.'))
 }
 
 /// How a repo's pending work collapses: `latest` keeps one pending
@@ -248,54 +250,25 @@ pub struct TriggerCfg {
     pub secret_env: String,
 }
 
-#[derive(Debug, Deserialize, Default, Clone)]
-#[serde(deny_unknown_fields)]
+#[derive(Debug, Deserialize, Clone, Default)]
 pub struct RunnerCfg {
-    /// "dagger" | "script" | … — resolved to an impl crate.
+    /// Runner kind: "dagger" | "shell" | "ssh" | impl crates.
     pub kind: String,
-    /// dagger runner: function to call.
-    #[serde(default = "default_fn")]
-    pub function: String,
-    /// dagger runner: shard count for parallel test partitions.
-    #[serde(default = "default_shards")]
-    pub shards: String,
-    /// dagger runner: job parallelism inside a run.
-    #[serde(default = "default_jobs")]
-    pub jobs: String,
-    /// dagger runner: job parallelism for dogfood-style runs
-    /// (emitted only when the function accepts it).
-    #[serde(default)]
-    pub dogfood_jobs: String,
-    /// dagger runner: serialise heavy steps (memory-bound boxes).
-    #[serde(default)]
-    pub sequential: bool,
+    /// Env var name holding the forge token (never the value).
+    #[serde(default = "default_token_env")]
+    pub token_env: String,
     /// Kill an in-flight run when a newer push supersedes it.
     /// Invalid with `queue = "all"` (rejected at load).
     #[serde(default)]
     pub cancel_running: bool,
-    /// Optional env-file (KEY=VAL) mounted as the sccache secret.
-    #[serde(default)]
-    pub sccache_conf: Option<String>,
-    /// script runner: command run in the worktree.
-    #[serde(default)]
-    pub cmd: Option<String>,
-    /// ssh runner: remote host ("user@host"; ssh config resolves
-    /// auth). Required for kind="ssh".
-    #[serde(default)]
-    pub remote: Option<String>,
-    /// ssh runner: remote workdir the worktree syncs into.
-    #[serde(default)]
-    pub remote_dir: Option<String>,
-    /// Env var naming the token passed to the runner + status sink.
-    #[serde(default = "default_token_env")]
-    pub token_env: String,
-    /// dagger runner: extra args appended verbatim (e.g. --cli-source).
-    #[serde(default)]
-    pub extra_args: Vec<String>,
-    /// dagger runner: `--cli-source <dir>` for repos whose pipeline
-    /// builds against a sibling checkout.
-    #[serde(default)]
-    pub cli_source: Option<String>,
+    /// Impl-owned fields — the matched impl crate deserializes its
+    /// own config struct from this; core knows none of them.
+    #[serde(flatten)]
+    pub extra: toml::Table,
+}
+
+fn default_token_env() -> String {
+    "BUPHA_TOKEN".into()
 }
 
 #[derive(Debug, Deserialize, Clone)]
@@ -365,23 +338,11 @@ fn default_listen() -> String {
 fn default_secret_env() -> String {
     "BUPHA_WEBHOOK_SECRET".into()
 }
-fn default_fn() -> String {
-    "ci".into()
-}
-fn default_shards() -> String {
-    "1".into()
-}
-fn default_jobs() -> String {
-    "2".into()
-}
 fn default_status_kind() -> String {
     "github".into()
 }
 fn default_context() -> String {
     "ci/bupha".into()
-}
-fn default_token_env() -> String {
-    "BUPHA_TOKEN".into()
 }
 fn default_tunnel_provider() -> String {
     "none".into()

@@ -2,17 +2,24 @@
 //! The zero-container path: bupha's trigger/queue/status layer in front
 //! of `./ci.sh`, `make ci`, whatever you already have.
 
-use bupha_core::RunnerCfg;
 use bupha_runner::{RunCtx, RunHandle, Runner};
+use serde::Deserialize;
 use std::io;
 use std::process::Command;
 
 pub struct ShellRunner {
-    cfg: RunnerCfg,
+    cfg: ShellCfg,
+}
+
+/// shell runner config — impl-owned fields from `runner.extra`.
+#[derive(Debug, Deserialize)]
+pub struct ShellCfg {
+    #[serde(default)]
+    pub cmd: Option<String>,
 }
 
 impl ShellRunner {
-    pub fn new(cfg: RunnerCfg) -> Self {
+    pub fn new(cfg: ShellCfg) -> Self {
         Self { cfg }
     }
 }
