@@ -13,7 +13,6 @@ export default defineConfig({
     nav: [
       { text: 'Getting Started', link: '/getting-started' },
       { text: 'Reference', link: '/reference/cli' },
-      { text: 'Crate API', link: '/reference/crate-api' },
       {
         text: 'LLMs',
         items: [
@@ -42,8 +41,7 @@ export default defineConfig({
           { text: 'CLI', link: '/reference/cli' },
           { text: 'Config', link: '/reference/config' },
           { text: 'Releasing', link: '/reference/releasing' },
-          { text: 'Crate API', link: '/reference/crate-api' },
-        ],
+            ],
       },
       {
         text: 'Explanation',

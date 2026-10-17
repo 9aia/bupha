@@ -10,9 +10,6 @@ hero:
       text: Getting Started
       link: /getting-started
     - theme: alt
-      text: Crate API
-      link: /reference/crate-api
-    - theme: alt
       text: GitHub
       link: https://github.com/9aia/bupha
 
