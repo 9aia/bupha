@@ -125,8 +125,11 @@ pub struct Config {
     pub trigger: TriggerCfg,
     pub runner: RunnerCfg,
     pub status: StatusCfg,
+    /// How the listener is exposed publicly (cloudflared, direct,
+    /// none).
     #[serde(default)]
     pub tunnel: TunnelCfg,
+    /// Where detached git worktrees for runs are created.
     #[serde(default)]
     pub worktree: WorktreeCfg,
 }
@@ -140,6 +143,7 @@ pub struct RepoEntry {
     pub name: String,
     /// Clone to fetch + create detached worktrees from.
     pub dir: PathBuf,
+    /// The ref to watch (e.g. "refs/heads/main").
     #[serde(default = "default_branch")]
     pub branch: String,
     /// Status repo override (defaults to `name`).
@@ -205,6 +209,7 @@ impl Config {
 pub struct TriggerCfg {
     /// "github" today; other forges = new impl crates.
     pub kind: String,
+    /// Webhook listener bind address ("127.0.0.1:9000").
     #[serde(default = "default_listen")]
     pub listen: String,
     /// Env var holding the webhook secret.
@@ -220,14 +225,21 @@ pub struct RunnerCfg {
     /// dagger runner: function to call.
     #[serde(default = "default_fn")]
     pub function: String,
+    /// dagger runner: shard count for parallel test partitions.
     #[serde(default = "default_shards")]
     pub shards: String,
+    /// dagger runner: job parallelism inside a run.
     #[serde(default = "default_jobs")]
     pub jobs: String,
+    /// dagger runner: job parallelism for dogfood-style runs
+    /// (emitted only when the function accepts it).
     #[serde(default)]
     pub dogfood_jobs: String,
+    /// dagger runner: serialise heavy steps (memory-bound boxes).
     #[serde(default)]
     pub sequential: bool,
+    /// Kill an in-flight run when a newer push supersedes it.
+    /// Invalid with `queue = "all"` (rejected at load).
     #[serde(default)]
     pub cancel_running: bool,
     /// Optional env-file (KEY=VAL) mounted as the sccache secret.
@@ -257,6 +269,7 @@ pub struct StatusCfg {
     /// owner/repo for the commit-status API.
     #[serde(default)]
     pub repo: String,
+    /// Status context label (e.g. "ci/bupha").
     #[serde(default = "default_context")]
     pub context: String,
 }
@@ -270,6 +283,7 @@ pub struct TunnelCfg {
     /// Named tunnel (stable URL); empty = quick tunnel.
     #[serde(default)]
     pub name: String,
+    /// Local URL the tunnel forwards to (listener address).
     #[serde(default = "default_local_url")]
     pub local_url: String,
     /// provider=direct: the external URL GitHub should hit.
@@ -291,6 +305,7 @@ impl Default for TunnelCfg {
 #[derive(Debug, Deserialize, Clone)]
 #[serde(deny_unknown_fields)]
 pub struct WorktreeCfg {
+    /// Worktree parent dir — runs land at <base>-<repo>-<sha12>.
     #[serde(default = "default_wt_base")]
     pub base: String,
 }
