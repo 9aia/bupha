@@ -1,0 +1,39 @@
+# bupha.toml — one per watched repo. Secrets come from env
+# (BUPHA_WEBHOOK_SECRET, BUPHA_TOKEN), never from this file.
+
+[repo]
+dir = "/path/to/clone"            # clone to fetch + worktree from
+branch = "refs/heads/main"
+
+[trigger]
+kind = "github"                   # impl: bupha-github
+listen = "127.0.0.1:9000"
+secret_env = "BUPHA_WEBHOOK_SECRET"
+
+[runner]
+kind = "dagger"                   # impl: bupha-runner-dagger
+# kind = "script"                 # impl: bupha-runner-script (no containers)
+# cmd = "./ci.sh"                 # script runner only
+function = "ci"
+shards = "1"
+jobs = "2"
+dogfood_jobs = "2"
+sequential = false                # true on memory-constrained boxes
+cancel_running = true             # kill in-flight run on newer push
+sccache_conf = "/path/to/sccache-env"   # optional KEY=VAL secret file
+token_env = "BUPHA_TOKEN"
+
+[status]
+kind = "github"                   # impl: bupha-github | "log" | "none"
+repo = "owner/name"
+context = "ci/bupha"
+
+[tunnel]
+provider = "none"                 # none | cloudflared | direct
+# provider = "cloudflared"
+# name = "my-tunnel"              # named tunnel = stable URL
+# local_url = "http://127.0.0.1:9000"
+# public_url = "https://ci.example.com"  # for status logs/docs
+
+[worktree]
+base = "/tmp/bupha"               # worktrees land at <base>-<sha12>

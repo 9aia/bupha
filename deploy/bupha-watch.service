@@ -1,0 +1,15 @@
+# systemd user unit — requires linger (loginctl enable-linger) for
+# boot persistence, or install as a system unit with User=.
+[Unit]
+Description=bupha — headless CI watcher (webhook -> queue -> runner)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+EnvironmentFile=%h/.config/bupha/env
+ExecStart=%h/.local/bin/bupha watch
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=default.target
