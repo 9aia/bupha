@@ -26,7 +26,11 @@ pub trait Trigger: Send + Sync {
 pub enum PushOutcome {
     /// (repo_name, git_ref, sha) — repo is `repository.full_name`;
     /// the caller filters ref per watched repo.
-    Push { repo: String, git_ref: String, sha: String },
+    Push {
+        repo: String,
+        git_ref: String,
+        sha: String,
+    },
     /// Well-formed event that needs no run (deleted branch, zero sha).
     Skip,
 }

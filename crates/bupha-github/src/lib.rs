@@ -24,24 +24,26 @@ pub struct GitHubTrigger {
 
 impl Trigger for GitHubTrigger {
     fn is_event(&self, headers: &[(String, String)]) -> bool {
-        headers.iter().any(|(k, v)| {
-            k.eq_ignore_ascii_case("x-github-event") && v == "push"
-        })
+        headers
+            .iter()
+            .any(|(k, v)| k.eq_ignore_ascii_case("x-github-event") && v == "push")
     }
 
     fn verify(&self, body: &[u8], headers: &[(String, String)]) -> bool {
-        let Some(sig) = headers.iter().find(|(k, _)| {
-            k.eq_ignore_ascii_case("x-hub-signature-256")
-        }) else {
+        let Some(sig) = headers
+            .iter()
+            .find(|(k, _)| k.eq_ignore_ascii_case("x-hub-signature-256"))
+        else {
             return false;
         };
         let Some(hex_sig) = sig.1.strip_prefix("sha256=") else {
             return false;
         };
-        let Ok(sig) = hex::decode(hex_sig) else { return false };
-        let mut mac = <Hmac<Sha256> as Mac>::new_from_slice(
-            self.secret.as_bytes())
-        .expect("hmac accepts any key length");
+        let Ok(sig) = hex::decode(hex_sig) else {
+            return false;
+        };
+        let mut mac = <Hmac<Sha256> as Mac>::new_from_slice(self.secret.as_bytes())
+            .expect("hmac accepts any key length");
         mac.update(body);
         mac.verify_slice(&sig).is_ok()
     }
@@ -49,7 +51,8 @@ impl Trigger for GitHubTrigger {
     /// (repository.full_name, ref, sha) — the watcher routes by repo
     /// name and filters the ref per watched repo.
     fn delivery_id(&self, headers: &[(String, String)]) -> Option<String> {
-        headers.iter()
+        headers
+            .iter()
             .find(|(k, _)| k.eq_ignore_ascii_case("x-github-delivery"))
             .map(|(_, v)| v.clone())
     }
@@ -97,9 +100,9 @@ impl StatusSink for GitHubStatus {
             "context": self.context,
             "description": desc,
         });
-        let url = format!(
-            "https://api.github.com/repos/{}/statuses/{sha}", self.repo);
-        let res = agent().post(&url)
+        let url = format!("https://api.github.com/repos/{}/statuses/{sha}", self.repo);
+        let res = agent()
+            .post(&url)
             .header("Authorization", &format!("Bearer {}", self.token))
             .header("Accept", "application/vnd.github+json")
             .header("User-Agent", "bupha")
@@ -128,42 +131,41 @@ impl StatusSink for LogStatus {
 
 /// Delete the webhook pointing at `{url}/hook` — exact URL match only,
 /// mirroring register_webhook. Returns a human message.
-pub fn unregister_webhook(
-    token: &str, repo: &str, url: &str,
-) -> std::io::Result<String> {
+pub fn unregister_webhook(token: &str, repo: &str, url: &str) -> std::io::Result<String> {
     let hook_url = format!("{}/hook", url.trim_end_matches('/'));
     let agent = agent();
-    let list = agent.get(&format!(
-            "https://api.github.com/repos/{repo}/hooks"))
+    let list = agent
+        .get(&format!("https://api.github.com/repos/{repo}/hooks"))
         .header("Authorization", &format!("Bearer {token}"))
         .header("Accept", "application/vnd.github+json")
         .header("User-Agent", "bupha")
         .call();
     let existing = match list {
         Ok(mut r) => {
-            let v: serde_json::Value = r.body_mut().read_json()
-                .unwrap_or(serde_json::json!([]));
-            v.as_array().and_then(|a| a.iter().find_map(|h| {
-                let id = h.get("id")?.as_u64()?;
-                let u = h.pointer("/config/url")?.as_str()?;
-                (u.trim_end_matches('/') == hook_url).then_some(id)
-            }))
+            let v: serde_json::Value = r.body_mut().read_json().unwrap_or(serde_json::json!([]));
+            v.as_array().and_then(|a| {
+                a.iter().find_map(|h| {
+                    let id = h.get("id")?.as_u64()?;
+                    let u = h.pointer("/config/url")?.as_str()?;
+                    (u.trim_end_matches('/') == hook_url).then_some(id)
+                })
+            })
         }
         Err(e) => {
             // Auth/scope failures shouldn't silently become "no hook"
             // and fall through to a confusing POST error.
-            if e.to_string().contains("401")
-                || e.to_string().contains("403") {
+            if e.to_string().contains("401") || e.to_string().contains("403") {
                 return Err(std::io::Error::other(format!(
-                    "{e} — PAT needs repo + admin:repo_hook scopes")));
+                    "{e} — PAT needs repo + admin:repo_hook scopes"
+                )));
             }
             None
         }
     };
     match existing {
         Some(id) => {
-            agent.delete(&format!(
-                    "https://api.github.com/repos/{repo}/hooks/{id}"))
+            agent
+                .delete(&format!("https://api.github.com/repos/{repo}/hooks/{id}"))
                 .header("Authorization", &format!("Bearer {token}"))
                 .header("Accept", "application/vnd.github+json")
                 .header("User-Agent", "bupha")
@@ -178,12 +180,15 @@ pub fn unregister_webhook(
 /// Register or update the push webhook via the REST API using the
 /// token directly (no `gh` dependency). Returns a human message.
 pub fn register_webhook(
-    token: &str, repo: &str, url: &str, secret: &str,
+    token: &str,
+    repo: &str,
+    url: &str,
+    secret: &str,
 ) -> std::io::Result<String> {
     let hook_url = format!("{}/hook", url.trim_end_matches('/'));
     let agent = agent();
-    let list = agent.get(&format!(
-            "https://api.github.com/repos/{repo}/hooks"))
+    let list = agent
+        .get(&format!("https://api.github.com/repos/{repo}/hooks"))
         .header("Authorization", &format!("Bearer {token}"))
         .header("Accept", "application/vnd.github+json")
         .header("User-Agent", "bupha")
@@ -192,21 +197,22 @@ pub fn register_webhook(
     // anything looser would hijack another service's webhook.
     let existing = match list {
         Ok(mut r) => {
-            let v: serde_json::Value = r.body_mut().read_json()
-                .unwrap_or(serde_json::json!([]));
-            v.as_array().and_then(|a| a.iter().find_map(|h| {
-                let id = h.get("id")?.as_u64()?;
-                let u = h.pointer("/config/url")?.as_str()?;
-                (u.trim_end_matches('/') == hook_url).then_some(id)
-            }))
+            let v: serde_json::Value = r.body_mut().read_json().unwrap_or(serde_json::json!([]));
+            v.as_array().and_then(|a| {
+                a.iter().find_map(|h| {
+                    let id = h.get("id")?.as_u64()?;
+                    let u = h.pointer("/config/url")?.as_str()?;
+                    (u.trim_end_matches('/') == hook_url).then_some(id)
+                })
+            })
         }
         Err(e) => {
             // Auth/scope failures shouldn't silently become "no hook"
             // and fall through to a confusing POST error.
-            if e.to_string().contains("401")
-                || e.to_string().contains("403") {
+            if e.to_string().contains("401") || e.to_string().contains("403") {
                 return Err(std::io::Error::other(format!(
-                    "{e} — PAT needs repo + admin:repo_hook scopes")));
+                    "{e} — PAT needs repo + admin:repo_hook scopes"
+                )));
             }
             None
         }
@@ -215,8 +221,8 @@ pub fn register_webhook(
         "url": hook_url, "content_type": "json", "secret": secret,
     });
     if let Some(id) = existing {
-        agent.patch(&format!(
-                "https://api.github.com/repos/{repo}/hooks/{id}"))
+        agent
+            .patch(&format!("https://api.github.com/repos/{repo}/hooks/{id}"))
             .header("Authorization", &format!("Bearer {token}"))
             .header("Accept", "application/vnd.github+json")
             .header("User-Agent", "bupha")
@@ -225,8 +231,8 @@ pub fn register_webhook(
             .map_err(std::io::Error::other)?;
         Ok(format!("updated hook {id} -> {hook_url}"))
     } else {
-        agent.post(&format!(
-            "https://api.github.com/repos/{repo}/hooks"))
+        agent
+            .post(&format!("https://api.github.com/repos/{repo}/hooks"))
             .header("Authorization", &format!("Bearer {token}"))
             .header("Accept", "application/vnd.github+json")
             .header("User-Agent", "bupha")

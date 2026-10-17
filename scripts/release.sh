@@ -18,8 +18,8 @@ changed="$(git diff --name-only "${last}..HEAD")"
 
 touched=""
 for c in bupha-core bupha-runner bupha-tunnel bupha-trigger bupha-status \
-         bupha-vcs bupha-queue bupha-service bupha-secret bupha-config \
-         bupha-git bupha-queue-redb bupha-keyring bupha-dotenv bupha-config-toml \
+         bupha-vcs bupha-queue bupha-service bupha-secret bupha-config bupha-cache \
+         bupha-git bupha-queue-redb bupha-keyring bupha-dotenv bupha-config-toml bupha-cache-sccache \
          bupha-dagger bupha-shell bupha-github bupha-cloudflared \
          bupha-systemd bupha-cli; do
     grep -q "^crates/$c/" <<<"$changed" && touched="$touched $c"
@@ -29,9 +29,9 @@ done
 if [ -z "$touched" ]; then echo "no crate changes since $last"; exit 0; fi
 
 order="bupha-core bupha-trigger bupha-status bupha-runner \
-bupha-tunnel bupha-vcs bupha-queue bupha-service bupha-secret bupha-config \
+bupha-tunnel bupha-vcs bupha-queue bupha-service bupha-secret bupha-config bupha-cache \
 bupha-dagger bupha-shell bupha-github bupha-cloudflared \
-bupha-git bupha-queue-redb bupha-keyring bupha-dotenv bupha-config-toml \
+bupha-git bupha-queue-redb bupha-keyring bupha-dotenv bupha-config-toml bupha-cache-sccache \
 bupha-systemd bupha"
 published=""
 for c in $order; do

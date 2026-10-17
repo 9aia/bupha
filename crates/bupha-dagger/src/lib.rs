@@ -3,9 +3,9 @@
 //! the port knows nothing about it.
 
 use bupha_core::RunnerCfg;
-use bupha_runner::{RunCtx, Runner};
+use bupha_runner::{RunCtx, RunHandle, Runner};
 use std::io;
-use std::process::{Child, Command};
+use std::process::Command;
 
 pub struct DaggerRunner {
     cfg: RunnerCfg,
@@ -25,16 +25,21 @@ impl Runner for DaggerRunner {
         "dagger"
     }
 
-    fn spawn(&self, ctx: &RunCtx) -> io::Result<Child> {
+    fn spawn(&self, ctx: &RunCtx) -> io::Result<Box<dyn RunHandle>> {
         let c = &self.cfg;
         let mut cmd = Command::new("dagger");
         // Flags beyond shards/jobs/token are only emitted when set —
         // `dagger call` rejects args the module's function doesn't
         // declare, so the emitted set must match the module signature.
         cmd.current_dir(ctx.workdir).args([
-            "call", &c.function,
-            "--shards", &c.shards, "--jobs", &c.jobs,
-            "--token", &format!("env://{}", ctx.token_env),
+            "call",
+            &c.function,
+            "--shards",
+            &c.shards,
+            "--jobs",
+            &c.jobs,
+            "--token",
+            &format!("env://{}", ctx.token_env),
         ]);
         if !c.dogfood_jobs.is_empty() {
             cmd.args(["--dogfood-jobs", &c.dogfood_jobs]);
@@ -49,6 +54,6 @@ impl Runner for DaggerRunner {
             cmd.args(["--cli-source", src]);
         }
         cmd.args(&c.extra_args);
-        cmd.spawn()
+        cmd.spawn().map(|c| Box::new(c) as Box<dyn RunHandle>)
     }
 }

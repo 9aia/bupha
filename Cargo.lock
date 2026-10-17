@@ -83,6 +83,8 @@ dependencies = [
 name = "bupha"
 version = "0.1.0"
 dependencies = [
+ "bupha-cache",
+ "bupha-cache-sccache",
  "bupha-cloudflared",
  "bupha-config",
  "bupha-config-toml",
@@ -112,6 +114,17 @@ dependencies = [
  "sha2",
  "tiny_http",
  "ureq",
+]
+
+[[package]]
+name = "bupha-cache"
+version = "0.1.0"
+
+[[package]]
+name = "bupha-cache-sccache"
+version = "0.1.0"
+dependencies = [
+ "bupha-cache",
 ]
 
 [[package]]

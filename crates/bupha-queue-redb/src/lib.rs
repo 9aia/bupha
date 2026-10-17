@@ -9,11 +9,15 @@ use std::path::PathBuf;
 
 const TABLE: TableDefinition<&str, &str> = TableDefinition::new("queue");
 
-pub struct RedbQueueStore { db: Database }
+pub struct RedbQueueStore {
+    db: Database,
+}
 
 impl RedbQueueStore {
     pub fn open(path: PathBuf) -> io::Result<Self> {
-        Ok(Self { db: Database::create(path).map_err(io::Error::other)? })
+        Ok(Self {
+            db: Database::create(path).map_err(io::Error::other)?,
+        })
     }
 }
 
@@ -24,9 +28,7 @@ impl QueueStore for RedbQueueStore {
         if let Ok(t) = tx.open_table(TABLE) {
             for r in t.iter().map_err(io::Error::other)?.flatten() {
                 let (k, v) = r;
-                if let Ok(q) =
-                    serde_json::from_str::<PersistedQueue>(v.value())
-                {
+                if let Ok(q) = serde_json::from_str::<PersistedQueue>(v.value()) {
                     out.insert(k.value().to_string(), q);
                 }
             }
@@ -34,20 +36,22 @@ impl QueueStore for RedbQueueStore {
         Ok(out)
     }
 
-    fn persist(&self, queues: &BTreeMap<String, PersistedQueue>)
-        -> io::Result<()>
-    {
+    fn persist(&self, queues: &BTreeMap<String, PersistedQueue>) -> io::Result<()> {
         let tx = self.db.begin_write().map_err(io::Error::other)?;
         {
             let mut t = tx.open_table(TABLE).map_err(io::Error::other)?;
-            let keys: Vec<String> = t.iter()
-                .map_err(io::Error::other)?.flatten()
-                .map(|(k, _)| k.value().to_string()).collect();
-            for k in keys { let _ = t.remove(k.as_str()); }
+            let keys: Vec<String> = t
+                .iter()
+                .map_err(io::Error::other)?
+                .flatten()
+                .map(|(k, _)| k.value().to_string())
+                .collect();
+            for k in keys {
+                let _ = t.remove(k.as_str());
+            }
             for (n, q) in queues {
                 let v = serde_json::to_string(q).unwrap_or_default();
-                t.insert(n.as_str(), v.as_str())
-                    .map_err(io::Error::other)?;
+                t.insert(n.as_str(), v.as_str()).map_err(io::Error::other)?;
             }
         }
         tx.commit().map_err(io::Error::other)

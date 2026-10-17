@@ -19,6 +19,5 @@ pub trait QueueStore: Send + Sync {
     /// Repo name → persisted queue. Missing store = empty map.
     fn load(&self) -> io::Result<BTreeMap<String, PersistedQueue>>;
     /// Must be crash-safe — tmp file + rename, never a torn write.
-    fn persist(&self, queues: &BTreeMap<String, PersistedQueue>)
-        -> io::Result<()>;
+    fn persist(&self, queues: &BTreeMap<String, PersistedQueue>) -> io::Result<()>;
 }

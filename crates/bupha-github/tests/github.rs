@@ -1,5 +1,5 @@
-use bupha_trigger::{PushOutcome, Trigger};
 use bupha_github::GitHubTrigger;
+use bupha_trigger::{PushOutcome, Trigger};
 use hmac::{Hmac, Mac};
 use sha2::Sha256;
 
@@ -43,7 +43,8 @@ fn parse_push_extracts_repo_ref_sha() {
     match t.parse_push(body.as_bytes()).unwrap() {
         PushOutcome::Push { repo, git_ref, sha } => assert_eq!(
             (repo.as_str(), git_ref.as_str(), sha.as_str()),
-            ("o/r", "refs/heads/main", sha40.as_str())),
+            ("o/r", "refs/heads/main", sha40.as_str())
+        ),
         PushOutcome::Skip => panic!("expected Push"),
     }
     assert!(t.parse_push(b"{}").is_none());
@@ -57,14 +58,18 @@ fn parse_push_skips_deleted_branch() {
     let body = r#"{"ref":"refs/heads/main","deleted":true,
       "after":"0000000000000000000000000000000000000000",
       "repository":{"full_name":"o/r"}}"#;
-    assert!(matches!(t.parse_push(body.as_bytes()),
-        Some(PushOutcome::Skip)));
+    assert!(matches!(
+        t.parse_push(body.as_bytes()),
+        Some(PushOutcome::Skip)
+    ));
     // zero sha without deleted flag also skips
     let body = r#"{"ref":"refs/heads/main",
       "after":"0000000000000000000000000000000000000000",
       "repository":{"full_name":"o/r"}}"#;
-    assert!(matches!(t.parse_push(body.as_bytes()),
-        Some(PushOutcome::Skip)));
+    assert!(matches!(
+        t.parse_push(body.as_bytes()),
+        Some(PushOutcome::Skip)
+    ));
 }
 
 #[test]

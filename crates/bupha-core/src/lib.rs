@@ -13,8 +13,7 @@ use std::path::PathBuf;
 /// A sha is hex of plausible length — rejects path-injection payloads
 /// before the value reaches worktree paths or status URLs.
 pub fn is_valid_sha(sha: &str) -> bool {
-    (7..=64).contains(&sha.len())
-        && sha.bytes().all(|b| b.is_ascii_hexdigit())
+    (7..=64).contains(&sha.len()) && sha.bytes().all(|b| b.is_ascii_hexdigit())
 }
 
 /// How a repo's pending work collapses: `latest` keeps one pending
@@ -43,7 +42,11 @@ pub struct Seen {
 
 impl Seen {
     pub fn new(cap: usize) -> Self {
-        Seen { ids: Default::default(), order: VecDeque::new(), cap }
+        Seen {
+            ids: Default::default(),
+            order: VecDeque::new(),
+            cap,
+        }
     }
     /// true = fresh, false = replay/duplicate.
     pub fn insert(&mut self, id: String) -> bool {
@@ -78,22 +81,22 @@ pub struct Queue {
 
 impl Queue {
     pub fn with_policy(policy: QueuePolicy) -> Self {
-        Queue { policy, ..Default::default() }
+        Queue {
+            policy,
+            ..Default::default()
+        }
     }
 
     /// `latest`: replace the pending sha (old is returned for a
     /// superseded status). `all`: append; a full backlog evicts the
     /// oldest, also returned as superseded. `Duplicate` = deduped.
     pub fn enqueue(&mut self, sha: String) -> EnqueueResult {
-        if self.running.as_deref() == Some(sha.as_str())
-            || self.pending.iter().any(|s| s == &sha)
-        {
+        if self.running.as_deref() == Some(sha.as_str()) || self.pending.iter().any(|s| s == &sha) {
             return EnqueueResult::Duplicate;
         }
         let superseded = match self.policy {
             QueuePolicy::Latest => self.pending.pop_front(),
-            QueuePolicy::All if self.pending.len() >= MAX_PENDING =>
-                self.pending.pop_front(),
+            QueuePolicy::All if self.pending.len() >= MAX_PENDING => self.pending.pop_front(),
             QueuePolicy::All => None,
         };
         self.pending.push_back(sha);
@@ -114,6 +117,21 @@ pub enum EnqueueResult {
 /// bupha.toml — one per watched repo. Secrets come from env only
 /// (`secret_env`/`token_env` name the variables; values never enter
 /// the file).
+#[derive(Debug, Deserialize, Clone, Default)]
+#[serde(deny_unknown_fields)]
+pub struct CacheCfg {
+    /// Backend id ("sccache"; "none"/empty disables).
+    #[serde(default = "default_cache_kind")]
+    pub kind: String,
+    /// Backend conf value (sccache: "file:///dir", "s3://bucket/…").
+    #[serde(default)]
+    pub conf: Option<String>,
+}
+
+fn default_cache_kind() -> String {
+    "sccache".into()
+}
+
 #[derive(Debug, Deserialize, Clone)]
 #[serde(deny_unknown_fields)]
 pub struct Config {
@@ -129,6 +147,10 @@ pub struct Config {
     /// none).
     #[serde(default)]
     pub tunnel: TunnelCfg,
+    /// Artifact cache backend (`[cache]`); `runner.sccache_conf` is
+    /// accepted for older configs — `[cache]` wins.
+    #[serde(default)]
+    pub cache: CacheCfg,
     /// Where detached git worktrees for runs are created.
     #[serde(default)]
     pub worktree: WorktreeCfg,
@@ -180,25 +202,30 @@ pub struct WatchedRepo {
 impl Config {
     pub fn watched(&self) -> Result<Vec<WatchedRepo>, String> {
         if !self.repos.is_empty() {
-            return self.repos.iter().map(|r| {
-                let runner = r.runner.clone()
-                    .unwrap_or_else(|| self.runner.clone());
-                // `all` keeps every push — killing the in-flight run
-                // would drop a commit that was never superseded.
-                if r.queue == QueuePolicy::All && runner.cancel_running {
-                    return Err(format!(
-                        "repo {}: queue = \"all\" conflicts with \
-                         runner.cancel_running", r.name));
-                }
-                Ok(WatchedRepo {
-                    name: r.name.clone(),
-                    dir: r.dir.clone(),
-                    branch: r.branch.clone(),
-                    status_repo: r.status_repo().to_string(),
-                    runner,
-                    policy: r.queue,
+            return self
+                .repos
+                .iter()
+                .map(|r| {
+                    let runner = r.runner.clone().unwrap_or_else(|| self.runner.clone());
+                    // `all` keeps every push — killing the in-flight run
+                    // would drop a commit that was never superseded.
+                    if r.queue == QueuePolicy::All && runner.cancel_running {
+                        return Err(format!(
+                            "repo {}: queue = \"all\" conflicts with \
+                         runner.cancel_running",
+                            r.name
+                        ));
+                    }
+                    Ok(WatchedRepo {
+                        name: r.name.clone(),
+                        dir: r.dir.clone(),
+                        branch: r.branch.clone(),
+                        status_repo: r.status_repo().to_string(),
+                        runner,
+                        policy: r.queue,
+                    })
                 })
-            }).collect();
+                .collect();
         }
         Err("no [[repo]] entries configured".into())
     }
@@ -217,7 +244,7 @@ pub struct TriggerCfg {
     pub secret_env: String,
 }
 
-#[derive(Debug, Deserialize, Clone)]
+#[derive(Debug, Deserialize, Default, Clone)]
 #[serde(deny_unknown_fields)]
 pub struct RunnerCfg {
     /// "dagger" | "script" | … — resolved to an impl crate.
@@ -355,19 +382,13 @@ fn default_wt_base() -> String {
     "/tmp/bupha".into()
 }
 
-fn dirs_home() -> PathBuf {
-    std::env::var("HOME").map(PathBuf::from).unwrap_or_else(|_| ".".into())
-}
 
 /// Publish order for workspace members: members sorted so every
 /// member's path-deps on other members come first. Returns an error
 /// name on a dependency cycle.
-pub fn publish_order(members: &[String], deps: &[(String, String)])
-        -> Result<Vec<String>, String> {
-    let member_set: std::collections::HashSet<&str> =
-        members.iter().map(String::as_str).collect();
-    let mut done: std::collections::HashSet<String> =
-        Default::default();
+pub fn publish_order(members: &[String], deps: &[(String, String)]) -> Result<Vec<String>, String> {
+    let member_set: std::collections::HashSet<&str> = members.iter().map(String::as_str).collect();
+    let mut done: std::collections::HashSet<String> = Default::default();
     let mut out = Vec::with_capacity(members.len());
     while out.len() < members.len() {
         let mut progressed = false;
@@ -375,10 +396,10 @@ pub fn publish_order(members: &[String], deps: &[(String, String)])
             if done.contains(m) {
                 continue;
             }
-            let ready = deps.iter()
+            let ready = deps
+                .iter()
                 .filter(|(a, _)| a == m)
-                .all(|(_, d)| !member_set.contains(d.as_str())
-                    || done.contains(d));
+                .all(|(_, d)| !member_set.contains(d.as_str()) || done.contains(d));
             if ready {
                 done.insert(m.clone());
                 out.push(m.clone());
@@ -398,8 +419,7 @@ mod tests {
 
     #[test]
     fn order_respects_path_deps() {
-        let members = vec!["bupha".into(), "bupha-core".into(),
-                           "bupha-github".into()];
+        let members = vec!["bupha".into(), "bupha-core".into(), "bupha-github".into()];
         let deps = vec![
             ("bupha".into(), "bupha-github".into()),
             ("bupha".into(), "bupha-core".into()),
@@ -414,8 +434,7 @@ mod tests {
     #[test]
     fn cycle_errors() {
         let members = vec!["a".into(), "b".into()];
-        let deps = vec![("a".into(), "b".into()),
-                        ("b".into(), "a".into())];
+        let deps = vec![("a".into(), "b".into()), ("b".into(), "a".into())];
         assert!(publish_order(&members, &deps).is_err());
     }
 }

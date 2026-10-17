@@ -3,9 +3,9 @@
 //! of `./ci.sh`, `make ci`, whatever you already have.
 
 use bupha_core::RunnerCfg;
-use bupha_runner::{RunCtx, Runner};
+use bupha_runner::{RunCtx, RunHandle, Runner};
 use std::io;
-use std::process::{Child, Command};
+use std::process::Command;
 
 pub struct ShellRunner {
     cfg: RunnerCfg,
@@ -22,10 +22,10 @@ impl Runner for ShellRunner {
         "script"
     }
 
-    fn spawn(&self, ctx: &RunCtx) -> io::Result<Child> {
+    fn spawn(&self, ctx: &RunCtx) -> io::Result<Box<dyn RunHandle>> {
         let cmd = self.cfg.cmd.as_deref().unwrap_or("./ci.sh");
         let mut c = Command::new("bash");
         c.current_dir(ctx.workdir).args(["-c", cmd]);
-        c.spawn()
+        Ok(Box::new(c.spawn()?))
     }
 }

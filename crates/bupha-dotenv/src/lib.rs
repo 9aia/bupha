@@ -15,27 +15,30 @@ impl Secrets for DotenvSecrets {
         let f = std::fs::read_to_string(&self.path).ok()?;
         f.lines().find_map(|l| {
             let (k, v) = l.split_once('=')?;
-            (k.trim() == name && !v.trim().is_empty())
-                .then(|| v.trim().to_string())
+            (k.trim() == name && !v.trim().is_empty()).then(|| v.trim().to_string())
         })
     }
     fn set(&self, name: &str, value: &str) -> io::Result<()> {
         let mut lines: Vec<String> = std::fs::read_to_string(&self.path)
-            .unwrap_or_default().lines().map(String::from).collect();
-        let hit = lines.iter().position(|l| {
-            l.split_once('=').map(|(k, _)| k.trim()) == Some(name)
-        });
+            .unwrap_or_default()
+            .lines()
+            .map(String::from)
+            .collect();
+        let hit = lines
+            .iter()
+            .position(|l| l.split_once('=').map(|(k, _)| k.trim()) == Some(name));
         match hit {
             Some(i) => lines[i] = format!("{name}={value}"),
             None => lines.push(format!("{name}={value}")),
         }
-        if let Some(d) = self.path.parent() { std::fs::create_dir_all(d)?; }
+        if let Some(d) = self.path.parent() {
+            std::fs::create_dir_all(d)?;
+        }
         std::fs::write(&self.path, lines.join("\n") + "\n")?;
         #[cfg(unix)]
         {
             use std::os::unix::fs::PermissionsExt;
-            std::fs::set_permissions(
-                &self.path, std::fs::Permissions::from_mode(0o600))?;
+            std::fs::set_permissions(&self.path, std::fs::Permissions::from_mode(0o600))?;
         }
         Ok(())
     }

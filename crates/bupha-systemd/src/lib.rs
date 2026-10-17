@@ -8,19 +8,25 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 
 fn home() -> PathBuf {
-    std::env::var("HOME").map(PathBuf::from).unwrap_or_else(|_| ".".into())
+    std::env::var("HOME")
+        .map(PathBuf::from)
+        .unwrap_or_else(|_| ".".into())
 }
 
 /// Render the user unit. `unit` is a systemd user service running
 /// `bupha watch`; the watcher spawns the configured tunnel itself.
 pub fn write_service_unit(
-    bin: &Path, env_file: &Path, config: Option<&Path>,
+    bin: &Path,
+    env_file: &Path,
+    config: Option<&Path>,
 ) -> io::Result<PathBuf> {
     let dir = home().join(".config/systemd/user");
     std::fs::create_dir_all(&dir)?;
     let path = dir.join("bupha-watch.service");
-    std::fs::write(&path, format!(
-"[Unit]
+    std::fs::write(
+        &path,
+        format!(
+            "[Unit]
 Description=bupha — headless CI watcher (webhook -> queue -> runner)
 After=network-online.target
 Wants=network-online.target
@@ -33,9 +39,14 @@ RestartSec=5
 
 [Install]
 WantedBy=default.target
-", env_file.display(), bin.display(),
-    config.map(|c| format!(" --config {}", c.display()))
-        .unwrap_or_default()))?;
+",
+            env_file.display(),
+            bin.display(),
+            config
+                .map(|c| format!(" --config {}", c.display()))
+                .unwrap_or_default()
+        ),
+    )?;
     Ok(path)
 }
 
@@ -52,16 +63,17 @@ pub fn write_env_skeleton(dir: &Path) -> io::Result<PathBuf> {
     std::fs::create_dir_all(dir)?;
     let path = dir.join("env");
     if !path.exists() {
-        std::fs::write(&path,
+        std::fs::write(
+            &path,
             "# Secrets only — everything else lives in bupha.toml\n\
-             BUPHA_WEBHOOK_SECRET=\nBUPHA_TOKEN=\n# CODECOV_TOKEN=\n")?;
+             BUPHA_WEBHOOK_SECRET=\nBUPHA_TOKEN=\n# CODECOV_TOKEN=\n",
+        )?;
     }
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;
         // token-bearing file — owner-only regardless of umask.
-        std::fs::set_permissions(
-            &path, std::fs::Permissions::from_mode(0o600))?;
+        std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o600))?;
     }
     Ok(path)
 }
@@ -87,8 +99,6 @@ fn run(bin: &str, args: &[&str]) -> io::Result<()> {
     }
 }
 
-
-
 /// systemd impl of the `Service` port.
 pub struct SystemdService {
     /// Unit name, e.g. "bupha-watch.service".
@@ -103,10 +113,11 @@ pub struct SystemdService {
 
 impl bupha_service::Service for SystemdService {
     fn write(&self) -> io::Result<PathBuf> {
-        write_service_unit(&self.bin, &self.env,
-                           self.config.as_deref())
+        write_service_unit(&self.bin, &self.env, self.config.as_deref())
     }
-    fn enable(&self) -> io::Result<()> { enable_service(&self.unit) }
+    fn enable(&self) -> io::Result<()> {
+        enable_service(&self.unit)
+    }
     fn disable(&self) -> io::Result<PathBuf> {
         disable_service(&self.unit)
     }
