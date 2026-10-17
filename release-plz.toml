@@ -1,0 +1,15 @@
+[workspace]
+changelog_config = '''
+[changelog]
+header = """
+# Changelog
+"""
+body = """
+{% for group, commits in commits | group_by(attribute="group") %}
+    ### {{ group | striptags | trim | title }}
+    {% for commit in commits %}
+        - {{ commit.message | upper_first }} ({{ commit.id | truncate(length=7, end="") }})
+    {% endfor %}
+{% endfor %}
+"""
+'''

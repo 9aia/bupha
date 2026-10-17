@@ -80,7 +80,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "bupha-cli"
+name = "bupha"
 version = "0.1.0"
 dependencies = [
  "bupha-cloudflared",

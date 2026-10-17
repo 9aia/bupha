@@ -5,9 +5,9 @@ version.workspace = true
 edition.workspace = true
 license.workspace = true
 repository.workspace = true
+keywords = ["ci", "bupha"]
+categories = ["development-tools"]
 
 [dependencies]
 bupha-core = { path = "../bupha-core" }
 
-keywords = ["ci", "bupha"]
-categories = ["development-tools"]
