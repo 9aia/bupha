@@ -9,6 +9,8 @@
       out of scope for the single-node design.)
 - [ ] Timeout on `post_status`/webhook HTTP calls (ureq) — a stalled
       GitHub API currently blocks the handler thread inside the lock.
+- [ ] Move `post_status` calls out of the shared-queue lock — a slow
+      GitHub API serializes enqueue/cancel/worker transitions.
 
 ## Tests
 - [ ] Tests for `modules/dagger` — pytest for `_SELF_PATCH_PY` (fixture

@@ -496,7 +496,8 @@ fn cmd_doctor(cfg: &Config) {
     let token = std::env::var(&cfg.runner.token_env).unwrap_or_default();
     check("token", !token.is_empty(), &cfg.runner.token_env, &mut failures);
 
-    if cfg.status.kind == "github" {
+    if cfg.status.kind == "github"
+        && cfg.repos.is_empty() && cfg.repo.is_some() {
         check("status.repo", !cfg.status.repo.is_empty(),
             "owner/name for commit statuses", &mut failures);
     }
@@ -635,7 +636,7 @@ fn cmd_deploy(cfg: &Config, sub: &DeploySub, cli_config: Option<String>) {
                 .unwrap_or_default();
             for r in &watched {
                 match bupha_github::register_webhook(
-                    &token, &r.status_repo, &url, &secret)
+                    &token, &r.name, &url, &secret)
                 {
                     Ok(msg) => println!("{msg}"),
                     Err(e) => { eprintln!("webhook {}: {e}", r.name);

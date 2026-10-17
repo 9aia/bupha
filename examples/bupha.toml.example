@@ -29,7 +29,8 @@ token_env = "BUPHA_TOKEN"
 
 [status]
 kind = "github"                   # impl: bupha-github | "log" | "none"
-repo = "owner/name"
+# repo = "owner/name"             # legacy [repo] configs only; [[repos]]
+                                  # posts to status_repo (defaults to name)
 context = "ci/bupha"
 
 [tunnel]
