@@ -14,12 +14,32 @@ hero:
       link: https://github.com/9aia/bupha
 
 features:
-  - title: Latest-wins or run-every-push
-    details: per-repo queue policies — superseded and cancelled shas get honest statuses, never silent drops
-  - title: Detached worktrees
-    details: every run is an isolated git worktree of the pushed sha, not a shared checkout
-  - title: Port/adapter crates
-    details: runner (dagger | script), tunnel (cloudflared | direct | none), trigger + status sink — swap by config
-  - title: Secrets in your keyring
-    details: env var → OS keyring → 0600 env file; config holds names, never values
+  - icon: ⚡
+    title: Push → status in seconds
+    details: HMAC-verified webhooks, delivery dedup, honest pending/success/cancelled statuses — no YAML, no queue wait
+    link: /tutorials/first-run
+    linkText: first run
+  - icon: 🏠
+    title: Your box, your cache
+    details: no runner minutes; build caches on your own disk or your S3/R2/minio via sccache
+    link: /how-to/sccache-backend
+    linkText: cache backends
+  - icon: 🔀
+    title: Two queue modes
+    details: latest-wins for CI gates, bounded FIFO for releases — per repo; superseded shas never silently drop
+    link: /explanation/architecture
+    linkText: queue semantics
+  - icon: 🌳
+    title: Detached worktrees
+    details: every run is an isolated git worktree of the pushed sha — never a shared, dirty checkout
+  - icon: 🧩
+    title: Ports, not frameworks
+    details: runner (dagger | script), tunnel (cloudflared | direct | none), trigger + status — swap via config or a new impl crate
+    link: /explanation/architecture
+    linkText: architecture
+  - icon: 🔐
+    title: Secrets stay secret
+    details: env var → OS keyring → 0600 env file; config holds names, never values; tokens never reach argv
+    link: /getting-started
+    linkText: setup
 ---

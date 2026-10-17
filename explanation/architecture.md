@@ -6,19 +6,22 @@ is an impl crate behind a port.
 
 ## Crate map
 
+<!-- gen:crate-map -->
+
 | crate | layer | role |
 |---|---|---|
-| `bupha-core` | domain | `bupha.toml` types, `Queue`, replay `Seen`, sha validation — no ports, no impls |
-| `bupha-runner` | port | `Runner` trait — spawn/kill a pipeline child |
-| `bupha-tunnel` | port | `Tunnel` trait — expose the listener |
-| `bupha-trigger` | port | `Trigger` trait + `PushOutcome` |
-| `bupha-status` | port | `StatusSink` trait — run outcomes |
-| `bupha-github` | impl | webhook verify + parse (Trigger), commit statuses (StatusSink), hook register/delete |
-| `bupha-script` | impl | `bash -c <cmd>` in the worktree — zero containers |
-| `bupha-dagger` | impl | `dagger call` into the consumer repo's module |
-| `bupha-cloudflared` | impl | cloudflared child (quick + named tunnels) |
-| `bupha-deploy` | impl | systemd/env/publish helpers — impl of the planned `Service` port (not yet a trait) |
-| `bupha` (cli) | binary | wires it all: `watch`, `run`, `doctor`, `init`, `deploy`, `destroy` |
+| `bupha-core` | domain | Core domain types, config and the latest-wins queue |
+| `bupha-runner` | port | Runner port: how a job becomes a spawned process |
+| `bupha-status` | port | StatusSink port: where run outcomes are reported |
+| `bupha-trigger` | port | Trigger port: where pushes come from |
+| `bupha-tunnel` | port | Tunnel port: expose the webhook listener publicly |
+| `bupha-cloudflared` | impl | Tunnel impl: cloudflared (named tunnel preferred, quick tunnel fallback) |
+| `bupha-dagger` | impl | Runner impl: `dagger call <fn>` per job |
+| `bupha-deploy` | impl | Deployment helpers: systemd units, webhook registration, env skeleton |
+| `bupha-github` | impl | GitHub impl: push-webhook trigger + commit-status sink |
+| `bupha-script` | impl | Runner impl: any shell command per job — no dagger, no docker |
+| `bupha` | binary | bupha — the oxpecker on your repo's back: headless CI CLI |
+<!-- /gen:crate-map -->
 
 `modules/dagger/` (Python SDK) is the shared pipeline module
 `bupha init` installs into consumer repos — pinned to a sha.

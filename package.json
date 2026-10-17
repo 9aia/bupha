@@ -4,9 +4,10 @@
   "type": "module",
   "scripts": {
     "docs:dev": "bun run docs:gen && vitepress dev",
-    "docs:gen": "bun run docs:cli && bun run docs:config",
+    "docs:gen": "bun run docs:cli && bun run docs:config && bun run docs:crates",
     "docs:cli": "cd .. && cargo run -q -p bupha -- gen-cli-docs > docs/reference/cli.md",
     "docs:config": "python3 gen-config-docs.py",
+    "docs:crates": "python3 gen-crate-map.py",
     "docs:build": "bun run docs:gen && vitepress build",
     "docs:api": "cd .. && cargo doc --workspace --no-deps && mkdir -p docs/public/api && rm -rf docs/public/api/* && cp -r target/doc/* docs/public/api/ && python3 docs/gen-api-index.py docs/public/api/index.html",
     "docs:deploy": "bun run docs:api && bun run docs:build && bunx gh-pages -d .vitepress/dist"
