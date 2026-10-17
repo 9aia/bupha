@@ -48,7 +48,7 @@ enum Cmd {
         /// Function for the dagger runner (default: from config).
         function: Option<String>,
     },
-    /// Install-time helpers — no files to copy by hand.
+    /// Install-time helpers — no manual file copies.
     Deploy {
         #[command(subcommand)]
         sub: DeploySub,
@@ -58,6 +58,9 @@ enum Cmd {
         #[command(subcommand)]
         sub: DestroySub,
     },
+    /// Print the CLI reference as markdown (docs pipeline).
+    #[command(hide = true, name = "gen-cli-docs")]
+    GenCliDocs,
 }
 
 #[derive(Subcommand)]
@@ -700,6 +703,10 @@ fn main() {
     let cli = Cli::parse();
     match &cli.cmd {
         Cmd::Init { dir } => cmd_init(dir),
+        Cmd::GenCliDocs => {
+            println!("{}", clap_markdown::help_markdown::<Cli>());
+            std::process::exit(0);
+        }
         // Release is repo-local (cwd) — no bupha.toml needed.
         Cmd::Deploy { sub: DeploySub::Release { dry_run } } =>
             cmd_deploy_release(*dry_run),
@@ -715,7 +722,7 @@ fn main() {
                 Cmd::Run { function } => cmd_run(&cfg, function.clone()),
                 Cmd::Deploy { sub } => cmd_deploy(&cfg, sub, cli.config.clone()),
                 Cmd::Destroy { sub } => cmd_destroy(&cfg, sub),
-                Cmd::Init { .. } => unreachable!(),
+                Cmd::Init { .. } | Cmd::GenCliDocs => unreachable!(),
             }
         }
     }
