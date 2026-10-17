@@ -17,16 +17,18 @@ fi
 changed="$(git diff --name-only "${last}..HEAD")"
 
 touched=""
-for c in bupha-core bupha-runner bupha-tunnel bupha-dagger bupha-script \
-         bupha-github bupha-cloudflared bupha-deploy bupha-cli; do
+for c in bupha-core bupha-runner bupha-tunnel bupha-trigger bupha-status \
+         bupha-dagger bupha-script bupha-github bupha-cloudflared \
+         bupha-deploy bupha-cli; do
     grep -q "^crates/$c/" <<<"$changed" && touched="$touched $c"
 done
 # the bin re-publishes whenever any crate changed
 [ -n "$touched" ] && touched="$touched bupha"
 if [ -z "$touched" ]; then echo "no crate changes since $last"; exit 0; fi
 
-order="bupha-core bupha-runner bupha-tunnel bupha-dagger bupha-script \
-bupha-github bupha-cloudflared bupha-deploy bupha"
+order="bupha-core bupha-trigger bupha-status bupha-runner bupha-tunnel \
+bupha-dagger bupha-script bupha-github bupha-cloudflared \
+bupha-deploy bupha"
 published=""
 for c in $order; do
     p="${c}"; [ "$c" = bupha ] && p="bupha"   # cli package name
