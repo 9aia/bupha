@@ -32,9 +32,9 @@ the oxpecker on your repo's back — headless CI
 ###### **Subcommands:**
 
 * `watch` — Serve the webhook → queue → runner loop
-* `init` — Scaffold CI in a repo (dagger module install or script skeleton)
+* `init` — Scaffold dagger CI in a repo (dagger init + pinned module + delegate). For the script runner, a ci.sh is enough
 * `doctor` — Check what the loaded config actually needs on this box
-* `run` — Run the pipeline locally (the runner's invocation, current dir)
+* `run` — Run the pipeline locally — in the watched repo's `dir`, not cwd
 * `deploy` — Install-time helpers — no manual file copies
 * `destroy` — Teardown counterparts of `deploy`
 
@@ -50,7 +50,7 @@ Serve the webhook → queue → runner loop
 
 ## `bupha init`
 
-Scaffold CI in a repo (dagger module install or script skeleton)
+Scaffold dagger CI in a repo (dagger init + pinned module + delegate). For the script runner, a ci.sh is enough
 
 **Usage:** `bupha init [DIR]`
 
@@ -68,7 +68,7 @@ Check what the loaded config actually needs on this box
 
 ## `bupha run`
 
-Run the pipeline locally (the runner's invocation, current dir)
+Run the pipeline locally — in the watched repo's `dir`, not cwd
 
 **Usage:** `bupha run [FUNCTION]`
 
@@ -85,7 +85,7 @@ Install-time helpers — no manual file copies
 ###### **Subcommands:**
 
 * `service` — Write + enable the systemd user unit (needs enable-linger for boot persistence)
-* `webhook` — Register/update the repo's push webhook via `gh api`
+* `webhook` — Register/update the repo's push webhook via the REST API (token from env/keyring/env file — no `gh` dependency)
 * `env` — Seed ~/.config/bupha/env with the secret names
 * `check` — Verify the whole install: unit, secrets, hook, endpoint, token
 * `release` — One-time seed: cargo publish in dep order + tag {repo}-v{ver}. Explicit — publishing is the irreversible step in the flow
@@ -102,7 +102,7 @@ Write + enable the systemd user unit (needs enable-linger for boot persistence)
 
 ## `bupha deploy webhook`
 
-Register/update the repo's push webhook via `gh api`
+Register/update the repo's push webhook via the REST API (token from env/keyring/env file — no `gh` dependency)
 
 **Usage:** `bupha deploy webhook`
 

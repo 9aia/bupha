@@ -11,7 +11,9 @@ url: /bupha/reference/config.md
 | field | type | required | notes |
 |---|---|---|---|
 | `repo` | `RepoCfg` | optional | Legacy single-repo form; prefer \[\[repos]]. |
-| `repos` | `Vec<RepoEntry>` | required | Watched repos — one pending slot each, one global worker. |
+| `repos` | `Vec<RepoEntry>` | optional | Watched repos — one pending slot each, one global worker. |
+| `tunnel` | `TunnelCfg` | optional | — |
+| `worktree` | `WorktreeCfg` | optional | — |
 
 ## `[[repos]]`
 
@@ -19,48 +21,58 @@ url: /bupha/reference/config.md
 |---|---|---|---|
 | `name` | `string` | required | repository.full_name in the webhook payload ("owner/name") — also the status target repo. |
 | `dir` | `path` | required | Clone to fetch + create detached worktrees from. |
+| `branch` | `string` | optional | — |
 | `status_repo` | `string` | optional | Status repo override (defaults to `name`). |
 | `runner` | `RunnerCfg` | optional | Per-repo runner override — a full \[repos.runner] table replaces the global \[runner] for this repo. |
-| `queue` | `"latest" | "all"` | required | Queue policy — `latest` (default) or `all` (run every push). |
+| `queue` | `"latest" | "all"` | optional | Queue policy — `latest` (default) or `all` (run every push). |
 
 ## `[trigger]`
 
 | field | type | required | notes |
 |---|---|---|---|
 | `kind` | `string` | required | "github" today; other forges = new impl crates. |
-| `secret_env` | `string` | required | Env var holding the webhook secret. |
+| `listen` | `string` | optional | — |
+| `secret_env` | `string` | optional | Env var holding the webhook secret. |
 
 ## `[runner]`
 
 | field | type | required | notes |
 |---|---|---|---|
 | `kind` | `string` | required | "dagger" | "script" | … — resolved to an impl crate. |
-| `function` | `string` | required | dagger runner: function to call. |
+| `function` | `string` | optional | dagger runner: function to call. |
+| `shards` | `string` | optional | — |
+| `jobs` | `string` | optional | — |
+| `dogfood_jobs` | `string` | optional | — |
+| `sequential` | `bool` | optional | — |
+| `cancel_running` | `bool` | optional | — |
 | `sccache_conf` | `string` | optional | Optional env-file (KEY=VAL) mounted as the sccache secret. |
 | `cmd` | `string` | optional | script runner: command run in the worktree. |
-| `token_env` | `string` | required | Env var naming the token passed to the runner + status sink. |
-| `extra_args` | `list` | required | dagger runner: extra args appended verbatim (e.g. --cli-source). |
+| `token_env` | `string` | optional | Env var naming the token passed to the runner + status sink. |
+| `extra_args` | `list` | optional | dagger runner: extra args appended verbatim (e.g. --cli-source). |
 | `cli_source` | `string` | optional | dagger runner: `--cli-source <dir>` for repos whose pipeline builds against a sibling checkout. |
 
 ## `[status]`
 
 | field | type | required | notes |
 |---|---|---|---|
-| `kind` | `string` | required | "github" | "log" (stdout only) | "none". |
-| `repo` | `string` | required | owner/repo for the commit-status API. |
+| `kind` | `string` | optional | "github" | "log" (stdout only) | "none". |
+| `repo` | `string` | optional | owner/repo for the commit-status API. |
+| `context` | `string` | optional | — |
 
 ## `[tunnel]`
 
 | field | type | required | notes |
 |---|---|---|---|
-| `provider` | `string` | required | "none" | "cloudflared" | "direct". |
-| `name` | `string` | required | Named tunnel (stable URL); empty = quick tunnel. |
-| `public_url` | `string` | required | provider=direct: the external URL GitHub should hit. |
+| `provider` | `string` | optional | "none" | "cloudflared" | "direct". |
+| `name` | `string` | optional | Named tunnel (stable URL); empty = quick tunnel. |
+| `local_url` | `string` | optional | — |
+| `public_url` | `string` | optional | provider=direct: the external URL GitHub should hit. |
 
 ## `[worktree]`
 
 | field | type | required | notes |
 |---|---|---|---|
+| `base` | `string` | optional | — |
 
 ## Constraints
 
