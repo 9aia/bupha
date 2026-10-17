@@ -19,7 +19,7 @@ headless CI — push in, status out, on a Linux box with Git
 ### Reference
 
 - [Command-Line Help for `bupha`](/bupha/reference/cli.md)
-- [Config reference](/bupha/reference/config.md)
+- [Config — `bupha.toml`](/bupha/reference/config.md)
 - [Crate API](/bupha/reference/crate-api.md)
 
 ### Explanation

@@ -1,10 +1,7 @@
 ---
 url: /bupha/reference/config.md
 ---
-# Config reference
-
-`bupha.toml`. Secrets are never values here — only env-var
-*names* (`secret_env`, `token_env`, `sccache_conf`).
+# Config — `bupha.toml`
 
 ## Top level
 
@@ -12,6 +9,7 @@ url: /bupha/reference/config.md
 |---|---|---|---|
 | `repos` | `Vec<RepoEntry>` | required | Watched repos — one pending slot each, one global worker. TOML-conventional singular; `repos` kept as alias for existing configs. |
 | `tunnel` | `TunnelCfg` | optional | How the listener is exposed publicly (cloudflared, direct, none). |
+| `cache` | `CacheCfg` | optional | Artifact cache backend (`[cache]`); `runner.sccache_conf` is accepted for older configs — `[cache]` wins. |
 | `worktree` | `WorktreeCfg` | optional | Where detached git worktrees for runs are created. |
 
 ## `[[repo]]`
@@ -37,18 +35,10 @@ url: /bupha/reference/config.md
 
 | field | type | required | notes |
 |---|---|---|---|
-| `kind` | `string` | required | "dagger" | "script" | … — resolved to an impl crate. |
-| `function` | `string` | optional | dagger runner: function to call. |
-| `shards` | `string` | optional | dagger runner: shard count for parallel test partitions. |
-| `jobs` | `string` | optional | dagger runner: job parallelism inside a run. |
-| `dogfood_jobs` | `string` | optional | dagger runner: job parallelism for dogfood-style runs (emitted only when the function accepts it). |
-| `sequential` | `bool` | optional | dagger runner: serialise heavy steps (memory-bound boxes). |
+| `kind` | `string` | required | Runner kind: "dagger" | "shell" | "ssh" | impl crates. |
+| `token_env` | `string` | optional | Env var name holding the forge token (never the value). |
 | `cancel_running` | `bool` | optional | Kill an in-flight run when a newer push supersedes it. Invalid with `queue = "all"` (rejected at load). |
-| `sccache_conf` | `string` | optional | Optional env-file (KEY=VAL) mounted as the sccache secret. |
-| `cmd` | `string` | optional | script runner: command run in the worktree. |
-| `token_env` | `string` | optional | Env var naming the token passed to the runner + status sink. |
-| `extra_args` | `list` | optional | dagger runner: extra args appended verbatim (e.g. --cli-source). |
-| `cli_source` | `string` | optional | dagger runner: `--cli-source &lt;dir&gt;` for repos whose pipeline builds against a sibling checkout. |
+| `extra` | `toml::Table` | required | Impl-owned fields — the matched impl crate deserializes its own config struct from this; core knows none of them. |
 
 ## `[status]`
 
@@ -67,11 +57,45 @@ url: /bupha/reference/config.md
 | `local_url` | `string` | optional | Local URL the tunnel forwards to (listener address). |
 | `public_url` | `string` | optional | provider=direct: the external URL GitHub should hit. |
 
+## `[cache]`
+
+| field | type | required | notes |
+|---|---|---|---|
+| `kind` | `string` | optional | Backend id ("sccache"; "none"/empty disables). |
+| `conf` | `string` | optional | Backend conf value (sccache: "file:///dir", "s3://bucket/…"). |
+
 ## `[worktree]`
 
 | field | type | required | notes |
 |---|---|---|---|
 | `base` | `string` | optional | Worktree parent dir — runs land at \<base>-\<repo>-\<sha12>. |
+
+## `[runner]` — kind `dagger`
+
+| field | type | required | notes |
+|---|---|---|---|
+| `function` | `string` | optional | — |
+| `shards` | `string` | optional | — |
+| `jobs` | `string` | optional | — |
+| `dogfood_jobs` | `string` | optional | — |
+| `sequential` | `bool` | optional | — |
+| `sccache_conf` | `string` | optional | — |
+| `cli_source` | `string` | optional | — |
+| `extra_args` | `list` | optional | — |
+
+## `[runner]` — kind `shell`
+
+| field | type | required | notes |
+|---|---|---|---|
+| `cmd` | `string` | optional | — |
+
+## `[runner]` — kind `ssh`
+
+| field | type | required | notes |
+|---|---|---|---|
+| `remote` | `string` | optional | Remote host ("user@host"; ssh config resolves auth). |
+| `remote_dir` | `string` | optional | Remote workdir the worktree syncs into. |
+| `cmd` | `string` | optional | Command run remotely (`bash -c`). |
 
 ## Constraints
 
