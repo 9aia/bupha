@@ -12,6 +12,9 @@ export default defineConfig({
   themeConfig: {
     nav: [
       { text: 'Getting Started', link: '/getting-started' },
+      { text: 'Tutorial', link: '/tutorials/first-run' },
+      { text: 'How-to', link: '/how-to/multi-repo' },
+      { text: 'Explanation', link: '/explanation/architecture' },
       { text: 'Reference', link: '/reference/cli' },
       {
         text: 'LLMs',
