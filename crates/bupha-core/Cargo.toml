@@ -1,6 +1,6 @@
 [package]
 name = "bupha-core"
-description = "Core domain types, config and the latest-wins queue"
+description = "bupha domain core: config types, job queues, shared primitives — no ports, no integrations"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
