@@ -64,14 +64,14 @@ url: /bupha/reference/config.md
 |---|---|---|---|
 | `provider` | `string` | optional | "none" | "cloudflared" | "direct". |
 | `name` | `string` | optional | Named tunnel (stable URL); empty = quick tunnel. |
-| `local_url` | `string` | optional | — |
+| `local_url` | `string` | optional | Local URL the tunnel forwards to (listener address). |
 | `public_url` | `string` | optional | provider=direct: the external URL GitHub should hit. |
 
 ## `[worktree]`
 
 | field | type | required | notes |
 |---|---|---|---|
-| `base` | `string` | optional | — |
+| `base` | `string` | optional | Worktree parent dir — runs land at \<base>-\<repo>-\<sha12>. |
 
 ## Constraints
 
