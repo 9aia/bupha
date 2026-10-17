@@ -10,9 +10,9 @@ Diátaxis-structured. Pick by what you need to do.
   [config](reference/config.md) ·
   [crate api](reference/crate-api.md)
 - **Explanation** (why): [architecture](explanation/architecture.md) ·
-  [release model](explanation/release-model.md)
+  [release model](explanation/release-model.md) ·
+  [comparison](comparison.md) — vs GHA/hosted CI
 
 Project: [CONTRIBUTING](https://github.com/9aia/bupha/blob/main/CONTRIBUTING.md) ·
 [SECURITY](https://github.com/9aia/bupha/blob/main/SECURITY.md) ·
-[TODO](https://github.com/9aia/bupha/blob/main/project/TODO.md) ·
-[comparison](comparison.md) — vs GHA/hosted CI
+[project](https://github.com/9aia/bupha/blob/main/project/index.md) — TODO, seams, backlog, ADRs

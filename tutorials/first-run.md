@@ -18,7 +18,7 @@ or a direct box; quick tunnels are convenient but flaky.
    (a repo-scoped PAT) — in `~/.config/bupha/env`, or store them in
    your OS keyring with `secret-tool` (resolution: env → keyring → file).
 3. Write `bupha.toml` (see `examples/bupha.toml.example`): your repo's
-   `[[repos]]` entry, `runner.kind`, `tunnel`.
+   `[[repo]]` entry, `runner.kind`, `tunnel`.
 4. `bupha doctor` — checks this box (binaries, secrets, config) before
    you commit; fix anything red.
 5. `bupha deploy service` — systemd unit written + enabled

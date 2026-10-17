@@ -10,12 +10,11 @@ doc comments — edit the comments, not this file -->
 
 | field | type | required | notes |
 |---|---|---|---|
-| `repo` | `RepoCfg` | optional | Legacy single-repo form; prefer [[repos]]. |
-| `repos` | `Vec<RepoEntry>` | optional | Watched repos — one pending slot each, one global worker. |
+| `repos` | `Vec<RepoEntry>` | required | Watched repos — one pending slot each, one global worker. TOML-conventional singular; `repos` kept as alias for existing configs. |
 | `tunnel` | `TunnelCfg` | optional | — |
 | `worktree` | `WorktreeCfg` | optional | — |
 
-## `[[repos]]`
+## `[[repo]]`
 
 | field | type | required | notes |
 |---|---|---|---|
@@ -23,7 +22,7 @@ doc comments — edit the comments, not this file -->
 | `dir` | `path` | required | Clone to fetch + create detached worktrees from. |
 | `branch` | `string` | optional | — |
 | `status_repo` | `string` | optional | Status repo override (defaults to `name`). |
-| `runner` | `RunnerCfg` | optional | Per-repo runner override — a full [repos.runner] table replaces the global [runner] for this repo. |
+| `runner` | `RunnerCfg` | optional | Per-repo runner override — a full [repo.runner] table replaces the global [runner] for this repo. |
 | `queue` | `"latest" | "all"` | optional | Queue policy — `latest` (default) or `all` (run every push). |
 
 ## `[trigger]`

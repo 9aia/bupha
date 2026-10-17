@@ -8,7 +8,7 @@ OUT  = pathlib.Path(__file__).parent / "reference" / "config.md"
 STRUCTS = ["Config", "RepoEntry", "TriggerCfg", "RunnerCfg",
            "StatusCfg", "TunnelCfg", "WorktreeCfg"]
 TITLES = {
-    "Config": "Top level", "RepoEntry": "`[[repos]]`",
+    "Config": "Top level", "RepoEntry": "`[[repo]]`",
     "TriggerCfg": "`[trigger]`", "RunnerCfg": "`[runner]`",
     "StatusCfg": "`[status]`", "TunnelCfg": "`[tunnel]`",
     "WorktreeCfg": "`[worktree]`",
