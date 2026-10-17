@@ -56,6 +56,13 @@ pub fn write_env_skeleton(dir: &Path) -> io::Result<PathBuf> {
             "# Secrets only — everything else lives in bupha.toml\n\
              BUPHA_WEBHOOK_SECRET=\nBUPHA_TOKEN=\n# CODECOV_TOKEN=\n")?;
     }
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        // token-bearing file — owner-only regardless of umask.
+        std::fs::set_permissions(
+            &path, std::fs::Permissions::from_mode(0o600))?;
+    }
     Ok(path)
 }
 

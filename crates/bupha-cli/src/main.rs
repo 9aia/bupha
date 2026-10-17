@@ -388,6 +388,13 @@ fn cmd_watch(cfg: Arc<Config>) {
             .map(|h| (h.field.as_str().to_string(),
                       h.value.as_str().to_string()))
             .collect();
+        // Only the hook path exists — everything else 404s.
+        if req.url().split('?').next() != Some("/hook") {
+            let _ = req.respond(tiny_http::Response::from_string(
+                "not found").with_status_code(404));
+            continue;
+        }
+
         let mut body = Vec::new();
         let _ = req.as_reader().take(2 * 1024 * 1024)
             .read_to_end(&mut body);
@@ -939,9 +946,12 @@ fn cmd_destroy(cfg: &Config, sub: &DestroySub) {
             if let Some(parent) = base.parent() {
                 if let Ok(rd) = std::fs::read_dir(parent) {
                     for e in rd.flatten() {
+                        // .git must be a FILE (worktree pointer), not a
+                        // dir — protects foreign dirs sharing the prefix.
                         if e.file_name().to_string_lossy()
                                 .starts_with(&prefix)
                             && e.path().is_dir()
+                            && e.path().join(".git").is_file()
                         {
                             let _ = std::fs::remove_dir_all(e.path());
                             println!("removed {}", e.path().display());
