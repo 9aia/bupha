@@ -19,8 +19,16 @@ is an impl crate behind a port.
 | `bupha-cloudflared` | impl | Tunnel impl: cloudflared (named tunnel preferred, quick tunnel fallback) |
 | `bupha-dagger` | impl | Runner impl: `dagger call <fn>` per job |
 | `bupha-deploy` | impl | Deployment helpers: systemd units, webhook registration, env skeleton |
+| `bupha-dotenv` | impl | Secret impl: KEY=VAL env file (chmod 600) |
+| `bupha-git` | impl | Vcs impl: git via the git CLI |
 | `bupha-github` | impl | GitHub impl: push-webhook trigger + commit-status sink |
+| `bupha-keyring` | impl | Secret impl: OS keyring via secret-tool (libsecret) |
+| `bupha-queue` | impl | QueueStore port: queue persistence |
+| `bupha-queue-json` | impl | QueueStore impl: atomic queue.json |
 | `bupha-script` | impl | Runner impl: any shell command per job — no dagger, no docker |
+| `bupha-secret` | impl | Secret port: resolve named secrets from storage |
+| `bupha-service` | impl | Service port: OS service lifecycle |
+| `bupha-vcs` | impl | Vcs port: VCS operations for repos and worktrees |
 | `bupha` | binary | bupha — the oxpecker on your repo's back: headless CI CLI |
 
 `modules/dagger/` (Python SDK) is the shared pipeline module
