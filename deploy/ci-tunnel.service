@@ -1,0 +1,17 @@
+# Tunnel unit — runs the configured provider from deploy/tunnel.d/.
+# Set TUNNEL_PROVIDER in ~/.config/handl-ci/env (default: cloudflared).
+[Unit]
+Description=handl-lang CI webhook tunnel
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+EnvironmentFile=%h/.config/handl-ci/env
+Environment=TUNNEL_PROVIDER=cloudflared
+Environment=TUNNEL_LOG=/tmp/handl-ci-tunnel.log
+ExecStart=/bin/bash -c 'exec %h/.config/handl-ci/tunnel.d/${TUNNEL_PROVIDER}.sh tunnel_run >>"$TUNNEL_LOG" 2>&1'
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=default.target

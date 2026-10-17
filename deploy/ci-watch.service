@@ -1,0 +1,27 @@
+# handl-ci-watch + tunnel — systemd units.
+#
+# System install (needs sudo):
+#   cp deploy/ci-watch.service /etc/systemd/system/handl-ci-watch.service
+#   cp deploy/ci-tunnel.service /etc/systemd/system/handl-ci-tunnel.service
+#   systemctl enable --now handl-ci-watch handl-ci-tunnel
+#
+# User install without sudo (requires linger so it survives logout):
+#   loginctl enable-linger $USER        # one-time, needs sudo once
+#   mkdir -p ~/.config/systemd/user
+#   cp deploy/ci-watch.service deploy/ci-tunnel.service ~/.config/systemd/user/
+#   systemctl --user enable --now handl-ci-watch handl-ci-tunnel
+#
+# Environment comes from ~/.config/handl-ci/env — see env.example.
+[Unit]
+Description=handl-lang CI webhook receiver (dagger trigger)
+After=docker.service network-online.target
+Wants=network-online.target
+
+[Service]
+EnvironmentFile=%h/.config/handl-ci/env
+ExecStart=%h/.local/bin/handl-ci-watch
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=default.target

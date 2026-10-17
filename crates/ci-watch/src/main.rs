@@ -24,6 +24,8 @@ use std::process::{Child, Command};
 use std::sync::{Arc, Condvar, Mutex};
 
 struct Cfg {
+    sccache_conf: Option<String>,
+    sequential: bool,
     secret: String,
     token: String,
     repo_dir: PathBuf,
@@ -109,6 +111,12 @@ fn run_ci(cfg: &Cfg, q: &Mutex<Queue>, child: &ChildSlot, sha: &str) -> bool {
         "--shards", &cfg.shards, "--jobs", &cfg.jobs,
         "--dogfood-jobs", &cfg.dogfood_jobs,
         "--token", "env://HANDL_TOKEN"]);
+    if let Some(conf) = cfg.sccache_conf.as_deref() {
+        cmd.args(["--sccache-conf", &format!("file://{conf}")]);
+    }
+    if cfg.sequential {
+        cmd.arg("--sequential");
+    }
     if cfg.repo_dir.join("../cli/crates/host-cli").exists() {
         cmd.args(["--cli-source",
                   cfg.repo_dir.join("../cli").to_str().unwrap()]);
@@ -153,6 +161,9 @@ fn run_ci(cfg: &Cfg, q: &Mutex<Queue>, child: &ChildSlot, sha: &str) -> bool {
 
 fn main() {
     let cfg = Cfg {
+        sccache_conf: std::env::var("CI_SCCACHE_CONF").ok()
+            .filter(|s| !s.is_empty()),
+        sequential: env("CI_SEQUENTIAL", "0") == "1",
         secret: env("HL_WEBHOOK_SECRET", ""),
         token: env("HANDL_TOKEN", ""),
         repo_dir: PathBuf::from(env("CI_REPO_DIR", ".")),
