@@ -39,3 +39,8 @@ Key semantics:
 Design rule for extending: a new forge = a `Trigger`+`StatusSink`
 impl crate; a new pipeline = a `Runner` impl; a new ingress = a
 `Tunnel` impl. Core stays untouched.
+
+One **global worker** serializes runs across every repo — a second
+push queues behind the in-flight job, it does not run in parallel.
+That is deliberate (one box, bounded resource use), not a hang:
+`journalctl --user -u bupha-watch` shows the queue moves.

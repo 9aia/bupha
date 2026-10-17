@@ -147,7 +147,16 @@ pub fn unregister_webhook(
                 (u.trim_end_matches('/') == hook_url).then_some(id)
             }))
         }
-        Err(_) => None,
+        Err(e) => {
+            // Auth/scope failures shouldn't silently become "no hook"
+            // and fall through to a confusing POST error.
+            if e.to_string().contains("401")
+                || e.to_string().contains("403") {
+                return Err(std::io::Error::other(format!(
+                    "{e} — PAT needs repo + admin:repo_hook scopes")));
+            }
+            None
+        }
     };
     match existing {
         Some(id) => {
@@ -189,7 +198,16 @@ pub fn register_webhook(
                 (u.trim_end_matches('/') == hook_url).then_some(id)
             }))
         }
-        Err(_) => None,
+        Err(e) => {
+            // Auth/scope failures shouldn't silently become "no hook"
+            // and fall through to a confusing POST error.
+            if e.to_string().contains("401")
+                || e.to_string().contains("403") {
+                return Err(std::io::Error::other(format!(
+                    "{e} — PAT needs repo + admin:repo_hook scopes")));
+            }
+            None
+        }
     };
     let config = serde_json::json!({
         "url": hook_url, "content_type": "json", "secret": secret,

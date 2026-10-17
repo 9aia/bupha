@@ -21,3 +21,5 @@
       same path as the `if` — dedupe.
 - [ ] `repos.dir` relative paths — canonicalize at load so the unit
       isn't cwd-sensitive.
+- `bupha doctor --repo <path>` — also run `dagger call doctor` on the
+  consumer repo (catches pipeline-level gaps, not just box gaps)

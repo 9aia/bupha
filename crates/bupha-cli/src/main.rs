@@ -746,6 +746,13 @@ fn cmd_deploy(cfg: &Config, sub: &DeploySub, cli_config: Option<String>) {
             }
         }
         DeploySub::Service { no_start } => {
+            #[cfg(not(target_os = "linux"))]
+            {
+                eprintln!("deploy service requires systemd (Linux). \
+                    bupha supports Linux only for now — macOS/Windows \
+                    may follow.");
+                std::process::exit(1);
+            }
             let bin = std::env::current_exe().unwrap_or_else(
                 |_| PathBuf::from("bupha"));
             let cfg_path = cli_config.clone().map(PathBuf::from);
@@ -988,6 +995,10 @@ fn deploy_check(cfg: &Config) {
         let code = ureq_probe(&cfg.tunnel.public_url);
         check("endpoint reachable", code.is_some(),
             &format!("{} -> {:?}", cfg.tunnel.public_url, code), &mut fails);
+        if cfg.tunnel.public_url.contains(".trycloudflare.com") {
+            println!("  note: trycloudflare quick tunnels are flaky — \
+                prefer a named tunnel");
+        }
     }
     if fails == 0 { println!("deploy check: all green"); }
     else { println!("{fails} problem(s)"); std::process::exit(1); }
