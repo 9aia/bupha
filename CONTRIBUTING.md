@@ -24,3 +24,11 @@ is the shared pipeline module (Python SDK).
 
 Maintained with cargo-dist + release-plz; tags `v*` build binaries and
 publish to crates.io.
+
+## Docs
+
+Follow Diátaxis: `docs/tutorials/` (learn) · `docs/how-to/` (tasks) ·
+`docs/reference/` (lookup) · `docs/explanation/` (why). API reference
+is generated from doc comments with
+[cargo-rdme](https://github.com/orium/cargo-rdme): `cargo rdme` —
+keep `lib.rs` module docs accurate; they feed the generated docs.
