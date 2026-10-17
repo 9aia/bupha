@@ -2,7 +2,7 @@
 
 *The oxpecker on your repo's back.*
 
-Headless CI for people who don't want a CI server. A single binary that
+Headless CI, built for agent-driven setups. A single binary that
 watches pushes, batches them latest-wins, runs your pipeline per sha,
 and reports commit statuses — on any box with Git.
 
@@ -11,7 +11,8 @@ push ──► webhook ──► verify HMAC ──► latest-wins queue ──�
                                     (1 running + 1 pending)   (per repo)
 ```
 
-No server. No UI. No YAML DSL. Swappable everything.
+No CI server product. No UI. No YAML DSL. Swappable everything —
+and yes, it runs perfectly well *on* a server (that's the point).
 
 ## Install
 
