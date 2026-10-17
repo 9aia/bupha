@@ -33,7 +33,7 @@ run fails. Rejected.
 
 Ship `bupha migrate [--workflow .github/workflows/ci.yml]`:
 
-1. Parse `on.push.branches` → `[[repos]]` `branch`
+1. Parse `on.push.branches` → `[[repo]]` `branch`
 2. Each `run` step → a line in generated `ci.sh` (env/working-directory
    preserved)
 3. `uses:` steps → `# TODO: port <action>@<ver>` comments (checkout →

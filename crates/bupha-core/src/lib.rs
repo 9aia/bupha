@@ -19,7 +19,7 @@ pub fn is_valid_sha(sha: &str) -> bool {
 
 /// How a repo's pending work collapses: `latest` keeps one pending
 /// slot (newest wins — CI gates), `all` runs every push in order
-/// (FIFO, bounded). Per-repo via `[[repos]] queue = "..."`.
+/// (FIFO, bounded). Per-repo via `[[repo]] queue = "..."`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Default)]
 #[serde(rename_all = "lowercase")]
 pub enum QueuePolicy {
@@ -117,11 +117,10 @@ pub enum EnqueueResult {
 #[derive(Debug, Deserialize, Clone)]
 #[serde(deny_unknown_fields)]
 pub struct Config {
-    /// Legacy single-repo form; prefer [[repos]].
-    #[serde(default)]
-    pub repo: Option<RepoCfg>,
     /// Watched repos — one pending slot each, one global worker.
-    #[serde(default)]
+    /// TOML-conventional singular; `repos` kept as alias for
+    /// existing configs.
+    #[serde(rename = "repo", alias = "repos", default)]
     pub repos: Vec<RepoEntry>,
     pub trigger: TriggerCfg,
     pub runner: RunnerCfg,
@@ -132,16 +131,7 @@ pub struct Config {
     pub worktree: WorktreeCfg,
 }
 
-#[derive(Debug, Deserialize, Clone)]
-#[serde(deny_unknown_fields)]
-pub struct RepoCfg {
-    /// Clone to fetch + create detached worktrees from.
-    pub dir: PathBuf,
-    #[serde(default = "default_branch")]
-    pub branch: String,
-}
-
-/// One watched repository under [[repos]].
+/// One watched repository under [[repo]].
 #[derive(Debug, Deserialize, Clone)]
 #[serde(deny_unknown_fields)]
 pub struct RepoEntry {
@@ -155,7 +145,7 @@ pub struct RepoEntry {
     /// Status repo override (defaults to `name`).
     #[serde(default)]
     pub status_repo: Option<String>,
-    /// Per-repo runner override — a full [repos.runner] table replaces
+    /// Per-repo runner override — a full [repo.runner] table replaces
     /// the global [runner] for this repo.
     #[serde(default)]
     pub runner: Option<RunnerCfg>,
@@ -178,7 +168,7 @@ pub struct WatchedRepo {
     pub dir: PathBuf,
     pub branch: String,
     pub status_repo: String,
-    /// Global [runner] or the repo's [repos.runner] override.
+    /// Global [runner] or the repo's [repo.runner] override.
     pub runner: RunnerCfg,
     pub policy: QueuePolicy,
 }
@@ -206,21 +196,7 @@ impl Config {
                 })
             }).collect();
         }
-        if let Some(r) = &self.repo {
-            let name = if self.status.repo.is_empty() {
-                return Err("single-repo config needs status.repo".into());
-            } else {
-                self.status.repo.clone()
-            };
-            return Ok(vec![WatchedRepo {
-                name, dir: r.dir.clone(),
-                branch: r.branch.clone(),
-                status_repo: self.status.repo.clone(),
-                runner: self.runner.clone(),
-                policy: QueuePolicy::Latest,
-            }]);
-        }
-        Err("no [[repos]] entries and no [repo] configured".into())
+        Err("no [[repo]] entries configured".into())
     }
 }
 

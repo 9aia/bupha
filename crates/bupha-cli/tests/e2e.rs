@@ -77,7 +77,7 @@ kind = "log"
 provider = "none"
 [worktree]
 base = "{tmp}"
-[[repos]]
+[[repo]]
 name = "o/r"
 dir = "{repo}"
 "#, tmp = tmp.display(), repo = repo.display(), port = port);

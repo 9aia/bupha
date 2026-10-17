@@ -635,9 +635,9 @@ fn cmd_doctor(cfg: &Config) {
         &cfg.runner.token_env, &mut failures);
 
     if cfg.status.kind == "github"
-        && cfg.repos.is_empty() && cfg.repo.is_some() {
-        check("status.repo", !cfg.status.repo.is_empty(),
-            "owner/name for commit statuses", &mut failures);
+        && cfg.status.repo.is_empty() && cfg.repos.is_empty() {
+        check("status.repo", false,
+            "no [[repo]] entries configured", &mut failures);
     }
     if let Some(conf) = &cfg.runner.sccache_conf {
         check("sccache conf", Path::new(conf).exists(),

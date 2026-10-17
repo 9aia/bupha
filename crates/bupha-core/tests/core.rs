@@ -62,7 +62,7 @@ kind = "script"
 cmd = "true"
 [status]
 kind = "log"
-[[repos]]
+[[repo]]
 name = "o/r"
 dir = "/tmp/x"
 "#;
@@ -88,16 +88,18 @@ fn config_multi_repo() {
 }
 
 #[test]
-fn config_legacy_single_repo() {
+fn config_repos_alias() {
+    // old [[repos]] tables still parse (serde alias)
     let c: Config = toml::from_str(r#"
-[repo]
+[[repos]]
+name = "o/r"
 dir = "/tmp/x"
 [trigger]
 kind = "github"
 [runner]
 kind = "script"
 [status]
-repo = "o/r"
+kind = "github"
 "#).unwrap();
     assert_eq!(c.watched().unwrap()[0].name, "o/r");
 }

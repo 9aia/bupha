@@ -3,13 +3,13 @@
 
 # Watched repos — one pending slot each, one shared worker.
 # `name` must match the payload's repository.full_name.
-[[repos]]
+[[repo]]
 name = "owner/name"
 dir = "/path/to/clone"
 branch = "refs/heads/main"
 # queue = "all"                  # run every push FIFO (default: latest-wins)
 # status_repo = "owner/name"     # optional override for statuses
-# [repos.runner]                # optional per-repo runner override
+# [repo.runner]                # optional per-repo runner override
 #   kind = "script"             #   (full replacement of [runner])
 #   cmd = "./scripts/release.sh"
 
@@ -40,8 +40,8 @@ token_env = "BUPHA_TOKEN"
 
 [status]
 kind = "github"                   # impl: bupha-github | "log" | "none"
-# repo = "owner/name"             # legacy [repo] configs only; [[repos]]
-                                  # posts to status_repo (defaults to name)
+# repo = "owner/name"             # only for legacy configs;
+                                  # [[repo]] posts to status_repo (defaults to name)
 context = "ci/bupha"
 
 [tunnel]

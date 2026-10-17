@@ -19,7 +19,7 @@
       the consumer repo (pipeline gaps, not just box gaps).
 
 ## Queue / jobs
-- [ ] `[[repos.jobs]]` — multiple pipelines per repo, each with own
+- [ ] `[[repo.jobs]]` — multiple pipelines per repo, each with own
       queue policy + runner (e.g. `ci` gate + debounced `release`).
 - [ ] Remote/distributed runners — `bupha-webhook` runner +
       `bupha-http` trigger; unblocks multi-arch + release.sh's
