@@ -312,8 +312,8 @@ fn cmd_watch(cfg: Arc<Config>) {
     });
     let watched = Arc::new(watched);
 
-    let trigger: Box<dyn Trigger> = match cfg.trigger.kind.as_str() {
-        "github" => Box::new(GitHubTrigger { secret: wh_secret }),
+    let trigger: Arc<dyn Trigger> = match cfg.trigger.kind.as_str() {
+        "github" => Arc::new(GitHubTrigger { secret: wh_secret }),
         other => {
             eprintln!("unknown trigger '{other}' (github)");
             std::process::exit(2);
@@ -437,99 +437,114 @@ fn cmd_watch(cfg: Arc<Config>) {
     let server = tiny_http::Server::http(&cfg.trigger.listen).expect("failed to bind listener");
     println!("bupha watch listening on {}", cfg.trigger.listen);
 
-    for mut req in server.incoming_requests() {
-        let headers: Vec<(String, String)> = req
-            .headers()
-            .iter()
-            .map(|h| (h.field.as_str().to_string(), h.value.as_str().to_string()))
-            .collect();
-        // Only the hook path exists — everything else 404s.
-        if req.url().split('?').next() != Some("/hook") {
-            let _ =
-                req.respond(tiny_http::Response::from_string("not found").with_status_code(404));
-            continue;
-        }
+    for req in server.incoming_requests() {
+        // Per-request thread — a stalled client must not block the
+        // accept loop (slowloris). Body cap still applies inside.
+        let shared = shared.clone();
+        let cv = cv.clone();
+        let trigger = trigger.clone();
+        let sinks = Arc::clone(&sinks);
+        let child = Arc::clone(&child);
+        let store = store.clone();
+        let watched = Arc::clone(&watched);
+        std::thread::spawn(move || {
+            let mut req = req;
+            let headers: Vec<(String, String)> = req
+                .headers()
+                .iter()
+                .map(|h| (h.field.as_str().to_string(), h.value.as_str().to_string()))
+                .collect();
+            // Only the hook path exists — everything else 404s.
+            if req.url().split('?').next() != Some("/hook") {
+                let _ = req
+                    .respond(tiny_http::Response::from_string("not found").with_status_code(404));
+                return;
+            }
 
-        let mut body = Vec::new();
-        let _ = req.as_reader().take(2 * 1024 * 1024).read_to_end(&mut body);
+            let mut body = Vec::new();
+            let _ = req.as_reader().take(2 * 1024 * 1024).read_to_end(&mut body);
 
-        let is_ping = headers
-            .iter()
-            .any(|(k, v)| k.eq_ignore_ascii_case("x-github-event") && v == "ping");
-        let (code, msg) = if is_ping {
-            (200, "pong")
-        } else if !trigger.is_event(&headers) {
-            (400, "not a push event")
-        } else if !trigger.verify(&body, &headers) {
-            (401, "bad signature")
-        } else if trigger
-            .delivery_id(&headers)
-            .map(|id| !shared.lock().unwrap().seen.insert(id))
-            .unwrap_or(false)
-        {
-            // replayed signed payload: same delivery id
-            (200, "duplicate delivery")
-        } else {
-            match trigger.parse_push(&body) {
-                Some(PushOutcome::Skip) => (200, "ignored: no-op event"),
-                Some(PushOutcome::Push {
-                    repo: repo_name,
-                    git_ref,
-                    sha,
-                }) => {
-                    let repo = watched.iter().find(|r| r.name == repo_name);
-                    match repo {
-                        None => (200, "ignored: unwatched repo"),
-                        Some(r) if git_ref != r.branch => (200, "ignored: not the watched branch"),
-                        Some(r) => {
-                            // Lock: mutate queue + decide, then drop.
-                            // HTTP posts and process kills happen after.
-                            let mut old = None;
-                            let mut kill = false;
-                            let (code, msg) = {
-                                let mut g = shared.lock().unwrap();
-                                let (res, running) = {
-                                    let q = g.queues.get_mut(&repo_name).unwrap();
-                                    (q.enqueue(sha.clone()), q.running.is_some())
-                                };
-                                persist_queue(&g, &store);
-                                match res {
-                                    EnqueueResult::Duplicate => (200, "already queued"),
-                                    EnqueueResult::Queued { superseded } => {
-                                        old = superseded;
-                                        kill = r.runner.cancel_running && running;
-                                        if kill {
-                                            g.queues.get_mut(&repo_name).unwrap().cancelled = true;
+            let is_ping = headers
+                .iter()
+                .any(|(k, v)| k.eq_ignore_ascii_case("x-github-event") && v == "ping");
+            let (code, msg) = if is_ping {
+                (200, "pong")
+            } else if !trigger.is_event(&headers) {
+                (400, "not a push event")
+            } else if !trigger.verify(&body, &headers) {
+                (401, "bad signature")
+            } else if trigger
+                .delivery_id(&headers)
+                .map(|id| !shared.lock().unwrap().seen.insert(id))
+                .unwrap_or(false)
+            {
+                // replayed signed payload: same delivery id
+                (200, "duplicate delivery")
+            } else {
+                match trigger.parse_push(&body) {
+                    Some(PushOutcome::Skip) => (200, "ignored: no-op event"),
+                    Some(PushOutcome::Push {
+                        repo: repo_name,
+                        git_ref,
+                        sha,
+                    }) => {
+                        let repo = watched.iter().find(|r| r.name == repo_name);
+                        match repo {
+                            None => (200, "ignored: unwatched repo"),
+                            Some(r) if git_ref != r.branch => {
+                                (200, "ignored: not the watched branch")
+                            }
+                            Some(r) => {
+                                // Lock: mutate queue + decide, then drop.
+                                // HTTP posts and process kills happen after.
+                                let mut old = None;
+                                let mut kill = false;
+                                let (code, msg) = {
+                                    let mut g = shared.lock().unwrap();
+                                    let (res, running) = {
+                                        let q = g.queues.get_mut(&repo_name).unwrap();
+                                        (q.enqueue(sha.clone()), q.running.is_some())
+                                    };
+                                    persist_queue(&g, &store);
+                                    match res {
+                                        EnqueueResult::Duplicate => (200, "already queued"),
+                                        EnqueueResult::Queued { superseded } => {
+                                            old = superseded;
+                                            kill = r.runner.cancel_running && running;
+                                            if kill {
+                                                g.queues.get_mut(&repo_name).unwrap().cancelled =
+                                                    true;
+                                            }
+                                            (202, "queued")
                                         }
-                                        (202, "queued")
+                                    }
+                                };
+                                if let Some(old) = old {
+                                    sinks[&repo_name].post(
+                                        &old,
+                                        "error",
+                                        &format!("superseded by {}", &sha[..12.min(sha.len())]),
+                                    );
+                                    println!("superseded {repo_name} {old:.12} -> {:.12}", sha);
+                                }
+                                if kill {
+                                    if let Some(c) = child.lock().unwrap().as_mut() {
+                                        let _ = c.kill();
+                                        println!("cancelled in-flight run");
                                     }
                                 }
-                            };
-                            if let Some(old) = old {
-                                sinks[&repo_name].post(
-                                    &old,
-                                    "error",
-                                    &format!("superseded by {}", &sha[..12.min(sha.len())]),
-                                );
-                                println!("superseded {repo_name} {old:.12} -> {:.12}", sha);
-                            }
-                            if kill {
-                                if let Some(c) = child.lock().unwrap().as_mut() {
-                                    let _ = c.kill();
-                                    println!("cancelled in-flight run");
+                                if code == 202 {
+                                    cv.notify_one();
                                 }
+                                (code, msg)
                             }
-                            if code == 202 {
-                                cv.notify_one();
-                            }
-                            (code, msg)
                         }
                     }
+                    None => (400, "unparseable payload"),
                 }
-                None => (400, "unparseable payload"),
-            }
-        };
-        let _ = req.respond(tiny_http::Response::from_string(msg).with_status_code(code));
+            };
+            let _ = req.respond(tiny_http::Response::from_string(msg).with_status_code(code));
+        });
     }
 }
 

@@ -162,7 +162,7 @@ pub struct Config {
     pub worktree: WorktreeCfg,
 }
 
-/// One watched repository under [[repo]].
+/// One watched repository under `[[repo]]`.
 #[derive(Debug, Deserialize, Clone)]
 #[serde(deny_unknown_fields)]
 pub struct RepoEntry {
@@ -178,7 +178,7 @@ pub struct RepoEntry {
     #[serde(default)]
     pub status_repo: Option<String>,
     /// Per-repo runner override — a full [repo.runner] table replaces
-    /// the global [runner] for this repo.
+    /// the global `[runner]` for this repo.
     #[serde(default)]
     pub runner: Option<RunnerCfg>,
     /// Queue policy — `latest` (default) or `all` (run every push).
@@ -200,7 +200,7 @@ pub struct WatchedRepo {
     pub dir: PathBuf,
     pub branch: String,
     pub status_repo: String,
-    /// Global [runner] or the repo's [repo.runner] override.
+    /// Global `[runner]` or the repo's `[repo.runner]` override.
     pub runner: RunnerCfg,
     pub policy: QueuePolicy,
 }
@@ -316,7 +316,7 @@ impl Default for TunnelCfg {
 #[derive(Debug, Deserialize, Clone)]
 #[serde(deny_unknown_fields)]
 pub struct WorktreeCfg {
-    /// Worktree parent dir — runs land at <base>-<repo>-<sha12>.
+    /// Worktree parent dir — runs land at `<base>-<repo>-<sha12>`.
     #[serde(default = "default_wt_base")]
     pub base: String,
 }
