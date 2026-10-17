@@ -89,3 +89,54 @@ impl StatusSink for LogStatus {
         println!("[status:{}] {state} {sha:.12} {desc}", self.context);
     }
 }
+
+/// Register or update the push webhook via the REST API using the
+/// token directly (no `gh` dependency). Returns a human message.
+pub fn register_webhook(
+    token: &str, repo: &str, url: &str, secret: &str,
+) -> std::io::Result<String> {
+    let hook_url = format!("{url}/hook");
+    let list = ureq::get(&format!(
+            "https://api.github.com/repos/{repo}/hooks"))
+        .header("Authorization", &format!("Bearer {token}"))
+        .header("Accept", "application/vnd.github+json")
+        .header("User-Agent", "bupha")
+        .call();
+    let existing = match list {
+        Ok(mut r) => {
+            let v: serde_json::Value = r.body_mut().read_json()
+                .unwrap_or(serde_json::json!([]));
+            v.as_array().and_then(|a| a.iter().find_map(|h| {
+                let id = h.get("id")?.as_u64()?;
+                let u = h.pointer("/config/url")?.as_str()?;
+                u.ends_with("/hook").then_some(id)
+            }))
+        }
+        Err(_) => None,
+    };
+    let config = serde_json::json!({
+        "url": hook_url, "content_type": "json", "secret": secret,
+    });
+    if let Some(id) = existing {
+        ureq::patch(&format!(
+                "https://api.github.com/repos/{repo}/hooks/{id}"))
+            .header("Authorization", &format!("Bearer {token}"))
+            .header("Accept", "application/vnd.github+json")
+            .header("User-Agent", "bupha")
+            .send_json(serde_json::json!({
+                "config": config, "events": ["push"], "active": true}))
+            .map_err(std::io::Error::other)?;
+        Ok(format!("updated hook {id} -> {hook_url}"))
+    } else {
+        ureq::post(&format!(
+            "https://api.github.com/repos/{repo}/hooks"))
+            .header("Authorization", &format!("Bearer {token}"))
+            .header("Accept", "application/vnd.github+json")
+            .header("User-Agent", "bupha")
+            .send_json(serde_json::json!({
+                "name": "web", "config": config,
+                "events": ["push"], "active": true}))
+            .map_err(std::io::Error::other)?;
+        Ok(format!("created hook -> {hook_url}"))
+    }
+}

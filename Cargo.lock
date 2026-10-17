@@ -125,8 +125,6 @@ name = "bupha-deploy"
 version = "0.1.0"
 dependencies = [
  "bupha-core",
- "serde_json",
- "ureq",
 ]
 
 [[package]]

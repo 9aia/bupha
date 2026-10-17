@@ -13,7 +13,9 @@ fn home() -> PathBuf {
 
 /// Render the user unit. `unit` is a systemd user service running
 /// `bupha watch`; the watcher spawns the configured tunnel itself.
-pub fn write_service_unit(bin: &Path, env_file: &Path) -> io::Result<PathBuf> {
+pub fn write_service_unit(
+    bin: &Path, env_file: &Path, config: Option<&Path>,
+) -> io::Result<PathBuf> {
     let dir = home().join(".config/systemd/user");
     std::fs::create_dir_all(&dir)?;
     let path = dir.join("bupha-watch.service");
@@ -25,13 +27,15 @@ Wants=network-online.target
 
 [Service]
 EnvironmentFile={}
-ExecStart={} watch
+ExecStart={} watch{}
 Restart=always
 RestartSec=5
 
 [Install]
 WantedBy=default.target
-", env_file.display(), bin.display()))?;
+", env_file.display(), bin.display(),
+    config.map(|c| format!(" --config {}", c.display()))
+        .unwrap_or_default()))?;
     Ok(path)
 }
 
@@ -40,36 +44,6 @@ WantedBy=default.target
 pub fn enable_service(unit: &str) -> io::Result<()> {
     run("systemctl", &["--user", "daemon-reload"])?;
     run("systemctl", &["--user", "enable", "--now", unit])
-}
-
-/// Register (or update) the repo's push webhook through `gh`.
-/// Idempotent: a hook ending in /hook gets patched, not duplicated.
-pub fn register_webhook(repo: &str, url: &str, secret: &str) -> io::Result<String> {
-    let hook_url = format!("{url}/hook");
-    let existing = Command::new("gh")
-        .args(["api", &format!("repos/{repo}/hooks"),
-               "--jq", ".[] | select(.config.url | endswith(\"/hook\")) | .id"])
-        .output()
-        .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())
-        .unwrap_or_default();
-    let first_id = existing.lines().next().unwrap_or("").to_string();
-    if first_id.is_empty() {
-        run("gh", &["api", &format!("repos/{repo}/hooks"), "-X", "POST",
-                    "-f", "name=web", "-F", "active=true",
-                    "-f", "events[]=push",
-                    "-f", &format!("config[url]={hook_url}"),
-                    "-f", &format!("config[secret]={secret}"),
-                    "-f", "config[content_type]=json"])?;
-        Ok(format!("created hook -> {hook_url}"))
-    } else {
-        run("gh", &["api", &format!("repos/{repo}/hooks/{first_id}"),
-                    "-X", "PATCH",
-                    "-f", &format!("config[url]={hook_url}"),
-                    "-f", &format!("config[secret]={secret}"),
-                    "-f", "config[content_type]=json",
-                    "-f", "events[]=push", "-F", "active=true"])?;
-        Ok(format!("updated hook {first_id} -> {hook_url}"))
-    }
 }
 
 /// Seed ~/.config/bupha/env with the secret names (empty values —

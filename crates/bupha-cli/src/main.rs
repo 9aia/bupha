@@ -12,6 +12,7 @@ use bupha_script::ScriptRunner;
 use bupha_tunnel::Tunnel;
 use bupha_cloudflared::CloudflaredTunnel;
 use bupha_deploy as deploy;
+use std::io::Read;
 use clap::{Parser, Subcommand};
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command};
@@ -68,6 +69,22 @@ enum DeploySub {
     Env,
 }
 
+fn build_runner(cfg: &Config) -> Arc<dyn Runner> {
+    match cfg.runner.kind.as_str() {
+        "dagger" => {
+            let cli = cfg.repo.dir.join("../cli");
+            let cli_src = cli.join("crates/host-cli").exists()
+                .then(|| cli.to_string_lossy().to_string());
+            Arc::new(DaggerRunner::new(cfg.runner.clone(), cli_src))
+        }
+        "script" => Arc::new(ScriptRunner::new(cfg.runner.clone())),
+        other => {
+            eprintln!("unknown runner kind '{other}' (dagger|script)");
+            std::process::exit(2);
+        }
+    }
+}
+
 fn git(repo: &Path, args: &[&str]) -> bool {
     Command::new("git")
         .arg("-C").arg(repo).args(args)
@@ -89,10 +106,13 @@ fn run_job(
     let _ = std::fs::remove_dir_all(&wt);
     git(&cfg.repo.dir, &["worktree", "prune"]);
     // The pushed sha usually isn't in the local clone yet.
-    git(&cfg.repo.dir, &["fetch", "--all", "--prune"]);
+    if !git(&cfg.repo.dir, &["cat-file", "-e", sha]) {
+        git(&cfg.repo.dir, &["fetch", "origin", "--prune"]);
+    }
     if !git(&cfg.repo.dir,
             &["worktree", "add", "--detach", wt.to_str().unwrap(), sha]) {
         eprintln!("worktree add failed for {sha}");
+        sink.post(sha, "error", "ci infra: worktree failed");
         return false;
     }
     sink.post(sha, "pending", "ci running");
@@ -145,7 +165,10 @@ fn cmd_watch(cfg: Arc<Config>) {
 
     let trigger: Box<dyn Trigger> = match cfg.trigger.kind.as_str() {
         "github" => Box::new(GitHubTrigger { secret }),
-        other => panic!("unknown trigger '{other}' (github)"),
+        other => {
+            eprintln!("unknown trigger '{other}' (github)");
+            std::process::exit(2);
+        }
     };
     let sink: Arc<dyn StatusSink> = match cfg.status.kind.as_str() {
         "github" => Arc::new(GitHubStatus {
@@ -156,28 +179,29 @@ fn cmd_watch(cfg: Arc<Config>) {
         _ => Arc::new(LogStatus { context: cfg.status.context.clone() }),
     };
 
-    let runner: Arc<dyn Runner> = match cfg.runner.kind.as_str() {
-        "dagger" => {
-            let cli = cfg.repo.dir.join("../cli");
-            let cli_src = cli.join("crates/host-cli").exists()
-                .then(|| cli.to_string_lossy().to_string());
-            Arc::new(DaggerRunner::new(cfg.runner.clone(), cli_src))
-        }
-        "script" => Arc::new(ScriptRunner::new(cfg.runner.clone())),
-        other => panic!("unknown runner kind '{other}' (dagger|script)"),
-    };
+    let runner = build_runner(&cfg);
 
     // Optional tunnel — the watcher stays decoupled from ingress.
     let tunnel: Option<Box<dyn Tunnel>> = match cfg.tunnel.provider.as_str() {
         "cloudflared" => Some(Box::new(CloudflaredTunnel::new(cfg.tunnel.clone()))),
         "none" | "direct" => None,
-        other => panic!("unknown tunnel provider '{other}'"),
-    };
-    if let Some(t) = &tunnel {
-        match t.spawn() {
-            Ok(_) => println!("tunnel {} started", t.name()),
-            Err(e) => eprintln!("tunnel {} failed to spawn: {e}", t.name()),
+        other => {
+            eprintln!("unknown tunnel provider '{other}'");
+            std::process::exit(2);
         }
+    };
+    if let Some(t) = tunnel {
+        std::thread::spawn(move || loop {
+            match t.spawn() {
+                Ok(Some(mut c)) => {
+                    println!("tunnel {} started", t.name());
+                    let _ = c.wait();            // reap, then restart
+                    eprintln!("tunnel {} exited — restarting in 5s", t.name());
+                }
+                Ok(None) | Err(_) => break,    // no-op provider or spawn fail
+            }
+            std::thread::sleep(std::time::Duration::from_secs(5));
+        });
     }
 
     let pair = Arc::new((Mutex::new(Queue::default()), Condvar::new()));
@@ -219,9 +243,15 @@ fn cmd_watch(cfg: Arc<Config>) {
                       h.value.as_str().to_string()))
             .collect();
         let mut body = Vec::new();
-        let _ = req.as_reader().read_to_end(&mut body);
+        let _ = req.as_reader().take(2 * 1024 * 1024)
+            .read_to_end(&mut body);
 
-        let (code, msg) = if !trigger.is_event(&headers) {
+        let is_ping = headers.iter().any(|(k, v)| {
+            k.eq_ignore_ascii_case("x-github-event") && v == "ping"
+        });
+        let (code, msg) = if is_ping {
+            (200, "pong")
+        } else if !trigger.is_event(&headers) {
             (400, "not a push event")
         } else if !trigger.verify(&body, &headers) {
             (401, "bad signature")
@@ -373,16 +403,7 @@ fn cmd_run(cfg: &Config, function: Option<String>) {
     if let Some(f) = function {
         cfg.runner.function = f;
     }
-    let runner: Arc<dyn Runner> = match cfg.runner.kind.as_str() {
-        "dagger" => {
-            let cli = cfg.repo.dir.join("../cli");
-            let cli_src = cli.join("crates/host-cli").exists()
-                .then(|| cli.to_string_lossy().to_string());
-            Arc::new(DaggerRunner::new(cfg.runner.clone(), cli_src))
-        }
-        "script" => Arc::new(ScriptRunner::new(cfg.runner.clone())),
-        other => panic!("unknown runner kind '{other}'"),
-    };
+    let runner = build_runner(&cfg);
     let ctx = RunCtx {
         workdir: &cfg.repo.dir,
         token_env: &cfg.runner.token_env,
@@ -414,14 +435,14 @@ fn main() {
                 Cmd::Watch => cmd_watch(cfg),
                 Cmd::Doctor => cmd_doctor(&cfg),
                 Cmd::Run { function } => cmd_run(&cfg, function.clone()),
-                Cmd::Deploy { sub } => cmd_deploy(&cfg, sub),
+                Cmd::Deploy { sub } => cmd_deploy(&cfg, sub, cli.config.clone()),
                 Cmd::Init { .. } => unreachable!(),
             }
         }
     }
 }
 
-fn cmd_deploy(cfg: &Config, sub: &DeploySub) {
+fn cmd_deploy(cfg: &Config, sub: &DeploySub, cli_config: Option<String>) {
     let home = std::env::var("HOME").map(PathBuf::from)
         .unwrap_or_else(|_| ".".into());
     let cfg_dir = home.join(".config/bupha");
@@ -435,7 +456,9 @@ fn cmd_deploy(cfg: &Config, sub: &DeploySub) {
         DeploySub::Service { no_start } => {
             let bin = std::env::current_exe().unwrap_or_else(
                 |_| PathBuf::from("bupha"));
-            match deploy::write_service_unit(&bin, &cfg_dir.join("env")) {
+            let cfg_path = cli_config.clone().map(PathBuf::from);
+            match deploy::write_service_unit(
+                &bin, &cfg_dir.join("env"), cfg_path.as_deref()) {
                 Ok(p) => println!("unit: {}", p.display()),
                 Err(e) => { eprintln!("unit: {e}"); std::process::exit(1); }
             }
@@ -444,7 +467,7 @@ fn cmd_deploy(cfg: &Config, sub: &DeploySub) {
                     eprintln!("enable: {e}");
                     std::process::exit(1);
                 }
-                println!("bupha-watch enabled — 'loginctl enable-linger'                           once for boot persistence");
+                println!("bupha-watch enabled — run 'loginctl enable-linger' once for boot persistence");
             }
         }
         DeploySub::Webhook => {
@@ -462,7 +485,10 @@ fn cmd_deploy(cfg: &Config, sub: &DeploySub) {
                 eprintln!("status.repo not set — needed for hook target");
                 std::process::exit(1);
             }
-            match deploy::register_webhook(&cfg.status.repo, &url, &secret) {
+            let token = std::env::var(&cfg.runner.token_env)
+                .unwrap_or_default();
+            match bupha_github::register_webhook(
+                &token, &cfg.status.repo, &url, &secret) {
                 Ok(msg) => println!("{msg}"),
                 Err(e) => { eprintln!("webhook: {e}"); std::process::exit(1); }
             }
