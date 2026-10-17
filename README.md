@@ -3,7 +3,8 @@
 *The oxpecker on your repo's back.*
 
 Headless CI, built for agent-driven setups. A single binary that
-watches pushes, batches them latest-wins, runs your pipeline per sha,
+watches pushes, queues them (latest-wins or bounded FIFO), runs your
+pipeline per sha,
 and reports commit statuses — on a Linux box with Git.
 
 ```
