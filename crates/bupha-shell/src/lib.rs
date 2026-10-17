@@ -7,17 +7,17 @@ use bupha_runner::{RunCtx, Runner};
 use std::io;
 use std::process::{Child, Command};
 
-pub struct ScriptRunner {
+pub struct ShellRunner {
     cfg: RunnerCfg,
 }
 
-impl ScriptRunner {
+impl ShellRunner {
     pub fn new(cfg: RunnerCfg) -> Self {
         Self { cfg }
     }
 }
 
-impl Runner for ScriptRunner {
+impl Runner for ShellRunner {
     fn name(&self) -> &'static str {
         "script"
     }

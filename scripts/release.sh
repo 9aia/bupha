@@ -20,8 +20,8 @@ touched=""
 for c in bupha-core bupha-runner bupha-tunnel bupha-trigger bupha-status \
          bupha-vcs bupha-queue bupha-service bupha-secret \
          bupha-git bupha-queue-json bupha-keyring bupha-dotenv \
-         bupha-dagger bupha-script bupha-github bupha-cloudflared \
-         bupha-deploy bupha-cli; do
+         bupha-dagger bupha-shell bupha-github bupha-cloudflared \
+         bupha-systemd bupha-cli; do
     grep -q "^crates/$c/" <<<"$changed" && touched="$touched $c"
 done
 # the bin re-publishes whenever any crate changed
@@ -30,9 +30,9 @@ if [ -z "$touched" ]; then echo "no crate changes since $last"; exit 0; fi
 
 order="bupha-core bupha-trigger bupha-status bupha-runner \
 bupha-tunnel bupha-vcs bupha-queue bupha-service bupha-secret \
-bupha-dagger bupha-script bupha-github bupha-cloudflared \
+bupha-dagger bupha-shell bupha-github bupha-cloudflared \
 bupha-git bupha-queue-json bupha-keyring bupha-dotenv \
-bupha-deploy bupha"
+bupha-systemd bupha"
 published=""
 for c in $order; do
     p="${c}"; [ "$c" = bupha ] && p="bupha"   # cli package name

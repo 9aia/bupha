@@ -2,7 +2,7 @@
 resolver = "2"
 members = [
     "crates/bupha-cli",
-    "crates/bupha-deploy",
+    "crates/bupha-systemd",
     "crates/bupha-core",
     "crates/bupha-trigger",
     "crates/bupha-vcs",
@@ -17,7 +17,7 @@ members = [
     "crates/bupha-github",
     "crates/bupha-runner",
     "crates/bupha-dagger",
-    "crates/bupha-script",
+    "crates/bupha-shell",
     "crates/bupha-tunnel",
     "crates/bupha-cloudflared",
 ]
@@ -50,7 +50,7 @@ bupha-status = { path = "crates/bupha-status", version = "0.1.0" }
 bupha-runner = { path = "crates/bupha-runner", version = "0.1.0" }
 bupha-tunnel = { path = "crates/bupha-tunnel", version = "0.1.0" }
 bupha-dagger = { path = "crates/bupha-dagger", version = "0.1.0" }
-bupha-script = { path = "crates/bupha-script", version = "0.1.0" }
+bupha-shell = { path = "crates/bupha-shell", version = "0.1.0" }
 bupha-github = { path = "crates/bupha-github", version = "0.1.0" }
 bupha-cloudflared = { path = "crates/bupha-cloudflared", version = "0.1.0" }
-bupha-deploy = { path = "crates/bupha-deploy", version = "0.1.0" }
+bupha-systemd = { path = "crates/bupha-systemd", version = "0.1.0" }

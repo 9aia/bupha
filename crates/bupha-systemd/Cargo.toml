@@ -1,6 +1,6 @@
 [package]
-name = "bupha-deploy"
-description = "Deployment helpers: systemd units, webhook registration, env skeleton"
+name = "bupha-systemd"
+description = "Service impl: systemd user units"
 version.workspace = true
 edition.workspace = true
 license.workspace = true

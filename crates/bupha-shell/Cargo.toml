@@ -1,6 +1,6 @@
 [package]
-name = "bupha-script"
-description = "Runner impl: any shell command per job — no dagger, no docker"
+name = "bupha-shell"
+description = "Runner impl: bash -c <cmd> per job — no containers"
 version.workspace = true
 edition.workspace = true
 license.workspace = true

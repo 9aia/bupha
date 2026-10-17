@@ -10,10 +10,10 @@ use bupha_status::StatusSink;
 use bupha_trigger::{PushOutcome, Trigger};
 use bupha_runner::{RunCtx, Runner};
 use bupha_dagger::DaggerRunner;
-use bupha_script::ScriptRunner;
+use bupha_shell::ShellRunner;
 use bupha_tunnel::Tunnel;
 use bupha_cloudflared::CloudflaredTunnel;
-use bupha_deploy as deploy;
+use bupha_systemd as deploy;
 use bupha_git::GitVcs;
 use bupha_vcs::Vcs;
 use bupha_queue::{PersistedQueue, QueueStore};
@@ -113,7 +113,7 @@ fn build_runner(rc: &bupha_core::RunnerCfg) -> Arc<dyn Runner> {
     match rc.kind.as_str() {
         "dagger" => Arc::new(DaggerRunner::new(
             rc.clone(), rc.cli_source.clone())),
-        "script" => Arc::new(ScriptRunner::new(rc.clone())),
+        "shell" | "script" => Arc::new(ShellRunner::new(rc.clone())),
         other => {
             eprintln!("unknown runner kind '{other}' (dagger|script)");
             std::process::exit(2);
@@ -821,7 +821,7 @@ fn cmd_deploy_release(dry_run: bool) {
                 .map(|n| (a.clone(), n.to_string())))
             .collect::<Vec<_>>()
     }).collect();
-    let order = deploy::publish_order(&members, &deps)
+    let order = bupha_core::publish_order(&members, &deps)
         .unwrap_or_else(|e| { eprintln!("{e}"); std::process::exit(1) });
     let versions: std::collections::HashSet<String> = pkgs.iter()
         .filter_map(|p| p["version"].as_str().map(String::from))

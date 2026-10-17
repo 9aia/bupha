@@ -25,7 +25,7 @@ push ──► webhook ──► HMAC ──► dedup ──► queue ──► 
 - self-contained deploy: systemd unit, webhook registration, env seed,
   endpoint check
 - sccache-compatible artifact cache (garage/minio/R2/S3)
-- Docker/dagger optional — `runner.kind = "script"` needs only git
+- Docker/dagger optional — `runner.kind = "shell"` needs only git
 
 ## vs GitHub Actions
 
@@ -43,7 +43,7 @@ push ──► webhook ──► HMAC ──► dedup ──► queue ──► 
 ## Install
 
 Platform: **Linux + systemd** — `deploy service` needs systemd, the
-script runner needs bash. macOS/Windows are unsupported for now.
+shell runner needs bash. macOS/Windows are unsupported for now.
 
 ```sh
 cargo install bupha                              # crates.io (post-0.1.0)

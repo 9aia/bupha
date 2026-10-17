@@ -86,7 +86,6 @@ dependencies = [
  "bupha-cloudflared",
  "bupha-core",
  "bupha-dagger",
- "bupha-deploy",
  "bupha-dotenv",
  "bupha-git",
  "bupha-github",
@@ -94,10 +93,11 @@ dependencies = [
  "bupha-queue",
  "bupha-queue-json",
  "bupha-runner",
- "bupha-script",
  "bupha-secret",
  "bupha-service",
+ "bupha-shell",
  "bupha-status",
+ "bupha-systemd",
  "bupha-trigger",
  "bupha-tunnel",
  "bupha-vcs",
@@ -135,14 +135,6 @@ version = "0.1.0"
 dependencies = [
  "bupha-core",
  "bupha-runner",
-]
-
-[[package]]
-name = "bupha-deploy"
-version = "0.1.0"
-dependencies = [
- "bupha-core",
- "bupha-service",
 ]
 
 [[package]]
@@ -198,14 +190,6 @@ name = "bupha-runner"
 version = "0.1.0"
 
 [[package]]
-name = "bupha-script"
-version = "0.1.0"
-dependencies = [
- "bupha-core",
- "bupha-runner",
-]
-
-[[package]]
 name = "bupha-secret"
 version = "0.1.0"
 
@@ -214,8 +198,24 @@ name = "bupha-service"
 version = "0.1.0"
 
 [[package]]
+name = "bupha-shell"
+version = "0.1.0"
+dependencies = [
+ "bupha-core",
+ "bupha-runner",
+]
+
+[[package]]
 name = "bupha-status"
 version = "0.1.0"
+
+[[package]]
+name = "bupha-systemd"
+version = "0.1.0"
+dependencies = [
+ "bupha-core",
+ "bupha-service",
+]
 
 [[package]]
 name = "bupha-trigger"

@@ -10,7 +10,7 @@ branch = "refs/heads/main"
 # queue = "all"                  # run every push FIFO (default: latest-wins)
 # status_repo = "owner/name"     # optional override for statuses
 # [repo.runner]                # optional per-repo runner override
-#   kind = "script"             #   (full replacement of [runner])
+#   kind = "shell"             #   (full replacement of [runner])
 #   cmd = "./scripts/release.sh"
 
 [trigger]
@@ -20,8 +20,8 @@ secret_env = "BUPHA_WEBHOOK_SECRET"
 
 [runner]
 kind = "dagger"                   # impl: bupha-runner-dagger
-# kind = "script"                 # impl: bupha-runner-script (no containers)
-# cmd = "./ci.sh"                 # script runner only
+# kind = "shell"                 # impl: bupha-runner-script (no containers)
+# cmd = "./ci.sh"                 # shell runner only
 function = "ci"
 shards = "1"
 jobs = "2"

@@ -78,39 +78,6 @@ pub fn disable_service(unit: &str) -> io::Result<PathBuf> {
     Ok(path)
 }
 
-/// Publish order for workspace members: members sorted so every
-/// member's path-deps on other members come first. Returns an error
-/// name on a dependency cycle.
-pub fn publish_order(members: &[String], deps: &[(String, String)])
-        -> Result<Vec<String>, String> {
-    let member_set: std::collections::HashSet<&str> =
-        members.iter().map(String::as_str).collect();
-    let mut done: std::collections::HashSet<String> =
-        Default::default();
-    let mut out = Vec::with_capacity(members.len());
-    while out.len() < members.len() {
-        let mut progressed = false;
-        for m in members {
-            if done.contains(m) {
-                continue;
-            }
-            let ready = deps.iter()
-                .filter(|(a, _)| a == m)
-                .all(|(_, d)| !member_set.contains(d.as_str())
-                    || done.contains(d));
-            if ready {
-                done.insert(m.clone());
-                out.push(m.clone());
-                progressed = true;
-            }
-        }
-        if !progressed {
-            return Err("dependency cycle in workspace".into());
-        }
-    }
-    Ok(out)
-}
-
 fn run(bin: &str, args: &[&str]) -> io::Result<()> {
     let st = Command::new(bin).args(args).status()?;
     if st.success() {
@@ -120,33 +87,6 @@ fn run(bin: &str, args: &[&str]) -> io::Result<()> {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::publish_order;
-
-    #[test]
-    fn order_respects_path_deps() {
-        let members = vec!["bupha".into(), "bupha-core".into(),
-                           "bupha-github".into()];
-        let deps = vec![
-            ("bupha".into(), "bupha-github".into()),
-            ("bupha".into(), "bupha-core".into()),
-            ("bupha-github".into(), "bupha-core".into()),
-        ];
-        let order = publish_order(&members, &deps).unwrap();
-        let pos = |n: &str| order.iter().position(|x| x == n).unwrap();
-        assert!(pos("bupha-core") < pos("bupha-github"));
-        assert!(pos("bupha-github") < pos("bupha"));
-    }
-
-    #[test]
-    fn cycle_errors() {
-        let members = vec!["a".into(), "b".into()];
-        let deps = vec![("a".into(), "b".into()),
-                        ("b".into(), "a".into())];
-        assert!(publish_order(&members, &deps).is_err());
-    }
-}
 
 
 /// systemd impl of the `Service` port.
