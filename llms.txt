@@ -16,8 +16,8 @@
 
 ### Reference
 
-- [CLI reference](/bupha/reference/cli.md)
-- [bupha.toml reference](/bupha/reference/config.md)
+- [Command-Line Help for `bupha`](/bupha/reference/cli.md)
+- [Config reference](/bupha/reference/config.md)
 - [Releasing](/bupha/reference/releasing.md)
 
 ### Explanation

@@ -133,64 +133,239 @@ region, new creds. No code changes; that's the point of the env file.
 ---
 url: /bupha/reference/cli.md
 ---
-# CLI reference
+# Command-Line Help for `bupha`
 
-`bupha [--config PATH] <command>` — config search: flag →
-`$BUPHA_CONFIG` → `./bupha.toml` → `~/.config/bupha/bupha.toml`.
+This document contains the help content for the `bupha` command-line program.
 
-## Runtime
+**Command Overview:**
 
-* `watch` — daemon: webhook → queue → worktree → runner → status.
-  Needs `secret_env` + `token_env` set (the unit loads
-  `~/.config/bupha/env`).
-* `init [dir]` — `dagger init` + install the shared module (pinned
-  sha) + write a `dag.bupha()` delegate with repo name and
-  `patch_host` filled from `git remote`.
-* `run [fn]` — run the pipeline locally in the configured repo dir.
-* `doctor` — check what the loaded config needs on this box
-  (git, repos, runner deps, secrets, tunnel, disk).
+* [`bupha`↴](#bupha)
+* [`bupha watch`↴](#bupha-watch)
+* [`bupha init`↴](#bupha-init)
+* [`bupha doctor`↴](#bupha-doctor)
+* [`bupha run`↴](#bupha-run)
+* [`bupha deploy`↴](#bupha-deploy)
+* [`bupha deploy service`↴](#bupha-deploy-service)
+* [`bupha deploy webhook`↴](#bupha-deploy-webhook)
+* [`bupha deploy env`↴](#bupha-deploy-env)
+* [`bupha deploy check`↴](#bupha-deploy-check)
+* [`bupha deploy release`↴](#bupha-deploy-release)
+* [`bupha destroy`↴](#bupha-destroy)
+* [`bupha destroy service`↴](#bupha-destroy-service)
+* [`bupha destroy webhook`↴](#bupha-destroy-webhook)
+* [`bupha destroy worktrees`↴](#bupha-destroy-worktrees)
 
-## Lifecycle
+## `bupha`
 
-* `deploy service [--no-start]` — write + enable `bupha-watch.service`
-  (`loginctl enable-linger` once for boot persistence).
-* `deploy webhook` — register `<public_url>/hook` on every watched
-  repo (exact-URL takeover only).
-* `deploy env` — seed `~/.config/bupha/env` (never overwrites).
-* `deploy check` — verify unit, secrets, endpoint, token.
-* `deploy release [--dry-run]` — one-time seed: `cargo publish` in
-  dep order + tag `{repo}-v{ver}` + push. Needs
-  `CARGO_REGISTRY_TOKEN`.
-* `destroy service|webhook|worktrees` — teardown counterparts.
+the oxpecker on your repo's back — headless CI
+
+**Usage:** `bupha [OPTIONS] <COMMAND>`
+
+###### **Subcommands:**
+
+* `watch` — Serve the webhook → queue → runner loop
+* `init` — Scaffold CI in a repo (dagger module install or script skeleton)
+* `doctor` — Check what the loaded config actually needs on this box
+* `run` — Run the pipeline locally (the runner's invocation, current dir)
+* `deploy` — Install-time helpers — no files to copy by hand
+* `destroy` — Teardown counterparts of `deploy`
+
+###### **Options:**
+
+* `--config <CONFIG>` — Path to bupha.toml (default: ./bupha.toml or ~/.config/bupha/)
+
+## `bupha watch`
+
+Serve the webhook → queue → runner loop
+
+**Usage:** `bupha watch`
+
+## `bupha init`
+
+Scaffold CI in a repo (dagger module install or script skeleton)
+
+**Usage:** `bupha init [DIR]`
+
+###### **Arguments:**
+
+* `<DIR>` — Repo dir to initialize (default: cwd)
+
+  Default value: `.`
+
+## `bupha doctor`
+
+Check what the loaded config actually needs on this box
+
+**Usage:** `bupha doctor`
+
+## `bupha run`
+
+Run the pipeline locally (the runner's invocation, current dir)
+
+**Usage:** `bupha run [FUNCTION]`
+
+###### **Arguments:**
+
+* `<FUNCTION>` — Function for the dagger runner (default: from config)
+
+## `bupha deploy`
+
+Install-time helpers — no files to copy by hand
+
+**Usage:** `bupha deploy <COMMAND>`
+
+###### **Subcommands:**
+
+* `service` — Write + enable the systemd user unit (needs enable-linger for boot persistence)
+* `webhook` — Register/update the repo's push webhook via `gh api`
+* `env` — Seed ~/.config/bupha/env with the secret names
+* `check` — Verify the whole install: unit, secrets, hook, endpoint, token
+* `release` — One-time seed: cargo publish in dep order + tag {repo}-v{ver}. Explicit — publishing is the irreversible step in the flow
+
+## `bupha deploy service`
+
+Write + enable the systemd user unit (needs enable-linger for boot persistence)
+
+**Usage:** `bupha deploy service [OPTIONS]`
+
+###### **Options:**
+
+* `--no-start` — Skip enable --now (write the file only)
+
+## `bupha deploy webhook`
+
+Register/update the repo's push webhook via `gh api`
+
+**Usage:** `bupha deploy webhook`
+
+## `bupha deploy env`
+
+Seed ~/.config/bupha/env with the secret names
+
+**Usage:** `bupha deploy env`
+
+## `bupha deploy check`
+
+Verify the whole install: unit, secrets, hook, endpoint, token
+
+**Usage:** `bupha deploy check`
+
+## `bupha deploy release`
+
+One-time seed: cargo publish in dep order + tag {repo}-v{ver}. Explicit — publishing is the irreversible step in the flow
+
+**Usage:** `bupha deploy release [OPTIONS]`
+
+###### **Options:**
+
+* `--dry-run` — Print the publish order and tag without doing anything
+
+## `bupha destroy`
+
+Teardown counterparts of `deploy`
+
+**Usage:** `bupha destroy <COMMAND>`
+
+###### **Subcommands:**
+
+* `service` — Disable + remove the systemd user unit
+* `webhook` — Delete the repo's webhook whose URL matches tunnel.public_url
+* `worktrees` — Remove detached worktrees and the persisted queue file
+
+## `bupha destroy service`
+
+Disable + remove the systemd user unit
+
+**Usage:** `bupha destroy service`
+
+## `bupha destroy webhook`
+
+Delete the repo's webhook whose URL matches tunnel.public_url
+
+**Usage:** `bupha destroy webhook`
+
+## `bupha destroy worktrees`
+
+Remove detached worktrees and the persisted queue file
+
+**Usage:** `bupha destroy worktrees`
+
+&#xA;This document was generated automatically by
+clap-markdown.&#xA;
 
 ---
 
 ---
 url: /bupha/reference/config.md
 ---
-# bupha.toml reference
+# Config reference
 
-Tables: `[[repos]]` (name, dir, branch, status_repo?, queue?) ·
-`[trigger]` (kind, listen, secret_env) · `[runner]` (kind, function,
-shards, jobs, dogfood_jobs, sequential, cancel_running, sccache_conf,
-cmd, token_env, extra_args, cli_source) · `[status]` (kind, repo,
-context) · `[tunnel]` (provider, name, local_url, public_url) ·
-`[worktree]` (base).
+`bupha.toml`. Secrets are never values here — only env-var
+*names* (`secret_env`, `token_env`, `sccache_conf`).
 
-Unknown fields error loudly (`deny_unknown_fields`). Secrets are env
-vars named by `secret_env`/`token_env` — never written to the file.
+## Top level
 
-Constraints the loader enforces:
+| field | type | required | notes |
+|---|---|---|---|
+| `repo` | `RepoCfg` | optional | Legacy single-repo form; prefer \[\[repos]]. |
+| `repos` | `Vec<RepoEntry>` | required | Watched repos — one pending slot each, one global worker. |
 
-* `queue = "all"` on a `[[repos]]` entry rejects
-  `runner.cancel_running` — `all` promises every push runs; killing the
-  in-flight job would silently drop a sha that was never superseded.
-* With the `dagger` runner, the emitted `dagger call` args are
-  `--shards --jobs --token` plus `dogfood_jobs`/`sequential`/
-  `sccache_conf`/`extra_args` only when set — the module function's
-  signature must declare everything the runner sends.
-* The webhook `after` sha must be hex (7–64 chars); anything else gets
-  a 400, and branch deletions (`after = 000…`) are ignored cleanly.
+## `[[repos]]`
+
+| field | type | required | notes |
+|---|---|---|---|
+| `name` | `string` | required | repository.full_name in the webhook payload ("owner/name") — also the status target repo. |
+| `dir` | `path` | required | Clone to fetch + create detached worktrees from. |
+| `status_repo` | `string` | optional | Status repo override (defaults to `name`). |
+| `runner` | `RunnerCfg` | optional | Per-repo runner override — a full \[repos.runner] table replaces the global \[runner] for this repo. |
+| `queue` | `"latest" | "all"` | required | Queue policy — `latest` (default) or `all` (run every push). |
+
+## `[trigger]`
+
+| field | type | required | notes |
+|---|---|---|---|
+| `kind` | `string` | required | "github" today; other forges = new impl crates. |
+| `secret_env` | `string` | required | Env var holding the webhook secret. |
+
+## `[runner]`
+
+| field | type | required | notes |
+|---|---|---|---|
+| `kind` | `string` | required | "dagger" | "script" | … — resolved to an impl crate. |
+| `function` | `string` | required | dagger runner: function to call. |
+| `sccache_conf` | `string` | optional | Optional env-file (KEY=VAL) mounted as the sccache secret. |
+| `cmd` | `string` | optional | script runner: command run in the worktree. |
+| `token_env` | `string` | required | Env var naming the token passed to the runner + status sink. |
+| `extra_args` | `list` | required | dagger runner: extra args appended verbatim (e.g. --cli-source). |
+| `cli_source` | `string` | optional | dagger runner: `--cli-source <dir>` for repos whose pipeline builds against a sibling checkout. |
+
+## `[status]`
+
+| field | type | required | notes |
+|---|---|---|---|
+| `kind` | `string` | required | "github" | "log" (stdout only) | "none". |
+| `repo` | `string` | required | owner/repo for the commit-status API. |
+
+## `[tunnel]`
+
+| field | type | required | notes |
+|---|---|---|---|
+| `provider` | `string` | required | "none" | "cloudflared" | "direct". |
+| `name` | `string` | required | Named tunnel (stable URL); empty = quick tunnel. |
+| `public_url` | `string` | required | provider=direct: the external URL GitHub should hit. |
+
+## `[worktree]`
+
+| field | type | required | notes |
+|---|---|---|---|
+
+## Constraints
+
+* `queue = "all"` rejects `cancel_running = true` at load —
+  killing a run would silently drop a promised commit.
+* `runner.kind` and `trigger.kind`/`status.kind` resolve to impl
+  crates; unknown kinds fail at `bupha doctor`/startup.
+* `deny_unknown_fields`: typos in field names fail the load.
 
 ---
 
