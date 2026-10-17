@@ -33,7 +33,7 @@ export default defineConfig({
         text: 'How-to',
         items: [
           { text: 'Multi-repo', link: '/how-to/multi-repo' },
-          { text: 'Script runner', link: '/how-to/script-runner' },
+          { text: 'Shell runner', link: '/how-to/shell-runner' },
           { text: 'sccache backend', link: '/how-to/sccache-backend' },
         ],
       },

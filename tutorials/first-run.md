@@ -2,7 +2,7 @@
 
 Goal: push-triggered CI on a repo, end to end, in ~10 minutes.
 
-Prereqs: **Linux + systemd** (script runner needs bash; macOS/Windows
+Prereqs: **Linux + systemd** (shell runner needs bash; macOS/Windows
 unsupported for now); git;
 `cargo install bupha` (until 0.1.0 lands on crates.io:
 `cargo install --git https://github.com/9aia/bupha`); docker only
@@ -13,7 +13,7 @@ or a direct box; quick tunnels are convenient but flaky.
 1. `cd your-repo && bupha init` — scaffolds the dagger module +
    delegate (the module builds a Rust workspace — needs `cargo` in
    the pipeline image; for anything else write `ci.sh` and use the
-   script runner).
+   shell runner).
 2. `bupha deploy env` → set `BUPHA_WEBHOOK_SECRET` + `BUPHA_TOKEN`
    (a repo-scoped PAT) — in `~/.config/bupha/env`, or store them in
    your OS keyring with `secret-tool` (resolution: env → keyring → file).

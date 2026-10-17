@@ -1,12 +1,14 @@
 # How-to: run without containers
 
-`runner.kind = "script"` + `cmd` — the watcher still does webhook
+`runner.kind = "shell"` (alias: `"script"`) —
+
+`runner.kind = "shell"` + `cmd` — the watcher still does webhook
 verification, the queue, detached worktrees and statuses; your script
 does the build. No dagger, no docker, no image pulls.
 
 ```toml
 [runner]
-kind = "script"
+kind = "shell"
 cmd = "./ci.sh"                  # run with `bash -c` in the worktree
 ```
 
