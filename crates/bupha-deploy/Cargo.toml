@@ -8,3 +8,6 @@ repository.workspace = true
 
 [dependencies]
 bupha-core = { path = "../bupha-core" }
+
+keywords = ["ci", "bupha"]
+categories = ["development-tools"]

@@ -49,3 +49,20 @@ pending sha (superseded shas get an error status marked "superseded").
 
 Queue is in-process: a push that lands while bupha is down is missed —
 GitHub does not redeliver.
+
+## Quickstart
+
+    cargo install bupha                    # or: cargo build --release
+    cd your-repo && bupha init             # dagger module + delegate
+    bupha deploy env                       # seed ~/.config/bupha/env
+    # fill BUPHA_WEBHOOK_SECRET + BUPHA_TOKEN, write bupha.toml
+    #   (see examples/bupha.toml.example)
+    bupha deploy service                   # systemd unit, enabled
+    bupha deploy webhook                   # register push hook
+    bupha deploy check                     # verify the whole install
+
+## Distribution
+
+`cargo install bupha` (crates.io). Lib crates publish in dependency
+order: core → runner/tunnel ports → impls (dagger, script, github,
+cloudflared, deploy) → cli package `bupha`.

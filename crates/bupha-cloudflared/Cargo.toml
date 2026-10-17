@@ -9,3 +9,6 @@ repository.workspace = true
 [dependencies]
 bupha-tunnel = { path = "../bupha-tunnel" }
 bupha-core = { path = "../bupha-core" }
+
+keywords = ["ci", "bupha"]
+categories = ["development-tools"]

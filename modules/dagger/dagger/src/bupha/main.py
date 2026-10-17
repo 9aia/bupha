@@ -58,7 +58,7 @@ _SELF_PATCH_PY = '''python3 - <<'PYEOF'
 import re, pathlib
 repo_dir = pathlib.Path("REPO_DIR")
 toml = repo_dir / "Cargo.toml"
-key = '[patch."https://github.com/handl-lang/REPO_NAME"]'
+key = '[patch."PATCH_HOST/REPO_NAME"]'
 lines = toml.read_text().splitlines(keepends=True)
 out, skipping = [], False
 for l in lines:
@@ -128,6 +128,7 @@ class Bupha:
         token: Optional[dagger.Secret] = None,
         siblings: Optional[dict] = None,
         sccache_conf: Optional[dagger.Secret] = None,
+        patch_host: str = "github.com/handl-lang",
     ) -> dagger.Container:
         """Base image + source at /work/<repo> + cargo caches + dev-link.
 
@@ -170,7 +171,7 @@ class Bupha:
         # transitive git refs to a mounted repo resolve to its checkout.
         repos = [repo, *(siblings or {})]
         for name in repos:
-            ctr = self._link_repo(ctr, repo, name)
+            ctr = self._link_repo(ctr, repo, name, patch_host)
         return ctr
 
     def _link_repo(
@@ -200,7 +201,8 @@ class Bupha:
         sccache_conf: Optional[dagger.Secret] = None,
     ) -> dagger.Container:
         """Workspace container: source at /work/<repo>, caches, dev-link, self-patch."""
-        return self._workspace(source, repo, token, sccache_conf=sccache_conf)
+        return self._workspace(source, repo, token, sccache_conf=sccache_conf,
+                           patch_host=patch_host)
 
     @function
     def with_sibling(
@@ -209,13 +211,14 @@ class Bupha:
         name: str,
         source: dagger.Directory,
         main_repo: str = "platform",
+        patch_host: str = "github.com/handl-lang",
     ) -> dagger.Container:
         """Mount a sibling checkout at /work/<name>, link it, cache its target/."""
         return self._link_repo(
             ctr.with_mounted_directory(f"/work/{name}", source)
                .with_mounted_cache(f"/work/{name}/target",
                                    dag.cache_volume(f"bupha-{name}-target")),
-            main_repo, name)
+            main_repo, name, patch_host)
 
     @function
     def run_script(
@@ -259,7 +262,8 @@ class Bupha:
         Cheap end-to-end check of everything except compiling Rust —
         image build, source mount, dev-link patch rewrite, git auth.
         """
-        ws = self._workspace(source, repo, token, sccache_conf=sccache_conf)
+        ws = self._workspace(source, repo, token, sccache_conf=sccache_conf,
+                           patch_host=patch_host)
         return await self._exec(
             ws,
             "rustc --version && cargo nextest --version"
@@ -284,7 +288,8 @@ class Bupha:
         -j is deliberately low: heavy suites are memory-bound — scale out
         via `shards`, not up via `jobs`.
         """
-        ws = self._workspace(source, repo, token, sccache_conf=sccache_conf)
+        ws = self._workspace(source, repo, token, sccache_conf=sccache_conf,
+                           patch_host=patch_host)
         return await self._exec(
             ws,
             "cargo nextest run --workspace "
@@ -301,7 +306,8 @@ class Bupha:
         sccache_conf: Optional[dagger.Secret] = None,
     ) -> str:
         """Run workspace doctests (nextest does not cover them)."""
-        ws = self._workspace(source, repo, token, sccache_conf=sccache_conf)
+        ws = self._workspace(source, repo, token, sccache_conf=sccache_conf,
+                           patch_host=patch_host)
         return await self._exec(
             ws, "cargo test --doc --workspace",
             token is not None, sccache_conf is not None,
@@ -321,7 +327,8 @@ class Bupha:
         # Warm the shared cargo git db serially before fan-out: two
         # concurrent first-time fetches race on the same cache volume
         # ("failed to remove directory ... objects" errors).
-        ws = self._workspace(source, repo, token, sccache_conf=sccache_conf)
+        ws = self._workspace(source, repo, token, sccache_conf=sccache_conf,
+                           patch_host=patch_host)
         await self._exec(
             ws, "cargo fetch --locked",
             token is not None, sccache_conf is not None,
@@ -355,7 +362,8 @@ class Bupha:
         convention). Export: dagger call ... coverage-report export
         --path=coverage
         """
-        ws = self._workspace(source, repo, token, sccache_conf=sccache_conf)
+        ws = self._workspace(source, repo, token, sccache_conf=sccache_conf,
+                           patch_host=patch_host)
         await self._exec(
             ws,
             "./scripts/coverage.sh --summary"
@@ -374,7 +382,8 @@ class Bupha:
         sccache_conf: Optional[dagger.Secret] = None,
     ) -> str:
         """Blocking gate: scripts/coverage.sh --tooling-gate."""
-        ws = self._workspace(source, repo, token, sccache_conf=sccache_conf)
+        ws = self._workspace(source, repo, token, sccache_conf=sccache_conf,
+                           patch_host=patch_host)
         await self._exec(
             ws, "./scripts/coverage.sh --tooling-gate",
             token is not None, sccache_conf is not None,
@@ -394,7 +403,8 @@ class Bupha:
 
         Escape hatch for repo-specific gates without writing module code.
         """
-        ws = self._workspace(source, repo, token, sccache_conf=sccache_conf)
+        ws = self._workspace(source, repo, token, sccache_conf=sccache_conf,
+                           patch_host=patch_host)
         return await self._exec(
             ws, script, token is not None, sccache_conf is not None
         ).stdout()
