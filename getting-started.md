@@ -3,7 +3,7 @@ url: /bupha/getting-started.md
 ---
 # Getting started
 
-Diátaxis-structured. Pick by what you need to do.
+Pick by what you need to do.
 
 * **Tutorials** (learn): [first-run](tutorials/first-run.md)
 * **How-to** (tasks): [multi-repo](how-to/multi-repo.md) ·
