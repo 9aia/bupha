@@ -9,7 +9,7 @@ fn tmp() -> std::path::PathBuf {
 #[test]
 fn loads_via_env_var() {
     let f = tmp();
-    std::fs::write(&f, "[[repo]]\nname = \"o/r\"\ndir = \"/tmp/r\"\n").unwrap();
+    std::fs::write(&f, "[trigger]\nkind = \"github\"\n[runner]\nkind = \"shell\"\ncmd = \"true\"\n[status]\nkind = \"log\"\n[[repo]]\nname = \"o/r\"\ndir = \"/tmp/r\"\n").unwrap();
     unsafe { std::env::set_var("BUPHA_CONFIG", &f); }
     let c = TomlSource { path: None }.load().unwrap();
     assert_eq!(c.repos[0].name, "o/r");
@@ -20,7 +20,7 @@ fn loads_via_env_var() {
 #[test]
 fn explicit_path_and_missing_error() {
     let f = tmp();
-    std::fs::write(&f, "[[repo]]\nname = \"o/r\"\ndir = \"/tmp/r\"\n").unwrap();
+    std::fs::write(&f, "[trigger]\nkind = \"github\"\n[runner]\nkind = \"shell\"\ncmd = \"true\"\n[status]\nkind = \"log\"\n[[repo]]\nname = \"o/r\"\ndir = \"/tmp/r\"\n").unwrap();
     let c = TomlSource { path: Some(f.to_string_lossy().into()) }
         .load().unwrap();
     assert_eq!(c.repos[0].name, "o/r");
