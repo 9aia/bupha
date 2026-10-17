@@ -1,20 +1,41 @@
 # Architecture
 
-bupha is a port/adapter monorepo: `bupha-core` holds the domain
-(latest-wins queue, bupha.toml, Trigger/StatusSink traits) and knows
-nothing about github, dagger or cloudflared. Ports `bupha-runner` and
-`bupha-tunnel` have impl crates (`bupha-dagger`, `bupha-script`,
-`bupha-cloudflared`). `bupha-github` implements both trigger (HMAC
-verify + push parse) and status sink (commit-status API).
+bupha is a port/adapter monorepo. `bupha-core` holds the domain —
+the queue, `bupha.toml`, and the `Trigger`/`StatusSink` ports — and
+knows nothing about GitHub, dagger or cloudflared. Ports
+`bupha-runner` and `bupha-tunnel` each have impl crates; `bupha-github`
+implements both trigger (HMAC verify + push parse) and status sink.
+`bupha-cli` is the binary; `bupha-deploy` holds install-time helpers.
+`modules/dagger/` is the shared pipeline module (Python SDK) that
+`bupha init` installs into consumer repos.
 
-The watcher: tiny_http endpoint → HMAC → route by
-repository.full_name → per-repo pending slot → one global worker →
-detached worktree → spawned runner child (killable via cancel_running)
-→ status posts. Accepted work persists to queue.json; restarts resume
-it. Tunnels are supervised children — reaped + respawned on exit.
+The watcher pipeline:
 
-Why latest-wins: for push-heavy mains, running every commit serially
-is the wrong default — `queue = "all"` opts a repo into run-every-push
-FIFO (bounded at 32; overflow evicts oldest). Per-repo policy in
-`[[repos]]`; the default ""latest" collapses pending to newest. Or: for push-heavy mains — N pushes during a run should mean one follow-up
-on the newest sha, not N stale builds.
+```
+POST /hook → HMAC (constant-time) → dedup X-GitHub-Delivery
+  → route by repository.full_name → per-repo queue → one global
+    worker → detached worktree → spawned runner child → status posts
+```
+
+Key semantics:
+
+- **latest-wins** (default): at most 1 pending sha per repo; a newer
+  push supersedes it and the skipped sha gets an honest "error:
+  superseded" status. `queue = "all"` switches to bounded FIFO (32)
+  for release-style repos that must run every push.
+- **cancel_running**: kills the in-flight child on a new push —
+  valid only with `latest` (rejected under `all`, which would drop
+  a commit that was never superseded).
+- **Persistence**: accepted work writes `queue.json` (tmp+rename) in
+  `worktree.base`; a restart re-queues the interrupted `running` sha
+  at the front.
+- **Ingress is decoupled**: the listener binds localhost; a `Tunnel`
+  child (`cloudflared` today) is supervised — reaped and respawned
+  on exit. `direct`/`none` are for boxes already public.
+- **Secrets stay out of files**: `secret_env`/`token_env` name env
+  vars; the token reaches the runner only via the runner's own
+  mechanism (e.g. `env://` secret for dagger).
+
+Design rule for extending: a new forge = a `Trigger`+`StatusSink`
+impl crate; a new pipeline = a `Runner` impl; a new ingress = a
+`Tunnel` impl. Core stays untouched.

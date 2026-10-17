@@ -299,6 +299,10 @@ pub struct RunnerCfg {
     /// dagger runner: extra args appended verbatim (e.g. --cli-source).
     #[serde(default)]
     pub extra_args: Vec<String>,
+    /// dagger runner: `--cli-source <dir>` for repos whose pipeline
+    /// builds against a sibling checkout.
+    #[serde(default)]
+    pub cli_source: Option<String>,
 }
 
 #[derive(Debug, Deserialize, Clone)]

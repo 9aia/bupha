@@ -94,14 +94,11 @@ enum DestroySub {
     Worktrees,
 }
 
-fn build_runner(rc: &bupha_core::RunnerCfg, repo_dir: &Path) -> Arc<dyn Runner> {
+fn build_runner(rc: &bupha_core::RunnerCfg, _repo_dir: &Path)
+        -> Arc<dyn Runner> {
     match rc.kind.as_str() {
-        "dagger" => {
-            let cli = repo_dir.join("../cli");
-            let cli_src = cli.join("crates/host-cli").exists()
-                .then(|| cli.to_string_lossy().to_string());
-            Arc::new(DaggerRunner::new(rc.clone(), cli_src))
-        }
+        "dagger" => Arc::new(DaggerRunner::new(
+            rc.clone(), rc.cli_source.clone())),
         "script" => Arc::new(ScriptRunner::new(rc.clone())),
         other => {
             eprintln!("unknown runner kind '{other}' (dagger|script)");

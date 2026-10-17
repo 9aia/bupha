@@ -44,10 +44,11 @@ context = "ci/bupha"
 
 [tunnel]
 provider = "none"                 # none | cloudflared | direct
-# provider = "cloudflared"
-# name = "my-tunnel"              # named tunnel = stable URL
+# provider = "cloudflared"        # prefer a NAMED tunnel — quick
+# name = "my-tunnel"              #   (*.trycloudflare.com) URLs are
+#                                 #   flaky at the Cloudflare edge
 # local_url = "http://127.0.0.1:9000"
-# public_url = "https://ci.example.com"  # for status logs/docs
+# public_url = "https://ci.example.com"  # needed for deploy webhook
 
 [worktree]
 base = "/tmp/bupha"               # worktrees land at <base>-<sha12>

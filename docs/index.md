@@ -2,14 +2,14 @@
 
 Diátaxis-structured. Pick by what you need to do.
 
-- **Tutorials** (learn): [first-run](docs/tutorials/first-run.md)
-- **How-to** (tasks): [multi-repo](docs/how-to/multi-repo.md) ·
-  [script runner](docs/how-to/script-runner.md) ·
-  [sccache backend](docs/how-to/sccache-backend.md)
-- **Reference** (lookup): [cli](docs/reference/cli.md) ·
-  [config](docs/reference/config.md) ·
-  [releasing](docs/reference/releasing.md)
-- **Explanation** (why): [architecture](docs/explanation/architecture.md)
+- **Tutorials** (learn): [first-run](tutorials/first-run.md)
+- **How-to** (tasks): [multi-repo](how-to/multi-repo.md) ·
+  [script runner](how-to/script-runner.md) ·
+  [sccache backend](how-to/sccache-backend.md)
+- **Reference** (lookup): [cli](reference/cli.md) ·
+  [config](reference/config.md) ·
+  [releasing](reference/releasing.md)
+- **Explanation** (why): [architecture](explanation/architecture.md)
 
-Project: [CONTRIBUTING](CONTRIBUTING.md) · [SECURITY](SECURITY.md) ·
-[TODO](TODO.md)
+Project: [CONTRIBUTING](../CONTRIBUTING.md) · [SECURITY](../SECURITY.md) ·
+[TODO](../TODO.md)
