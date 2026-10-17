@@ -28,12 +28,17 @@ impl Runner for DaggerRunner {
     fn spawn(&self, ctx: &RunCtx) -> io::Result<Child> {
         let c = &self.cfg;
         let mut cmd = Command::new("dagger");
+        // Flags beyond shards/jobs/token are only emitted when set —
+        // `dagger call` rejects args the module's function doesn't
+        // declare, so the emitted set must match the module signature.
         cmd.current_dir(ctx.workdir).args([
             "call", &c.function,
             "--shards", &c.shards, "--jobs", &c.jobs,
-            "--dogfood-jobs", &c.dogfood_jobs,
             "--token", &format!("env://{}", ctx.token_env),
         ]);
+        if !c.dogfood_jobs.is_empty() {
+            cmd.args(["--dogfood-jobs", &c.dogfood_jobs]);
+        }
         if let Some(conf) = c.sccache_conf.as_deref() {
             cmd.args(["--sccache-conf", &format!("file://{conf}")]);
         }

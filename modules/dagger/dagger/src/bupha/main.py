@@ -269,7 +269,8 @@ class Bupha:
         repo: str = "repo",
         token: Optional[dagger.Secret] = None,
         sccache_conf: Optional[dagger.Secret] = None,
-        patch_host: str = "",) -> str:
+        patch_host: str = "",
+    ) -> str:
         """Smoke-test the workspace container: toolchain versions + dev-link.
 
         Cheap end-to-end check of everything except compiling Rust —
@@ -295,7 +296,8 @@ class Bupha:
         repo: str = "repo",
         token: Optional[dagger.Secret] = None,
         sccache_conf: Optional[dagger.Secret] = None,
-        patch_host: str = "",) -> str:
+        patch_host: str = "",
+    ) -> str:
         """Run one nextest partition (count:shard/shards) over the workspace.
 
         -j is deliberately low: heavy suites are memory-bound — scale out
@@ -317,7 +319,8 @@ class Bupha:
         repo: str = "repo",
         token: Optional[dagger.Secret] = None,
         sccache_conf: Optional[dagger.Secret] = None,
-        patch_host: str = "",) -> str:
+        patch_host: str = "",
+    ) -> str:
         """Run workspace doctests (nextest does not cover them)."""
         ws = self._workspace(source, repo, token, sccache_conf=sccache_conf,
                            patch_host=patch_host)
@@ -335,7 +338,8 @@ class Bupha:
         repo: str = "repo",
         token: Optional[dagger.Secret] = None,
         sccache_conf: Optional[dagger.Secret] = None,
-        patch_host: str = "",) -> str:
+        patch_host: str = "",
+    ) -> str:
         """Run the full test gate: `shards` parallel nextest partitions + doctests."""
         # Warm the shared cargo git db serially before fan-out: two
         # concurrent first-time fetches race on the same cache volume
@@ -348,10 +352,11 @@ class Bupha:
         ).sync()
         tasks = [
             self.test_shard(source, i + 1, shards, jobs, repo,
-                            token, sccache_conf)
+                            token, sccache_conf, patch_host)
             for i in range(shards)
         ]
-        tasks.append(self.doctests(source, repo, token, sccache_conf))
+        tasks.append(
+            self.doctests(source, repo, token, sccache_conf, patch_host))
         results = await asyncio.gather(*tasks, return_exceptions=True)
         failures = [r for r in results if isinstance(r, BaseException)]
         if failures:
@@ -368,7 +373,8 @@ class Bupha:
         repo: str = "repo",
         token: Optional[dagger.Secret] = None,
         sccache_conf: Optional[dagger.Secret] = None,
-        patch_host: str = "",) -> dagger.Directory:
+        patch_host: str = "",
+    ) -> dagger.Directory:
         """Run scripts/coverage.sh and return the coverage/ directory.
 
         Requires the repo to carry scripts/coverage.sh (platform's
@@ -393,7 +399,8 @@ class Bupha:
         repo: str = "repo",
         token: Optional[dagger.Secret] = None,
         sccache_conf: Optional[dagger.Secret] = None,
-        patch_host: str = "",) -> str:
+        patch_host: str = "",
+    ) -> str:
         """Blocking gate: scripts/coverage.sh --tooling-gate."""
         ws = self._workspace(source, repo, token, sccache_conf=sccache_conf,
                            patch_host=patch_host)
@@ -411,7 +418,8 @@ class Bupha:
         repo: str = "repo",
         token: Optional[dagger.Secret] = None,
         sccache_conf: Optional[dagger.Secret] = None,
-        patch_host: str = "",) -> str:
+        patch_host: str = "",
+    ) -> str:
         """Run an arbitrary shell script inside the workspace container.
 
         Escape hatch for repo-specific gates without writing module code.
