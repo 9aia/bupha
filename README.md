@@ -4,7 +4,7 @@
 
 Headless CI, built for agent-driven setups. A single binary that
 watches pushes, batches them latest-wins, runs your pipeline per sha,
-and reports commit statuses — on any box with Git.
+and reports commit statuses — on a Linux box with Git.
 
 ```
 push ──► webhook ──► HMAC ──► dedup ──► queue ──► worktree ──► runner ──► status

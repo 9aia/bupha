@@ -1,5 +1,5 @@
-# bupha.toml — one per watched repo. Secrets come from env
-# (BUPHA_WEBHOOK_SECRET, BUPHA_TOKEN), never from this file.
+# bupha.toml — one per watched repo. Secrets resolve via env var ->
+# OS keyring (secret-tool) -> ~/.config/bupha/env; never this file.
 
 # Watched repos — one pending slot each, one shared worker.
 # `name` must match the payload's repository.full_name.
@@ -35,6 +35,8 @@ cancel_running = true             # kill in-flight run on newer push
 sccache_conf = "/path/to/sccache-env"   # optional KEY=VAL secret file
 token_env = "BUPHA_TOKEN"
 # extra_args = ["--flag", "val"]  # appended verbatim to dagger call
+# cli_source = "/path/to/sibling-checkout"   # emitted as --cli-source
+                                     # if your ci() declares it
 
 [status]
 kind = "github"                   # impl: bupha-github | "log" | "none"
@@ -51,4 +53,4 @@ provider = "none"                 # none | cloudflared | direct
 # public_url = "https://ci.example.com"  # needed for deploy webhook
 
 [worktree]
-base = "/tmp/bupha"               # worktrees land at <base>-<sha12>
+base = "/tmp/bupha"               # worktrees land at <base>-<repo>-<sha12>
