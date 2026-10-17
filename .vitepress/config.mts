@@ -40,13 +40,13 @@ export default defineConfig({
         items: [
           { text: 'CLI', link: '/reference/cli' },
           { text: 'Config', link: '/reference/config' },
-          { text: 'Releasing', link: '/reference/releasing' },
             ],
       },
       {
         text: 'Explanation',
         items: [
           { text: 'Architecture', link: '/explanation/architecture' },
+          { text: 'Release model', link: '/explanation/release-model' },
           { text: 'vs hosted CI', link: '/comparison' },
         ],
       },
