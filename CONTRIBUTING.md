@@ -27,7 +27,7 @@ shared pipeline module (Python SDK).
 Seed once with `bupha deploy release` (publishes workspace crates,
 tags `{repo}-v{ver}`). Afterwards `scripts/release.sh` runs on each
 `main` push via bupha's own dogfood loop — bump, publish, tag, dist
-binaries. See `docs/reference/releasing.md`.
+binaries. See `docs/explanation/release-model.md`.
 
 ## Docs
 
