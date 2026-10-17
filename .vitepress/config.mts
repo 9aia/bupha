@@ -1,6 +1,10 @@
 import { defineConfig } from 'vitepress'
+import llmstxt from 'vitepress-plugin-llms'
 
 export default defineConfig({
+  vite: {
+    plugins: [llmstxt()],
+  },
   title: 'bupha',
   description: 'headless CI — the oxpecker on your repo',
   base: '/bupha/',

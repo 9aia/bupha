@@ -9,7 +9,8 @@
     "docs:deploy": "bun run docs:api && bun run docs:build && bunx gh-pages -d .vitepress/dist"
   },
   "devDependencies": {
+    "gh-pages": "^6.3.0",
     "vitepress": "^1.6.3",
-    "gh-pages": "^6.3.0"
+    "vitepress-plugin-llms": "^1.14.0"
   }
 }
