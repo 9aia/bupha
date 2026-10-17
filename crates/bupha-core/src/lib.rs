@@ -1,0 +1,243 @@
+//! bupha-core — domain types, `bupha.toml` config, and the latest-wins
+//! queue every runner impl shares.
+//!
+//! The queue is the batch semantic for fast-pushing repos: at most one
+//! run in flight plus one pending sha — newer pushes supersede the
+//! pending one (skipped shas should get a "superseded" status from the
+//! caller). N commits during a run = 1 follow-up run on the newest.
+
+use serde::Deserialize;
+use std::path::PathBuf;
+
+/// A push that became CI work.
+#[derive(Debug, Clone)]
+pub struct Job {
+    pub sha: String,
+}
+
+/// Where pushes come from. Implementations parse their own payload
+/// format; the queue only sees shas.
+pub trait Trigger: Send + Sync {
+    fn verify(&self, body: &[u8], headers: &[(String, String)]) -> bool;
+    fn parse_push(&self, body: &[u8], branch: &str) -> Option<String>;
+}
+
+/// Where run outcomes are reported (commit statuses, logs, chat, …).
+pub trait StatusSink: Send + Sync {
+    fn context(&self) -> &str;
+    fn post(&self, sha: &str, state: &str, desc: &str);
+}
+
+/// Latest-wins queue state. The running child handle lives in the
+/// runner/CLI layer (`ChildSlot`) so enqueue can kill it without
+/// blocking on this lock.
+#[derive(Default)]
+pub struct Queue {
+    pub pending: Option<String>,
+    pub running: Option<String>,
+    pub cancelled: bool,
+}
+
+impl Queue {
+    /// Enqueue under latest-wins: replace the pending sha (the old one is
+    /// returned so the caller can mark it superseded). `None` = deduped.
+    pub fn enqueue(&mut self, sha: String) -> EnqueueResult {
+        if self.running.as_deref() == Some(sha.as_str())
+            || self.pending.as_deref() == Some(sha.as_str())
+        {
+            return EnqueueResult::Duplicate;
+        }
+        EnqueueResult::Queued {
+            superseded: self.pending.replace(sha),
+        }
+    }
+}
+
+pub enum EnqueueResult {
+    Queued { superseded: Option<String> },
+    Duplicate,
+}
+
+/// bupha.toml — one per watched repo. Secrets come from env only
+/// (`secret_env`/`token_env` name the variables; values never enter
+/// the file).
+#[derive(Debug, Deserialize, Clone)]
+pub struct Config {
+    pub repo: RepoCfg,
+    pub trigger: TriggerCfg,
+    pub runner: RunnerCfg,
+    pub status: StatusCfg,
+    #[serde(default)]
+    pub tunnel: TunnelCfg,
+    #[serde(default)]
+    pub worktree: WorktreeCfg,
+}
+
+#[derive(Debug, Deserialize, Clone)]
+pub struct RepoCfg {
+    /// Clone to fetch + create detached worktrees from.
+    pub dir: PathBuf,
+    #[serde(default = "default_branch")]
+    pub branch: String,
+}
+
+#[derive(Debug, Deserialize, Clone)]
+pub struct TriggerCfg {
+    /// "github" today; other forges = new impl crates.
+    pub kind: String,
+    #[serde(default = "default_listen")]
+    pub listen: String,
+    /// Env var holding the webhook secret.
+    #[serde(default = "default_secret_env")]
+    pub secret_env: String,
+}
+
+#[derive(Debug, Deserialize, Clone)]
+pub struct RunnerCfg {
+    /// "dagger" | "script" | … — resolved to an impl crate.
+    pub kind: String,
+    /// dagger runner: function to call.
+    #[serde(default = "default_fn")]
+    pub function: String,
+    #[serde(default = "default_shards")]
+    pub shards: String,
+    #[serde(default = "default_jobs")]
+    pub jobs: String,
+    #[serde(default)]
+    pub dogfood_jobs: String,
+    #[serde(default)]
+    pub sequential: bool,
+    #[serde(default)]
+    pub cancel_running: bool,
+    /// Optional env-file (KEY=VAL) mounted as the sccache secret.
+    #[serde(default)]
+    pub sccache_conf: Option<String>,
+    /// script runner: command run in the worktree.
+    #[serde(default)]
+    pub cmd: Option<String>,
+    /// Env var naming the token passed to the runner + status sink.
+    #[serde(default = "default_token_env")]
+    pub token_env: String,
+    /// dagger runner: extra args appended verbatim (e.g. --cli-source).
+    #[serde(default)]
+    pub extra_args: Vec<String>,
+}
+
+#[derive(Debug, Deserialize, Clone)]
+pub struct StatusCfg {
+    /// "github" | "log" (stdout only) | "none".
+    #[serde(default = "default_status_kind")]
+    pub kind: String,
+    /// owner/repo for the commit-status API.
+    #[serde(default)]
+    pub repo: String,
+    #[serde(default = "default_context")]
+    pub context: String,
+}
+
+#[derive(Debug, Deserialize, Clone)]
+pub struct TunnelCfg {
+    /// "none" | "cloudflared" | "direct".
+    #[serde(default = "default_tunnel_provider")]
+    pub provider: String,
+    /// Named tunnel (stable URL); empty = quick tunnel.
+    #[serde(default)]
+    pub name: String,
+    #[serde(default = "default_local_url")]
+    pub local_url: String,
+    /// provider=direct: the external URL GitHub should hit.
+    #[serde(default)]
+    pub public_url: String,
+}
+
+impl Default for TunnelCfg {
+    fn default() -> Self {
+        Self {
+            provider: default_tunnel_provider(),
+            name: String::new(),
+            local_url: default_local_url(),
+            public_url: String::new(),
+        }
+    }
+}
+
+#[derive(Debug, Deserialize, Clone)]
+pub struct WorktreeCfg {
+    #[serde(default = "default_wt_base")]
+    pub base: String,
+}
+
+impl Default for WorktreeCfg {
+    fn default() -> Self {
+        Self {
+            base: default_wt_base(),
+        }
+    }
+}
+
+fn default_branch() -> String {
+    "refs/heads/main".into()
+}
+fn default_listen() -> String {
+    "127.0.0.1:9000".into()
+}
+fn default_secret_env() -> String {
+    "BUPHA_WEBHOOK_SECRET".into()
+}
+fn default_fn() -> String {
+    "ci".into()
+}
+fn default_shards() -> String {
+    "1".into()
+}
+fn default_jobs() -> String {
+    "2".into()
+}
+fn default_status_kind() -> String {
+    "github".into()
+}
+fn default_context() -> String {
+    "ci/bupha".into()
+}
+fn default_token_env() -> String {
+    "BUPHA_TOKEN".into()
+}
+fn default_tunnel_provider() -> String {
+    "none".into()
+}
+fn default_local_url() -> String {
+    "http://127.0.0.1:9000".into()
+}
+fn default_wt_base() -> String {
+    "/tmp/bupha".into()
+}
+
+impl Config {
+    /// Load order: explicit path → $BUPHA_CONFIG → ./bupha.toml →
+    /// ~/.config/bupha/bupha.toml.
+    pub fn load(path: Option<&str>) -> Result<Config, String> {
+        let candidates: Vec<PathBuf> = match path.map(str::to_string)
+            .or_else(|| std::env::var("BUPHA_CONFIG").ok())
+        {
+            Some(p) => vec![PathBuf::from(p)],
+            None => vec![
+                PathBuf::from("bupha.toml"),
+                dirs_home().join(".config/bupha/bupha.toml"),
+            ],
+        };
+        for p in candidates {
+            if p.exists() {
+                let text = std::fs::read_to_string(&p)
+                    .map_err(|e| format!("read {}: {e}", p.display()))?;
+                return toml::from_str(&text)
+                    .map_err(|e| format!("parse {}: {e}", p.display()));
+            }
+        }
+        Err("no bupha.toml found (search: $BUPHA_CONFIG, ., ~/.config/bupha/)"
+            .into())
+    }
+}
+
+fn dirs_home() -> PathBuf {
+    std::env::var("HOME").map(PathBuf::from).unwrap_or_else(|_| ".".into())
+}

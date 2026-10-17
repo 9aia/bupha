@@ -1,0 +1,9 @@
+[package]
+name = "bupha-tunnel"
+description = "Tunnel port: expose the webhook listener publicly"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]

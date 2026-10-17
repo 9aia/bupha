@@ -1,0 +1,11 @@
+[package]
+name = "bupha-runner-script"
+description = "Runner impl: any shell command per job — no dagger, no docker"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+bupha-runner = { path = "../bupha-runner" }
+bupha-core = { path = "../bupha-core" }

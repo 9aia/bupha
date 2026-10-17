@@ -1,0 +1,22 @@
+[package]
+name = "bupha-cli"
+description = "bupha — the oxpecker on your repo's back: headless CI CLI"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[[bin]]
+name = "bupha"
+path = "src/main.rs"
+
+[dependencies]
+bupha-core = { path = "../bupha-core" }
+bupha-runner = { path = "../bupha-runner" }
+bupha-runner-dagger = { path = "../bupha-runner-dagger" }
+bupha-runner-script = { path = "../bupha-runner-script" }
+bupha-tunnel = { path = "../bupha-tunnel" }
+bupha-tunnel-cloudflared = { path = "../bupha-tunnel-cloudflared" }
+bupha-github = { path = "../bupha-github" }
+tiny_http = "0.12"
+clap = { version = "4", features = ["derive"] }

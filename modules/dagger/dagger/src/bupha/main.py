@@ -3,7 +3,7 @@
 Install into a consumer repo:
 
     dagger install github.com/handl-lang/ci@main
-    # then:  dag.handl_ci().test(source)  or  dagger call -m ... test
+    # then:  dag.bupha().test(source)  or  dagger call -m ... test
 
 Same pipeline on a laptop, a VPS, or any orchestrator — the consumer's
 workspace mounts at /work/<repo> and scripts/dev-link.sh rewrites the
@@ -44,7 +44,7 @@ CARGO_ENV = {
 # inside each exec (not a build layer) so the token never persists in an
 # image layer or the cache.
 _AUTH_GIT_CONFIG = (
-    'git config --global url."https://x-access-token:$(cat /run/secrets/hl-token)'
+    'git config --global url."https://x-access-token:$(cat /run/secrets/bupha-token)'
     '@github.com/".insteadOf "https://github.com/" && '
 )
 
@@ -86,7 +86,7 @@ PYEOF'''
 
 
 @object_type
-class HandlCi:
+class Bupha:
     # -- container plumbing ------------------------------------------------
 
     def _base(self) -> dagger.Container:
@@ -150,20 +150,20 @@ class HandlCi:
         for key, value in CARGO_ENV.items():
             ctr = ctr.with_env_variable(key, value)
         if token is not None:
-            ctr = ctr.with_mounted_secret("/run/secrets/hl-token", token)
+            ctr = ctr.with_mounted_secret("/run/secrets/bupha-token", token)
         if sccache_conf is not None:
             ctr = ctr.with_mounted_secret(
                 "/run/secrets/sccache-env", sccache_conf)
         ctr = (
             ctr
             .with_mounted_cache("/usr/local/cargo/registry",
-                                dag.cache_volume("hl-cargo-registry"))
+                                dag.cache_volume("bupha-cargo-registry"))
             .with_mounted_cache("/usr/local/cargo/git",
-                                dag.cache_volume("hl-cargo-git"))
+                                dag.cache_volume("bupha-cargo-git"))
             .with_mounted_cache(f"/work/{repo}/target",
-                                dag.cache_volume(f"hl-{repo}-target"))
+                                dag.cache_volume(f"bupha-{repo}-target"))
             .with_mounted_cache("/sccache",
-                                dag.cache_volume("hl-sccache"))
+                                dag.cache_volume("bupha-sccache"))
         )
         # dev-link each mounted repo (main repo's script preferred, then
         # the sibling's own, else strip the block), then self-patch so
@@ -214,7 +214,7 @@ class HandlCi:
         return self._link_repo(
             ctr.with_mounted_directory(f"/work/{name}", source)
                .with_mounted_cache(f"/work/{name}/target",
-                                   dag.cache_volume(f"hl-{name}-target")),
+                                   dag.cache_volume(f"bupha-{name}-target")),
             main_repo, name)
 
     @function

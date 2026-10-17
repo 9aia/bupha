@@ -1,3 +1,19 @@
 [workspace]
 resolver = "2"
-members = ["crates/ci-watch"]
+members = [
+    "crates/bupha-cli",
+    "crates/bupha-core",
+    "crates/bupha-github",
+    "crates/bupha-runner",
+    "crates/bupha-runner-dagger",
+    "crates/bupha-runner-script",
+    "crates/bupha-tunnel",
+    "crates/bupha-tunnel-cloudflared",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+repository = "https://github.com/9aia/bupha"
+description = "The oxpecker on your repo's back — headless CI: watch, queue, run, report"
