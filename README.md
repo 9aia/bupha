@@ -69,7 +69,7 @@ Push. `ci/bupha` commit statuses appear on each sha.
 
 Full docs (Diátaxis): **[docs/index.md](docs/index.md)** — tutorial, how-tos,
 cli/config reference, architecture. API reference is generated from
-doc comments (`cargo rdme`).
+doc comments (`cargo doc` → the [crate API](https://9aia.com/bupha/api/) page).
 
 [CONTRIBUTING](CONTRIBUTING.md) · [SECURITY](SECURITY.md) ·
-[LICENSE](LICENSE) (MIT)
+[LICENSE](LICENSE) (MIT) · [project](project/index.md) — TODO, backlog, ADRs
