@@ -1,6 +1,7 @@
 # Contributing
 
-Issues and PRs welcome at https://github.com/9aia/bupha.
+Issues and PRs are **disabled** — the project is agent-maintained and
+dogfoods its own CI. Fork freely under MIT.
 
 ## Layout
 
@@ -22,8 +23,10 @@ is the shared pipeline module (Python SDK).
 
 ## Releasing
 
-Maintained with cargo-dist + release-plz; tags `v*` build binaries and
-publish to crates.io.
+Seed once with `bupha deploy release` (publishes workspace crates,
+tags `{repo}-v{ver}`). Afterwards `scripts/release.sh` runs on each
+`main` push via bupha's own dogfood loop — bump, publish, tag, dist
+binaries. See `docs/reference/releasing.md`.
 
 ## Docs
 
