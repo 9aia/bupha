@@ -23,7 +23,7 @@ order and tag without touching anything.)
 
 From then on a release is *just another bupha job*: a push to `main`
 hits the webhook, queues latest-wins, and runs `scripts/release.sh`
-in a detached worktree under the script runner.
+in a detached worktree under the shell runner.
 
 The script:
 
@@ -44,7 +44,7 @@ get an honest "cancelled" status.
 * **No release-plz / GHA**: the point of the project is that CI is a
   local loop — depending on hosted CI to ship it would be
   self-defeating. `release.sh` is deliberately boring bash so it can
-  run as a plain `cmd` under `runner.kind = "script"`.
+  run as a plain `cmd` under `runner.kind = "shell"`.
 * **Latest-wins, not `all`**: a release that misses an intermediate
   push loses nothing — the tag lands on HEAD, which contains
   everything. `queue = "all"` is for pipelines where each sha's run

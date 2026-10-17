@@ -5,7 +5,7 @@ url: /bupha/tutorials/first-run.md
 
 Goal: push-triggered CI on a repo, end to end, in ~10 minutes.
 
-Prereqs: **Linux + systemd** (script runner needs bash; macOS/Windows
+Prereqs: **Linux + systemd** (shell runner needs bash; macOS/Windows
 unsupported for now); git;
 `cargo install bupha` (until 0.1.0 lands on crates.io:
 `cargo install --git https://github.com/9aia/bupha`); docker only
@@ -16,7 +16,7 @@ or a direct box; quick tunnels are convenient but flaky.
 1. `cd your-repo && bupha init` — scaffolds the dagger module +
    delegate (the module builds a Rust workspace — needs `cargo` in
    the pipeline image; for anything else write `ci.sh` and use the
-   script runner).
+   shell runner).
 2. `bupha deploy env` → set `BUPHA_WEBHOOK_SECRET` + `BUPHA_TOKEN`
    (a repo-scoped PAT) — in `~/.config/bupha/env`, or store them in
    your OS keyring with `secret-tool` (resolution: env → keyring → file).
@@ -57,7 +57,7 @@ name = "org/web"
 dir = "/srv/checkouts/web"       # default latest-wins
 
 # [repo.runner]                # per-repo override; replaces global
-#   kind = "script"
+#   kind = "shell"
 #   cmd = "./release.sh"
 ```
 
@@ -68,17 +68,19 @@ mirror repos); it defaults to `name`.
 ---
 
 ---
-url: /bupha/how-to/script-runner.md
+url: /bupha/how-to/shell-runner.md
 ---
 # How-to: run without containers
 
-`runner.kind = "script"` + `cmd` — the watcher still does webhook
+`runner.kind = "shell"` (alias: `"script"`) —
+
+`runner.kind = "shell"` + `cmd` — the watcher still does webhook
 verification, the queue, detached worktrees and statuses; your script
 does the build. No dagger, no docker, no image pulls.
 
 ```toml
 [runner]
-kind = "script"
+kind = "shell"
 cmd = "./ci.sh"                  # run with `bash -c` in the worktree
 ```
 
@@ -523,7 +525,7 @@ order and tag without touching anything.)
 
 From then on a release is *just another bupha job*: a push to `main`
 hits the webhook, queues latest-wins, and runs `scripts/release.sh`
-in a detached worktree under the script runner.
+in a detached worktree under the shell runner.
 
 The script:
 
@@ -544,7 +546,7 @@ get an honest "cancelled" status.
 * **No release-plz / GHA**: the point of the project is that CI is a
   local loop — depending on hosted CI to ship it would be
   self-defeating. `release.sh` is deliberately boring bash so it can
-  run as a plain `cmd` under `runner.kind = "script"`.
+  run as a plain `cmd` under `runner.kind = "shell"`.
 * **Latest-wins, not `all`**: a release that misses an intermediate
   push loses nothing — the tag lands on HEAD, which contains
   everything. `queue = "all"` is for pipelines where each sha's run
@@ -607,7 +609,7 @@ Diátaxis-structured. Pick by what you need to do.
 
 * **Tutorials** (learn): [first-run](tutorials/first-run.md)
 * **How-to** (tasks): [multi-repo](how-to/multi-repo.md) ·
-  [script runner](how-to/script-runner.md) ·
+  [shell runner](how-to/shell-runner.md) ·
   [sccache backend](how-to/sccache-backend.md)
 * **Reference** (lookup): [cli](reference/cli.md) ·
   [config](reference/config.md) ·

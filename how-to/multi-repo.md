@@ -20,7 +20,7 @@ name = "org/web"
 dir = "/srv/checkouts/web"       # default latest-wins
 
 # [repo.runner]                # per-repo override; replaces global
-#   kind = "script"
+#   kind = "shell"
 #   cmd = "./release.sh"
 ```
 

@@ -13,7 +13,7 @@ headless CI — push in, status out, on a Linux box with Git
 ### How-to
 
 - [How-to: watch multiple repos](/bupha/how-to/multi-repo.md)
-- [How-to: run without containers](/bupha/how-to/script-runner.md)
+- [How-to: run without containers](/bupha/how-to/shell-runner.md)
 - [How-to: sccache backend](/bupha/how-to/sccache-backend.md)
 
 ### Reference

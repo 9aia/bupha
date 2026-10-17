@@ -7,7 +7,7 @@ Diátaxis-structured. Pick by what you need to do.
 
 * **Tutorials** (learn): [first-run](tutorials/first-run.md)
 * **How-to** (tasks): [multi-repo](how-to/multi-repo.md) ·
-  [script runner](how-to/script-runner.md) ·
+  [shell runner](how-to/shell-runner.md) ·
   [sccache backend](how-to/sccache-backend.md)
 * **Reference** (lookup): [cli](reference/cli.md) ·
   [config](reference/config.md) ·
