@@ -17,5 +17,11 @@ Do not open public issues for security reports.
 - The tunnel is a child process under supervision; failures are
   restarted, credentials stay in `~/.cloudflared/`.
 
+## Notes
+
+Request bodies are capped (2 MiB), HMAC checks are constant-time,
+superseded/cancelled shas get honest statuses, and `bupha.toml`
+rejects unknown fields. See TODO.md for remaining hardening work.
+
 We respond to reports as quickly as we can; expect acknowledgement
 within a few days.
