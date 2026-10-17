@@ -23,3 +23,9 @@
       isn't cwd-sensitive.
 - `bupha doctor --repo <path>` — also run `dagger call doctor` on the
   consumer repo (catches pipeline-level gaps, not just box gaps)
+- `Vcs` port — extract `git()`/`repo_sync` behind a trait (`GitVcs` impl);
+  unblocks jj/hg + makes git ops unit-testable
+- `QueueStore` port — `queue.json` behind `load/persist`; SQLite/remote
+  store is the distributed-runner prerequisite
+- `Service` port in bupha-deploy — systemd today, launchd/Windows later
+- `keyring`-crate secret backends + `dirs`-crate config paths (macOS/Win)

@@ -44,3 +44,13 @@ One **global worker** serializes runs across every repo — a second
 push queues behind the in-flight job, it does not run in parallel.
 That is deliberate (one box, bounded resource use), not a hang:
 `journalctl --user -u bupha-watch` shows the queue moves.
+
+## Extension seams (0.2+, by design — not yet ports)
+
+| Coupling | Where | Planned port |
+|---|---|---|
+| OS service mgmt | `bupha-deploy` (systemd, df, journalctl) | `Service` — launchd/Windows later |
+| Secret storage | `secret()` — env → secret-tool → file | `keyring` crate backends (macOS/Win) |
+| Config path | `~/.config/bupha` (XDG) | `dirs` crate for native paths |
+| VCS ops | `git()`/`repo_sync` in cli shell to git | `Vcs` trait → `GitVcs` (jj/hg later) |
+| Queue persistence | `queue.json` load/save in cli | `QueueStore` — SQLite/remote for distributed runners |
