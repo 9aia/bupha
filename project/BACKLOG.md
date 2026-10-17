@@ -21,3 +21,6 @@ Ideas parked, not scheduled. Pull into project/TODO.md when picked up.
 - [ ] CHANGELOG.md generated per `bupha-v*` tag (start manual with the
       0.1.0 entry; automate later).
 - [ ] crates.io + license badges in README once published.
+- Auto-deploy docs site: run `docs:api` + `docs:build` + gh-pages push
+  on docs-branch changes (and on repo changes when API surface moves —
+  via the dogfood loop or a dedicated job)
