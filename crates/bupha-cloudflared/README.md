@@ -1,5 +1,0 @@
-# bupha-cloudflared
-
-*Part of [bupha](https://github.com/9aia/bupha) — the oxpecker on your repo's back.*
-
-Tunnel impl: supervised cloudflared child, named or quick tunnels.
