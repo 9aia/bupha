@@ -106,6 +106,34 @@ fn build_runner(rc: &bupha_core::RunnerCfg) -> Arc<dyn Runner> {
     }
 }
 
+/// Secret resolution: env var → OS keyring (libsecret) → env file.
+/// Headless boxes without dbus/keyring still work via the env file;
+/// desktops stop keeping tokens in plaintext files.
+fn secret(name: &str) -> Option<String> {
+    if let Ok(v) = std::env::var(name) {
+        if !v.is_empty() { return Some(v); }
+    }
+    if let Ok(o) = Command::new("secret-tool")
+        .args(["lookup", "service", "bupha", "name", name])
+        .output()
+    {
+        if o.status.success() {
+            let v = String::from_utf8_lossy(&o.stdout)
+                .trim().to_string();
+            if !v.is_empty() { return Some(v); }
+        }
+    }
+    let f = std::fs::read_to_string(
+        std::env::var("HOME").map(PathBuf::from)
+            .unwrap_or_else(|_| ".".into())
+            .join(".config/bupha/env")).unwrap_or_default();
+    f.lines().find_map(|l| {
+        let (k, v) = l.split_once('=')?;
+        (k.trim() == name && !v.trim().is_empty())
+            .then(|| v.trim().to_string())
+    })
+}
+
 fn git(repo: &Path, args: &[&str]) -> bool {
     Command::new("git")
         .arg("-C").arg(repo).args(args)
@@ -206,9 +234,9 @@ fn persist_queue(g: &Shared, path: &Path) {
 }
 
 fn cmd_watch(cfg: Arc<Config>) {
-    let secret = std::env::var(&cfg.trigger.secret_env)
-        .unwrap_or_else(|_| panic!("{} required", cfg.trigger.secret_env));
-    let token = std::env::var(&cfg.runner.token_env).unwrap_or_default();
+    let wh_secret = secret(&cfg.trigger.secret_env)
+        .unwrap_or_else(|| panic!("{} required (env, keyring or env file)", cfg.trigger.secret_env));
+    let token = secret(&cfg.runner.token_env).unwrap_or_default();
 
     let watched: Vec<bupha_core::WatchedRepo> = cfg.watched()
         .unwrap_or_else(|e| {
@@ -218,7 +246,7 @@ fn cmd_watch(cfg: Arc<Config>) {
     let watched = Arc::new(watched);
 
     let trigger: Box<dyn Trigger> = match cfg.trigger.kind.as_str() {
-        "github" => Box::new(GitHubTrigger { secret }),
+        "github" => Box::new(GitHubTrigger { secret: wh_secret }),
         other => {
             eprintln!("unknown trigger '{other}' (github)");
             std::process::exit(2);
@@ -584,11 +612,9 @@ fn cmd_doctor(cfg: &Config) {
         std::env::var("HOME").map(PathBuf::from)
             .unwrap_or_else(|_| ".".into())
             .join(".config/bupha/env")).unwrap_or_default();
-    let has = |name: &str| {
-        !std::env::var(name).unwrap_or_default().is_empty()
-            || env_file.lines().any(|l| l.starts_with(&format!("{name}="))
-                && l.len() > name.len() + 1)
-    };
+    let has = |name: &str| secret(name).is_some()
+        || env_file.lines().any(|l| l.starts_with(&format!("{name}="))
+            && l.len() > name.len() + 1);
     check("webhook secret", has(&cfg.trigger.secret_env),
         &cfg.trigger.secret_env, &mut failures);
     check("token", has(&cfg.runner.token_env),
@@ -696,8 +722,27 @@ fn cmd_deploy(cfg: &Config, sub: &DeploySub, cli_config: Option<String>) {
     match sub {
         DeploySub::Env => {
             match deploy::write_env_skeleton(&cfg_dir) {
-                Ok(p) => println!("env file: {} (fill the secrets)", p.display()),
+                Ok(p) => println!("env file: {} (fill the secrets — or set them via secret-tool)", p.display()),
                 Err(e) => { eprintln!("env: {e}"); std::process::exit(1); }
+            }
+            // If values are already in the environment, migrate them
+            // into the OS keyring (resolution order: env > keyring > file).
+            for name in [&cfg.trigger.secret_env, &cfg.runner.token_env] {
+                if let Ok(v) = std::env::var(name) {
+                    if v.is_empty() { continue; }
+                    let ok = Command::new("secret-tool")
+                        .args(["store", "--label", &format!("bupha: {name}"),
+                               "service", "bupha", "name", name])
+                        .stdin(std::process::Stdio::piped())
+                        .spawn()
+                        .and_then(|mut c| {
+                            use std::io::Write;
+                            c.stdin.as_mut().unwrap().write_all(v.as_bytes())?;
+                            c.wait()
+                        }).map(|s| s.success()).unwrap_or(false);
+                    println!("{name}: {}", if ok { "stored in keyring" }
+                        else { "keyring unavailable (env file is the fallback)" });
+                }
             }
         }
         DeploySub::Service { no_start } => {
@@ -719,9 +764,9 @@ fn cmd_deploy(cfg: &Config, sub: &DeploySub, cli_config: Option<String>) {
         }
         DeploySub::Check => deploy_check(cfg),
         DeploySub::Webhook => {
-            let secret = std::env::var(&cfg.trigger.secret_env)
-                .unwrap_or_else(|_| {
-                    eprintln!("{} required", cfg.trigger.secret_env);
+            let wh_secret = secret(&cfg.trigger.secret_env)
+                .unwrap_or_else(|| {
+                    eprintln!("{} required (env, keyring or env file)", cfg.trigger.secret_env);
                     std::process::exit(1);
                 });
             let url = cfg.tunnel.public_url.clone();
@@ -733,11 +778,11 @@ fn cmd_deploy(cfg: &Config, sub: &DeploySub, cli_config: Option<String>) {
                 eprintln!("{e}");
                 std::process::exit(1);
             });
-            let token = std::env::var(&cfg.runner.token_env)
+            let token = secret(&cfg.runner.token_env)
                 .unwrap_or_default();
             for r in &watched {
                 match bupha_github::register_webhook(
-                    &token, &r.name, &url, &secret)
+                    &token, &r.name, &url, &wh_secret)
                 {
                     Ok(msg) => println!("{msg}"),
                     Err(e) => { eprintln!("webhook {}: {e}", r.name);
@@ -866,7 +911,7 @@ fn cmd_destroy(cfg: &Config, sub: &DestroySub) {
                 eprintln!("{e}");
                 std::process::exit(1);
             });
-            let token = std::env::var(&cfg.runner.token_env)
+            let token = secret(&cfg.runner.token_env)
                 .unwrap_or_default();
             for r in &watched {
                 match bupha_github::unregister_webhook(
@@ -922,15 +967,13 @@ fn deploy_check(cfg: &Config) {
     check("env file", env_ok, "~/.config/bupha/env", &mut fails);
     let env_file = std::fs::read_to_string(
             home.join(".config/bupha/env")).unwrap_or_default();
-    let secret_ok = !std::env::var(&cfg.trigger.secret_env)
-        .unwrap_or_default().is_empty()
+    let secret_ok = secret(&cfg.trigger.secret_env).is_some()
         || env_file.lines().any(|l| l.starts_with(
             &format!("{}=", cfg.trigger.secret_env))
             && l.len() > cfg.trigger.secret_env.len() + 1);
     check("webhook secret set", secret_ok,
         &format!("{} (env or env file)", cfg.trigger.secret_env), &mut fails);
-    let token_ok = !std::env::var(&cfg.runner.token_env)
-        .unwrap_or_default().is_empty()
+    let token_ok = secret(&cfg.runner.token_env).is_some()
         || env_file.lines().any(|l| l.starts_with(
             &format!("{}=", cfg.runner.token_env))
             && l.len() > cfg.runner.token_env.len() + 1);
