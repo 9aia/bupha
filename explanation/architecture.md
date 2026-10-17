@@ -11,32 +11,32 @@ impls to ports.
 
 <!-- gen:crate-map -->
 
-| crate                 | layer  | role                                                                                       |
-| --------------------- | ------ | ------------------------------------------------------------------------------------------ |
-| `bupha-core`          | domain | bupha domain core: config types, job queues, shared primitives — no ports, no integrations |
-| `bupha-runner`        | port   | Runner port: how a job becomes a spawned process                                           |
-| `bupha-status`        | port   | StatusSink port: where run outcomes are reported                                           |
-| `bupha-trigger`       | port   | Trigger port: where pushes come from                                                       |
-| `bupha-tunnel`        | port   | Tunnel port: expose the webhook listener publicly                                          |
-| `bupha-cache`         | impl   | Cache port: artifact-cache backend for runners                                             |
-| `bupha-cache-sccache` | impl   | Cache impl: sccache-compatible conf (file/S3/R2/GCS via conf)                              |
-| `bupha-cloudflared`   | impl   | Tunnel impl: cloudflared (named tunnel preferred, quick tunnel fallback)                   |
-| `bupha-config`        | impl   | Config port: where bupha.toml-shaped config comes from                                     |
-| `bupha-config-toml`   | impl   | Config impl: bupha.toml file (explicit path, env, ./, ~/.config)                           |
-| `bupha-dagger`        | impl   | Runner impl: `dagger call &lt;fn&gt;` per job                                              |
-| `bupha-dotenv`        | impl   | Secret impl: KEY=VAL env file (chmod 600)                                                  |
-| `bupha-git`           | impl   | Vcs impl: git via the git CLI                                                              |
-| `bupha-github`        | impl   | GitHub impl: push-webhook trigger + commit-status sink                                     |
-| `bupha-keyring`       | impl   | Secret impl: OS keyring via secret-tool (libsecret)                                        |
-| `bupha-queue`         | impl   | QueueStore port: queue persistence                                                         |
-| `bupha-queue-redb`    | impl   | QueueStore impl: redb embedded store (single file, ACID)                                   |
-| `bupha-secret`        | impl   | Secret port: resolve named secrets from storage                                            |
-| `bupha-service`       | impl   | Service port: OS service lifecycle                                                         |
-| `bupha-shell`         | impl   | Runner impl: bash -c &lt;cmd&gt; per job — no containers                                   |
-| `bupha-ssh`           | impl   | Runner impl: remote execution over ssh (rsync worktree + run)                              |
-| `bupha-systemd`       | impl   | Service impl: systemd user units                                                           |
-| `bupha-vcs`           | impl   | Vcs port: VCS operations for repos and worktrees                                           |
-| `bupha`               | binary | bupha — the oxpecker on your repo's back: headless CI CLI                                  |
+| crate | layer | purpose |
+|---|---|---|
+| `bupha-core` | domain | bupha domain core: config types, job queues, shared primitives — no ports, no integrations |
+| `bupha-cache` | port | Cache port: artifact-cache backend for runners |
+| `bupha-config` | port | Config port: where bupha.toml-shaped config comes from |
+| `bupha-queue` | port | QueueStore port: queue persistence |
+| `bupha-runner` | port | Runner port: how a job becomes a spawned process |
+| `bupha-secret` | port | Secret port: resolve named secrets from storage |
+| `bupha-service` | port | Service port: OS service lifecycle |
+| `bupha-status` | port | StatusSink port: where run outcomes are reported |
+| `bupha-trigger` | port | Trigger port: where pushes come from |
+| `bupha-tunnel` | port | Tunnel port: expose the webhook listener publicly |
+| `bupha-vcs` | port | Vcs port: VCS operations for repos and worktrees |
+| `bupha-cache-sccache` | impl | Cache impl: sccache-compatible conf (file/S3/R2/GCS via conf) |
+| `bupha-cloudflared` | impl | Tunnel impl: cloudflared (named tunnel preferred, quick tunnel fallback) |
+| `bupha-config-toml` | impl | Config impl: bupha.toml file (explicit path, env, ./, ~/.config) |
+| `bupha-dagger` | impl | Runner impl: `dagger call &lt;fn&gt;` per job |
+| `bupha-dotenv` | impl | Secret impl: KEY=VAL env file (chmod 600) |
+| `bupha-git` | impl | Vcs impl: git via the git CLI |
+| `bupha-github` | impl | GitHub impl: push-webhook trigger + commit-status sink |
+| `bupha-keyring` | impl | Secret impl: OS keyring via secret-tool (libsecret) |
+| `bupha-queue-redb` | impl | QueueStore impl: redb embedded store (single file, ACID) |
+| `bupha-shell` | impl | Runner impl: bash -c &lt;cmd&gt; per job — no containers |
+| `bupha-ssh` | impl | Runner impl: remote execution over ssh (rsync worktree + run) |
+| `bupha-systemd` | impl | Service impl: systemd user units |
+| `bupha` | binary | bupha — the oxpecker on your repo's back: headless CI CLI |
 
 <!-- /gen:crate-map -->
 
