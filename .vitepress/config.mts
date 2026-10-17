@@ -11,7 +11,7 @@ export default defineConfig({
   ignoreDeadLinks: [/\/api\//],
   themeConfig: {
     nav: [
-      { text: 'Tutorial', link: '/tutorials/first-run' },
+      { text: 'Getting Started', link: '/getting-started' },
       { text: 'Reference', link: '/reference/cli' },
       { text: 'Crate API', link: '/reference/crate-api' },
       {
