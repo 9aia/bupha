@@ -21,3 +21,5 @@ bupha-github = { path = "../bupha-github" }
 tiny_http = "0.12"
 clap = { version = "4", features = ["derive"] }
 bupha-deploy = { path = "../bupha-deploy" }
+serde_json = "1"
+ureq = { version = "3" }

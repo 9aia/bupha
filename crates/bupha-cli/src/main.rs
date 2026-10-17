@@ -67,6 +67,8 @@ enum DeploySub {
     Webhook,
     /// Seed ~/.config/bupha/env with the secret names.
     Env,
+    /// Verify the whole install: unit, secrets, hook, endpoint, token.
+    Check,
 }
 
 fn build_runner(cfg: &Config) -> Arc<dyn Runner> {
@@ -83,6 +85,12 @@ fn build_runner(cfg: &Config) -> Arc<dyn Runner> {
             std::process::exit(2);
         }
     }
+}
+
+fn persist_queue(g: &Queue, path: &Path) {
+    let v = serde_json::json!({
+        "pending": g.pending, "running": g.running });
+    let _ = std::fs::write(path, v.to_string());
 }
 
 fn git(repo: &Path, args: &[&str]) -> bool {
@@ -204,14 +212,31 @@ fn cmd_watch(cfg: Arc<Config>) {
         });
     }
 
-    let pair = Arc::new((Mutex::new(Queue::default()), Condvar::new()));
+    // Restore queued work from a previous life — a push during
+    // downtime is not lost once it was accepted by the listener.
+    let qfile = PathBuf::from(&cfg.worktree.base).join("queue.json");
+    let mut initial = Queue::default();
+    if let Ok(text) = std::fs::read_to_string(&qfile) {
+        if let Ok(v) = serde_json::from_str::<serde_json::Value>(&text) {
+            initial.pending = v.get("pending").and_then(|x| x.as_str())
+                .map(str::to_string)
+                .or_else(|| v.get("running").and_then(|x| x.as_str())
+                    .map(str::to_string));
+            if initial.pending.is_some() {
+                println!("restored pending sha from {}", qfile.display());
+            }
+        }
+    }
+    let pair = Arc::new((Mutex::new(initial), Condvar::new()));
     let child: ChildSlot = Arc::new(Mutex::new(None));
+    let qfile_w = qfile.clone();
     {
         let pair = Arc::clone(&pair);
         let child = Arc::clone(&child);
         let cfg = Arc::clone(&cfg);
         let sink = Arc::clone(&sink);
         let runner = Arc::clone(&runner);
+        let qfile = qfile_w.clone();
         std::thread::spawn(move || {
             let (q, cv) = &*pair;
             loop {
@@ -221,13 +246,18 @@ fn cmd_watch(cfg: Arc<Config>) {
                         if let Some(s) = g.pending.take() {
                             g.running = Some(s.clone());
                             g.cancelled = false;
+                            persist_queue(&g, &qfile);
                             break s;
                         }
                         g = cv.wait(g).unwrap();
                     }
                 };
                 run_job(&cfg, &*sink, &*runner, q, &child, &sha);
-                q.lock().unwrap().running = None;
+                {
+                    let mut g = q.lock().unwrap();
+                    g.running = None;
+                    persist_queue(&g, &qfile);
+                }
             }
         });
     }
@@ -259,7 +289,9 @@ fn cmd_watch(cfg: Arc<Config>) {
             match trigger.parse_push(&body, &cfg.repo.branch) {
                 Some(sha) => {
                     let mut g = q.lock().unwrap();
-                    match g.enqueue(sha.clone()) {
+                    let res = g.enqueue(sha.clone());
+                    persist_queue(&g, &qfile);
+                    match res {
                         EnqueueResult::Duplicate => (200, "already queued"),
                         EnqueueResult::Queued { superseded } => {
                             if let Some(old) = superseded {
@@ -312,8 +344,43 @@ fn cmd_init(dir: &Path) {
         }
         _ => eprintln!("warning: dagger install failed — check network/auth"),
     }
-    println!("next: delegate to dag.bupha() from your module's ci()");
+    // Delegate template — thin module composing shared primitives.
+    let main_py = dir.join("dagger/src/ci/main.py");
+    if !main_py.exists() {
+        if let Some(parent) = main_py.parent() {
+            let _ = std::fs::create_dir_all(parent);
+        }
+        std::fs::write(&main_py, DELEGATE_TEMPLATE)
+            .unwrap_or_else(|e| eprintln!("template: {e}"));
+        println!("wrote {}", main_py.display());
+    }
+    println!("next: `dagger call ci --token env://BUPHA_TOKEN` to run the gate");
 }
+
+const DELEGATE_TEMPLATE: &str = r##""""""CI for this repo — delegates to the shared 9aia/bupha module.""""
+
+from typing import Optional
+import dagger
+from dagger import dag, function, object_type
+
+
+@object_type
+class Ci:
+    @function
+    async def ci(
+        self,
+        source: dagger.Directory,
+        token: Optional[dagger.Secret] = None,
+        shards: int = 1,
+        jobs: int = 2,
+        sccache_conf: Optional[dagger.Secret] = None,
+    ) -> str:
+        """Full gate: workspace tests via the shared bupha module."""
+        hc = dag.bupha()
+        return await hc.test(
+            source=source, shards=shards, jobs=jobs,
+            repo="REPO_NAME", token=token, sccache_conf=sccache_conf)
+"##;
 
 fn check(name: &str, ok: bool, detail: &str, failures: &mut usize) {
     let mark = if ok { "ok " } else { "FAIL" };
@@ -443,6 +510,7 @@ fn main() {
 }
 
 fn cmd_deploy(cfg: &Config, sub: &DeploySub, cli_config: Option<String>) {
+    let cli_config = cli_config;
     let home = std::env::var("HOME").map(PathBuf::from)
         .unwrap_or_else(|_| ".".into());
     let cfg_dir = home.join(".config/bupha");
@@ -470,6 +538,7 @@ fn cmd_deploy(cfg: &Config, sub: &DeploySub, cli_config: Option<String>) {
                 println!("bupha-watch enabled — run 'loginctl enable-linger' once for boot persistence");
             }
         }
+        DeploySub::Check => deploy_check(cfg),
         DeploySub::Webhook => {
             let secret = std::env::var(&cfg.trigger.secret_env)
                 .unwrap_or_else(|_| {
@@ -493,5 +562,54 @@ fn cmd_deploy(cfg: &Config, sub: &DeploySub, cli_config: Option<String>) {
                 Err(e) => { eprintln!("webhook: {e}"); std::process::exit(1); }
             }
         }
+    }
+}
+
+fn deploy_check(cfg: &Config) {
+    let mut fails = 0usize;
+    let home = std::env::var("HOME").map(PathBuf::from)
+        .unwrap_or_else(|_| ".".into());
+    check("unit file", home.join(
+            ".config/systemd/user/bupha-watch.service").exists(),
+        "bupha-watch.service", &mut fails);
+    let env_ok = home.join(".config/bupha/env").exists();
+    check("env file", env_ok, "~/.config/bupha/env", &mut fails);
+    let env_file = std::fs::read_to_string(
+            home.join(".config/bupha/env")).unwrap_or_default();
+    let secret_ok = !std::env::var(&cfg.trigger.secret_env)
+        .unwrap_or_default().is_empty()
+        || env_file.lines().any(|l| l.starts_with(
+            &format!("{}=", cfg.trigger.secret_env))
+            && l.len() > cfg.trigger.secret_env.len() + 1);
+    check("webhook secret set", secret_ok,
+        &format!("{} (env or env file)", cfg.trigger.secret_env), &mut fails);
+    let token_ok = !std::env::var(&cfg.runner.token_env)
+        .unwrap_or_default().is_empty()
+        || env_file.lines().any(|l| l.starts_with(
+            &format!("{}=", cfg.runner.token_env))
+            && l.len() > cfg.runner.token_env.len() + 1);
+    check("token set", token_ok,
+        &format!("{} (env or env file)", cfg.runner.token_env), &mut fails);
+    check("tunnel.public_url", !cfg.tunnel.public_url.is_empty(),
+        "needed for webhook registration", &mut fails);
+    if !cfg.tunnel.public_url.is_empty() {
+        let code = ureq_probe(&cfg.tunnel.public_url);
+        check("endpoint reachable", code.is_some(),
+            &format!("{} -> {:?}", cfg.tunnel.public_url, code), &mut fails);
+    }
+    if fails == 0 { println!("deploy check: all green"); }
+    else { println!("{fails} problem(s)"); std::process::exit(1); }
+}
+
+fn ureq_probe(url: &str) -> Option<u16> {
+    // Any HTTP answer (even a 4xx) proves the endpoint is reachable;
+    // only transport-level failure is None.
+    match ureq::post(&format!("{url}/hook"))
+        .header("User-Agent", "bupha")
+        .send_empty()
+    {
+        Ok(r) => Some(r.status().as_u16()),
+        Err(ureq::Error::StatusCode(c)) => Some(c),
+        Err(_) => None,
     }
 }
