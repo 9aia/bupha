@@ -19,7 +19,7 @@
 - [Command-Line Help for `bupha`](/bupha/reference/cli.md)
 - [Config reference](/bupha/reference/config.md)
 - [Releasing](/bupha/reference/releasing.md)
-- [Crate API](/bupha/reference/rust-api.md)
+- [Crate API](/bupha/reference/crate-api.md)
 
 ### Explanation
 
