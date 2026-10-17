@@ -32,7 +32,7 @@ the oxpecker on your repo's back — headless CI
 * `init` — Scaffold CI in a repo (dagger module install or script skeleton)
 * `doctor` — Check what the loaded config actually needs on this box
 * `run` — Run the pipeline locally (the runner's invocation, current dir)
-* `deploy` — Install-time helpers — no files to copy by hand
+* `deploy` — Install-time helpers — no manual file copies
 * `destroy` — Teardown counterparts of `deploy`
 
 ###### **Options:**
@@ -85,7 +85,7 @@ Run the pipeline locally (the runner's invocation, current dir)
 
 ## `bupha deploy`
 
-Install-time helpers — no files to copy by hand
+Install-time helpers — no manual file copies
 
 **Usage:** `bupha deploy <COMMAND>`
 

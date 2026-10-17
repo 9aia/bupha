@@ -4,7 +4,9 @@ Goal: push-triggered CI on a repo, end to end, in ~10 minutes.
 
 Prereqs: **Linux + systemd** (script runner needs bash; macOS/Windows
 unsupported for now); git;
-`cargo install bupha`; docker only if you use the dagger runner.
+`cargo install bupha` (until 0.1.0 lands on crates.io:
+`cargo install --git https://github.com/9aia/bupha`); docker only
+if you use the dagger runner.
 Also a stable public URL for the webhook — named cloudflared tunnel
 or a direct box; quick tunnels are convenient but flaky.
 

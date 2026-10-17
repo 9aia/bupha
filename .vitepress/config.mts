@@ -13,7 +13,7 @@ export default defineConfig({
     nav: [
       { text: 'Tutorial', link: '/tutorials/first-run' },
       { text: 'Reference', link: '/reference/cli' },
-      { text: 'Rust API', link: '/api/index.html', target: '_blank' },
+      { text: 'Rust API', link: '/reference/rust-api' },
       {
         text: 'LLMs',
         items: [
@@ -42,7 +42,7 @@ export default defineConfig({
           { text: 'CLI', link: '/reference/cli' },
           { text: 'Config', link: '/reference/config' },
           { text: 'Releasing', link: '/reference/releasing' },
-          { text: 'Rust API', link: '/api/index.html', target: '_blank' },
+          { text: 'Rust API', link: '/reference/rust-api' },
         ],
       },
       {
