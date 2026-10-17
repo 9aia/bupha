@@ -20,7 +20,6 @@ export default defineConfig({
           { text: 'llms-full.txt', link: 'https://9aia.com/bupha/llms-full.txt', target: '_blank' },
         ],
       },
-      { text: 'GitHub', link: 'https://github.com/9aia/bupha' },
     ],
     sidebar: [
       {

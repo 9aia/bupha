@@ -8,7 +8,6 @@ Diátaxis-structured. Pick by what you need to do.
   [sccache backend](how-to/sccache-backend.md)
 - **Reference** (lookup): [cli](reference/cli.md) ·
   [config](reference/config.md) ·
-  [releasing](explanation/release-model.md) ·
   [crate api](reference/crate-api.md)
 - **Explanation** (why): [architecture](explanation/architecture.md) ·
   [release model](explanation/release-model.md)
