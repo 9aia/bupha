@@ -1,0 +1,2 @@
+createSrcSidebar('[["bupha",["",[],["main.rs"]]],["bupha_cloudflared",["",[],["lib.rs"]]],["bupha_core",["",[],["lib.rs"]]],["bupha_dagger",["",[],["lib.rs"]]],["bupha_deploy",["",[],["lib.rs"]]],["bupha_github",["",[],["lib.rs"]]],["bupha_runner",["",[],["lib.rs"]]],["bupha_script",["",[],["lib.rs"]]],["bupha_tunnel",["",[],["lib.rs"]]]]');
+//{"start":19,"fragment_lengths":[29,41,34,36,36,36,36,36,36]}

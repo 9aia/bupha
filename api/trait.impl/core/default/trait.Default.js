@@ -1,0 +1,9 @@
+(function() {
+    const implementors = Object.fromEntries([["bupha",[["impl <a class=\"trait\" href=\"https://doc.rust-lang.org/1.98.0/core/default/trait.Default.html\" title=\"trait core::default::Default\">Default</a> for <a class=\"struct\" href=\"bupha/struct.Shared.html\" title=\"struct bupha::Shared\">Shared</a>",0]]],["bupha_core",[["impl <a class=\"trait\" href=\"https://doc.rust-lang.org/1.98.0/core/default/trait.Default.html\" title=\"trait core::default::Default\">Default</a> for <a class=\"struct\" href=\"bupha_core/struct.Queue.html\" title=\"struct bupha_core::Queue\">Queue</a>",0],["impl <a class=\"trait\" href=\"https://doc.rust-lang.org/1.98.0/core/default/trait.Default.html\" title=\"trait core::default::Default\">Default</a> for <a class=\"enum\" href=\"bupha_core/enum.QueuePolicy.html\" title=\"enum bupha_core::QueuePolicy\">QueuePolicy</a>",0],["impl <a class=\"trait\" href=\"https://doc.rust-lang.org/1.98.0/core/default/trait.Default.html\" title=\"trait core::default::Default\">Default</a> for <a class=\"struct\" href=\"bupha_core/struct.Seen.html\" title=\"struct bupha_core::Seen\">Seen</a>",0],["impl <a class=\"trait\" href=\"https://doc.rust-lang.org/1.98.0/core/default/trait.Default.html\" title=\"trait core::default::Default\">Default</a> for <a class=\"struct\" href=\"bupha_core/struct.TunnelCfg.html\" title=\"struct bupha_core::TunnelCfg\">TunnelCfg</a>",0],["impl <a class=\"trait\" href=\"https://doc.rust-lang.org/1.98.0/core/default/trait.Default.html\" title=\"trait core::default::Default\">Default</a> for <a class=\"struct\" href=\"bupha_core/struct.WorktreeCfg.html\" title=\"struct bupha_core::WorktreeCfg\">WorktreeCfg</a>",0]]]]);
+    if (window.register_implementors) {
+        window.register_implementors(implementors);
+    } else {
+        window.pending_implementors = implementors;
+    }
+})()
+//{"start":59,"fragment_lengths":[266,1366]}

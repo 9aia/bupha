@@ -1,0 +1,418 @@
+---
+url: /bupha/tutorials/first-run.md
+---
+# Tutorial: your first bupha run
+
+Goal: push-triggered CI on a repo, end to end, in ~10 minutes.
+
+Prereqs: **Linux + systemd** (script runner needs bash; macOS/Windows
+unsupported for now); git;
+`cargo install bupha`; docker only if you use the dagger runner.
+Also a stable public URL for the webhook — named cloudflared tunnel
+or a direct box; quick tunnels are convenient but flaky.
+
+1. `cd your-repo && bupha init` — scaffolds the dagger module +
+   delegate (the module builds a Rust workspace — needs `cargo` in
+   the pipeline image; for anything else write `ci.sh` and use the
+   script runner).
+2. `bupha deploy env` → set `BUPHA_WEBHOOK_SECRET` + `BUPHA_TOKEN`
+   (a repo-scoped PAT) — in `~/.config/bupha/env`, or store them in
+   your OS keyring with `secret-tool` (resolution: env → keyring → file).
+3. Write `bupha.toml` (see `examples/bupha.toml.example`): your repo's
+   `[[repos]]` entry, `runner.kind`, `tunnel`.
+4. `bupha doctor` — checks this box (binaries, secrets, config) before
+   you commit; fix anything red.
+5. `bupha deploy service` — systemd unit written + enabled
+   (`loginctl enable-linger` once for boot persistence).
+6. `bupha deploy webhook` — registers `POST <public_url>/hook` on the
+   repo; `bupha deploy check` verifies unit+secrets+endpoint.
+7. Push. `ci/bupha` commit status appears; superseded/cancelled shas
+   get honest error statuses.
+
+Done. Logs: `journalctl --user -u bupha-watch -f`.
+
+---
+
+---
+url: /bupha/how-to/multi-repo.md
+---
+# How-to: watch multiple repos
+
+Add one `[[repos]]` entry per repository; `name` must equal the
+payload's `repository.full_name`. Each repo gets its own pending
+slot; a single global worker serializes runs (deliberate — safe on
+one box). Same-repo pushes may cancel their own in-flight run
+(`cancel_running`); a push never cancels another repo's run.
+
+```toml
+[[repos]]
+name = "org/api"
+dir = "/srv/checkouts/api"
+queue = "all"                    # every push runs (releases)
+
+[[repos]]
+name = "org/web"
+dir = "/srv/checkouts/web"       # default latest-wins
+
+# [repos.runner]                # per-repo override; replaces global
+#   kind = "script"
+#   cmd = "./release.sh"
+```
+
+Run `bupha deploy webhook` once — it registers the hook on every
+watched repo. `status_repo` on an entry redirects statuses (e.g.
+mirror repos); it defaults to `name`.
+
+---
+
+---
+url: /bupha/how-to/script-runner.md
+---
+# How-to: run without containers
+
+`runner.kind = "script"` + `cmd` — the watcher still does webhook
+verification, the queue, detached worktrees and statuses; your script
+does the build. No dagger, no docker, no image pulls.
+
+```toml
+[runner]
+kind = "script"
+cmd = "./ci.sh"                  # run with `bash -c` in the worktree
+```
+
+The worktree is a detached checkout of the pushed sha at
+`<worktree.base>-<repo>-<sha12>`, removed after the run. A killed
+run reports "cancelled (superseded)", not failure.
+
+Use it for: `make ci`, `./ci.sh`, a linter gate, or bupha's own
+`scripts/release.sh` (debounced release job). For anything heavier
+— cache volumes, toolchains, parallel shards — use the `dagger`
+runner and the shared `modules/dagger` module.
+
+---
+
+---
+url: /bupha/how-to/sccache-backend.md
+---
+# How-to: sccache backend
+
+sccache's backend is decoupled via an env file — set
+`runner.sccache_conf` to a `KEY=VAL` file (mounted into containers as
+a secret). Without it, sccache uses a local cache volume.
+
+## Local S3 (garage)
+
+```
+docker run -d --name garage --restart always \
+  -v $HOME/bupha-data/garage:/data \
+  -v $HOME/bupha-data/garage.toml:/etc/garage.toml \
+  -p 9100:9100 dxflrs/garage:v1.x.x
+```
+
+Then in the garage CLI: `bucket create bupha-ci` → `key create sccache`
+→ `bucket allow --read --write --owner bupha-ci --key sccache`.
+
+Env file:
+
+```
+SCCACHE_ENDPOINT=http://<docker-gateway>:9100
+SCCACHE_BUCKET=bupha-ci
+SCCACHE_REGION=garage
+SCCACHE_S3_USE_SSL=false
+AWS_ACCESS_KEY_ID=...
+AWS_SECRET_ACCESS_KEY=...
+```
+
+## Migrating to hosted S3 (R2 / AWS)
+
+Same file, new values — `SCCACHE_ENDPOINT` to the provider URL, real
+region, new creds. No code changes; that's the point of the env file.
+
+---
+
+---
+url: /bupha/reference/cli.md
+---
+# CLI reference
+
+`bupha [--config PATH] <command>` — config search: flag →
+`$BUPHA_CONFIG` → `./bupha.toml` → `~/.config/bupha/bupha.toml`.
+
+## Runtime
+
+* `watch` — daemon: webhook → queue → worktree → runner → status.
+  Needs `secret_env` + `token_env` set (the unit loads
+  `~/.config/bupha/env`).
+* `init [dir]` — `dagger init` + install the shared module (pinned
+  sha) + write a `dag.bupha()` delegate with repo name and
+  `patch_host` filled from `git remote`.
+* `run [fn]` — run the pipeline locally in the configured repo dir.
+* `doctor` — check what the loaded config needs on this box
+  (git, repos, runner deps, secrets, tunnel, disk).
+
+## Lifecycle
+
+* `deploy service [--no-start]` — write + enable `bupha-watch.service`
+  (`loginctl enable-linger` once for boot persistence).
+* `deploy webhook` — register `<public_url>/hook` on every watched
+  repo (exact-URL takeover only).
+* `deploy env` — seed `~/.config/bupha/env` (never overwrites).
+* `deploy check` — verify unit, secrets, endpoint, token.
+* `deploy release [--dry-run]` — one-time seed: `cargo publish` in
+  dep order + tag `{repo}-v{ver}` + push. Needs
+  `CARGO_REGISTRY_TOKEN`.
+* `destroy service|webhook|worktrees` — teardown counterparts.
+
+---
+
+---
+url: /bupha/reference/config.md
+---
+# bupha.toml reference
+
+Tables: `[[repos]]` (name, dir, branch, status_repo?, queue?) ·
+`[trigger]` (kind, listen, secret_env) · `[runner]` (kind, function,
+shards, jobs, dogfood_jobs, sequential, cancel_running, sccache_conf,
+cmd, token_env, extra_args, cli_source) · `[status]` (kind, repo,
+context) · `[tunnel]` (provider, name, local_url, public_url) ·
+`[worktree]` (base).
+
+Unknown fields error loudly (`deny_unknown_fields`). Secrets are env
+vars named by `secret_env`/`token_env` — never written to the file.
+
+Constraints the loader enforces:
+
+* `queue = "all"` on a `[[repos]]` entry rejects
+  `runner.cancel_running` — `all` promises every push runs; killing the
+  in-flight job would silently drop a sha that was never superseded.
+* With the `dagger` runner, the emitted `dagger call` args are
+  `--shards --jobs --token` plus `dogfood_jobs`/`sequential`/
+  `sccache_conf`/`extra_args` only when set — the module function's
+  signature must declare everything the runner sends.
+* The webhook `after` sha must be hex (7–64 chars); anything else gets
+  a 400, and branch deletions (`after = 000…`) are ignored cleanly.
+
+---
+
+---
+url: /bupha/reference/releasing.md
+---
+# Releasing
+
+Seeded once, then push-driven. `bupha deploy release` publishes every
+workspace member in dependency order and pushes the `{repo}-v{ver}`
+seed tag — publishing is the only irreversible step, so it stays
+explicit. From then on, `bupha watch` sees pushes to `9aia/bupha`, queues
+latest-wins, and runs `scripts/release.sh` in a worktree
+(`runner.kind = "script"`, `cancel_running = true` — the 5-min sleep
+inside the script is the debounce window).
+
+The script diffs since the last tag, patch-bumps and `cargo publish`es
+only touched crates (cli republishes on any change), tags `bupha-vX`,
+then builds host-arch binaries with `cargo dist` and uploads them to a
+GitHub Release via `gh`.
+
+Needs on the host: `cargo-edit` (`cargo set-version`), `cargo-dist`,
+`gh`, and `CARGO_REGISTRY_TOKEN` in `~/.config/bupha/env`.
+No GitHub Actions anywhere — releases are just another bupha job.
+Other build architectures join via the remote-runner pair (TODO.md).
+
+---
+
+---
+url: /bupha/explanation/architecture.md
+---
+# Architecture
+
+bupha is a port/adapter monorepo. `bupha-core` holds the domain —
+the queue, `bupha.toml`, and the `Trigger`/`StatusSink` ports — and
+knows nothing about GitHub, dagger or cloudflared. Ports
+`bupha-runner` and `bupha-tunnel` each have impl crates; `bupha-github`
+implements both trigger (HMAC verify + push parse) and status sink.
+`bupha-cli` is the binary; `bupha-deploy` holds install-time helpers.
+`modules/dagger/` is the shared pipeline module (Python SDK) that
+`bupha init` installs into consumer repos.
+
+The watcher pipeline:
+
+```
+POST /hook → HMAC (constant-time) → dedup X-GitHub-Delivery
+  → route by repository.full_name → per-repo queue → one global
+    worker → detached worktree → spawned runner child → status posts
+```
+
+Key semantics:
+
+* **latest-wins** (default): at most 1 pending sha per repo; a newer
+  push supersedes it and the skipped sha gets an honest "error:
+  superseded" status. `queue = "all"` switches to bounded FIFO (32)
+  for release-style repos that must run every push.
+* **cancel_running**: kills the in-flight child on a new push —
+  valid only with `latest` (rejected under `all`, which would drop
+  a commit that was never superseded).
+* **Persistence**: accepted work writes `queue.json` (tmp+rename) in
+  `worktree.base`; a restart re-queues the interrupted `running` sha
+  at the front.
+* **Ingress is decoupled**: the listener binds localhost; a `Tunnel`
+  child (`cloudflared` today) is supervised — reaped and respawned
+  on exit. `direct`/`none` are for boxes already public.
+* **Secrets stay out of files**: `secret_env`/`token_env` name env
+  vars; the token reaches the runner only via the runner's own
+  mechanism (e.g. `env://` secret for dagger).
+
+Design rule for extending: a new forge = a `Trigger`+`StatusSink`
+impl crate; a new pipeline = a `Runner` impl; a new ingress = a
+`Tunnel` impl. Core stays untouched.
+
+One **global worker** serializes runs across every repo — a second
+push queues behind the in-flight job, it does not run in parallel.
+That is deliberate (one box, bounded resource use), not a hang:
+`journalctl --user -u bupha-watch` shows the queue moves.
+
+## Extension seams (0.2+, by design — not yet ports)
+
+| Coupling | Where | Planned port |
+|---|---|---|
+| OS service mgmt | `bupha-deploy` (systemd, df, journalctl) | `Service` — launchd/Windows later |
+| Secret storage | `secret()` — env → secret-tool → file | `keyring` crate backends (macOS/Win) |
+| Config path | `~/.config/bupha` (XDG) | `dirs` crate for native paths |
+| VCS ops | `git()`/`repo_sync` in cli shell to git | `Vcs` trait → `GitVcs` (jj/hg later) |
+| Queue persistence | `queue.json` load/save in cli | `QueueStore` — SQLite/remote for distributed runners |
+
+---
+
+---
+url: /bupha/comparison.md
+---
+# bupha vs hosted CI
+
+bupha is for people who want push-triggered CI on hardware they
+control — not a GHA replacement at fleet scale.
+
+## vs GitHub Actions
+
+| | bupha | GitHub Actions |
+|---|---|---|
+| compute | your box | managed fleet |
+| queue | latest-wins + bounded `all`, no cold start | unlimited parallelism, queue wait |
+| secrets | never leave the machine | hosted on GitHub |
+| cache | your backend — local disk or your S3/R2/minio | hosted cache |
+| pipeline def | your runner — `ci.sh` or dagger module | YAML DSL + marketplace actions |
+| local == CI | `bupha run` is literally the same path | `act` approximates |
+| batching | supersede built-in, honest "cancelled" statuses | `concurrency` groups |
+| scale | one worker, serialized runs | matrix/fleet |
+| cost | your box only | minutes billing |
+
+**When GHA is better:** you need parallelism, matrices across OSes,
+hosted macOS/Windows builds, or marketplace actions. **When bupha is
+better:** you want instant feedback on your own hardware, secrets
+that never leave the machine, warm caches on your own storage,
+and no YAML.
+
+## vs others
+
+* **Jenkins/Buildkite** — bupha is a single binary with a TOML file,
+  not a server product to operate.
+* **Woodpecker/Forgejo CI** — bupha is forge-webhook driven and much
+  smaller; those are full pipeline platforms.
+* **self-hosted GHA runner** — bupha is lighter (no runner service,
+  no org config) but has no matrix or marketplace.
+
+---
+
+---
+url: /bupha/public/api/static.files/SourceSerif4-LICENSE-a2cfd9d5.md
+---
+Copyright 2014-2021 Adobe (http://www.adobe.com/), with Reserved Font Name 'Source'. All Rights Reserved. Source is a trademark of Adobe in the United States and/or other countries.
+Copyright 2014 - 2023 Adobe (http://www.adobe.com/), with Reserved Font Name ‘Source’. All Rights Reserved. Source is a trademark of Adobe in the United States and/or other countries.
+
+This Font Software is licensed under the SIL Open Font License, Version 1.1.
+
+This license is copied below, and is also available with a FAQ at: http://scripts.sil.org/OFL
+
+***
+
+## SIL OPEN FONT LICENSE Version 1.1 - 26 February 2007
+
+PREAMBLE
+The goals of the Open Font License (OFL) are to stimulate worldwide
+development of collaborative font projects, to support the font creation
+efforts of academic and linguistic communities, and to provide a free and
+open framework in which fonts may be shared and improved in partnership
+with others.
+
+The OFL allows the licensed fonts to be used, studied, modified and
+redistributed freely as long as they are not sold by themselves. The
+fonts, including any derivative works, can be bundled, embedded,
+redistributed and/or sold with any software provided that any reserved
+names are not used by derivative works. The fonts and derivatives,
+however, cannot be released under any other type of license. The
+requirement for fonts to remain under this license does not apply
+to any document created using the fonts or their derivatives.
+
+DEFINITIONS
+"Font Software" refers to the set of files released by the Copyright
+Holder(s) under this license and clearly marked as such. This may
+include source files, build scripts and documentation.
+
+"Reserved Font Name" refers to any names specified as such after the
+copyright statement(s).
+
+"Original Version" refers to the collection of Font Software components as
+distributed by the Copyright Holder(s).
+
+"Modified Version" refers to any derivative made by adding to, deleting,
+or substituting -- in part or in whole -- any of the components of the
+Original Version, by changing formats or by porting the Font Software to a
+new environment.
+
+"Author" refers to any designer, engineer, programmer, technical
+writer or other person who contributed to the Font Software.
+
+PERMISSION & CONDITIONS
+Permission is hereby granted, free of charge, to any person obtaining
+a copy of the Font Software, to use, study, copy, merge, embed, modify,
+redistribute, and sell modified and unmodified copies of the Font
+Software, subject to the following conditions:
+
+1. Neither the Font Software nor any of its individual components,
+   in Original or Modified Versions, may be sold by itself.
+
+2. Original or Modified Versions of the Font Software may be bundled,
+   redistributed and/or sold with any software, provided that each copy
+   contains the above copyright notice and this license. These can be
+   included either as stand-alone text files, human-readable headers or
+   in the appropriate machine-readable metadata fields within text or
+   binary files as long as those fields can be easily viewed by the user.
+
+3. No Modified Version of the Font Software may use the Reserved Font
+   Name(s) unless explicit written permission is granted by the corresponding
+   Copyright Holder. This restriction only applies to the primary font name as
+   presented to the users.
+
+4. The name(s) of the Copyright Holder(s) or the Author(s) of the Font
+   Software shall not be used to promote, endorse or advertise any
+   Modified Version, except to acknowledge the contribution(s) of the
+   Copyright Holder(s) and the Author(s) or with their explicit written
+   permission.
+
+5. The Font Software, modified or unmodified, in part or in whole,
+   must be distributed entirely under this license, and must not be
+   distributed under any other license. The requirement for fonts to
+   remain under this license does not apply to any document created
+   using the Font Software.
+
+TERMINATION
+This license becomes null and void if any of the above conditions are
+not met.
+
+DISCLAIMER
+THE FONT SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO ANY WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT
+OF COPYRIGHT, PATENT, TRADEMARK, OR OTHER RIGHT. IN NO EVENT SHALL THE
+COPYRIGHT HOLDER BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
+INCLUDING ANY GENERAL, SPECIAL, INDIRECT, INCIDENTAL, OR CONSEQUENTIAL
+DAMAGES, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+FROM, OUT OF THE USE OR INABILITY TO USE THE FONT SOFTWARE OR FROM
+OTHER DEALINGS IN THE FONT SOFTWARE.

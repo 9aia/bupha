@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["MAX_PENDING"],"enum":["EnqueueResult","PushOutcome","QueuePolicy"],"fn":["is_valid_sha"],"struct":["Config","Queue","RepoCfg","RepoEntry","RunnerCfg","Seen","StatusCfg","TriggerCfg","TunnelCfg","WatchedRepo","WorktreeCfg"],"trait":["StatusSink","Trigger"]};

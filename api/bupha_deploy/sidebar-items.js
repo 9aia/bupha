@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["disable_service","enable_service","publish_order","write_env_skeleton","write_service_unit"]};

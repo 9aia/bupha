@@ -1,0 +1,30 @@
+# bupha
+
+> headless CI — the oxpecker on your repo
+
+## Table of Contents
+
+### Tutorials
+
+- [Tutorial: your first bupha run](/bupha/tutorials/first-run.md)
+
+### How-to
+
+- [How-to: watch multiple repos](/bupha/how-to/multi-repo.md)
+- [How-to: run without containers](/bupha/how-to/script-runner.md)
+- [How-to: sccache backend](/bupha/how-to/sccache-backend.md)
+
+### Reference
+
+- [CLI reference](/bupha/reference/cli.md)
+- [bupha.toml reference](/bupha/reference/config.md)
+- [Releasing](/bupha/reference/releasing.md)
+
+### Explanation
+
+- [Architecture](/bupha/explanation/architecture.md)
+- [bupha vs hosted CI](/bupha/comparison.md)
+
+### Other
+
+- [Untitled](/bupha/public/api/static.files/SourceSerif4-LICENSE-a2cfd9d5.md)
