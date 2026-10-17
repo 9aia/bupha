@@ -19,16 +19,18 @@ impls to ports.
 | `bupha-trigger` | port | Trigger port: where pushes come from |
 | `bupha-tunnel` | port | Tunnel port: expose the webhook listener publicly |
 | `bupha-cloudflared` | impl | Tunnel impl: cloudflared (named tunnel preferred, quick tunnel fallback) |
-| `bupha-dagger` | impl | Runner impl: `dagger call <fn>` per job |
+| `bupha-config` | impl | Config port: where bupha.toml-shaped config comes from |
+| `bupha-config-toml` | impl | Config impl: bupha.toml file (explicit path, env, ./, ~/.config) |
+| `bupha-dagger` | impl | Runner impl: `dagger call &lt;fn&gt;` per job |
 | `bupha-dotenv` | impl | Secret impl: KEY=VAL env file (chmod 600) |
 | `bupha-git` | impl | Vcs impl: git via the git CLI |
 | `bupha-github` | impl | GitHub impl: push-webhook trigger + commit-status sink |
 | `bupha-keyring` | impl | Secret impl: OS keyring via secret-tool (libsecret) |
 | `bupha-queue` | impl | QueueStore port: queue persistence |
-| `bupha-queue-json` | impl | QueueStore impl: atomic queue.json |
+| `bupha-queue-redb` | impl | QueueStore impl: redb embedded store (single file, ACID) |
 | `bupha-secret` | impl | Secret port: resolve named secrets from storage |
 | `bupha-service` | impl | Service port: OS service lifecycle |
-| `bupha-shell` | impl | Runner impl: bash -c <cmd> per job — no containers |
+| `bupha-shell` | impl | Runner impl: bash -c &lt;cmd&gt; per job — no containers |
 | `bupha-systemd` | impl | Service impl: systemd user units |
 | `bupha-vcs` | impl | Vcs port: VCS operations for repos and worktrees |
 | `bupha` | binary | bupha — the oxpecker on your repo's back: headless CI CLI |
@@ -48,7 +50,7 @@ POST /hook
   → 5. parse — skip deletes/zero-sha; reject non-hex sha
   → 6. route — repository.full_name → watched [[repo]] entry;
        git_ref must equal repo.branch
-  → 7. enqueue — per-repo queue; atomic queue.json persist
+  → 7. enqueue — per-repo queue; atomic queue file (redb) persist
   → 8. one global worker — git fetch, detached worktree
        at <base>-<repo>-<sha12>
   → 9. spawn runner child (token via env:// name, never argv)
@@ -63,7 +65,7 @@ POST /hook
 | `latest` (default) | 1 sha | supersedes pending; `cancel_running` may kill in-flight | CI gates |
 | `all` | bounded FIFO (32) | appends; oldest evicted past cap; `cancel_running` rejected at load — it would drop a promised commit | releases |
 
-Persistence: accepted work writes `queue.json` via tmp+rename inside
+Persistence: accepted work writes `queue file (redb)` via tmp+rename inside
 `worktree.base`; on restart the interrupted `running` sha is
 re-queued at the front.
 

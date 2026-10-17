@@ -18,6 +18,7 @@ for toml in members:
     t = toml.read_text()
     name = re.search(r'^name = "([^"]+)"', t, re.M).group(1)
     desc = re.search(r'^description = "([^"]+)"', t, re.M).group(1)
+    desc = desc.replace("<", "&lt;").replace(">", "&gt;")
     rows.append((name, LAYER.get(name, "impl"), desc))
 order = {"domain": 0, "port": 1, "impl": 2, "binary": 3}
 rows.sort(key=lambda r: (order[r[1]], r[0]))
