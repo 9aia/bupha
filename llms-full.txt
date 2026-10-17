@@ -491,15 +491,18 @@ impls to ports.
 POST /hook
   → 1. path check (404 otherwise)
   → 2. read body (≤ 2 MiB)
-  → 3. HMAC verify — sha256, constant-time
-  → 4. dedup X-GitHub-Delivery (bounded 10k ring)
-  → 5. parse — skip deletes/zero-sha; reject non-hex sha
+  → 3. signature verify (Trigger port — github impl: HMAC
+       sha256, constant-time)
+  → 4. dedup delivery id (bounded 10k ring; github impl uses
+       X-GitHub-Delivery)
+  → 5. parse — skip deletes/zero-sha; revision must be path-safe
   → 6. route — repository.full_name → watched [[repo]] entry;
        git_ref must equal repo.branch
-  → 7. enqueue — per-repo queue; atomic queue file (redb) persist
-  → 8. one global worker — git fetch, detached worktree
+  → 7. enqueue — per-repo queue; persist via QueueStore (redb,
+       ACID)
+  → 8. one global worker — Vcs fetch, detached worktree
        at <base>-<repo>-<sha12>
-  → 9. spawn runner child (token via env:// name, never argv)
+  → 9. spawn run handle (token via env:// name, never argv)
   → 10. status — pending → success/error; superseded and
         cancelled shas get honest error statuses
 ```
@@ -511,9 +514,9 @@ POST /hook
 | `latest` (default) | 1 sha             | supersedes pending; `cancel_running` may kill in-flight                                               | CI gates |
 | `all`              | bounded FIFO (32) | appends; oldest evicted past cap; `cancel_running` rejected at load — it would drop a promised commit | releases |
 
-Persistence: accepted work writes `queue file (redb)` via tmp+rename inside
-`worktree.base`; on restart the interrupted `running` sha is
-re-queued at the front.
+Persistence: accepted work writes through the `QueueStore` port
+(`redb`, single embedded file) inside `worktree.base`; on restart
+the interrupted `running` sha is re-queued at the front.
 
 One **global worker** serializes runs across all repos — a second
 push queues behind the in-flight job. Deliberate (one box, bounded
