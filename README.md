@@ -25,6 +25,16 @@ push ──► webhook ──► verify HMAC ──► latest-wins queue ──�
 - sccache-compatible artifact cache (garage/minio/R2/S3)
 - Docker/dagger optional — `runner.kind = "script"` needs only git
 
+## vs GitHub Actions
+
+- pushes hit **your** box — no runner minutes, no cold-queue wait,
+  secrets and caches never leave the machine
+- the same pipeline runs in CI and locally (`bupha run`); no YAML DSL
+- latest-wins batching built in (GHA `concurrency` groups without
+  the syntax)
+- trade-off: one box, serialized runs — no managed fleet, no matrix
+  UI, no marketplace
+
 ## Install
 
 Platform: **Linux** for the full experience — `deploy service` needs
