@@ -243,3 +243,22 @@ pub fn register_webhook(
         Ok(format!("created hook -> {hook_url}"))
     }
 }
+
+/// `ForgeAdmin` impl — manages webhook lifecycle via the GitHub
+/// REST API for one repo.
+pub struct GitHubAdmin {
+    /// "owner/repo" this admin manages.
+    pub repo: String,
+}
+
+impl bupha_trigger::ForgeAdmin for GitHubAdmin {
+    fn register_hook(&self, url: &str, secret: &str, token: &str) -> Result<String, String> {
+        register_webhook(token, &self.repo, url, secret).map_err(|e| e.to_string())
+    }
+    fn remove_hook(&self, url: &str, token: &str) -> Result<String, String> {
+        unregister_webhook(token, &self.repo, url).map_err(|e| e.to_string())
+    }
+    fn repo(&self) -> &str {
+        &self.repo
+    }
+}

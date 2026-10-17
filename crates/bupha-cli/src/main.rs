@@ -4,16 +4,16 @@
 //!
 //! Config: bupha.toml (secrets come from env). See bupha-core::Config.
 
+use bupha_cache::Cache;
+use bupha_cache_sccache::SccacheConf;
 use bupha_cloudflared::CloudflaredTunnel;
 use bupha_config::ConfigSource;
 use bupha_config_toml::TomlSource;
-use bupha_cache::Cache;
-use bupha_cache_sccache::SccacheConf;
 use bupha_core::{Config, EnqueueResult, Queue};
 use bupha_dagger::DaggerRunner;
 use bupha_dotenv::DotenvSecrets;
 use bupha_git::GitVcs;
-use bupha_github::{GitHubStatus, GitHubTrigger, LogStatus};
+use bupha_github::{GitHubAdmin, GitHubStatus, GitHubTrigger, LogStatus};
 use bupha_keyring::KeyringSecrets;
 use bupha_queue::{PersistedQueue, QueueStore};
 use bupha_queue_redb::RedbQueueStore;
@@ -23,6 +23,7 @@ use bupha_service::Service;
 use bupha_shell::ShellRunner;
 use bupha_status::StatusSink;
 use bupha_systemd as deploy;
+use bupha_trigger::ForgeAdmin;
 use bupha_trigger::{PushOutcome, Trigger};
 use bupha_tunnel::Tunnel;
 use bupha_vcs::Vcs;
@@ -121,14 +122,19 @@ fn build_runner(rc: &bupha_core::RunnerCfg, cache: &bupha_core::CacheCfg) -> Arc
     // runners receive data, never impls.
     // `[cache]` wins over the legacy runner.sccache_conf field.
     let cache_impl = SccacheConf {
-        conf: cache.conf.clone().or(rc.sccache_conf.clone()) };
-    rc.sccache_conf = if cache.kind == "none" { None }
-                      else { cache_impl.conf() };
+        conf: cache.conf.clone().or(rc.sccache_conf.clone()),
+    };
+    rc.sccache_conf = if cache.kind == "none" {
+        None
+    } else {
+        cache_impl.conf()
+    };
     match rc.kind.as_str() {
         "dagger" => Arc::new(DaggerRunner::new(rc.clone(), rc.cli_source.clone())),
         "shell" | "script" => Arc::new(ShellRunner::new(rc.clone())),
+        "ssh" => Arc::new(bupha_ssh::SshRunner::new(rc)),
         other => {
-            eprintln!("unknown runner kind '{other}' (dagger|script)");
+            eprintln!("unknown runner kind '{other}' (dagger|shell|ssh)");
             std::process::exit(2);
         }
     }
@@ -917,7 +923,12 @@ fn cmd_deploy(cfg: &Config, sub: &DeploySub, cli_config: Option<String>) {
             });
             let token = secret(&cfg.runner.token_env).unwrap_or_default();
             for r in &watched {
-                match bupha_github::register_webhook(&token, &r.name, &url, &wh_secret) {
+                match (GitHubAdmin {
+                    repo: r.name.clone(),
+                })
+                .register_hook(&url, &wh_secret, &token)
+                .as_ref()
+                {
                     Ok(msg) => println!("{msg}"),
                     Err(e) => {
                         eprintln!("webhook {}: {e}", r.name);
@@ -1089,7 +1100,12 @@ fn cmd_destroy(cfg: &Config, sub: &DestroySub) {
             });
             let token = secret(&cfg.runner.token_env).unwrap_or_default();
             for r in &watched {
-                match bupha_github::unregister_webhook(&token, &r.name, &cfg.tunnel.public_url) {
+                match (GitHubAdmin {
+                    repo: r.name.clone(),
+                })
+                .remove_hook(&cfg.tunnel.public_url, &token)
+                .as_ref()
+                {
                     Ok(msg) => println!("{msg}"),
                     Err(e) => {
                         eprintln!("webhook {}: {e}", r.name);

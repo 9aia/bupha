@@ -275,6 +275,13 @@ pub struct RunnerCfg {
     /// script runner: command run in the worktree.
     #[serde(default)]
     pub cmd: Option<String>,
+    /// ssh runner: remote host ("user@host"; ssh config resolves
+    /// auth). Required for kind="ssh".
+    #[serde(default)]
+    pub remote: Option<String>,
+    /// ssh runner: remote workdir the worktree syncs into.
+    #[serde(default)]
+    pub remote_dir: Option<String>,
     /// Env var naming the token passed to the runner + status sink.
     #[serde(default = "default_token_env")]
     pub token_env: String,
@@ -381,7 +388,6 @@ fn default_local_url() -> String {
 fn default_wt_base() -> String {
     "/tmp/bupha".into()
 }
-
 
 /// Publish order for workspace members: members sorted so every
 /// member's path-deps on other members come first. Returns an error

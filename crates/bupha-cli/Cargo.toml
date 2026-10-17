@@ -31,6 +31,7 @@ bupha-status.workspace = true
 bupha-runner.workspace = true
 bupha-dagger.workspace = true
 bupha-shell.workspace = true
+bupha-ssh.workspace = true
 bupha-tunnel.workspace = true
 bupha-cloudflared.workspace = true
 bupha-github.workspace = true

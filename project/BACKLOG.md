@@ -24,10 +24,15 @@ Ideas parked, not scheduled. Pull into project/TODO.md when picked up.
       accept loop (slowloris-shaped). Acceptable behind cloudflared;
       revisit if `direct` exposure becomes common.
 
-## Remaining seams (0.2+)
-
-| coupling | today | planned |
-|---|---|---|
+- [ ] `LaunchdService`/`WinService` impls (`bupha-service` port)
+- [ ] `keyring`-crate impl (`bupha-secret` port — macOS/Win)
+- [ ] `bupha-jj`/`bupha-hg` impls (`bupha-vcs` port)
+- [ ] SQLite/remote queue store (`bupha-queue` port — prerequisite
+  for distributed runners)
+- [ ] Native file/S3/R2/GCS cache impls (`bupha-cache` port —
+  today sccache conf reaches them)
+- [ ] Remote runner impls beyond ssh (e.g. K8s, hosted agents —
+  `RunHandle` doesn't assume local processes)
 | launchd/Windows service | `bupha-systemd` only impl | `LaunchdService`, `WinService` impls |
 | macOS/Win keyring | `secret-tool` only impl | `keyring`-crate impl |
 | other VCS | `bupha-git` only impl | `bupha-jj`, `bupha-hg` impls |

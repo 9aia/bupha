@@ -21,15 +21,15 @@ pub trait RunHandle: Send {
 }
 
 impl RunHandle for Child {
-    fn try_wait(&mut self)
-        -> io::Result<Option<std::process::ExitStatus>>
-    {
+    fn try_wait(&mut self) -> io::Result<Option<std::process::ExitStatus>> {
         Child::try_wait(self)
     }
     fn wait(&mut self) -> io::Result<std::process::ExitStatus> {
         Child::wait(self)
     }
-    fn kill(&mut self) -> io::Result<()> { Child::kill(self) }
+    fn kill(&mut self) -> io::Result<()> {
+        Child::kill(self)
+    }
 }
 
 /// Everything a runner needs to launch a job.

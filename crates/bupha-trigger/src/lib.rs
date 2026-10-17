@@ -34,3 +34,16 @@ pub enum PushOutcome {
     /// Well-formed event that needs no run (deleted branch, zero sha).
     Skip,
 }
+
+/// Forge management — webhook registration and lifecycle ops that
+/// live outside request handling. The impl for a forge owns its API
+/// surface; the watcher calls this instead of knowing GitHub.
+pub trait ForgeAdmin: Send + Sync {
+    /// Register the push webhook for `repo` pointing at `url`.
+    /// `token`/`secret` are resolved values (env/keyring/file).
+    fn register_hook(&self, url: &str, secret: &str, token: &str) -> Result<String, String>;
+    /// Remove the webhook at `url` for `repo` (exact-match).
+    fn remove_hook(&self, url: &str, token: &str) -> Result<String, String>;
+    /// The repo this admin instance manages ("owner/name").
+    fn repo(&self) -> &str;
+}

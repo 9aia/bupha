@@ -11,6 +11,10 @@ pub struct SccacheConf {
 }
 
 impl Cache for SccacheConf {
-    fn kind(&self) -> &'static str { "sccache" }
-    fn conf(&self) -> Option<String> { self.conf.clone() }
+    fn kind(&self) -> &'static str {
+        "sccache"
+    }
+    fn conf(&self) -> Option<String> {
+        self.conf.clone()
+    }
 }
