@@ -31,7 +31,8 @@ push ──► webhook ──► HMAC ──► dedup ──► queue ──► 
 (full table: [docs/comparison.md](docs/comparison.md))
 
 - pushes hit **your** box — no runner minutes, no cold-queue wait,
-  secrets and caches never leave the machine
+  secrets never leave the machine (cache backend is your pick:
+  local, or your own S3/R2/minio)
 - the same pipeline runs in CI and locally (`bupha run`); no YAML DSL
 - latest-wins batching built in (GHA `concurrency` groups without
   the syntax)
