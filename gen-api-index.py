@@ -10,6 +10,11 @@ links = "\n".join(
     for c in crates)
 api.joinpath("index.html").write_text(
     "<!doctype html><meta charset=utf-8>"
-    "<title>bupha — crate APIs</title>"
-    "<h1>bupha — crate APIs</h1>\n<ul>\n" + links + "\n</ul>\n")
+    "<title>bupha — Rust API</title>"
+    "<style>body{background:#1b1b1f;color:#ddd;font-family:"
+    "ui-monospace,monospace;max-width:640px;margin:4em auto;"
+    "padding:0 1em}a{color:#a8b1ff;text-decoration:none}"
+    "a:hover{text-decoration:underline}li{line-height:1.9}"
+    "h1{font-size:1.3em}</style>"
+    "<h1>bupha — Rust API</h1>\n<ul>\n" + links + "\n</ul>\n")
 print(f"api index: {len(crates)} crates")

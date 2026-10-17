@@ -13,7 +13,14 @@ export default defineConfig({
     nav: [
       { text: 'Tutorial', link: '/tutorials/first-run' },
       { text: 'Reference', link: '/reference/cli' },
-      { text: 'API', link: '/api/index.html', target: '_blank' },
+      { text: 'Rust API', link: '/api/index.html', target: '_blank' },
+      {
+        text: 'LLMs',
+        items: [
+          { text: 'llms.txt', link: '/llms.txt', target: '_blank' },
+          { text: 'llms-full.txt', link: '/llms-full.txt', target: '_blank' },
+        ],
+      },
       { text: 'GitHub', link: 'https://github.com/9aia/bupha' },
     ],
     sidebar: [
@@ -35,7 +42,7 @@ export default defineConfig({
           { text: 'CLI', link: '/reference/cli' },
           { text: 'Config', link: '/reference/config' },
           { text: 'Releasing', link: '/reference/releasing' },
-          { text: 'Crate APIs (rustdoc)', link: '/api/index.html', target: '_blank' },
+          { text: 'Rust API', link: '/api/index.html', target: '_blank' },
         ],
       },
       {
