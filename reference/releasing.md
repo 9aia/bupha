@@ -17,6 +17,7 @@ then builds host-arch binaries with `cargo dist` and uploads them to a
 GitHub Release via `gh`.
 
 Needs on the host: `cargo-edit` (`cargo set-version`), `cargo-dist`,
-`gh`, and `CARGO_REGISTRY_TOKEN` in `~/.config/bupha/env`.
+`gh`, and `CARGO_REGISTRY_TOKEN` — via env, OS keyring
+(`secret-tool`), or `~/.config/bupha/env`.
 No GitHub Actions anywhere — releases are just another bupha job.
 Other build architectures join via the remote-runner pair (TODO.md).

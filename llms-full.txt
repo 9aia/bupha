@@ -7,7 +7,9 @@ Goal: push-triggered CI on a repo, end to end, in ~10 minutes.
 
 Prereqs: **Linux + systemd** (script runner needs bash; macOS/Windows
 unsupported for now); git;
-`cargo install bupha`; docker only if you use the dagger runner.
+`cargo install bupha` (until 0.1.0 lands on crates.io:
+`cargo install --git https://github.com/9aia/bupha`); docker only
+if you use the dagger runner.
 Also a stable public URL for the webhook — named cloudflared tunnel
 or a direct box; quick tunnels are convenient but flaky.
 
@@ -388,7 +390,8 @@ then builds host-arch binaries with `cargo dist` and uploads them to a
 GitHub Release via `gh`.
 
 Needs on the host: `cargo-edit` (`cargo set-version`), `cargo-dist`,
-`gh`, and `CARGO_REGISTRY_TOKEN` in `~/.config/bupha/env`.
+`gh`, and `CARGO_REGISTRY_TOKEN` — via env, OS keyring
+(`secret-tool`), or `~/.config/bupha/env`.
 No GitHub Actions anywhere — releases are just another bupha job.
 Other build architectures join via the remote-runner pair (TODO.md).
 
@@ -451,9 +454,10 @@ Key semantics:
 * **Ingress is decoupled**: the listener binds localhost; a `Tunnel`
   child (`cloudflared` today) is supervised — reaped and respawned
   on exit. `direct`/`none` are for boxes already public.
-* **Secrets stay out of files**: `secret_env`/`token_env` name env
-  vars; the token reaches the runner only via the runner's own
-  mechanism (e.g. `env://` secret for dagger).
+* **Config names, never stores, secrets**: `secret_env`/`token_env`
+  hold env-var names; values resolve env → OS keyring → env file,
+  and reach the runner only via its own mechanism (e.g. `env://`
+  secret for dagger).
 
 Design rule for extending: a new forge = a `Trigger`+`StatusSink`
 impl crate; a new pipeline = a `Runner` impl; a new ingress = a

@@ -35,9 +35,10 @@ Key semantics:
 * **Ingress is decoupled**: the listener binds localhost; a `Tunnel`
   child (`cloudflared` today) is supervised — reaped and respawned
   on exit. `direct`/`none` are for boxes already public.
-* **Secrets stay out of files**: `secret_env`/`token_env` name env
-  vars; the token reaches the runner only via the runner's own
-  mechanism (e.g. `env://` secret for dagger).
+* **Config names, never stores, secrets**: `secret_env`/`token_env`
+  hold env-var names; values resolve env → OS keyring → env file,
+  and reach the runner only via its own mechanism (e.g. `env://`
+  secret for dagger).
 
 Design rule for extending: a new forge = a `Trigger`+`StatusSink`
 impl crate; a new pipeline = a `Runner` impl; a new ingress = a

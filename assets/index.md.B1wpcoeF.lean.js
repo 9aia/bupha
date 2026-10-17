@@ -1,0 +1,1 @@
+import{_ as t,o as a,c as r,a0 as o}from"./chunks/framework.CNXp-E7Q.js";const d=JSON.parse('{"title":"Documentation","description":"","frontmatter":{},"headers":[],"relativePath":"index.md","filePath":"index.md"}'),n={name:"index.md"};function i(l,e,s,c,h,u){return a(),r("div",null,[...e[0]||(e[0]=[o("",5)])])}const p=t(n,[["render",i]]);export{d as __pageData,p as default};
