@@ -87,6 +87,8 @@ pub struct GitHubStatus {
     /// owner/repo
     pub repo: String,
     pub context: String,
+    /// Forge API base ("https://api.github.com" or GHES).
+    pub api_base: String,
 }
 
 impl StatusSink for GitHubStatus {
@@ -100,7 +102,7 @@ impl StatusSink for GitHubStatus {
             "context": self.context,
             "description": desc,
         });
-        let url = format!("https://api.github.com/repos/{}/statuses/{sha}", self.repo);
+        let url = format!("{}/repos/{}/statuses/{sha}", self.api_base, self.repo);
         let res = agent()
             .post(&url)
             .header("Authorization", &format!("Bearer {}", self.token))
@@ -131,11 +133,11 @@ impl StatusSink for LogStatus {
 
 /// Delete the webhook pointing at `{url}/hook` — exact URL match only,
 /// mirroring register_webhook. Returns a human message.
-pub fn unregister_webhook(token: &str, repo: &str, url: &str) -> std::io::Result<String> {
+pub fn unregister_webhook(token: &str, repo: &str, url: &str, api_base: &str) -> std::io::Result<String> {
     let hook_url = format!("{}/hook", url.trim_end_matches('/'));
     let agent = agent();
     let list = agent
-        .get(&format!("https://api.github.com/repos/{repo}/hooks"))
+        .get(&format!("{api_base}/repos/{repo}/hooks"))
         .header("Authorization", &format!("Bearer {token}"))
         .header("Accept", "application/vnd.github+json")
         .header("User-Agent", "bupha")
@@ -165,7 +167,7 @@ pub fn unregister_webhook(token: &str, repo: &str, url: &str) -> std::io::Result
     match existing {
         Some(id) => {
             agent
-                .delete(&format!("https://api.github.com/repos/{repo}/hooks/{id}"))
+                .delete(&format!("{api_base}/repos/{repo}/hooks/{id}"))
                 .header("Authorization", &format!("Bearer {token}"))
                 .header("Accept", "application/vnd.github+json")
                 .header("User-Agent", "bupha")
@@ -184,11 +186,12 @@ pub fn register_webhook(
     repo: &str,
     url: &str,
     secret: &str,
+    api_base: &str,
 ) -> std::io::Result<String> {
     let hook_url = format!("{}/hook", url.trim_end_matches('/'));
     let agent = agent();
     let list = agent
-        .get(&format!("https://api.github.com/repos/{repo}/hooks"))
+        .get(&format!("{api_base}/repos/{repo}/hooks"))
         .header("Authorization", &format!("Bearer {token}"))
         .header("Accept", "application/vnd.github+json")
         .header("User-Agent", "bupha")
@@ -222,7 +225,7 @@ pub fn register_webhook(
     });
     if let Some(id) = existing {
         agent
-            .patch(&format!("https://api.github.com/repos/{repo}/hooks/{id}"))
+            .patch(&format!("{api_base}/repos/{repo}/hooks/{id}"))
             .header("Authorization", &format!("Bearer {token}"))
             .header("Accept", "application/vnd.github+json")
             .header("User-Agent", "bupha")
@@ -232,7 +235,7 @@ pub fn register_webhook(
         Ok(format!("updated hook {id} -> {hook_url}"))
     } else {
         agent
-            .post(&format!("https://api.github.com/repos/{repo}/hooks"))
+            .post(&format!("{api_base}/repos/{repo}/hooks"))
             .header("Authorization", &format!("Bearer {token}"))
             .header("Accept", "application/vnd.github+json")
             .header("User-Agent", "bupha")
@@ -249,14 +252,16 @@ pub fn register_webhook(
 pub struct GitHubAdmin {
     /// "owner/repo" this admin manages.
     pub repo: String,
+    /// Forge API base ("https://api.github.com" or GHES).
+    pub api_base: String,
 }
 
 impl bupha_trigger::ForgeAdmin for GitHubAdmin {
     fn register_hook(&self, url: &str, secret: &str, token: &str) -> Result<String, String> {
-        register_webhook(token, &self.repo, url, secret).map_err(|e| e.to_string())
+        register_webhook(token, &self.repo, url, secret, &self.api_base).map_err(|e| e.to_string())
     }
     fn remove_hook(&self, url: &str, token: &str) -> Result<String, String> {
-        unregister_webhook(token, &self.repo, url).map_err(|e| e.to_string())
+        unregister_webhook(token, &self.repo, url, &self.api_base).map_err(|e| e.to_string())
     }
     fn repo(&self) -> &str {
         &self.repo

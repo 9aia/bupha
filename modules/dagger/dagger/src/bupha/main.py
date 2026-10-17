@@ -195,8 +195,6 @@ class Bupha:
         ctr = ctr.with_exec(["bash", "-c",
                              f"if [ -f /work/{main_repo}/scripts/dev-link.sh ]; then"
                              f" bash /work/{main_repo}/scripts/dev-link.sh /work/{name};"
-                             f" elif [ -f /work/{name}/scripts/dev-link.sh ]; then"
-                             f" bash /work/{name}/scripts/dev-link.sh /work/{name};"
                              " else sed -i '/# dev-link: begin/,/# dev-link: end/d'"
                              f" /work/{name}/Cargo.toml 2>/dev/null || true; fi"])
         script = (_SELF_PATCH_PY

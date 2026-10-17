@@ -138,6 +138,10 @@ fn default_cache_kind() -> String {
     "sccache".into()
 }
 
+fn default_api_base() -> String {
+    "https://api.github.com".into()
+}
+
 #[derive(Debug, Deserialize, Clone)]
 #[serde(deny_unknown_fields)]
 pub struct Config {
@@ -207,6 +211,9 @@ pub struct WatchedRepo {
 
 impl Config {
     pub fn watched(&self) -> Result<Vec<WatchedRepo>, String> {
+        let canon = |p: &str| {
+            std::fs::canonicalize(p).unwrap_or_else(|_| p.into())
+        };
         if !self.repos.is_empty() {
             return self
                 .repos
@@ -224,7 +231,7 @@ impl Config {
                     }
                     Ok(WatchedRepo {
                         name: r.name.clone(),
-                        dir: r.dir.clone(),
+                        dir: canon(&r.dir.to_string_lossy()).into(),
                         branch: r.branch.clone(),
                         status_repo: r.status_repo().to_string(),
                         runner,
@@ -240,6 +247,10 @@ impl Config {
 #[derive(Debug, Deserialize, Clone)]
 #[serde(deny_unknown_fields)]
 pub struct TriggerCfg {
+    /// Forge API base — GHES ("https://ghe.acme/api/v3") or default
+    /// github.com. Used by the trigger, status, and forge-admin impls.
+    #[serde(default = "default_api_base")]
+    pub api_base: String,
     /// "github" today; other forges = new impl crates.
     pub kind: String,
     /// Webhook listener bind address ("127.0.0.1:9000").

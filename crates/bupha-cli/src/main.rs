@@ -327,6 +327,7 @@ fn cmd_watch(cfg: Arc<Config>) {
                 token: token.clone(),
                 repo: r.status_repo.clone(),
                 context: cfg.status.context.clone(),
+                api_base: cfg.trigger.api_base.clone(),
             }),
             _ => Arc::new(LogStatus {
                 context: cfg.status.context.clone(),
@@ -549,6 +550,15 @@ fn cmd_watch(cfg: Arc<Config>) {
 }
 
 fn cmd_init(dir: &Path) {
+    let ci = dir.join("ci.sh");
+    if !ci.exists() {
+        std::fs::write(
+            &ci,
+            "#!/usr/bin/env bash\nset -euo pipefail\n             # `runner.kind = \"shell\"` runs this via bash -c in the             \n# detached worktree of the pushed sha.\n\necho \"ci\"\n",
+        )
+        .unwrap_or_else(|e| eprintln!("ci.sh: {e}"));
+        println!("ci.sh written — `runner.kind = \"shell\"` runs it");
+    }
     let dagger_json = dir.join("dagger.json");
     if !dagger_json.exists() {
         match Command::new("dagger")
@@ -712,7 +722,7 @@ fn cmd_doctor(cfg: &Config) {
                 &mut failures,
             );
         }
-        "script" => {
+        "shell" | "script" => {
             let cmd = cfg
                 .runner
                 .extra
@@ -720,6 +730,30 @@ fn cmd_doctor(cfg: &Config) {
                 .and_then(|v| v.as_str())
                 .unwrap_or("./ci.sh");
             check("run cmd", true, cmd, &mut failures);
+            check(
+                "bash",
+                Command::new("bash")
+                    .arg("--version")
+                    .output()
+                    .map(|o| o.status.success())
+                    .unwrap_or(false),
+                "shell runner needs bash",
+                &mut failures,
+            );
+        }
+        "ssh" => {
+            for tool in ["rsync", "ssh"] {
+                check(
+                    tool,
+                    Command::new(tool)
+                        .arg("--version")
+                        .output()
+                        .map(|o| o.status.success())
+                        .unwrap_or(false),
+                    "ssh runner needs rsync + ssh",
+                    &mut failures,
+                );
+            }
         }
         other => check(
             "runner kind",
@@ -980,6 +1014,7 @@ fn cmd_deploy(cfg: &Config, sub: &DeploySub, cli_config: Option<String>) {
             for r in &watched {
                 match (GitHubAdmin {
                     repo: r.name.clone(),
+                    api_base: cfg.trigger.api_base.clone(),
                 })
                 .register_hook(&url, &wh_secret, &token)
                 .as_ref()
@@ -1157,6 +1192,7 @@ fn cmd_destroy(cfg: &Config, sub: &DestroySub) {
             for r in &watched {
                 match (GitHubAdmin {
                     repo: r.name.clone(),
+                    api_base: cfg.trigger.api_base.clone(),
                 })
                 .remove_hook(&cfg.tunnel.public_url, &token)
                 .as_ref()
