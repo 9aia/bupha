@@ -1,8 +1,6 @@
 # How-to: run without containers
 
-`runner.kind = "shell"` (alias: `"script"`) —
-
-`runner.kind = "shell"` + `cmd` — the watcher still does webhook
+`runner.kind = "shell"` + `cmd` (alias: `"script"`) — the watcher still does webhook
 verification, the queue, detached worktrees and statuses; your script
 does the build. No dagger, no docker, no image pulls.
 
