@@ -13,4 +13,4 @@ Diátaxis-structured. Pick by what you need to do.
 
 Project: [CONTRIBUTING](../CONTRIBUTING.md) · [SECURITY](../SECURITY.md) ·
 [comparison](comparison.md) — vs GHA/hosted CI
-[TODO](../TODO.md)
+[TODO](../project/TODO.md)

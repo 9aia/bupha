@@ -29,3 +29,6 @@
   store is the distributed-runner prerequisite
 - `Service` port in bupha-deploy — systemd today, launchd/Windows later
 - `keyring`-crate secret backends + `dirs`-crate config paths (macOS/Win)
+- Cache portability — today `sccache_conf` covers sccache's own
+  backends; add a generic `cache` config seam so file-based/S3/R2/GCS
+  stores are a config pick (pluggable backend trait)
