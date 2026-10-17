@@ -16,9 +16,26 @@ pub trait Trigger: Send + Sync {
     /// Is this request the kind of event we run CI on (e.g. a push)?
     fn is_event(&self, headers: &[(String, String)]) -> bool;
     fn verify(&self, body: &[u8], headers: &[(String, String)]) -> bool;
+    /// Parse the payload — `Push` to enqueue, `Skip` for well-formed
+    /// events with nothing to run (e.g. branch deletion), `None` for
+    /// malformed bodies.
+    fn parse_push(&self, body: &[u8]) -> Option<PushOutcome>;
+}
+
+/// What a parsed payload asks the watcher to do.
+pub enum PushOutcome {
     /// (repo_name, git_ref, sha) — repo is `repository.full_name`;
     /// the caller filters ref per watched repo.
-    fn parse_push(&self, body: &[u8]) -> Option<(String, String, String)>;
+    Push { repo: String, git_ref: String, sha: String },
+    /// Well-formed event that needs no run (deleted branch, zero sha).
+    Skip,
+}
+
+/// A sha is hex of plausible length — rejects path-injection payloads
+/// before the value reaches worktree paths or status URLs.
+pub fn is_valid_sha(sha: &str) -> bool {
+    (7..=64).contains(&sha.len())
+        && sha.bytes().all(|b| b.is_ascii_hexdigit())
 }
 
 /// Where run outcomes are reported (commit statuses, logs, chat, …).
@@ -161,15 +178,25 @@ pub struct WatchedRepo {
 impl Config {
     pub fn watched(&self) -> Result<Vec<WatchedRepo>, String> {
         if !self.repos.is_empty() {
-            return Ok(self.repos.iter().map(|r| WatchedRepo {
-                name: r.name.clone(),
-                dir: r.dir.clone(),
-                branch: r.branch.clone(),
-                status_repo: r.status_repo().to_string(),
-                runner: r.runner.clone().unwrap_or_else(||
-                    self.runner.clone()),
-                policy: r.queue,
-            }).collect());
+            return self.repos.iter().map(|r| {
+                let runner = r.runner.clone()
+                    .unwrap_or_else(|| self.runner.clone());
+                // `all` keeps every push — killing the in-flight run
+                // would drop a commit that was never superseded.
+                if r.queue == QueuePolicy::All && runner.cancel_running {
+                    return Err(format!(
+                        "repo {}: queue = \"all\" conflicts with \
+                         runner.cancel_running", r.name));
+                }
+                Ok(WatchedRepo {
+                    name: r.name.clone(),
+                    dir: r.dir.clone(),
+                    branch: r.branch.clone(),
+                    status_repo: r.status_repo().to_string(),
+                    runner,
+                    policy: r.queue,
+                })
+            }).collect();
         }
         if let Some(r) = &self.repo {
             let name = if self.status.repo.is_empty() {

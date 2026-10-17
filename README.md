@@ -28,7 +28,8 @@ push ──► webhook ──► verify HMAC ──► latest-wins queue ──�
 ## Install
 
 ```sh
-cargo install bupha
+cargo install bupha                              # crates.io (post-0.1.0)
+cargo install --git https://github.com/9aia/bupha bupha   # today
 ```
 
 ## Quickstart

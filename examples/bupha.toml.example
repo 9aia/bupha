@@ -25,11 +25,16 @@ kind = "dagger"                   # impl: bupha-runner-dagger
 function = "ci"
 shards = "1"
 jobs = "2"
-dogfood_jobs = "2"
-sequential = false                # true on memory-constrained boxes
+# Extra dagger flags are emitted only when set — the module's function
+# must declare every flag the runner sends (`dagger call` rejects
+# unknown args). shards/jobs/token are always sent; these are opt-in:
+# dogfood_jobs = "2"              # only if your ci() accepts it
+# sequential = true               # memory-constrained boxes
 cancel_running = true             # kill in-flight run on newer push
+                                  # (invalid with queue = "all")
 sccache_conf = "/path/to/sccache-env"   # optional KEY=VAL secret file
 token_env = "BUPHA_TOKEN"
+# extra_args = ["--flag", "val"]  # appended verbatim to dagger call
 
 [status]
 kind = "github"                   # impl: bupha-github | "log" | "none"

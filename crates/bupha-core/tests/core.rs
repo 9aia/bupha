@@ -1,4 +1,5 @@
-use bupha_core::{Config, EnqueueResult, Queue, QueuePolicy};
+use bupha_core::{is_valid_sha, Config, EnqueueResult, Queue,
+                 QueuePolicy};
 
 #[test]
 fn queue_latest_wins() {
@@ -105,6 +106,33 @@ repo = "o/r"
 fn config_rejects_unknown_fields() {
     let bad = TOML.replace("kind = \"github\"", "kind = \"github\"\nlisten_typo = 1");
     assert!(toml::from_str::<Config>(&bad).is_err());
+}
+
+#[test]
+fn config_all_rejects_cancel_running() {
+    // queue="all" keeps every push; killing the in-flight run would
+    // drop a sha that was never superseded -> reject at config time.
+    let c: Config = toml::from_str(
+        TOML.replace("dir = \"/tmp/x\"",
+            "dir = \"/tmp/x\"\nqueue = \"all\"")
+            .replace("kind = \"script\"",
+                "kind = \"script\"\ncancel_running = true")
+            .as_str()).unwrap();
+    let err = c.watched().unwrap_err();
+    assert!(err.contains("cancel_running"), "{err}");
+}
+
+#[test]
+fn sha_validation() {
+    assert!(is_valid_sha(&"a".repeat(40)));
+    assert!(is_valid_sha(&"0123456789abcdef".repeat(4)));
+    assert!(!is_valid_sha("../../etc"));
+    assert!(!is_valid_sha(""));           // too short
+    assert!(!is_valid_sha("abc"));        // too short
+    assert!(!is_valid_sha(&"a".repeat(65)));
+    assert!(!is_valid_sha(&"g".repeat(40)));
+    // all-zeros is hex-valid at this layer; the trigger maps it to Skip
+    assert!(is_valid_sha(&"0".repeat(40)));
 }
 
 #[test]

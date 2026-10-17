@@ -2,9 +2,19 @@
 //! X-Hub-Signature-256, parses push payloads, and posts commit
 //! statuses to api.github.com.
 
-use bupha_core::{StatusSink, Trigger};
+use bupha_core::{is_valid_sha, PushOutcome, StatusSink, Trigger};
 use hmac::{Hmac, Mac};
 use sha2::Sha256;
+use std::time::Duration;
+
+/// Outbound GitHub API calls get bounded so a stalled connection
+/// can't hang the queue worker or the webhook handler.
+fn agent() -> ureq::Agent {
+    ureq::Agent::config_builder()
+        .timeout_global(Some(Duration::from_secs(15)))
+        .build()
+        .new_agent()
+}
 
 pub struct GitHubTrigger {
     pub secret: String,
@@ -36,13 +46,28 @@ impl Trigger for GitHubTrigger {
 
     /// (repository.full_name, ref, sha) — the watcher routes by repo
     /// name and filters the ref per watched repo.
-    fn parse_push(&self, body: &[u8])
-            -> Option<(String, String, String)> {
+    fn parse_push(&self, body: &[u8]) -> Option<PushOutcome> {
         let v: serde_json::Value = serde_json::from_slice(body).ok()?;
         let repo = v.pointer("/repository/full_name")?.as_str()?;
         let git_ref = v.get("ref")?.as_str()?;
         let sha = v.get("after")?.as_str()?;
-        Some((repo.to_string(), git_ref.to_string(), sha.to_string()))
+        // Branch deletions arrive with after = "000…" (and deleted:true)
+        // — well-formed, but there is nothing to build.
+        if v.get("deleted").and_then(|d| d.as_bool()).unwrap_or(false)
+            || sha.bytes().all(|b| b == b'0')
+        {
+            return Some(PushOutcome::Skip);
+        }
+        // Signed but malformed for GitHub's contract — reject as a bad
+        // payload so it shows up in the delivery log, never enqueued.
+        if !is_valid_sha(sha) {
+            return None;
+        }
+        Some(PushOutcome::Push {
+            repo: repo.to_string(),
+            git_ref: git_ref.to_string(),
+            sha: sha.to_string(),
+        })
     }
 }
 
@@ -66,7 +91,7 @@ impl StatusSink for GitHubStatus {
         });
         let url = format!(
             "https://api.github.com/repos/{}/statuses/{sha}", self.repo);
-        let res = ureq::post(&url)
+        let res = agent().post(&url)
             .header("Authorization", &format!("Bearer {}", self.token))
             .header("Accept", "application/vnd.github+json")
             .header("User-Agent", "bupha")
@@ -98,13 +123,16 @@ impl StatusSink for LogStatus {
 pub fn register_webhook(
     token: &str, repo: &str, url: &str, secret: &str,
 ) -> std::io::Result<String> {
-    let hook_url = format!("{url}/hook");
-    let list = ureq::get(&format!(
+    let hook_url = format!("{}/hook", url.trim_end_matches('/'));
+    let agent = agent();
+    let list = agent.get(&format!(
             "https://api.github.com/repos/{repo}/hooks"))
         .header("Authorization", &format!("Bearer {token}"))
         .header("Accept", "application/vnd.github+json")
         .header("User-Agent", "bupha")
         .call();
+    // Only take over a hook already pointing at this exact URL —
+    // anything looser would hijack another service's webhook.
     let existing = match list {
         Ok(mut r) => {
             let v: serde_json::Value = r.body_mut().read_json()
@@ -112,7 +140,7 @@ pub fn register_webhook(
             v.as_array().and_then(|a| a.iter().find_map(|h| {
                 let id = h.get("id")?.as_u64()?;
                 let u = h.pointer("/config/url")?.as_str()?;
-                u.ends_with("/hook").then_some(id)
+                (u.trim_end_matches('/') == hook_url).then_some(id)
             }))
         }
         Err(_) => None,
@@ -121,7 +149,7 @@ pub fn register_webhook(
         "url": hook_url, "content_type": "json", "secret": secret,
     });
     if let Some(id) = existing {
-        ureq::patch(&format!(
+        agent.patch(&format!(
                 "https://api.github.com/repos/{repo}/hooks/{id}"))
             .header("Authorization", &format!("Bearer {token}"))
             .header("Accept", "application/vnd.github+json")
@@ -131,7 +159,7 @@ pub fn register_webhook(
             .map_err(std::io::Error::other)?;
         Ok(format!("updated hook {id} -> {hook_url}"))
     } else {
-        ureq::post(&format!(
+        agent.post(&format!(
             "https://api.github.com/repos/{repo}/hooks"))
             .header("Authorization", &format!("Bearer {token}"))
             .header("Accept", "application/vnd.github+json")

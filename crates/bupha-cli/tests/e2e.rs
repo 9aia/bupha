@@ -19,10 +19,18 @@ impl Drop for Svc {
 
 fn post(path: &str, sig: Option<&str>, body: &str, event: &str)
         -> (u16, String) {
+    post_d(path, sig, body, event, None)
+}
+
+fn post_d(path: &str, sig: Option<&str>, body: &str, event: &str,
+          delivery: Option<&str>) -> (u16, String) {
     let mut req = ureq::post(&format!("http://127.0.0.1:19000{path}"))
         .header("X-GitHub-Event", event);
     if let Some(s) = sig {
         req = req.header("X-Hub-Signature-256", s);
+    }
+    if let Some(d) = delivery {
+        req = req.header("X-GitHub-Delivery", d);
     }
     match req.send(body) {
         Ok(mut r) => (r.status().as_u16(),
@@ -92,10 +100,10 @@ dir = "{repo}"
         "push");
     assert_eq!(c, 401, "bad sig");
 
-    let (c, m) = good(r#"{"ref":"refs/heads/dev","repository":{"full_name":"o/r"},"after":"x"}"#, "push");
+    let (c, m) = good(r#"{"ref":"refs/heads/dev","repository":{"full_name":"o/r"},"after":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"}"#, "push");
     assert_eq!((c, m.as_str()), (200, "ignored: not the watched branch"));
 
-    let (c, m) = good(r#"{"ref":"refs/heads/main","repository":{"full_name":"o/other"},"after":"x"}"#, "push");
+    let (c, m) = good(r#"{"ref":"refs/heads/main","repository":{"full_name":"o/other"},"after":"cccccccccccccccccccccccccccccccccccccccc"}"#, "push");
     assert_eq!((c, m.as_str()), (200, "ignored: unwatched repo"));
 
     let body = format!(r#"{{"ref":"refs/heads/main","repository":{{"full_name":"o/r"}},"after":"{sha}"}}"#);
@@ -104,6 +112,22 @@ dir = "{repo}"
     // duplicate -> deduped
     let (c, m) = good(&body, "push");
     assert_eq!((c, m.as_str()), (200, "already queued"));
+
+    // replayed X-GitHub-Delivery -> dropped before the queue
+    let sig = sign("s3cr3t", &body);
+    let (c, m) = post_d("/hook", Some(&sig), &body, "push",
+        Some("d-1"));
+    assert_eq!((c, m.as_str()), (200, "already queued"));
+    let (c, m) = post_d("/hook", Some(&sig), &body, "push",
+        Some("d-1"));
+    assert_eq!((c, m.as_str()), (200, "duplicate delivery"));
+
+    // branch deletion (after = zero sha) -> ignored, not queued
+    let del = r#"{"ref":"refs/heads/main","deleted":true,
+      "after":"0000000000000000000000000000000000000000",
+      "repository":{"full_name":"o/r"}}"#;
+    let (c, m) = good(del, "push");
+    assert_eq!((c, m.as_str()), (200, "ignored: no-op event"));
 
     std::fs::remove_dir_all(&tmp).ok();
 }

@@ -20,6 +20,8 @@ Do not open public issues for security reports.
 ## Notes
 
 Request bodies are capped (2 MiB), HMAC checks are constant-time,
+`X-GitHub-Delivery` replays are deduped (bounded 10k ring), the pushed
+sha must be hex before it touches worktree paths or status URLs,
 superseded/cancelled shas get honest statuses, and `bupha.toml`
 rejects unknown fields. See TODO.md for remaining hardening work.
 

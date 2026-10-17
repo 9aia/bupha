@@ -4,7 +4,8 @@
 //!
 //! Config: bupha.toml (secrets come from env). See bupha-core::Config.
 
-use bupha_core::{Config, EnqueueResult, Queue, StatusSink, Trigger};
+use bupha_core::{Config, EnqueueResult, PushOutcome, Queue, StatusSink,
+                 Trigger};
 use bupha_github::{GitHubStatus, GitHubTrigger, LogStatus};
 use bupha_runner::{RunCtx, Runner};
 use bupha_dagger::DaggerRunner;
@@ -175,7 +176,38 @@ fn persist_queue(g: &Shared, path: &Path) {
         (n.clone(), serde_json::json!({
             "pending": q.pending, "running": q.running }))
     }).collect();
-    let _ = std::fs::write(path, serde_json::Value::Object(v).to_string());
+    // tmp + rename so a crash mid-write can't lose accepted work.
+    let tmp = path.with_extension("json.tmp");
+    if std::fs::write(&tmp, serde_json::Value::Object(v).to_string())
+        .is_ok()
+    {
+        let _ = std::fs::rename(&tmp, path);
+    }
+}
+
+/// Bounded dedup on `X-GitHub-Delivery`: a replayed signed payload
+/// (retried webhook or attacker with the secret) re-enqueues without it.
+struct Deliveries {
+    seen: std::collections::HashSet<String>,
+    order: std::collections::VecDeque<String>,
+}
+
+const MAX_DELIVERIES: usize = 10_000;
+
+impl Deliveries {
+    /// true = first time we've seen this id; false = replay.
+    fn record(&mut self, id: String) -> bool {
+        if !self.seen.insert(id.clone()) {
+            return false;
+        }
+        self.order.push_back(id);
+        if self.order.len() > MAX_DELIVERIES {
+            if let Some(old) = self.order.pop_front() {
+                self.seen.remove(&old);
+            }
+        }
+        true
+    }
 }
 
 fn cmd_watch(cfg: Arc<Config>) {
@@ -327,6 +359,8 @@ fn cmd_watch(cfg: Arc<Config>) {
     let server = tiny_http::Server::http(&cfg.trigger.listen)
         .expect("failed to bind listener");
     println!("bupha watch listening on {}", cfg.trigger.listen);
+    let deliveries = Mutex::new(Deliveries {
+        seen: Default::default(), order: Default::default() });
 
     for mut req in server.incoming_requests() {
         let headers: Vec<(String, String)> = req.headers().iter()
@@ -346,9 +380,15 @@ fn cmd_watch(cfg: Arc<Config>) {
             (400, "not a push event")
         } else if !trigger.verify(&body, &headers) {
             (401, "bad signature")
+        } else if headers.iter().any(|(k, v)| {
+            k.eq_ignore_ascii_case("x-github-delivery")
+                && !deliveries.lock().unwrap().record(v.clone())
+        }) {
+            (200, "duplicate delivery")
         } else {
             match trigger.parse_push(&body) {
-                Some((repo_name, git_ref, sha)) => {
+                Some(PushOutcome::Skip) => (200, "ignored: no-op event"),
+                Some(PushOutcome::Push { repo: repo_name, git_ref, sha }) => {
                     let repo = watched.iter()
                         .find(|r| r.name == repo_name);
                     match repo {
@@ -436,12 +476,19 @@ fn cmd_init(dir: &Path) {
         _ => eprintln!("warning: dagger install failed — check network/auth"),
     }
     // Delegate template — thin module composing shared primitives.
+    // The repo name is just the mount point under /work; the dir name
+    // is a sensible default.
     let main_py = dir.join("dagger/src/ci/main.py");
     if !main_py.exists() {
         if let Some(parent) = main_py.parent() {
             let _ = std::fs::create_dir_all(parent);
         }
-        std::fs::write(&main_py, DELEGATE_TEMPLATE)
+        let repo_name = dir.canonicalize().ok()
+            .and_then(|d| d.file_name().map(|n| n.to_string_lossy()
+                .replace([' ', '/', '\\'], "-")))
+            .unwrap_or_else(|| "repo".into());
+        std::fs::write(&main_py,
+            DELEGATE_TEMPLATE.replace("REPO_NAME", &repo_name))
             .unwrap_or_else(|e| eprintln!("template: {e}"));
         println!("wrote {}", main_py.display());
     }
@@ -709,7 +756,10 @@ fn deploy_check(cfg: &Config) {
 fn ureq_probe(url: &str) -> Option<u16> {
     // Any HTTP answer (even a 4xx) proves the endpoint is reachable;
     // only transport-level failure is None.
-    match ureq::post(&format!("{url}/hook"))
+    let agent = ureq::Agent::config_builder()
+        .timeout_global(Some(std::time::Duration::from_secs(10)))
+        .build().new_agent();
+    match agent.post(&format!("{}/hook", url.trim_end_matches('/')))
         .header("User-Agent", "bupha")
         .send_empty()
     {

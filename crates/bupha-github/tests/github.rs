@@ -1,4 +1,4 @@
-use bupha_core::Trigger;
+use bupha_core::{PushOutcome, Trigger};
 use bupha_github::GitHubTrigger;
 use hmac::{Hmac, Mac};
 use sha2::Sha256;
@@ -38,9 +38,44 @@ fn is_event_checks_push_header() {
 #[test]
 fn parse_push_extracts_repo_ref_sha() {
     let t = GitHubTrigger { secret: "s".into() };
-    let (repo, r, sha) = t.parse_push(BODY.as_bytes()).unwrap();
-    assert_eq!((repo.as_str(), r.as_str(), sha.as_str()),
-               ("o/r", "refs/heads/main", "abc123def456"));
+    let sha40 = "a".repeat(40);
+    let body = BODY.replace("abc123def456", &sha40);
+    match t.parse_push(body.as_bytes()).unwrap() {
+        PushOutcome::Push { repo, git_ref, sha } => assert_eq!(
+            (repo.as_str(), git_ref.as_str(), sha.as_str()),
+            ("o/r", "refs/heads/main", sha40.as_str())),
+        PushOutcome::Skip => panic!("expected Push"),
+    }
     assert!(t.parse_push(b"{}").is_none());
     assert!(t.parse_push(b"not json").is_none());
+}
+
+#[test]
+fn parse_push_skips_deleted_branch() {
+    let t = GitHubTrigger { secret: "s".into() };
+    // GitHub: deleted:true + after = all zeros
+    let body = r#"{"ref":"refs/heads/main","deleted":true,
+      "after":"0000000000000000000000000000000000000000",
+      "repository":{"full_name":"o/r"}}"#;
+    assert!(matches!(t.parse_push(body.as_bytes()),
+        Some(PushOutcome::Skip)));
+    // zero sha without deleted flag also skips
+    let body = r#"{"ref":"refs/heads/main",
+      "after":"0000000000000000000000000000000000000000",
+      "repository":{"full_name":"o/r"}}"#;
+    assert!(matches!(t.parse_push(body.as_bytes()),
+        Some(PushOutcome::Skip)));
+}
+
+#[test]
+fn parse_push_rejects_non_sha() {
+    let t = GitHubTrigger { secret: "s".into() };
+    // path-injection attempt in `after` — malformed per GitHub's
+    // contract -> None (the watcher answers 400), never enqueued
+    let body = r#"{"ref":"refs/heads/main","after":"../../etc",
+      "repository":{"full_name":"o/r"}}"#;
+    assert!(t.parse_push(body.as_bytes()).is_none());
+    let body = r#"{"ref":"refs/heads/main","after":"zzzz",
+      "repository":{"full_name":"o/r"}}"#;
+    assert!(t.parse_push(body.as_bytes()).is_none());
 }

@@ -1,14 +1,16 @@
 # TODO — next version
 
 ## Hardening
-- [ ] Webhook replay protection — dedup `X-GitHub-Delivery` IDs
-      (bounded ring buffer ~10k entries) or timestamp window; GitHub
-      sends neither, so a replayed signed payload re-enqueues today.
-- [ ] Atomic `queue.json` writes — tmpfile + rename; a crash mid-write
-      must not lose accepted work. (Multi-box/multi-process locking is
-      out of scope for the single-node design.)
-- [ ] Timeout on `post_status`/webhook HTTP calls (ureq) — a stalled
-      GitHub API still stalls the handler thread.
+- [x] ~~Webhook replay protection~~ — `X-GitHub-Delivery` IDs deduped
+      in a bounded 10k ring (verified requests only).
+- [x] ~~Atomic `queue.json` writes~~ — tmpfile + rename.
+      (Multi-box/multi-process locking is still out of scope for the
+      single-node design.)
+- [x] ~~Timeout on `post_status`/webhook HTTP calls~~ — 15 s global
+      timeout on the GitHub API agent, 10 s on the deploy-check probe.
+- [ ] `tiny_http` serves serially — a stalled connection blocks the
+      accept loop (slowloris-shaped). Acceptable behind cloudflared;
+      revisit if `direct` exposure becomes common.
 
 ## Tests
 - [ ] Tests for `modules/dagger` — pytest for `_SELF_PATCH_PY` (fixture
