@@ -35,7 +35,7 @@ POST /hook
   → 3. HMAC verify — sha256, constant-time
   → 4. dedup X-GitHub-Delivery (bounded 10k ring)
   → 5. parse — skip deletes/zero-sha; reject non-hex sha
-  → 6. route — repository.full_name → watched [[repos]] entry;
+  → 6. route — repository.full_name → watched [[repo]] entry;
        git_ref must equal repo.branch
   → 7. enqueue — per-repo queue; atomic queue.json persist
   → 8. one global worker — git fetch, detached worktree
@@ -80,12 +80,4 @@ the queue moving.
 | pipeline backend | `Runner` impl crate | no |
 | ingress (fly/tailscale) | `Tunnel` impl crate | no |
 
-## Planned seams (0.2+)
-
-| coupling | where | planned port |
-|---|---|---|
-| OS service mgmt | `bupha-deploy` (systemd, df, journalctl) | `Service` — launchd/Windows |
-| secret storage | `secret()` — secret-tool | `keyring` crate (macOS/Win) |
-| config path | `~/.config/bupha` (XDG) | `dirs` crate |
-| VCS ops | `git()`/`repo_sync` shell to git | `Vcs` trait → `GitVcs` (jj/hg) |
-| queue persistence | `queue.json` in cli | `QueueStore` — SQLite/remote for distributed runners |
+Planned seams (0.2+) → [project/SEAMS.md](https://github.com/9aia/bupha/blob/main/project/SEAMS.md).

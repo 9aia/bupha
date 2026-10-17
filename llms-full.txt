@@ -21,7 +21,7 @@ or a direct box; quick tunnels are convenient but flaky.
    (a repo-scoped PAT) — in `~/.config/bupha/env`, or store them in
    your OS keyring with `secret-tool` (resolution: env → keyring → file).
 3. Write `bupha.toml` (see `examples/bupha.toml.example`): your repo's
-   `[[repos]]` entry, `runner.kind`, `tunnel`.
+   `[[repo]]` entry, `runner.kind`, `tunnel`.
 4. `bupha doctor` — checks this box (binaries, secrets, config) before
    you commit; fix anything red.
 5. `bupha deploy service` — systemd unit written + enabled
@@ -40,23 +40,23 @@ url: /bupha/how-to/multi-repo.md
 ---
 # How-to: watch multiple repos
 
-Add one `[[repos]]` entry per repository; `name` must equal the
+Add one `[[repo]]` entry per repository; `name` must equal the
 payload's `repository.full_name`. Each repo gets its own pending
 slot; a single global worker serializes runs (deliberate — safe on
 one box). Same-repo pushes may cancel their own in-flight run
 (`cancel_running`); a push never cancels another repo's run.
 
 ```toml
-[[repos]]
+[[repo]]
 name = "org/api"
 dir = "/srv/checkouts/api"
 queue = "all"                    # every push runs (releases)
 
-[[repos]]
+[[repo]]
 name = "org/web"
 dir = "/srv/checkouts/web"       # default latest-wins
 
-# [repos.runner]                # per-repo override; replaces global
+# [repo.runner]                # per-repo override; replaces global
 #   kind = "script"
 #   cmd = "./release.sh"
 ```
@@ -309,12 +309,11 @@ url: /bupha/reference/config.md
 
 | field | type | required | notes |
 |---|---|---|---|
-| `repo` | `RepoCfg` | optional | Legacy single-repo form; prefer \[\[repos]]. |
-| `repos` | `Vec<RepoEntry>` | optional | Watched repos — one pending slot each, one global worker. |
+| `repos` | `Vec<RepoEntry>` | required | Watched repos — one pending slot each, one global worker. TOML-conventional singular; `repos` kept as alias for existing configs. |
 | `tunnel` | `TunnelCfg` | optional | — |
 | `worktree` | `WorktreeCfg` | optional | — |
 
-## `[[repos]]`
+## `[[repo]]`
 
 | field | type | required | notes |
 |---|---|---|---|
@@ -322,7 +321,7 @@ url: /bupha/reference/config.md
 | `dir` | `path` | required | Clone to fetch + create detached worktrees from. |
 | `branch` | `string` | optional | — |
 | `status_repo` | `string` | optional | Status repo override (defaults to `name`). |
-| `runner` | `RunnerCfg` | optional | Per-repo runner override — a full \[repos.runner] table replaces the global \[runner] for this repo. |
+| `runner` | `RunnerCfg` | optional | Per-repo runner override — a full \[repo.runner] table replaces the global \[runner] for this repo. |
 | `queue` | `"latest" | "all"` | optional | Queue policy — `latest` (default) or `all` (run every push). |
 
 ## `[trigger]`
@@ -442,7 +441,7 @@ POST /hook
   → 3. HMAC verify — sha256, constant-time
   → 4. dedup X-GitHub-Delivery (bounded 10k ring)
   → 5. parse — skip deletes/zero-sha; reject non-hex sha
-  → 6. route — repository.full_name → watched [[repos]] entry;
+  → 6. route — repository.full_name → watched [[repo]] entry;
        git_ref must equal repo.branch
   → 7. enqueue — per-repo queue; atomic queue.json persist
   → 8. one global worker — git fetch, detached worktree
@@ -487,15 +486,7 @@ the queue moving.
 | pipeline backend | `Runner` impl crate | no |
 | ingress (fly/tailscale) | `Tunnel` impl crate | no |
 
-## Planned seams (0.2+)
-
-| coupling | where | planned port |
-|---|---|---|
-| OS service mgmt | `bupha-deploy` (systemd, df, journalctl) | `Service` — launchd/Windows |
-| secret storage | `secret()` — secret-tool | `keyring` crate (macOS/Win) |
-| config path | `~/.config/bupha` (XDG) | `dirs` crate |
-| VCS ops | `git()`/`repo_sync` shell to git | `Vcs` trait → `GitVcs` (jj/hg) |
-| queue persistence | `queue.json` in cli | `QueueStore` — SQLite/remote for distributed runners |
+Planned seams (0.2+) → [project/SEAMS.md](https://github.com/9aia/bupha/blob/main/project/SEAMS.md).
 
 ---
 
@@ -614,12 +605,12 @@ Diátaxis-structured. Pick by what you need to do.
   [config](reference/config.md) ·
   [crate api](reference/crate-api.md)
 * **Explanation** (why): [architecture](explanation/architecture.md) ·
-  [release model](explanation/release-model.md)
+  [release model](explanation/release-model.md) ·
+  [comparison](comparison.md) — vs GHA/hosted CI
 
 Project: [CONTRIBUTING](https://github.com/9aia/bupha/blob/main/CONTRIBUTING.md) ·
 [SECURITY](https://github.com/9aia/bupha/blob/main/SECURITY.md) ·
-[TODO](https://github.com/9aia/bupha/blob/main/project/TODO.md) ·
-[comparison](comparison.md) — vs GHA/hosted CI
+[project](https://github.com/9aia/bupha/blob/main/project/index.md) — TODO, seams, backlog, ADRs
 
 ---
 
