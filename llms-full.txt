@@ -326,6 +326,7 @@ url: /bupha/reference/config.md
 
 | field | type | required | notes |
 |---|---|---|---|
+| `api_base` | `string` | optional | Forge API base — GHES ("https://ghe.acme/api/v3") or default github.com. Used by the trigger, status, and forge-admin impls. |
 | `kind` | `string` | required | "github" today; other forges = new impl crates. |
 | `listen` | `string` | optional | Webhook listener bind address ("127.0.0.1:9000"). |
 | `secret_env` | `string` | optional | Env var holding the webhook secret. |
