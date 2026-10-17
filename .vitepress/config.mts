@@ -13,12 +13,12 @@ export default defineConfig({
     nav: [
       { text: 'Tutorial', link: '/tutorials/first-run' },
       { text: 'Reference', link: '/reference/cli' },
-      { text: 'Rust API', link: '/reference/rust-api' },
+      { text: 'Crate API', link: '/reference/crate-api' },
       {
         text: 'LLMs',
         items: [
-          { text: 'llms.txt', link: '/llms.txt', target: '_blank' },
-          { text: 'llms-full.txt', link: '/llms-full.txt', target: '_blank' },
+          { text: 'llms.txt', link: 'https://9aia.com/bupha/llms.txt', target: '_blank' },
+          { text: 'llms-full.txt', link: 'https://9aia.com/bupha/llms-full.txt', target: '_blank' },
         ],
       },
       { text: 'GitHub', link: 'https://github.com/9aia/bupha' },
@@ -42,7 +42,7 @@ export default defineConfig({
           { text: 'CLI', link: '/reference/cli' },
           { text: 'Config', link: '/reference/config' },
           { text: 'Releasing', link: '/reference/releasing' },
-          { text: 'Rust API', link: '/reference/rust-api' },
+          { text: 'Crate API', link: '/reference/crate-api' },
         ],
       },
       {
