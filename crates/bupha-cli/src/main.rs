@@ -94,8 +94,7 @@ enum DestroySub {
     Worktrees,
 }
 
-fn build_runner(rc: &bupha_core::RunnerCfg, _repo_dir: &Path)
-        -> Arc<dyn Runner> {
+fn build_runner(rc: &bupha_core::RunnerCfg) -> Arc<dyn Runner> {
     match rc.kind.as_str() {
         "dagger" => Arc::new(DaggerRunner::new(
             rc.clone(), rc.cli_source.clone())),
@@ -245,7 +244,7 @@ fn cmd_watch(cfg: Arc<Config>) {
     let mut runners: std::collections::HashMap<String, Arc<dyn Runner>> =
         std::collections::HashMap::new();
     for r in watched.iter() {
-        runners.insert(r.name.clone(), build_runner(&r.runner, &r.dir));
+        runners.insert(r.name.clone(), build_runner(&r.runner));
     }
 
     // Optional tunnel — the watcher stays decoupled from ingress.
@@ -579,11 +578,21 @@ fn cmd_doctor(cfg: &Config) {
             &format!("unknown '{other}'"), &mut failures),
     }
 
-    let secret = std::env::var(&cfg.trigger.secret_env).unwrap_or_default();
-    check("webhook secret", !secret.is_empty(),
+    // env or ~/.config/bupha/env — the unit loads the file, so both
+    // count as set (same fallback deploy check uses).
+    let env_file = std::fs::read_to_string(
+        std::env::var("HOME").map(PathBuf::from)
+            .unwrap_or_else(|_| ".".into())
+            .join(".config/bupha/env")).unwrap_or_default();
+    let has = |name: &str| {
+        !std::env::var(name).unwrap_or_default().is_empty()
+            || env_file.lines().any(|l| l.starts_with(&format!("{name}="))
+                && l.len() > name.len() + 1)
+    };
+    check("webhook secret", has(&cfg.trigger.secret_env),
         &cfg.trigger.secret_env, &mut failures);
-    let token = std::env::var(&cfg.runner.token_env).unwrap_or_default();
-    check("token", !token.is_empty(), &cfg.runner.token_env, &mut failures);
+    check("token", has(&cfg.runner.token_env),
+        &cfg.runner.token_env, &mut failures);
 
     if cfg.status.kind == "github"
         && cfg.repos.is_empty() && cfg.repo.is_some() {
@@ -636,7 +645,7 @@ fn cmd_run(cfg: &Config, function: Option<String>) {
     if let Some(f) = function {
         repo.runner.function = f;
     }
-    let runner = build_runner(&repo.runner, &repo.dir);
+    let runner = build_runner(&repo.runner);
     let ctx = RunCtx {
         workdir: &repo.dir,
         token_env: &repo.runner.token_env,
@@ -927,9 +936,12 @@ fn deploy_check(cfg: &Config) {
             && l.len() > cfg.runner.token_env.len() + 1);
     check("token set", token_ok,
         &format!("{} (env or env file)", cfg.runner.token_env), &mut fails);
-    check("tunnel.public_url", !cfg.tunnel.public_url.is_empty(),
-        "needed for webhook registration", &mut fails);
-    if !cfg.tunnel.public_url.is_empty() {
+    // public_url is only required to run `deploy webhook`; its absence
+    // is a note, not a failure.
+    if cfg.tunnel.public_url.is_empty() {
+        check("tunnel.public_url", true,
+            "unset (needed only for webhook registration)", &mut fails);
+    } else {
         let code = ureq_probe(&cfg.tunnel.public_url);
         check("endpoint reachable", code.is_some(),
             &format!("{} -> {:?}", cfg.tunnel.public_url, code), &mut fails);

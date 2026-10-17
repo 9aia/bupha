@@ -9,8 +9,8 @@ use std::process::{Child, Command};
 
 pub struct DaggerRunner {
     cfg: RunnerCfg,
-    /// Extra args resolved by the caller (e.g. --cli-source when a
-    /// sibling checkout exists).
+    /// `--cli-source <dir>` from `[runner] cli_source` — for repos
+    /// whose pipeline builds against a sibling checkout.
     cli_source: Option<String>,
 }
 

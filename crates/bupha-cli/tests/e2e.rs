@@ -17,14 +17,14 @@ impl Drop for Svc {
     fn drop(&mut self) { let _ = self.0.kill(); }
 }
 
-fn post(path: &str, sig: Option<&str>, body: &str, event: &str)
-        -> (u16, String) {
-    post_d(path, sig, body, event, None)
+fn post(port: u16, path: &str, sig: Option<&str>, body: &str,
+        event: &str) -> (u16, String) {
+    post_d(port, path, sig, body, event, None)
 }
 
-fn post_d(path: &str, sig: Option<&str>, body: &str, event: &str,
-          delivery: Option<&str>) -> (u16, String) {
-    let mut req = ureq::post(&format!("http://127.0.0.1:19000{path}"))
+fn post_d(port: u16, path: &str, sig: Option<&str>, body: &str,
+          event: &str, delivery: Option<&str>) -> (u16, String) {
+    let mut req = ureq::post(&format!("http://127.0.0.1:{port}{path}"))
         .header("X-GitHub-Event", event);
     if let Some(s) = sig {
         req = req.header("X-Hub-Signature-256", s);
@@ -42,6 +42,9 @@ fn post_d(path: &str, sig: Option<&str>, body: &str, event: &str,
 
 #[test]
 fn watch_e2e() {
+    // OS-assigned free port — no fixed-port collisions.
+    let port = std::net::TcpListener::bind("127.0.0.1:0")
+        .unwrap().local_addr().unwrap().port();
     let tmp = std::env::temp_dir().join(format!("bupha-e2e-{}", std::process::id()));
     let repo = tmp.join("repo");
     std::fs::create_dir_all(&repo).unwrap();
@@ -63,7 +66,7 @@ fn watch_e2e() {
     let cfg = format!(r#"
 [trigger]
 kind = "github"
-listen = "127.0.0.1:19000"
+listen = "127.0.0.1:{port}"
 secret_env = "BUPHA_E2E_SECRET"
 [runner]
 kind = "script"
@@ -77,7 +80,7 @@ base = "{tmp}"
 [[repos]]
 name = "o/r"
 dir = "{repo}"
-"#, tmp = tmp.display(), repo = repo.display());
+"#, tmp = tmp.display(), repo = repo.display(), port = port);
     let cfg_path = tmp.join("bupha.toml");
     std::fs::write(&cfg_path, cfg).unwrap();
 
@@ -90,12 +93,12 @@ dir = "{repo}"
     std::thread::sleep(std::time::Duration::from_secs(2));
 
     let good = |body: &str, event: &str|
-        post("/hook", Some(&sign("s3cr3t", body)), body, event);
+        post(port, "/hook", Some(&sign("s3cr3t", body)), body, event);
 
-    let (c, _) = post("/hook", None, "{}", "ping");
+    let (c, _) = post(port, "/hook", None, "{}", "ping");
     assert_eq!(c, 200, "ping -> pong");
 
-    let (c, _) = post("/hook", Some("sha256=bad"),
+    let (c, _) = post(port, "/hook", Some("sha256=bad"),
         r#"{"ref":"refs/heads/main","repository":{"full_name":"o/r"},"after":"x"}"#,
         "push");
     assert_eq!(c, 401, "bad sig");
@@ -115,10 +118,10 @@ dir = "{repo}"
 
     // replayed X-GitHub-Delivery -> dropped before the queue
     let sig = sign("s3cr3t", &body);
-    let (c, m) = post_d("/hook", Some(&sig), &body, "push",
+    let (c, m) = post_d(port, "/hook", Some(&sig), &body, "push",
         Some("d-1"));
     assert_eq!((c, m.as_str()), (200, "already queued"));
-    let (c, m) = post_d("/hook", Some(&sig), &body, "push",
+    let (c, m) = post_d(port, "/hook", Some(&sig), &body, "push",
         Some("d-1"));
     assert_eq!((c, m.as_str()), (200, "duplicate delivery"));
 

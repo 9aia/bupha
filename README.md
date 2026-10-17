@@ -13,7 +13,7 @@ push ──► webhook ──► verify HMAC ──► latest-wins queue ──�
 
 ## Features
 
-- single static binary — no CI server product, no UI, no YAML DSL
+- single binary — no CI server product, no UI, no YAML DSL
 - latest-wins batching: 1 run in flight, 1 pending sha per repo,
   superseded commits get honest statuses
 - multi-repo webhook fan-in, HMAC-verified, repo-routed
