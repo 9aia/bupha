@@ -8,7 +8,7 @@
       must not lose accepted work. (Multi-box/multi-process locking is
       out of scope for the single-node design.)
 - [ ] Timeout on `post_status`/webhook HTTP calls (ureq) — a stalled
-      GitHub API currently blocks the handler thread inside the lock.
+      GitHub API still stalls the handler thread.
 
 ## Tests
 - [ ] Tests for `modules/dagger` — pytest for `_SELF_PATCH_PY` (fixture
@@ -19,8 +19,8 @@
       run is in flight — script runner makes this cheap).
 
 ## Distribution
-- [ ] `cargo publish` (dep order) + tag v0.1.0 when the first full gate
-      passes green on platform.
+- [ ] Seed publish: `git tag bupha-v0.1.0` → the watch loop
+      publishes touched crates + dist binaries automatically.
 - [ ] GHES support — `api_base` on `GitHubStatus`/`register_webhook`.
 - [ ] `bupha init` should emit a fuller delegate template + optional
       non-rust skeleton for `runner.kind = "script"`.
@@ -28,12 +28,12 @@
 ## Nits
 - [ ] `modules/dagger` dev-link exec has a dead `elif` checking the same
       path as the `if` — dedupe.
-- [ ] `.github/workflows/` exists for releases only — fine, but keep
-      docs noting release-GHA ≠ project-CI to prevent confusion.
+- [x] ~~`.github/` workflows for releases~~ — deleted; releases run
+      on bupha itself via scripts/release.sh.
 
 ## Queue / jobs
-- [ ] Per-repo queue policy: `queue = "latest"` (current) vs
-      `"all"` (FIFO, run every push — VecDeque instead of pending slot).
+- [x] ~~Per-repo queue policy `latest`|`all`~~ — shipped (VecDeque,
+      bounded, evicts-oldest).
 - [ ] `[[repos.jobs]]` — multiple pipelines per repo, each with own
       queue policy + runner (e.g. `ci` gate + debounced `release`).
 
