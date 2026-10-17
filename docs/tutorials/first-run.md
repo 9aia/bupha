@@ -2,8 +2,11 @@
 
 Goal: push-triggered CI on a repo, end to end, in ~10 minutes.
 
-Prereqs: linux box with git; `cargo install bupha`; docker only if you
-use the dagger runner.
+Prereqs: **Linux + systemd** (macOS runs `watch` manually, no unit —
+script runner needs bash either way; Windows unsupported); git;
+`cargo install bupha`; docker only if you use the dagger runner.
+Also a stable public URL for the webhook — named cloudflared tunnel
+or a direct box; quick tunnels are convenient but flaky.
 
 1. `cd your-repo && bupha init` — scaffolds the dagger module +
    delegate (or just write `ci.sh` for the script runner).

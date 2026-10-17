@@ -27,6 +27,10 @@ push ──► webhook ──► verify HMAC ──► latest-wins queue ──�
 
 ## Install
 
+Platform: **Linux** for the full experience — `deploy service` needs
+systemd, the script runner needs bash. `watch` also runs on macOS
+manually (no unit); Windows is unsupported.
+
 ```sh
 cargo install bupha                              # crates.io (post-0.1.0)
 cargo install --git https://github.com/9aia/bupha bupha   # today
