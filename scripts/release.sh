@@ -12,7 +12,7 @@ sleep "${BUPHA_RELEASE_DEBOUNCE:-300}"
 git fetch origin --tags -q
 last="$(git describe --tags --abbrev=0 2>/dev/null || true)"
 if [ -z "$last" ]; then
-    echo "no tags yet — tag v0.1.0 manually to seed the flow"; exit 0
+    echo "no tags yet — run 'bupha deploy release' to seed the flow"; exit 0
 fi
 changed="$(git diff --name-only "${last}..HEAD")"
 

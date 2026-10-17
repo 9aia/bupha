@@ -1,6 +1,9 @@
 # Releasing
 
-Tag-free, push-driven: `bupha watch` sees pushes to `9aia/bupha`, queues
+Seeded once, then push-driven. `bupha deploy release` publishes every
+workspace member in dependency order and pushes the `{repo}-v{ver}`
+seed tag — publishing is the only irreversible step, so it stays
+explicit. From then on, `bupha watch` sees pushes to `9aia/bupha`, queues
 latest-wins, and runs `scripts/release.sh` in a worktree
 (`runner.kind = "script"`, `cancel_running = true` — the 5-min sleep
 inside the script is the debounce window).

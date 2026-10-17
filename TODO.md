@@ -21,8 +21,8 @@
       run is in flight — script runner makes this cheap).
 
 ## Distribution
-- [ ] Seed publish: `git tag bupha-v0.1.0` → the watch loop
-      publishes touched crates + dist binaries automatically.
+- [x] ~~Seed publish~~ — `bupha deploy release` publishes in dep order
+      + pushes the seed tag; pushes then release via `release.sh`.
 - [ ] GHES support — `api_base` on `GitHubStatus`/`register_webhook`.
 - [ ] `bupha init` should emit a fuller delegate template + optional
       non-rust skeleton for `runner.kind = "script"`.

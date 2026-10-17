@@ -124,6 +124,46 @@ impl StatusSink for LogStatus {
     }
 }
 
+/// Delete the webhook pointing at `{url}/hook` — exact URL match only,
+/// mirroring register_webhook. Returns a human message.
+pub fn unregister_webhook(
+    token: &str, repo: &str, url: &str,
+) -> std::io::Result<String> {
+    let hook_url = format!("{}/hook", url.trim_end_matches('/'));
+    let agent = agent();
+    let list = agent.get(&format!(
+            "https://api.github.com/repos/{repo}/hooks"))
+        .header("Authorization", &format!("Bearer {token}"))
+        .header("Accept", "application/vnd.github+json")
+        .header("User-Agent", "bupha")
+        .call();
+    let existing = match list {
+        Ok(mut r) => {
+            let v: serde_json::Value = r.body_mut().read_json()
+                .unwrap_or(serde_json::json!([]));
+            v.as_array().and_then(|a| a.iter().find_map(|h| {
+                let id = h.get("id")?.as_u64()?;
+                let u = h.pointer("/config/url")?.as_str()?;
+                (u.trim_end_matches('/') == hook_url).then_some(id)
+            }))
+        }
+        Err(_) => None,
+    };
+    match existing {
+        Some(id) => {
+            agent.delete(&format!(
+                    "https://api.github.com/repos/{repo}/hooks/{id}"))
+                .header("Authorization", &format!("Bearer {token}"))
+                .header("Accept", "application/vnd.github+json")
+                .header("User-Agent", "bupha")
+                .call()
+                .map_err(std::io::Error::other)?;
+            Ok(format!("deleted hook {id} ({hook_url})"))
+        }
+        None => Ok(format!("no hook for {hook_url}")),
+    }
+}
+
 /// Register or update the push webhook via the REST API using the
 /// token directly (no `gh` dependency). Returns a human message.
 pub fn register_webhook(

@@ -53,6 +53,11 @@ enum Cmd {
         #[command(subcommand)]
         sub: DeploySub,
     },
+    /// Teardown counterparts of `deploy`.
+    Destroy {
+        #[command(subcommand)]
+        sub: DestroySub,
+    },
 }
 
 #[derive(Subcommand)]
@@ -70,6 +75,23 @@ enum DeploySub {
     Env,
     /// Verify the whole install: unit, secrets, hook, endpoint, token.
     Check,
+    /// One-time seed: cargo publish in dep order + tag {repo}-v{ver}.
+    /// Explicit — publishing is the irreversible step in the flow.
+    Release {
+        /// Print the publish order and tag without doing anything.
+        #[arg(long)]
+        dry_run: bool,
+    },
+}
+
+#[derive(Subcommand)]
+enum DestroySub {
+    /// Disable + remove the systemd user unit.
+    Service,
+    /// Delete the repo's webhook whose URL matches tunnel.public_url.
+    Webhook,
+    /// Remove detached worktrees and the persisted queue file.
+    Worktrees,
 }
 
 fn build_runner(rc: &bupha_core::RunnerCfg, repo_dir: &Path) -> Arc<dyn Runner> {
@@ -621,6 +643,9 @@ fn main() {
     let cli = Cli::parse();
     match &cli.cmd {
         Cmd::Init { dir } => cmd_init(dir),
+        // Release is repo-local (cwd) — no bupha.toml needed.
+        Cmd::Deploy { sub: DeploySub::Release { dry_run } } =>
+            cmd_deploy_release(*dry_run),
         _ => {
             let cfg = Arc::new(Config::load(cli.config.as_deref())
                 .unwrap_or_else(|e| {
@@ -632,6 +657,7 @@ fn main() {
                 Cmd::Doctor => cmd_doctor(&cfg),
                 Cmd::Run { function } => cmd_run(&cfg, function.clone()),
                 Cmd::Deploy { sub } => cmd_deploy(&cfg, sub, cli.config.clone()),
+                Cmd::Destroy { sub } => cmd_destroy(&cfg, sub),
                 Cmd::Init { .. } => unreachable!(),
             }
         }
@@ -692,6 +718,169 @@ fn cmd_deploy(cfg: &Config, sub: &DeploySub, cli_config: Option<String>) {
                     Ok(msg) => println!("{msg}"),
                     Err(e) => { eprintln!("webhook {}: {e}", r.name);
                                 std::process::exit(1); }
+                }
+            }
+        }
+        DeploySub::Release { .. } => unreachable!(),
+    }
+}
+
+/// Seed the release flow: publish every workspace member in dep
+/// order, then tag `{repo}-v{version}` and push the tag. Explicit —
+/// this is the only irreversible step in bupha's lifecycle.
+fn cmd_deploy_release(dry_run: bool) {
+    let repo_dir = std::env::current_dir()
+        .unwrap_or_else(|_| PathBuf::from("."));
+    if std::env::var("CARGO_REGISTRY_TOKEN").unwrap_or_default()
+        .is_empty() && !dry_run
+    {
+        eprintln!("CARGO_REGISTRY_TOKEN required");
+        std::process::exit(1);
+    }
+    let out = Command::new("cargo")
+        .args(["metadata", "--format-version", "1", "--no-deps"])
+        .current_dir(&repo_dir).output()
+        .unwrap_or_else(|e| { eprintln!("cargo metadata: {e}");
+                              std::process::exit(1) });
+    let meta: serde_json::Value = serde_json::from_slice(&out.stdout)
+        .unwrap_or_else(|e| { eprintln!("metadata json: {e}");
+                              std::process::exit(1) });
+    let empty: Vec<serde_json::Value> = vec![];
+    let member_ids: std::collections::HashSet<String> =
+        meta["workspace_members"].as_array().unwrap_or(&empty)
+            .iter().filter_map(|m| m.as_str().map(String::from))
+            .collect();
+    let pkgs: Vec<&serde_json::Value> =
+        meta["packages"].as_array().unwrap_or(&empty).iter()
+            .filter(|p| member_ids.contains(
+                p["id"].as_str().unwrap_or("")))
+            .collect();
+    let members: Vec<String> = pkgs.iter()
+        .filter_map(|p| p["name"].as_str().map(String::from)).collect();
+    let deps: Vec<(String, String)> = pkgs.iter().flat_map(|p| {
+        let a = p["name"].as_str().unwrap_or("").to_string();
+        p["dependencies"].as_array().unwrap_or(&empty).iter()
+            .filter(|d| d["path"].is_string())
+            .filter_map(|d| d["name"].as_str()
+                .map(|n| (a.clone(), n.to_string())))
+            .collect::<Vec<_>>()
+    }).collect();
+    let order = deploy::publish_order(&members, &deps)
+        .unwrap_or_else(|e| { eprintln!("{e}"); std::process::exit(1) });
+    let versions: std::collections::HashSet<String> = pkgs.iter()
+        .filter_map(|p| p["version"].as_str().map(String::from))
+        .collect();
+    if versions.len() != 1 {
+        eprintln!("members have mixed versions {versions:?} — \
+                   release needs one version across the workspace");
+        std::process::exit(1);
+    }
+    let ver = versions.into_iter().next().unwrap();
+    let tag = format!("{}-v{ver}", repo_dir.file_name()
+        .map(|n| n.to_string_lossy().to_string())
+        .unwrap_or_else(|| "release".into()));
+    if dry_run {
+        println!("publish order: {}", order.join(" -> "));
+        println!("tag: {tag}");
+        return;
+    }
+    for name in &order {
+        let mut ok = false;
+        for _ in 0..5 {
+            let st = Command::new("cargo")
+                .args(["publish", "-p", name, "--allow-dirty"])
+                .current_dir(&repo_dir).output();
+            let text = st.map(|o| format!("{}{}",
+                String::from_utf8_lossy(&o.stdout),
+                String::from_utf8_lossy(&o.stderr)))
+                .unwrap_or_default();
+            if text.contains("Finished") || text.contains("already")
+                || text.contains("Uploaded")
+            {
+                println!("published {name}");
+                ok = true;
+                break;
+            }
+            std::thread::sleep(std::time::Duration::from_secs(20));
+        }
+        if !ok {
+            eprintln!("publish failed: {name}");
+            std::process::exit(1);
+        }
+    }
+    if !git(&repo_dir, &["rev-parse", "-q", "--verify",
+                         &format!("refs/tags/{tag}")]) {
+        if !git(&repo_dir, &["tag", &tag]) {
+            eprintln!("git tag {tag} failed");
+            std::process::exit(1);
+        }
+    }
+    if !git(&repo_dir, &["push", "origin", &tag]) {
+        eprintln!("tag push failed — publish done, push {tag} by hand");
+        std::process::exit(1);
+    }
+    println!("released {tag} — pushes to main now release via \
+              the watch loop");
+}
+
+fn cmd_destroy(cfg: &Config, sub: &DestroySub) {
+    match sub {
+        DestroySub::Service => {
+            match deploy::disable_service("bupha-watch.service") {
+                Ok(p) => println!("removed {}", p.display()),
+                Err(e) => { eprintln!("service: {e}");
+                            std::process::exit(1); }
+            }
+        }
+        DestroySub::Webhook => {
+            if cfg.tunnel.public_url.is_empty() {
+                eprintln!("tunnel.public_url not set — nothing to \
+                           match hooks against");
+                std::process::exit(1);
+            }
+            let watched = cfg.watched().unwrap_or_else(|e| {
+                eprintln!("{e}");
+                std::process::exit(1);
+            });
+            let token = std::env::var(&cfg.runner.token_env)
+                .unwrap_or_default();
+            for r in &watched {
+                match bupha_github::unregister_webhook(
+                    &token, &r.name, &cfg.tunnel.public_url)
+                {
+                    Ok(msg) => println!("{msg}"),
+                    Err(e) => { eprintln!("webhook {}: {e}", r.name);
+                                std::process::exit(1); }
+                }
+            }
+        }
+        DestroySub::Worktrees => {
+            // worktrees land at <base>-<repo>-<sha12>; queue.json in base
+            let base = PathBuf::from(&cfg.worktree.base);
+            let prefix = base.file_name()
+                .map(|n| format!("{}-", n.to_string_lossy()))
+                .unwrap_or_default();
+            if let Some(parent) = base.parent() {
+                if let Ok(rd) = std::fs::read_dir(parent) {
+                    for e in rd.flatten() {
+                        if e.file_name().to_string_lossy()
+                                .starts_with(&prefix)
+                            && e.path().is_dir()
+                        {
+                            let _ = std::fs::remove_dir_all(e.path());
+                            println!("removed {}", e.path().display());
+                        }
+                    }
+                }
+            }
+            let q = base.join("queue.json");
+            if q.exists() {
+                let _ = std::fs::remove_file(&q);
+                println!("removed {}", q.display());
+            }
+            if let Ok(ws) = cfg.watched() {
+                for r in &ws {
+                    git(&r.dir, &["worktree", "prune"]);
                 }
             }
         }
