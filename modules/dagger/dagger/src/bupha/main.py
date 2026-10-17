@@ -59,8 +59,12 @@ _SELF_PATCH_PY = '''python3 - <<'PYEOF'
 import re, pathlib, tomllib
 repo_dir = pathlib.Path("REPO_DIR")
 toml = repo_dir / "Cargo.toml"
-key = '[patch."PATCH_HOST/REPO_NAME"]'
-if "PATCH_HOST" in key:
+patch_host = "__PATCH_HOST__"   # substituted by the module; "" = derive
+if patch_host and not patch_host.startswith("__"):
+    key = f'[patch."{patch_host}/REPO_NAME"]'
+else:
+    # no host passed — derive the patch URL from the repo's own
+    # Cargo.toml `repository` field (any org, zero config)
     meta = tomllib.loads(toml.read_text())
     url = (meta.get("workspace", {}).get("package", {})
                or meta.get("package", {})).get("repository", "")
@@ -73,11 +77,12 @@ for l in lines:
     if l.startswith(key):
         skipping = True
         continue
-    if skipping and l.lstrip().startswith(("[", "#")):
+    if skipping and l.lstrip().startswith("["):
         skipping = False
     if not skipping:
         out.append(l)
-toml.write_text("".join(out))
+# normalize tail whitespace so re-runs are byte-identical
+toml.write_text("".join(out).rstrip("\\n") + "\\n\\n")
 if True:
     rows = []
     for g in ("crates", "modules"):
@@ -86,7 +91,7 @@ if True:
             if m:
                 rows.append((m.group(1), t.parent))
     with toml.open("a") as f:
-        f.write("\\n" + key + "\\n")
+        f.write(key + "\\n")
         for n, p in rows:
             rel = p.relative_to(repo_dir.parent)
             f.write(f'{n} = {{ path = "../{rel}" }}\\n')
@@ -196,9 +201,8 @@ class Bupha:
                              f" /work/{name}/Cargo.toml 2>/dev/null || true; fi"])
         script = (_SELF_PATCH_PY
                   .replace("REPO_DIR", f"/work/{name}")
-                  .replace("REPO_NAME", name))
-        if patch_host:
-            script = script.replace("PATCH_HOST", patch_host)
+                  .replace("REPO_NAME", name)
+                  .replace("__PATCH_HOST__", patch_host))
         return ctr.with_exec(["bash", "-c", script])
 
     # -- composable primitives (for consumer modules) ------------------------
