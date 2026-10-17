@@ -23,3 +23,13 @@ description = "The oxpecker on your repo's back — headless CI: watch, queue, r
 [profile.dist]
 inherits = "release"
 lto = "thin"
+
+[workspace.dependencies]
+bupha-core = { path = "crates/bupha-core", version = "0.1.0" }
+bupha-runner = { path = "crates/bupha-runner", version = "0.1.0" }
+bupha-tunnel = { path = "crates/bupha-tunnel", version = "0.1.0" }
+bupha-dagger = { path = "crates/bupha-dagger", version = "0.1.0" }
+bupha-script = { path = "crates/bupha-script", version = "0.1.0" }
+bupha-github = { path = "crates/bupha-github", version = "0.1.0" }
+bupha-cloudflared = { path = "crates/bupha-cloudflared", version = "0.1.0" }
+bupha-deploy = { path = "crates/bupha-deploy", version = "0.1.0" }

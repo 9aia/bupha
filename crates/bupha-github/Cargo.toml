@@ -9,7 +9,7 @@ keywords = ["ci", "bupha"]
 categories = ["development-tools"]
 
 [dependencies]
-bupha-core = { path = "../bupha-core" }
+bupha-core.workspace = true
 hmac = "0.12"
 sha2 = "0.10"
 hex = "0.4"

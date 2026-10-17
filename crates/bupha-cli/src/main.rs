@@ -71,15 +71,15 @@ enum DeploySub {
     Check,
 }
 
-fn build_runner(cfg: &Config, repo_dir: &Path) -> Arc<dyn Runner> {
-    match cfg.runner.kind.as_str() {
+fn build_runner(rc: &bupha_core::RunnerCfg, repo_dir: &Path) -> Arc<dyn Runner> {
+    match rc.kind.as_str() {
         "dagger" => {
             let cli = repo_dir.join("../cli");
             let cli_src = cli.join("crates/host-cli").exists()
                 .then(|| cli.to_string_lossy().to_string());
-            Arc::new(DaggerRunner::new(cfg.runner.clone(), cli_src))
+            Arc::new(DaggerRunner::new(rc.clone(), cli_src))
         }
-        "script" => Arc::new(ScriptRunner::new(cfg.runner.clone())),
+        "script" => Arc::new(ScriptRunner::new(rc.clone())),
         other => {
             eprintln!("unknown runner kind '{other}' (dagger|script)");
             std::process::exit(2);
@@ -122,7 +122,7 @@ fn run_job(
     sink.post(sha, "pending", "ci running");
     println!("ci start {} {sha:.12} runner={}", repo.name, runner.name());
 
-    let ctx = RunCtx { workdir: &wt, token_env: &cfg.runner.token_env };
+    let ctx = RunCtx { workdir: &wt, token_env: &repo.runner.token_env };
     let ok = match runner.spawn(&ctx) {
         Ok(ch) => {
             *child.lock().unwrap() = Some(ch);
@@ -217,7 +217,7 @@ fn cmd_watch(cfg: Arc<Config>) {
     let mut runners: std::collections::HashMap<String, Arc<dyn Runner>> =
         std::collections::HashMap::new();
     for r in watched.iter() {
-        runners.insert(r.name.clone(), build_runner(&cfg, &r.dir));
+        runners.insert(r.name.clone(), build_runner(&r.runner, &r.dir));
     }
 
     // Optional tunnel — the watcher stays decoupled from ingress.
@@ -343,7 +343,7 @@ fn cmd_watch(cfg: Arc<Config>) {
                         None => (200, "ignored: unwatched repo"),
                         Some(r) if git_ref != r.branch =>
                             (200, "ignored: not the watched branch"),
-                        Some(_) => {
+                        Some(r) => {
                             // Lock: mutate queue + decide, then drop.
                             // HTTP posts and process kills happen after.
                             let mut old = None;
@@ -362,7 +362,7 @@ fn cmd_watch(cfg: Arc<Config>) {
                                         (200, "already queued"),
                                     EnqueueResult::Queued { superseded } => {
                                         old = superseded;
-                                        kill = cfg.runner.cancel_running
+                                        kill = r.runner.cancel_running
                                             && running;
                                         if kill {
                                             g.queues.get_mut(&repo_name)
@@ -551,19 +551,18 @@ fn cmd_doctor(cfg: &Config) {
 }
 
 fn cmd_run(cfg: &Config, function: Option<String>) {
-    let mut cfg = cfg.clone();
-    if let Some(f) = function {
-        cfg.runner.function = f;
-    }
-    let repo = cfg.watched().ok().and_then(|w| w.into_iter().next())
+    let mut repo = cfg.watched().ok().and_then(|w| w.into_iter().next())
         .unwrap_or_else(|| {
             eprintln!("no repo configured");
             std::process::exit(2);
         });
-    let runner = build_runner(&cfg, &repo.dir);
+    if let Some(f) = function {
+        repo.runner.function = f;
+    }
+    let runner = build_runner(&repo.runner, &repo.dir);
     let ctx = RunCtx {
         workdir: &repo.dir,
-        token_env: &cfg.runner.token_env,
+        token_env: &repo.runner.token_env,
     };
     match runner.spawn(&ctx).and_then(|mut c| c.wait()) {
         Ok(s) if s.success() => println!("run passed"),

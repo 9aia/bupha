@@ -13,16 +13,16 @@ name = "bupha"
 path = "src/main.rs"
 
 [dependencies]
-bupha-core = { path = "../bupha-core" }
-bupha-runner = { path = "../bupha-runner" }
-bupha-dagger = { path = "../bupha-dagger" }
-bupha-script = { path = "../bupha-script" }
-bupha-tunnel = { path = "../bupha-tunnel" }
-bupha-cloudflared = { path = "../bupha-cloudflared" }
-bupha-github = { path = "../bupha-github" }
+bupha-core.workspace = true
+bupha-runner.workspace = true
+bupha-dagger.workspace = true
+bupha-script.workspace = true
+bupha-tunnel.workspace = true
+bupha-cloudflared.workspace = true
+bupha-github.workspace = true
 tiny_http = "0.12"
 clap = { version = "4", features = ["derive"] }
-bupha-deploy = { path = "../bupha-deploy" }
+bupha-deploy.workspace = true
 serde_json = "1"
 ureq = { version = "3" }
 

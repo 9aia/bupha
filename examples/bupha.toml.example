@@ -8,6 +8,9 @@ name = "owner/name"
 dir = "/path/to/clone"
 branch = "refs/heads/main"
 # status_repo = "owner/name"     # optional override for statuses
+# [repos.runner]                # optional per-repo runner override
+#   kind = "script"             #   (full replacement of [runner])
+#   cmd = "./scripts/release.sh"
 
 [trigger]
 kind = "github"                   # impl: bupha-github

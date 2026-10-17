@@ -2,3 +2,4 @@
 coverage/
 *.profraw
 **/queue.json
+.env

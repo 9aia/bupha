@@ -100,6 +100,10 @@ pub struct RepoEntry {
     /// Status repo override (defaults to `name`).
     #[serde(default)]
     pub status_repo: Option<String>,
+    /// Per-repo runner override — a full [repos.runner] table replaces
+    /// the global [runner] for this repo.
+    #[serde(default)]
+    pub runner: Option<RunnerCfg>,
 }
 
 impl RepoEntry {
@@ -116,6 +120,8 @@ pub struct WatchedRepo {
     pub dir: PathBuf,
     pub branch: String,
     pub status_repo: String,
+    /// Global [runner] or the repo's [repos.runner] override.
+    pub runner: RunnerCfg,
 }
 
 impl Config {
@@ -126,6 +132,8 @@ impl Config {
                 dir: r.dir.clone(),
                 branch: r.branch.clone(),
                 status_repo: r.status_repo().to_string(),
+                runner: r.runner.clone().unwrap_or_else(||
+                    self.runner.clone()),
             }).collect());
         }
         if let Some(r) = &self.repo {
@@ -138,6 +146,7 @@ impl Config {
                 name, dir: r.dir.clone(),
                 branch: r.branch.clone(),
                 status_repo: self.status.repo.clone(),
+                runner: self.runner.clone(),
             }]);
         }
         Err("no [[repos]] entries and no [repo] configured".into())

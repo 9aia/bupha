@@ -9,6 +9,6 @@ keywords = ["ci", "bupha"]
 categories = ["development-tools"]
 
 [dependencies]
-bupha-tunnel = { path = "../bupha-tunnel" }
-bupha-core = { path = "../bupha-core" }
+bupha-tunnel.workspace = true
+bupha-core.workspace = true
 

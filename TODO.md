@@ -32,6 +32,11 @@
       docs noting release-GHA ≠ project-CI to prevent confusion.
 
 ## Later
+- [ ] Remote/distributed runners: `bupha-webhook` runner (POST signed
+      job to another bupha) + `bupha-http` trigger (generic signed job
+      endpoint, not github-shaped) — enables multi-arch builds on
+      worker boxes without GHA.
+- [ ] `runner.kind = "shell"` — inline shell strings (vs script file
+      `cmd`), or alias; decide semantics.
 - [ ] Trigger impls: gitea/gitlab.
 - [ ] Runner impls: earthly, nix.
-- [ ] Per-repo runner overrides in `[[repos]]`.
