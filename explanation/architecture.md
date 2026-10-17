@@ -98,5 +98,3 @@ the queue moving.
 | forge (gitea/gitlab)    | `Trigger` + `StatusSink` impl crate | no            |
 | pipeline backend        | `Runner` impl crate                 | no            |
 | ingress (fly/tailscale) | `Tunnel` impl crate                 | no            |
-
-Remaining couplings → [project/BACKLOG.md](https://github.com/9aia/bupha/blob/main/project/BACKLOG.md).
