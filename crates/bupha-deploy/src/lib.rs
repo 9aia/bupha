@@ -147,3 +147,27 @@ mod tests {
         assert!(publish_order(&members, &deps).is_err());
     }
 }
+
+
+/// systemd impl of the `Service` port.
+pub struct SystemdService {
+    /// Unit name, e.g. "bupha-watch.service".
+    pub unit: String,
+    /// Binary to ExecStart.
+    pub bin: PathBuf,
+    /// EnvironmentFile (secrets), e.g. ~/.config/bupha/env.
+    pub env: PathBuf,
+    /// Optional --config arg.
+    pub config: Option<PathBuf>,
+}
+
+impl bupha_service::Service for SystemdService {
+    fn write(&self) -> io::Result<PathBuf> {
+        write_service_unit(&self.bin, &self.env,
+                           self.config.as_deref())
+    }
+    fn enable(&self) -> io::Result<()> { enable_service(&self.unit) }
+    fn disable(&self) -> io::Result<PathBuf> {
+        disable_service(&self.unit)
+    }
+}

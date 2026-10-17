@@ -5,6 +5,14 @@ members = [
     "crates/bupha-deploy",
     "crates/bupha-core",
     "crates/bupha-trigger",
+    "crates/bupha-vcs",
+    "crates/bupha-git",
+    "crates/bupha-queue",
+    "crates/bupha-queue-json",
+    "crates/bupha-service",
+    "crates/bupha-secret",
+    "crates/bupha-keyring",
+    "crates/bupha-dotenv",
     "crates/bupha-status",
     "crates/bupha-github",
     "crates/bupha-runner",
@@ -29,6 +37,15 @@ lto = "thin"
 [workspace.dependencies]
 bupha-core = { path = "crates/bupha-core", version = "0.1.0" }
 bupha-trigger = { path = "crates/bupha-trigger", version = "0.1.0" }
+bupha-vcs = { path = "crates/bupha-vcs", version = "0.1.0" }
+bupha-git = { path = "crates/bupha-git", version = "0.1.0" }
+bupha-queue = { path = "crates/bupha-queue", version = "0.1.0" }
+bupha-queue-json = { path = "crates/bupha-queue-json", version = "0.1.0" }
+bupha-service = { path = "crates/bupha-service", version = "0.1.0" }
+bupha-secret = { path = "crates/bupha-secret", version = "0.1.0" }
+bupha-keyring = { path = "crates/bupha-keyring", version = "0.1.0" }
+bupha-dotenv = { path = "crates/bupha-dotenv", version = "0.1.0" }
+serde_json = "1"
 bupha-status = { path = "crates/bupha-status", version = "0.1.0" }
 bupha-runner = { path = "crates/bupha-runner", version = "0.1.0" }
 bupha-tunnel = { path = "crates/bupha-tunnel", version = "0.1.0" }

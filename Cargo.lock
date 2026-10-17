@@ -87,14 +87,23 @@ dependencies = [
  "bupha-core",
  "bupha-dagger",
  "bupha-deploy",
+ "bupha-dotenv",
+ "bupha-git",
  "bupha-github",
+ "bupha-keyring",
+ "bupha-queue",
+ "bupha-queue-json",
  "bupha-runner",
  "bupha-script",
+ "bupha-secret",
+ "bupha-service",
  "bupha-status",
  "bupha-trigger",
  "bupha-tunnel",
+ "bupha-vcs",
  "clap",
  "clap-markdown",
+ "dirs",
  "hex",
  "hmac",
  "serde_json",
@@ -133,6 +142,21 @@ name = "bupha-deploy"
 version = "0.1.0"
 dependencies = [
  "bupha-core",
+ "bupha-service",
+]
+
+[[package]]
+name = "bupha-dotenv"
+version = "0.1.0"
+dependencies = [
+ "bupha-secret",
+]
+
+[[package]]
+name = "bupha-git"
+version = "0.1.0"
+dependencies = [
+ "bupha-vcs",
 ]
 
 [[package]]
@@ -150,6 +174,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "bupha-keyring"
+version = "0.1.0"
+dependencies = [
+ "bupha-secret",
+]
+
+[[package]]
+name = "bupha-queue"
+version = "0.1.0"
+
+[[package]]
+name = "bupha-queue-json"
+version = "0.1.0"
+dependencies = [
+ "bupha-core",
+ "bupha-queue",
+ "serde_json",
+]
+
+[[package]]
 name = "bupha-runner"
 version = "0.1.0"
 
@@ -162,6 +206,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "bupha-secret"
+version = "0.1.0"
+
+[[package]]
+name = "bupha-service"
+version = "0.1.0"
+
+[[package]]
 name = "bupha-status"
 version = "0.1.0"
 
@@ -171,6 +223,10 @@ version = "0.1.0"
 
 [[package]]
 name = "bupha-tunnel"
+version = "0.1.0"
+
+[[package]]
+name = "bupha-vcs"
 version = "0.1.0"
 
 [[package]]
@@ -328,6 +384,27 @@ dependencies = [
  "block-buffer",
  "crypto-common",
  "subtle",
+]
+
+[[package]]
+name = "dirs"
+version = "7.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8d57d423b3c82e89b9a24ca3091fee61f456a26edbd28d26c65906f4bc1dcd8f"
+dependencies = [
+ "dirs-sys",
+]
+
+[[package]]
+name = "dirs-sys"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e01a3366d27ee9890022452ee61b2b63a67e6f13f58900b651ff5665f0bb1fab"
+dependencies = [
+ "libc",
+ "option-ext",
+ "redox_users",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -585,6 +662,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "65cd87c9a6d60536580b316ad985726104730a5151c99845f2490428ef91240a"
 
 [[package]]
+name = "libredox"
+version = "0.1.25"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "61ff90caf6077a803a240f62fdbe88645a890bbca49ef8174c3cb0404362171d"
+dependencies = [
+ "libc",
+]
+
+[[package]]
 name = "litemap"
 version = "0.8.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -637,6 +723,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "384b8ab6d37215f3c5301a95a4accb5d64aa607f1fcb26a11b5303878451b4fe"
 
 [[package]]
+name = "option-ext"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "04744f49eae99ab78e0d5c0b603ab218f515ea8cfe5a456d7629ad883a3b6e7d"
+
+[[package]]
 name = "percent-encoding"
 version = "2.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -673,6 +765,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1fbf4db142a473a8d80c26bbf18454ed458bf8d26c8219c331daecfdbd079001"
 dependencies = [
  "proc-macro2",
+]
+
+[[package]]
+name = "redox_users"
+version = "0.5.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "60dc65c0ff1a7ae1294b0c67b9f14baf70b644404010370171787bfac1038fc0"
+dependencies = [
+ "libredox",
+ "thiserror",
 ]
 
 [[package]]
@@ -839,6 +941,26 @@ name = "synstructure"
 version = "0.14.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "901704edd0dfe137f1987838ee4f259e4e063c31371bdb423f7ae38ec6f77f02"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
+name = "thiserror"
+version = "2.0.21"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "09e52cb86a36cede5cb101bf8908837b3e4c6e5e59fe7fd85c23fb56200d189e"
+dependencies = [
+ "thiserror-impl",
+]
+
+[[package]]
+name = "thiserror-impl"
+version = "2.0.21"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fe5197923287db20a58125f0bc85c062f7f2c892de97b18c356f9efb14b28524"
 dependencies = [
  "proc-macro2",
  "quote",

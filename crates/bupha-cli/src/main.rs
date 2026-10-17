@@ -14,6 +14,14 @@ use bupha_script::ScriptRunner;
 use bupha_tunnel::Tunnel;
 use bupha_cloudflared::CloudflaredTunnel;
 use bupha_deploy as deploy;
+use bupha_git::GitVcs;
+use bupha_vcs::Vcs;
+use bupha_queue::{PersistedQueue, QueueStore};
+use bupha_queue_json::JsonQueueStore;
+use bupha_secret::Secrets;
+use bupha_keyring::KeyringSecrets;
+use bupha_dotenv::DotenvSecrets;
+use bupha_service::Service;
 use std::io::Read;
 use clap::{Parser, Subcommand};
 use std::path::{Path, PathBuf};
@@ -113,39 +121,22 @@ fn build_runner(rc: &bupha_core::RunnerCfg) -> Arc<dyn Runner> {
     }
 }
 
-/// Secret resolution: env var → OS keyring (libsecret) → env file.
-/// Headless boxes without dbus/keyring still work via the env file;
-/// desktops stop keeping tokens in plaintext files.
-fn secret(name: &str) -> Option<String> {
-    if let Ok(v) = std::env::var(name) {
-        if !v.is_empty() { return Some(v); }
-    }
-    if let Ok(o) = Command::new("secret-tool")
-        .args(["lookup", "service", "bupha", "name", name])
-        .output()
-    {
-        if o.status.success() {
-            let v = String::from_utf8_lossy(&o.stdout)
-                .trim().to_string();
-            if !v.is_empty() { return Some(v); }
-        }
-    }
-    let f = std::fs::read_to_string(
-        std::env::var("HOME").map(PathBuf::from)
-            .unwrap_or_else(|_| ".".into())
-            .join(".config/bupha/env")).unwrap_or_default();
-    f.lines().find_map(|l| {
-        let (k, v) = l.split_once('=')?;
-        (k.trim() == name && !v.trim().is_empty())
-            .then(|| v.trim().to_string())
-    })
+fn cfg_dir() -> PathBuf {
+    dirs::config_dir().unwrap_or_else(
+        || std::env::var("HOME").map(PathBuf::from)
+            .unwrap_or_else(|_| ".".into()).join(".config"))
+        .join("bupha")
 }
 
-fn git(repo: &Path, args: &[&str]) -> bool {
-    Command::new("git")
-        .arg("-C").arg(repo).args(args)
-        .status().map(|s| s.success()).unwrap_or(false)
+/// Secret resolution chain: env var → keyring → env file.
+/// Headless boxes without dbus/keyring fall through to the file.
+fn secret(name: &str) -> Option<String> {
+    std::env::var(name).ok().filter(|v| !v.is_empty())
+        .or_else(|| KeyringSecrets::default().get(name))
+        .or_else(|| DotenvSecrets {
+            path: cfg_dir().join("env") }.get(name))
 }
+
 
 type ChildSlot = Arc<Mutex<Option<Child>>>;
 
@@ -162,13 +153,13 @@ fn run_job(
         "{}-{}-{}", cfg.worktree.base,
         repo.name.replace('/', "-"), &sha[..12.min(sha.len())]));
     let _ = std::fs::remove_dir_all(&wt);
-    git(&repo.dir, &["worktree", "prune"]);
+    let vcs = GitVcs;
+    vcs.worktree_prune(&repo.dir);
     // The pushed sha usually isn't in the local clone yet.
-    if !git(&repo.dir, &["cat-file", "-e", sha]) {
-        git(&repo.dir, &["fetch", "origin", "--prune"]);
+    if !vcs.has_commit(&repo.dir, sha) {
+        vcs.sync(&repo.dir);
     }
-    if !git(&repo.dir,
-            &["worktree", "add", "--detach", wt.to_str().unwrap(), sha]) {
+    if !vcs.worktree_add(&repo.dir, &wt, sha) {
         eprintln!("worktree add failed for {sha}");
         sink.post(sha, "error", "ci infra: worktree failed");
         return false;
@@ -212,8 +203,7 @@ fn run_job(
     };
     sink.post(sha, state, desc);
     println!("ci {desc} {sha:.12}");
-    git(&repo.dir,
-        &["worktree", "remove", "--force", wt.to_str().unwrap()]);
+    vcs.worktree_remove(&repo.dir, &wt);
     ok
 }
 
@@ -226,18 +216,12 @@ struct Shared {
     seen: bupha_core::Seen,
 }
 
-fn persist_queue(g: &Shared, path: &Path) {
-    let v: serde_json::Map<_, _> = g.queues.iter().map(|(n, q)| {
-        (n.clone(), serde_json::json!({
-            "pending": q.pending, "running": q.running }))
-    }).collect();
-    // tmp + rename so a crash mid-write can't lose accepted work.
-    let tmp = path.with_extension("json.tmp");
-    if std::fs::write(&tmp, serde_json::Value::Object(v).to_string())
-        .is_ok()
-    {
-        let _ = std::fs::rename(&tmp, path);
-    }
+fn persist_queue(g: &Shared, store: &JsonQueueStore) {
+    let map: std::collections::BTreeMap<String, PersistedQueue> =
+        g.queues.iter().map(|(n, q)| (n.clone(), PersistedQueue {
+            pending: q.pending.clone(), running: q.running.clone(),
+        })).collect();
+    let _ = store.persist(&map);
 }
 
 fn cmd_watch(cfg: Arc<Config>) {
@@ -312,30 +296,15 @@ fn cmd_watch(cfg: Arc<Config>) {
         shared.queues.insert(r.name.clone(),
             Queue::with_policy(r.policy));
     }
-    if let Ok(text) = std::fs::read_to_string(&qfile) {
-        if let Ok(serde_json::Value::Object(m)) =
-            serde_json::from_str::<serde_json::Value>(&text)
-        {
-            for (name, st) in m {
-                if let Some(q) = shared.queues.get_mut(&name) {
-                    if let Some(arr) = st.get("pending")
-                        .and_then(|x| x.as_array())
-                    {
-                        for v in arr {
-                            if let Some(sha) = v.as_str() {
-                                q.pending.push_back(sha.to_string());
-                            }
-                        }
-                    }
-                    if let Some(sha) = st.get("running")
-                        .and_then(|x| x.as_str())
-                    {   // interrupted run re-queues at the front
-                        q.pending.push_front(sha.to_string());
-                    }
-                    if !q.pending.is_empty() {
-                        println!("restored {} pending sha(s) for {name}",
-                            q.pending.len());
-                    }
+    let store = Arc::new(JsonQueueStore { path: qfile.clone() });
+    if let Ok(saved) = store.load() {
+        for (name, pq) in saved {
+            if let Some(q) = shared.queues.get_mut(&name) {
+                let n = pq.pending.len();
+                q.pending = pq.pending;
+                q.running = pq.running;
+                if n > 0 {
+                    println!("restored {n} pending sha(s) for {name}");
                 }
             }
         }
@@ -353,7 +322,9 @@ fn cmd_watch(cfg: Arc<Config>) {
         let watched = Arc::clone(&watched);
         let sinks = Arc::clone(&sinks);
         let qfile = qfile.clone();
-        std::thread::spawn(move || {
+        std::thread::spawn({
+            let store = store.clone();
+            move || {
             loop {
                 let (repo_name, sha) = {
                     let mut g = shared.lock().unwrap();
@@ -366,7 +337,7 @@ fn cmd_watch(cfg: Arc<Config>) {
                             })
                         });
                         if let Some(x) = hit {
-                            persist_queue(&g, &qfile);
+                            persist_queue(&g, &store);
                             break x;
                         }
                         g = cv.wait(g).unwrap();
@@ -381,9 +352,9 @@ fn cmd_watch(cfg: Arc<Config>) {
                 if let Some(q) = g.queues.get_mut(&repo_name) {
                     q.running = None;
                 }
-                persist_queue(&g, &qfile);
+                persist_queue(&g, &store);
             }
-        });
+        }});
     }
 
     let server = tiny_http::Server::http(&cfg.trigger.listen)
@@ -442,7 +413,7 @@ fn cmd_watch(cfg: Arc<Config>) {
                                     (q.enqueue(sha.clone()),
                                      q.running.is_some())
                                 };
-                                persist_queue(&g, &qfile);
+                                persist_queue(&g, &store);
                                 match res {
                                     EnqueueResult::Duplicate =>
                                         (200, "already queued"),
@@ -623,9 +594,7 @@ fn cmd_doctor(cfg: &Config) {
     // env or ~/.config/bupha/env — the unit loads the file, so both
     // count as set (same fallback deploy check uses).
     let env_file = std::fs::read_to_string(
-        std::env::var("HOME").map(PathBuf::from)
-            .unwrap_or_else(|_| ".".into())
-            .join(".config/bupha/env")).unwrap_or_default();
+        cfg_dir().join("env")).unwrap_or_default();
     let has = |name: &str| secret(name).is_some()
         || env_file.lines().any(|l| l.starts_with(&format!("{name}="))
             && l.len() > name.len() + 1);
@@ -734,9 +703,7 @@ fn main() {
 
 fn cmd_deploy(cfg: &Config, sub: &DeploySub, cli_config: Option<String>) {
     let cli_config = cli_config;
-    let home = std::env::var("HOME").map(PathBuf::from)
-        .unwrap_or_else(|_| ".".into());
-    let cfg_dir = home.join(".config/bupha");
+    let cfg_dir = cfg_dir();
     match sub {
         DeploySub::Env => {
             match deploy::write_env_skeleton(&cfg_dir) {
@@ -748,16 +715,8 @@ fn cmd_deploy(cfg: &Config, sub: &DeploySub, cli_config: Option<String>) {
             for name in [&cfg.trigger.secret_env, &cfg.runner.token_env] {
                 if let Ok(v) = std::env::var(name) {
                     if v.is_empty() { continue; }
-                    let ok = Command::new("secret-tool")
-                        .args(["store", "--label", &format!("bupha: {name}"),
-                               "service", "bupha", "name", name])
-                        .stdin(std::process::Stdio::piped())
-                        .spawn()
-                        .and_then(|mut c| {
-                            use std::io::Write;
-                            c.stdin.as_mut().unwrap().write_all(v.as_bytes())?;
-                            c.wait()
-                        }).map(|s| s.success()).unwrap_or(false);
+                    let ok = KeyringSecrets::default().set(name, &v)
+                        .is_ok();
                     println!("{name}: {}", if ok { "stored in keyring" }
                         else { "keyring unavailable (env file is the fallback)" });
                 }
@@ -774,8 +733,11 @@ fn cmd_deploy(cfg: &Config, sub: &DeploySub, cli_config: Option<String>) {
             let bin = std::env::current_exe().unwrap_or_else(
                 |_| PathBuf::from("bupha"));
             let cfg_path = cli_config.clone().map(PathBuf::from);
-            match deploy::write_service_unit(
-                &bin, &cfg_dir.join("env"), cfg_path.as_deref()) {
+            let svc = deploy::SystemdService {
+                unit: "bupha-watch.service".into(),
+                bin: bin.clone(), env: cfg_dir.join("env"),
+                config: cfg_path.clone().map(PathBuf::from) };
+            match svc.write() {
                 Ok(p) => println!("unit: {}", p.display()),
                 Err(e) => { eprintln!("unit: {e}"); std::process::exit(1); }
             }
@@ -902,14 +864,12 @@ fn cmd_deploy_release(dry_run: bool) {
             std::process::exit(1);
         }
     }
-    if !git(&repo_dir, &["rev-parse", "-q", "--verify",
-                         &format!("refs/tags/{tag}")]) {
-        if !git(&repo_dir, &["tag", &tag]) {
-            eprintln!("git tag {tag} failed");
-            std::process::exit(1);
-        }
+    let vcs = GitVcs;
+    if !vcs.tag_exists(&repo_dir, &tag) && !vcs.tag(&repo_dir, &tag) {
+        eprintln!("git tag {tag} failed");
+        std::process::exit(1);
     }
-    if !git(&repo_dir, &["push", "origin", &tag]) {
+    if !vcs.push_tag(&repo_dir, &tag) {
         eprintln!("tag push failed — publish done, push {tag} by hand");
         std::process::exit(1);
     }
@@ -920,7 +880,10 @@ fn cmd_deploy_release(dry_run: bool) {
 fn cmd_destroy(cfg: &Config, sub: &DestroySub) {
     match sub {
         DestroySub::Service => {
-            match deploy::disable_service("bupha-watch.service") {
+            let svc = deploy::SystemdService {
+                unit: "bupha-watch.service".into(), bin: PathBuf::new(),
+                env: cfg_dir().join("env"), config: None };
+            match svc.disable() {
                 Ok(p) => println!("removed {}", p.display()),
                 Err(e) => { eprintln!("service: {e}");
                             std::process::exit(1); }
@@ -977,7 +940,7 @@ fn cmd_destroy(cfg: &Config, sub: &DestroySub) {
             }
             if let Ok(ws) = cfg.watched() {
                 for r in &ws {
-                    git(&r.dir, &["worktree", "prune"]);
+                    GitVcs.worktree_prune(&r.dir);
                 }
             }
         }

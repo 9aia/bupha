@@ -9,5 +9,6 @@ keywords = ["ci", "bupha"]
 categories = ["development-tools"]
 
 [dependencies]
+bupha-service.workspace = true
 bupha-core.workspace = true
 
