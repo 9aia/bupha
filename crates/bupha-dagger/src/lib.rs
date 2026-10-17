@@ -21,6 +21,8 @@ pub struct DaggerCfg {
     pub dogfood_jobs: String,
     #[serde(default)]
     pub sequential: bool,
+    /// sccache conf passed as `--sccache-conf` (resolved from
+    /// `[cache]` by the composition root).
     #[serde(default)]
     pub sccache_conf: Option<String>,
     #[serde(default)]

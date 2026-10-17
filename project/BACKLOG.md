@@ -33,9 +33,3 @@ Ideas parked, not scheduled. Pull into project/TODO.md when picked up.
   today sccache conf reaches them)
 - [ ] Remote runner impls beyond ssh (e.g. K8s, hosted agents —
   `RunHandle` doesn't assume local processes)
-| launchd/Windows service | `bupha-systemd` only impl | `LaunchdService`, `WinService` impls |
-| macOS/Win keyring | `secret-tool` only impl | `keyring`-crate impl |
-| other VCS | `bupha-git` only impl | `bupha-jj`, `bupha-hg` impls |
-| other queue stores | `redb` only impl | SQLite/remote — prerequisite for distributed runners |
-| other cache backends | `bupha-cache-sccache` only impl | native file/S3/R2/GCS impls (today: sccache conf reaches them) |
-| remote runners | `Runner` returns `RunHandle` | a remote impl — the port no longer assumes `Child` |

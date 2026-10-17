@@ -8,7 +8,7 @@ dogfoods its own CI. Fork freely under MIT.
 `crates/` — rust workspace. `bupha-core` is pure domain (queue,
 config); ports are crates: `bupha-runner`, `bupha-tunnel`,
 `bupha-trigger`, `bupha-status`; impls: `bupha-github` (trigger +
-sink), `bupha-script`/`bupha-dagger` (runners), `bupha-cloudflared`
+sink), `bupha-shell`/`bupha-dagger`/`bupha-ssh` (runners), `bupha-cloudflared`
 (tunnel), `bupha-systemd` (install helpers — `Service` port pending);
 `bupha` (cli) is the composition root. `modules/dagger/` is the
 shared pipeline module (Python SDK).
@@ -34,5 +34,5 @@ binaries. See `docs/explanation/release-model.md`.
 Follow Diátaxis: `docs/tutorials/` (learn) · `docs/how-to/` (tasks) ·
 `docs/reference/` (lookup) · `docs/explanation/` (why). API reference
 is generated from doc comments with
-[cargo-rdme](https://github.com/orium/cargo-rdme): `cargo rdme` —
+docs codegen: `docs/gen-*.py` renders cli/config/crate-map from source —
 keep `lib.rs` module docs accurate; they feed the generated docs.

@@ -37,7 +37,7 @@ Ship `bupha migrate [--workflow .github/workflows/ci.yml]`:
 2. Each `run` step → a line in generated `ci.sh` (env/working-directory
    preserved)
 3. `uses:` steps → `# TODO: port <action>@<ver>` comments (checkout →
-   implicit, cache → `runner.sccache_conf`)
+   implicit, cache → `[cache] conf`)
 4. Matrix → emit one `ci.sh` variant per axis combo or a comment
    block listing the axes for manual fan-out
 5. Print a coverage report: N steps converted, M actions need porting

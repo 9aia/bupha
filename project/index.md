@@ -4,7 +4,6 @@ Planning and design docs for bupha's next iterations.
 
 - [TODO](TODO.md) — next version (post-0.1.0): post-publish, ports,
   jobs, tests, nits
-- [SEAMS](BACKLOG.md#remaining-seams-02) — concrete couplings and the ports they become
-- [BACKLOG](BACKLOG.md) — horizon ideas, unscheduled
+- [BACKLOG](BACKLOG.md) — unscheduled ideas + remaining seams (0.2+)
 - [adrs/](adrs/) — design decisions
   ([0001](adrs/0001-gha-compat.md): GHA migration compat)
