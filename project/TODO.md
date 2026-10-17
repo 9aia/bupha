@@ -5,19 +5,6 @@
 - [ ] `CHANGELOG.md` — 0.1.0 entry (manual now, generated later).
 - [ ] README badges — crates.io + license (resolve green once live).
 
-## Ports — landed in 0.1.0 (see project/SEAMS.md)
-- [x] `Vcs` port — `git()`/`repo_sync` behind a trait (`GitVcs`);
-      unblocks jj/hg + makes git ops unit-testable.
-- [x] `QueueStore` port — `queue.json` behind load/persist;
-      SQLite/remote store = distributed-runner prerequisite.
-- [x] `Service` port in bupha-systemd — systemd today, launchd/Windows.
-- [x] `keyring`-crate secret backends + `dirs`-crate config paths
-      (macOS/Windows).
-- [ ] Cache seam — generic `cache` config so file/S3/R2/GCS are a
-      config pick (today `sccache_conf` only).
-- [ ] `bupha doctor --repo <path>` — also run `dagger call doctor` on
-      the consumer repo (pipeline gaps, not just box gaps).
-
 ## Queue / jobs
 - [ ] `[[repo.jobs]]` — multiple pipelines per repo, each with own
       queue policy + runner (e.g. `ci` gate + debounced `release`).
