@@ -1,9 +1,13 @@
 # bupha.toml — one per watched repo. Secrets come from env
 # (BUPHA_WEBHOOK_SECRET, BUPHA_TOKEN), never from this file.
 
-[repo]
-dir = "/path/to/clone"            # clone to fetch + worktree from
+# Watched repos — one pending slot each, one shared worker.
+# `name` must match the payload's repository.full_name.
+[[repos]]
+name = "owner/name"
+dir = "/path/to/clone"
 branch = "refs/heads/main"
+# status_repo = "owner/name"     # optional override for statuses
 
 [trigger]
 kind = "github"                   # impl: bupha-github

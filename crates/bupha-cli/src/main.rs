@@ -71,10 +71,10 @@ enum DeploySub {
     Check,
 }
 
-fn build_runner(cfg: &Config) -> Arc<dyn Runner> {
+fn build_runner(cfg: &Config, repo_dir: &Path) -> Arc<dyn Runner> {
     match cfg.runner.kind.as_str() {
         "dagger" => {
-            let cli = cfg.repo.dir.join("../cli");
+            let cli = repo_dir.join("../cli");
             let cli_src = cli.join("crates/host-cli").exists()
                 .then(|| cli.to_string_lossy().to_string());
             Arc::new(DaggerRunner::new(cfg.runner.clone(), cli_src))
@@ -87,12 +87,6 @@ fn build_runner(cfg: &Config) -> Arc<dyn Runner> {
     }
 }
 
-fn persist_queue(g: &Queue, path: &Path) {
-    let v = serde_json::json!({
-        "pending": g.pending, "running": g.running });
-    let _ = std::fs::write(path, v.to_string());
-}
-
 fn git(repo: &Path, args: &[&str]) -> bool {
     Command::new("git")
         .arg("-C").arg(repo).args(args)
@@ -103,28 +97,30 @@ type ChildSlot = Arc<Mutex<Option<Child>>>;
 
 fn run_job(
     cfg: &Config,
+    repo: &bupha_core::WatchedRepo,
     sink: &dyn StatusSink,
     runner: &dyn Runner,
-    q: &Mutex<Queue>,
+    shared: &Mutex<Shared>,
     child: &ChildSlot,
     sha: &str,
 ) -> bool {
     let wt = PathBuf::from(format!(
-        "{}-{}", cfg.worktree.base, &sha[..12.min(sha.len())]));
+        "{}-{}-{}", cfg.worktree.base,
+        repo.name.replace('/', "-"), &sha[..12.min(sha.len())]));
     let _ = std::fs::remove_dir_all(&wt);
-    git(&cfg.repo.dir, &["worktree", "prune"]);
+    git(&repo.dir, &["worktree", "prune"]);
     // The pushed sha usually isn't in the local clone yet.
-    if !git(&cfg.repo.dir, &["cat-file", "-e", sha]) {
-        git(&cfg.repo.dir, &["fetch", "origin", "--prune"]);
+    if !git(&repo.dir, &["cat-file", "-e", sha]) {
+        git(&repo.dir, &["fetch", "origin", "--prune"]);
     }
-    if !git(&cfg.repo.dir,
+    if !git(&repo.dir,
             &["worktree", "add", "--detach", wt.to_str().unwrap(), sha]) {
         eprintln!("worktree add failed for {sha}");
         sink.post(sha, "error", "ci infra: worktree failed");
         return false;
     }
     sink.post(sha, "pending", "ci running");
-    println!("ci start {sha:.12} runner={}", runner.name());
+    println!("ci start {} {sha:.12} runner={}", repo.name, runner.name());
 
     let ctx = RunCtx { workdir: &wt, token_env: &cfg.runner.token_env };
     let ok = match runner.spawn(&ctx) {
@@ -151,7 +147,8 @@ fn run_job(
     };
     *child.lock().unwrap() = None;
     // A killed child exits non-zero; report cancelled, not failed.
-    let cancelled = q.lock().unwrap().cancelled;
+    let cancelled = shared.lock().unwrap()
+        .queues.get(&repo.name).map(|q| q.cancelled).unwrap_or(false);
     let (state, desc) = if ok {
         ("success", "ci passed")
     } else if cancelled {
@@ -161,15 +158,37 @@ fn run_job(
     };
     sink.post(sha, state, desc);
     println!("ci {desc} {sha:.12}");
-    git(&cfg.repo.dir,
+    git(&repo.dir,
         &["worktree", "remove", "--force", wt.to_str().unwrap()]);
     ok
+}
+
+/// All watched repos share one worker (no overlapping builds on one
+/// box) but keep independent pending slots — latest-wins per repo.
+#[derive(Default)]
+struct Shared {
+    queues: std::collections::HashMap<String, Queue>,
+}
+
+fn persist_queue(g: &Shared, path: &Path) {
+    let v: serde_json::Map<_, _> = g.queues.iter().map(|(n, q)| {
+        (n.clone(), serde_json::json!({
+            "pending": q.pending, "running": q.running }))
+    }).collect();
+    let _ = std::fs::write(path, serde_json::Value::Object(v).to_string());
 }
 
 fn cmd_watch(cfg: Arc<Config>) {
     let secret = std::env::var(&cfg.trigger.secret_env)
         .unwrap_or_else(|_| panic!("{} required", cfg.trigger.secret_env));
     let token = std::env::var(&cfg.runner.token_env).unwrap_or_default();
+
+    let watched: Vec<bupha_core::WatchedRepo> = cfg.watched()
+        .unwrap_or_else(|e| {
+            eprintln!("config: {e}");
+            std::process::exit(2);
+        });
+    let watched = Arc::new(watched);
 
     let trigger: Box<dyn Trigger> = match cfg.trigger.kind.as_str() {
         "github" => Box::new(GitHubTrigger { secret }),
@@ -178,16 +197,28 @@ fn cmd_watch(cfg: Arc<Config>) {
             std::process::exit(2);
         }
     };
-    let sink: Arc<dyn StatusSink> = match cfg.status.kind.as_str() {
-        "github" => Arc::new(GitHubStatus {
-            token: token.clone(),
-            repo: cfg.status.repo.clone(),
-            context: cfg.status.context.clone(),
-        }),
-        _ => Arc::new(LogStatus { context: cfg.status.context.clone() }),
-    };
+    let mut sinks: std::collections::HashMap<String, Arc<dyn StatusSink>> =
+        std::collections::HashMap::new();
+    for r in watched.iter() {
+        let s: Arc<dyn StatusSink> = match cfg.status.kind.as_str() {
+            "github" => Arc::new(GitHubStatus {
+                token: token.clone(),
+                repo: r.status_repo.clone(),
+                context: cfg.status.context.clone(),
+            }),
+            _ => Arc::new(LogStatus {
+                context: cfg.status.context.clone(),
+            }),
+        };
+        sinks.insert(r.name.clone(), s);
+    }
 
-    let runner = build_runner(&cfg);
+    // Runner per repo dir (cli-sibling detection is repo-relative).
+    let mut runners: std::collections::HashMap<String, Arc<dyn Runner>> =
+        std::collections::HashMap::new();
+    for r in watched.iter() {
+        runners.insert(r.name.clone(), build_runner(&cfg, &r.dir));
+    }
 
     // Optional tunnel — the watcher stays decoupled from ingress.
     let tunnel: Option<Box<dyn Tunnel>> = match cfg.tunnel.provider.as_str() {
@@ -212,52 +243,71 @@ fn cmd_watch(cfg: Arc<Config>) {
         });
     }
 
-    // Restore queued work from a previous life — a push during
-    // downtime is not lost once it was accepted by the listener.
+    // Restore queued work from a previous life.
     let qfile = PathBuf::from(&cfg.worktree.base).join("queue.json");
-    let mut initial = Queue::default();
+    let mut shared = Shared::default();
+    for r in watched.iter() {
+        shared.queues.insert(r.name.clone(), Queue::default());
+    }
     if let Ok(text) = std::fs::read_to_string(&qfile) {
-        if let Ok(v) = serde_json::from_str::<serde_json::Value>(&text) {
-            initial.pending = v.get("pending").and_then(|x| x.as_str())
-                .map(str::to_string)
-                .or_else(|| v.get("running").and_then(|x| x.as_str())
-                    .map(str::to_string));
-            if initial.pending.is_some() {
-                println!("restored pending sha from {}", qfile.display());
+        if let Ok(serde_json::Value::Object(m)) =
+            serde_json::from_str::<serde_json::Value>(&text)
+        {
+            for (name, st) in m {
+                if let Some(q) = shared.queues.get_mut(&name) {
+                    q.pending = st.get("pending").and_then(|x| x.as_str())
+                        .map(str::to_string)
+                        .or_else(|| st.get("running").and_then(|x| x.as_str())
+                            .map(str::to_string));
+                    if q.pending.is_some() {
+                        println!("restored pending sha for {name}");
+                    }
+                }
             }
         }
     }
-    let pair = Arc::new((Mutex::new(initial), Condvar::new()));
+
+    let sinks = Arc::new(sinks);
+    let shared = Arc::new(Mutex::new(shared));
+    let cv = Arc::new(Condvar::new());
     let child: ChildSlot = Arc::new(Mutex::new(None));
-    let qfile_w = qfile.clone();
     {
-        let pair = Arc::clone(&pair);
+        let shared = Arc::clone(&shared);
+        let cv = Arc::clone(&cv);
         let child = Arc::clone(&child);
         let cfg = Arc::clone(&cfg);
-        let sink = Arc::clone(&sink);
-        let runner = Arc::clone(&runner);
-        let qfile = qfile_w.clone();
+        let watched = Arc::clone(&watched);
+        let sinks = Arc::clone(&sinks);
+        let qfile = qfile.clone();
         std::thread::spawn(move || {
-            let (q, cv) = &*pair;
             loop {
-                let sha = {
-                    let mut g = q.lock().unwrap();
+                let (repo_name, sha) = {
+                    let mut g = shared.lock().unwrap();
                     loop {
-                        if let Some(s) = g.pending.take() {
-                            g.running = Some(s.clone());
-                            g.cancelled = false;
+                        let hit = g.queues.iter_mut().find_map(|(n, q)| {
+                            q.pending.take().map(|s| {
+                                q.running = Some(s.clone());
+                                q.cancelled = false;
+                                (n.clone(), s)
+                            })
+                        });
+                        if let Some(x) = hit {
                             persist_queue(&g, &qfile);
-                            break s;
+                            break x;
                         }
                         g = cv.wait(g).unwrap();
                     }
                 };
-                run_job(&cfg, &*sink, &*runner, q, &child, &sha);
-                {
-                    let mut g = q.lock().unwrap();
-                    g.running = None;
-                    persist_queue(&g, &qfile);
+                let repo = watched.iter()
+                    .find(|r| r.name == repo_name).unwrap();
+                let sink = &*sinks[&repo_name];
+                let runner = &*runners[&repo_name];
+                run_job(&cfg, repo, sink, runner, &shared, &child, &sha);
+                let mut g = shared.lock().unwrap();
+                if let Some(q) = g.queues.get_mut(&repo_name) {
+                    q.running = None;
                 }
+                persist_queue(&g, &qfile);
             }
         });
     }
@@ -266,7 +316,6 @@ fn cmd_watch(cfg: Arc<Config>) {
         .expect("failed to bind listener");
     println!("bupha watch listening on {}", cfg.trigger.listen);
 
-    let (q, cv) = &*pair;
     for mut req in server.incoming_requests() {
         let headers: Vec<(String, String)> = req.headers().iter()
             .map(|h| (h.field.as_str().to_string(),
@@ -286,33 +335,51 @@ fn cmd_watch(cfg: Arc<Config>) {
         } else if !trigger.verify(&body, &headers) {
             (401, "bad signature")
         } else {
-            match trigger.parse_push(&body, &cfg.repo.branch) {
-                Some(sha) => {
-                    let mut g = q.lock().unwrap();
-                    let res = g.enqueue(sha.clone());
-                    persist_queue(&g, &qfile);
-                    match res {
-                        EnqueueResult::Duplicate => (200, "already queued"),
-                        EnqueueResult::Queued { superseded } => {
-                            if let Some(old) = superseded {
-                                sink.post(&old, "error",
-                                    &format!("superseded by {}",
-                                             &sha[..12.min(sha.len())]));
-                                println!("superseded {old:.12} -> {:.12}", sha);
-                            }
-                            if cfg.runner.cancel_running && g.running.is_some() {
-                                g.cancelled = true;
-                                if let Some(c) = child.lock().unwrap().as_mut() {
-                                    let _ = c.kill();
-                                    println!("cancelled in-flight run");
+            match trigger.parse_push(&body) {
+                Some((repo_name, git_ref, sha)) => {
+                    let repo = watched.iter()
+                        .find(|r| r.name == repo_name);
+                    match repo {
+                        None => (200, "ignored: unwatched repo"),
+                        Some(r) if git_ref != r.branch =>
+                            (200, "ignored: not the watched branch"),
+                        Some(_) => {
+                            let mut g = shared.lock().unwrap();
+                            let (res, running) = {
+                                let q = g.queues
+                                    .get_mut(&repo_name).unwrap();
+                                (q.enqueue(sha.clone()),
+                                 q.running.is_some())
+                            };
+                            persist_queue(&g, &qfile);
+                            match res {
+                                EnqueueResult::Duplicate =>
+                                    (200, "already queued"),
+                                EnqueueResult::Queued { superseded } => {
+                                    if let Some(old) = superseded {
+                                        sinks[&repo_name].post(&old, "error",
+                                            &format!("superseded by {}",
+                                                &sha[..12.min(sha.len())]));
+                                        println!("superseded {repo_name} {old:.12} -> {:.12}", sha);
+                                    }
+                                    if cfg.runner.cancel_running && running {
+                                        g.queues.get_mut(&repo_name)
+                                            .unwrap().cancelled = true;
+                                        if let Some(c) =
+                                            child.lock().unwrap().as_mut()
+                                        {
+                                            let _ = c.kill();
+                                            println!("cancelled in-flight run");
+                                        }
+                                    }
+                                    cv.notify_one();
+                                    (202, "queued")
                                 }
                             }
-                            cv.notify_one();
-                            (202, "queued")
                         }
                     }
                 }
-                None => (200, "ignored: not the watched branch"),
+                None => (400, "unparseable payload"),
             }
         };
         let _ = req.respond(tiny_http::Response::from_string(msg)
@@ -395,8 +462,13 @@ fn cmd_doctor(cfg: &Config) {
     check("git", Command::new("git").arg("--version")
         .output().map(|o| o.status.success()).unwrap_or(false),
         "on PATH", &mut failures);
-    check("repo dir", cfg.repo.dir.is_dir(),
-        &cfg.repo.dir.display().to_string(), &mut failures);
+    match cfg.watched() {
+        Ok(ws) => for r in &ws {
+            check(&format!("repo {}", r.name), r.dir.is_dir(),
+                &r.dir.display().to_string(), &mut failures);
+        },
+        Err(e) => check("repos", false, &e, &mut failures),
+    }
 
     match cfg.runner.kind.as_str() {
         "dagger" => {
@@ -470,9 +542,14 @@ fn cmd_run(cfg: &Config, function: Option<String>) {
     if let Some(f) = function {
         cfg.runner.function = f;
     }
-    let runner = build_runner(&cfg);
+    let repo = cfg.watched().ok().and_then(|w| w.into_iter().next())
+        .unwrap_or_else(|| {
+            eprintln!("no repo configured");
+            std::process::exit(2);
+        });
+    let runner = build_runner(&cfg, &repo.dir);
     let ctx = RunCtx {
-        workdir: &cfg.repo.dir,
+        workdir: &repo.dir,
         token_env: &cfg.runner.token_env,
     };
     match runner.spawn(&ctx).and_then(|mut c| c.wait()) {
@@ -550,16 +627,20 @@ fn cmd_deploy(cfg: &Config, sub: &DeploySub, cli_config: Option<String>) {
                 eprintln!("tunnel.public_url not set — point the webhook                            at <public-url>/hook manually");
                 std::process::exit(1);
             }
-            if cfg.status.repo.is_empty() {
-                eprintln!("status.repo not set — needed for hook target");
+            let watched = cfg.watched().unwrap_or_else(|e| {
+                eprintln!("{e}");
                 std::process::exit(1);
-            }
+            });
             let token = std::env::var(&cfg.runner.token_env)
                 .unwrap_or_default();
-            match bupha_github::register_webhook(
-                &token, &cfg.status.repo, &url, &secret) {
-                Ok(msg) => println!("{msg}"),
-                Err(e) => { eprintln!("webhook: {e}"); std::process::exit(1); }
+            for r in &watched {
+                match bupha_github::register_webhook(
+                    &token, &r.status_repo, &url, &secret)
+                {
+                    Ok(msg) => println!("{msg}"),
+                    Err(e) => { eprintln!("webhook {}: {e}", r.name);
+                                std::process::exit(1); }
+                }
             }
         }
     }

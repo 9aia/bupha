@@ -15,7 +15,9 @@ pub trait Trigger: Send + Sync {
     /// Is this request the kind of event we run CI on (e.g. a push)?
     fn is_event(&self, headers: &[(String, String)]) -> bool;
     fn verify(&self, body: &[u8], headers: &[(String, String)]) -> bool;
-    fn parse_push(&self, body: &[u8], branch: &str) -> Option<String>;
+    /// (repo_name, git_ref, sha) — repo is `repository.full_name`;
+    /// the caller filters ref per watched repo.
+    fn parse_push(&self, body: &[u8]) -> Option<(String, String, String)>;
 }
 
 /// Where run outcomes are reported (commit statuses, logs, chat, …).
@@ -60,7 +62,12 @@ pub enum EnqueueResult {
 #[derive(Debug, Deserialize, Clone)]
 #[serde(deny_unknown_fields)]
 pub struct Config {
-    pub repo: RepoCfg,
+    /// Legacy single-repo form; prefer [[repos]].
+    #[serde(default)]
+    pub repo: Option<RepoCfg>,
+    /// Watched repos — one pending slot each, one global worker.
+    #[serde(default)]
+    pub repos: Vec<RepoEntry>,
     pub trigger: TriggerCfg,
     pub runner: RunnerCfg,
     pub status: StatusCfg,
@@ -77,6 +84,64 @@ pub struct RepoCfg {
     pub dir: PathBuf,
     #[serde(default = "default_branch")]
     pub branch: String,
+}
+
+/// One watched repository under [[repos]].
+#[derive(Debug, Deserialize, Clone)]
+#[serde(deny_unknown_fields)]
+pub struct RepoEntry {
+    /// repository.full_name in the webhook payload ("owner/name") —
+    /// also the status target repo.
+    pub name: String,
+    /// Clone to fetch + create detached worktrees from.
+    pub dir: PathBuf,
+    #[serde(default = "default_branch")]
+    pub branch: String,
+    /// Status repo override (defaults to `name`).
+    #[serde(default)]
+    pub status_repo: Option<String>,
+}
+
+impl RepoEntry {
+    pub fn status_repo(&self) -> &str {
+        self.status_repo.as_deref().unwrap_or(&self.name)
+    }
+}
+
+/// Resolved view used by the watcher — always a list, even for the
+/// legacy single-repo form.
+#[derive(Debug, Clone)]
+pub struct WatchedRepo {
+    pub name: String,
+    pub dir: PathBuf,
+    pub branch: String,
+    pub status_repo: String,
+}
+
+impl Config {
+    pub fn watched(&self) -> Result<Vec<WatchedRepo>, String> {
+        if !self.repos.is_empty() {
+            return Ok(self.repos.iter().map(|r| WatchedRepo {
+                name: r.name.clone(),
+                dir: r.dir.clone(),
+                branch: r.branch.clone(),
+                status_repo: r.status_repo().to_string(),
+            }).collect());
+        }
+        if let Some(r) = &self.repo {
+            let name = if self.status.repo.is_empty() {
+                return Err("single-repo config needs status.repo".into());
+            } else {
+                self.status.repo.clone()
+            };
+            return Ok(vec![WatchedRepo {
+                name, dir: r.dir.clone(),
+                branch: r.branch.clone(),
+                status_repo: self.status.repo.clone(),
+            }]);
+        }
+        Err("no [[repos]] entries and no [repo] configured".into())
+    }
 }
 
 #[derive(Debug, Deserialize, Clone)]

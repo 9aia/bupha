@@ -34,12 +34,15 @@ impl Trigger for GitHubTrigger {
         mac.verify_slice(&sig).is_ok()
     }
 
-    fn parse_push(&self, body: &[u8], branch: &str) -> Option<String> {
+    /// (repository.full_name, ref, sha) — the watcher routes by repo
+    /// name and filters the ref per watched repo.
+    fn parse_push(&self, body: &[u8])
+            -> Option<(String, String, String)> {
         let v: serde_json::Value = serde_json::from_slice(body).ok()?;
-        if v.get("ref")?.as_str()? != branch {
-            return None;
-        }
-        v.get("after")?.as_str().map(str::to_string)
+        let repo = v.pointer("/repository/full_name")?.as_str()?;
+        let git_ref = v.get("ref")?.as_str()?;
+        let sha = v.get("after")?.as_str()?;
+        Some((repo.to_string(), git_ref.to_string(), sha.to_string()))
     }
 }
 
