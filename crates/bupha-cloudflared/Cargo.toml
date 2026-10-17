@@ -1,5 +1,5 @@
 [package]
-name = "bupha-tunnel-cloudflared"
+name = "bupha-cloudflared"
 description = "Tunnel impl: cloudflared (named tunnel preferred, quick tunnel fallback)"
 version.workspace = true
 edition.workspace = true

@@ -9,15 +9,11 @@
 use serde::Deserialize;
 use std::path::PathBuf;
 
-/// A push that became CI work.
-#[derive(Debug, Clone)]
-pub struct Job {
-    pub sha: String,
-}
-
 /// Where pushes come from. Implementations parse their own payload
 /// format; the queue only sees shas.
 pub trait Trigger: Send + Sync {
+    /// Is this request the kind of event we run CI on (e.g. a push)?
+    fn is_event(&self, headers: &[(String, String)]) -> bool;
     fn verify(&self, body: &[u8], headers: &[(String, String)]) -> bool;
     fn parse_push(&self, body: &[u8], branch: &str) -> Option<String>;
 }
@@ -62,6 +58,7 @@ pub enum EnqueueResult {
 /// (`secret_env`/`token_env` name the variables; values never enter
 /// the file).
 #[derive(Debug, Deserialize, Clone)]
+#[serde(deny_unknown_fields)]
 pub struct Config {
     pub repo: RepoCfg,
     pub trigger: TriggerCfg,
@@ -74,6 +71,7 @@ pub struct Config {
 }
 
 #[derive(Debug, Deserialize, Clone)]
+#[serde(deny_unknown_fields)]
 pub struct RepoCfg {
     /// Clone to fetch + create detached worktrees from.
     pub dir: PathBuf,
@@ -82,6 +80,7 @@ pub struct RepoCfg {
 }
 
 #[derive(Debug, Deserialize, Clone)]
+#[serde(deny_unknown_fields)]
 pub struct TriggerCfg {
     /// "github" today; other forges = new impl crates.
     pub kind: String,
@@ -93,6 +92,7 @@ pub struct TriggerCfg {
 }
 
 #[derive(Debug, Deserialize, Clone)]
+#[serde(deny_unknown_fields)]
 pub struct RunnerCfg {
     /// "dagger" | "script" | … — resolved to an impl crate.
     pub kind: String,
@@ -124,6 +124,7 @@ pub struct RunnerCfg {
 }
 
 #[derive(Debug, Deserialize, Clone)]
+#[serde(deny_unknown_fields)]
 pub struct StatusCfg {
     /// "github" | "log" (stdout only) | "none".
     #[serde(default = "default_status_kind")]
@@ -136,6 +137,7 @@ pub struct StatusCfg {
 }
 
 #[derive(Debug, Deserialize, Clone)]
+#[serde(deny_unknown_fields)]
 pub struct TunnelCfg {
     /// "none" | "cloudflared" | "direct".
     #[serde(default = "default_tunnel_provider")]
@@ -162,6 +164,7 @@ impl Default for TunnelCfg {
 }
 
 #[derive(Debug, Deserialize, Clone)]
+#[serde(deny_unknown_fields)]
 pub struct WorktreeCfg {
     #[serde(default = "default_wt_base")]
     pub base: String,

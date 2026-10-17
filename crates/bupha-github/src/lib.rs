@@ -11,6 +11,12 @@ pub struct GitHubTrigger {
 }
 
 impl Trigger for GitHubTrigger {
+    fn is_event(&self, headers: &[(String, String)]) -> bool {
+        headers.iter().any(|(k, v)| {
+            k.eq_ignore_ascii_case("x-github-event") && v == "push"
+        })
+    }
+
     fn verify(&self, body: &[u8], headers: &[(String, String)]) -> bool {
         let Some(sig) = headers.iter().find(|(k, _)| {
             k.eq_ignore_ascii_case("x-hub-signature-256")

@@ -83,15 +83,24 @@ dependencies = [
 name = "bupha-cli"
 version = "0.1.0"
 dependencies = [
+ "bupha-cloudflared",
  "bupha-core",
+ "bupha-dagger",
+ "bupha-deploy",
  "bupha-github",
  "bupha-runner",
- "bupha-runner-dagger",
- "bupha-runner-script",
+ "bupha-script",
  "bupha-tunnel",
- "bupha-tunnel-cloudflared",
  "clap",
  "tiny_http",
+]
+
+[[package]]
+name = "bupha-cloudflared"
+version = "0.1.0"
+dependencies = [
+ "bupha-core",
+ "bupha-tunnel",
 ]
 
 [[package]]
@@ -101,6 +110,23 @@ dependencies = [
  "serde",
  "serde_json",
  "toml",
+]
+
+[[package]]
+name = "bupha-dagger"
+version = "0.1.0"
+dependencies = [
+ "bupha-core",
+ "bupha-runner",
+]
+
+[[package]]
+name = "bupha-deploy"
+version = "0.1.0"
+dependencies = [
+ "bupha-core",
+ "serde_json",
+ "ureq",
 ]
 
 [[package]]
@@ -120,15 +146,7 @@ name = "bupha-runner"
 version = "0.1.0"
 
 [[package]]
-name = "bupha-runner-dagger"
-version = "0.1.0"
-dependencies = [
- "bupha-core",
- "bupha-runner",
-]
-
-[[package]]
-name = "bupha-runner-script"
+name = "bupha-script"
 version = "0.1.0"
 dependencies = [
  "bupha-core",
@@ -138,14 +156,6 @@ dependencies = [
 [[package]]
 name = "bupha-tunnel"
 version = "0.1.0"
-
-[[package]]
-name = "bupha-tunnel-cloudflared"
-version = "0.1.0"
-dependencies = [
- "bupha-core",
- "bupha-tunnel",
-]
 
 [[package]]
 name = "bytes"

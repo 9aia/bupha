@@ -13,10 +13,11 @@ path = "src/main.rs"
 [dependencies]
 bupha-core = { path = "../bupha-core" }
 bupha-runner = { path = "../bupha-runner" }
-bupha-runner-dagger = { path = "../bupha-runner-dagger" }
-bupha-runner-script = { path = "../bupha-runner-script" }
+bupha-dagger = { path = "../bupha-dagger" }
+bupha-script = { path = "../bupha-script" }
 bupha-tunnel = { path = "../bupha-tunnel" }
-bupha-tunnel-cloudflared = { path = "../bupha-tunnel-cloudflared" }
+bupha-cloudflared = { path = "../bupha-cloudflared" }
 bupha-github = { path = "../bupha-github" }
 tiny_http = "0.12"
 clap = { version = "4", features = ["derive"] }
+bupha-deploy = { path = "../bupha-deploy" }

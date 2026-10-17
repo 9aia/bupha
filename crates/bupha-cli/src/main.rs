@@ -7,12 +7,12 @@
 use bupha_core::{Config, EnqueueResult, Queue, StatusSink, Trigger};
 use bupha_github::{GitHubStatus, GitHubTrigger, LogStatus};
 use bupha_runner::{RunCtx, Runner};
-use bupha_runner_dagger::DaggerRunner;
-use bupha_runner_script::ScriptRunner;
+use bupha_dagger::DaggerRunner;
+use bupha_script::ScriptRunner;
 use bupha_tunnel::Tunnel;
-use bupha_tunnel_cloudflared::CloudflaredTunnel;
+use bupha_cloudflared::CloudflaredTunnel;
+use bupha_deploy as deploy;
 use clap::{Parser, Subcommand};
-use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command};
 use std::sync::{Arc, Condvar, Mutex};
@@ -46,6 +46,26 @@ enum Cmd {
         /// Function for the dagger runner (default: from config).
         function: Option<String>,
     },
+    /// Install-time helpers — no files to copy by hand.
+    Deploy {
+        #[command(subcommand)]
+        sub: DeploySub,
+    },
+}
+
+#[derive(Subcommand)]
+enum DeploySub {
+    /// Write + enable the systemd user unit (needs enable-linger for
+    /// boot persistence).
+    Service {
+        /// Skip enable --now (write the file only).
+        #[arg(long)]
+        no_start: bool,
+    },
+    /// Register/update the repo's push webhook via `gh api`.
+    Webhook,
+    /// Seed ~/.config/bupha/env with the secret names.
+    Env,
 }
 
 fn git(repo: &Path, args: &[&str]) -> bool {
@@ -68,6 +88,8 @@ fn run_job(
         "{}-{}", cfg.worktree.base, &sha[..12.min(sha.len())]));
     let _ = std::fs::remove_dir_all(&wt);
     git(&cfg.repo.dir, &["worktree", "prune"]);
+    // The pushed sha usually isn't in the local clone yet.
+    git(&cfg.repo.dir, &["fetch", "--all", "--prune"]);
     if !git(&cfg.repo.dir,
             &["worktree", "add", "--detach", wt.to_str().unwrap(), sha]) {
         eprintln!("worktree add failed for {sha}");
@@ -199,10 +221,7 @@ fn cmd_watch(cfg: Arc<Config>) {
         let mut body = Vec::new();
         let _ = req.as_reader().read_to_end(&mut body);
 
-        let is_push = headers.iter().any(|(k, v)| {
-            k.eq_ignore_ascii_case("x-github-event") && v == "push"
-        });
-        let (code, msg) = if !is_push {
+        let (code, msg) = if !trigger.is_event(&headers) {
             (400, "not a push event")
         } else if !trigger.verify(&body, &headers) {
             (401, "bad signature")
@@ -215,7 +234,8 @@ fn cmd_watch(cfg: Arc<Config>) {
                         EnqueueResult::Queued { superseded } => {
                             if let Some(old) = superseded {
                                 sink.post(&old, "error",
-                                    &format!("superseded by {}", &sha[..12]));
+                                    &format!("superseded by {}",
+                                             &sha[..12.min(sha.len())]));
                                 println!("superseded {old:.12} -> {:.12}", sha);
                             }
                             if cfg.runner.cancel_running && g.running.is_some() {
@@ -307,6 +327,10 @@ fn cmd_doctor(cfg: &Config) {
     let token = std::env::var(&cfg.runner.token_env).unwrap_or_default();
     check("token", !token.is_empty(), &cfg.runner.token_env, &mut failures);
 
+    if cfg.status.kind == "github" {
+        check("status.repo", !cfg.status.repo.is_empty(),
+            "owner/name for commit statuses", &mut failures);
+    }
     if let Some(conf) = &cfg.runner.sccache_conf {
         check("sccache conf", Path::new(conf).exists(),
             conf, &mut failures);
@@ -390,7 +414,57 @@ fn main() {
                 Cmd::Watch => cmd_watch(cfg),
                 Cmd::Doctor => cmd_doctor(&cfg),
                 Cmd::Run { function } => cmd_run(&cfg, function.clone()),
+                Cmd::Deploy { sub } => cmd_deploy(&cfg, sub),
                 Cmd::Init { .. } => unreachable!(),
+            }
+        }
+    }
+}
+
+fn cmd_deploy(cfg: &Config, sub: &DeploySub) {
+    let home = std::env::var("HOME").map(PathBuf::from)
+        .unwrap_or_else(|_| ".".into());
+    let cfg_dir = home.join(".config/bupha");
+    match sub {
+        DeploySub::Env => {
+            match deploy::write_env_skeleton(&cfg_dir) {
+                Ok(p) => println!("env file: {} (fill the secrets)", p.display()),
+                Err(e) => { eprintln!("env: {e}"); std::process::exit(1); }
+            }
+        }
+        DeploySub::Service { no_start } => {
+            let bin = std::env::current_exe().unwrap_or_else(
+                |_| PathBuf::from("bupha"));
+            match deploy::write_service_unit(&bin, &cfg_dir.join("env")) {
+                Ok(p) => println!("unit: {}", p.display()),
+                Err(e) => { eprintln!("unit: {e}"); std::process::exit(1); }
+            }
+            if !no_start {
+                if let Err(e) = deploy::enable_service("bupha-watch.service") {
+                    eprintln!("enable: {e}");
+                    std::process::exit(1);
+                }
+                println!("bupha-watch enabled — 'loginctl enable-linger'                           once for boot persistence");
+            }
+        }
+        DeploySub::Webhook => {
+            let secret = std::env::var(&cfg.trigger.secret_env)
+                .unwrap_or_else(|_| {
+                    eprintln!("{} required", cfg.trigger.secret_env);
+                    std::process::exit(1);
+                });
+            let url = cfg.tunnel.public_url.clone();
+            if url.is_empty() {
+                eprintln!("tunnel.public_url not set — point the webhook                            at <public-url>/hook manually");
+                std::process::exit(1);
+            }
+            if cfg.status.repo.is_empty() {
+                eprintln!("status.repo not set — needed for hook target");
+                std::process::exit(1);
+            }
+            match deploy::register_webhook(&cfg.status.repo, &url, &secret) {
+                Ok(msg) => println!("{msg}"),
+                Err(e) => { eprintln!("webhook: {e}"); std::process::exit(1); }
             }
         }
     }

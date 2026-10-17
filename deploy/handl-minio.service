@@ -1,9 +1,0 @@
-[Unit]
-Description=local minio for handl-ci sccache
-After=network.target
-[Service]
-Environment=MINIO_ROOT_USER=handl-ci MINIO_ROOT_PASSWORD=handl-ci-local
-ExecStart=%h/.local/bin/minio server %h/handl-ci-data/minio --address :9100 --console-address :9101
-Restart=always
-[Install]
-WantedBy=default.target

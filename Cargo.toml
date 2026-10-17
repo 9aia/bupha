@@ -2,13 +2,14 @@
 resolver = "2"
 members = [
     "crates/bupha-cli",
+    "crates/bupha-deploy",
     "crates/bupha-core",
     "crates/bupha-github",
     "crates/bupha-runner",
-    "crates/bupha-runner-dagger",
-    "crates/bupha-runner-script",
+    "crates/bupha-dagger",
+    "crates/bupha-script",
     "crates/bupha-tunnel",
-    "crates/bupha-tunnel-cloudflared",
+    "crates/bupha-cloudflared",
 ]
 
 [workspace.package]
