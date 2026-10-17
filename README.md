@@ -4,8 +4,8 @@
 
 Headless CI, built for agent-driven setups. A single binary that
 watches pushes, queues them (latest-wins or bounded FIFO), runs your
-pipeline per sha,
-and reports commit statuses — on a Linux box with Git.
+pipeline per sha, and reports commit statuses — on a Linux box
+with Git.
 
 ```
 push ──► webhook ──► HMAC ──► dedup ──► queue ──► worktree ──► runner ──► status
