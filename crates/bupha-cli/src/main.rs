@@ -35,7 +35,8 @@ struct Cli {
 enum Cmd {
     /// Serve the webhook → queue → runner loop.
     Watch,
-    /// Scaffold CI in a repo (dagger module install or script skeleton).
+    /// Scaffold dagger CI in a repo (dagger init + pinned module
+    /// + delegate). For the script runner, a ci.sh is enough.
     Init {
         /// Repo dir to initialize (default: cwd).
         #[arg(default_value = ".")]
@@ -43,7 +44,8 @@ enum Cmd {
     },
     /// Check what the loaded config actually needs on this box.
     Doctor,
-    /// Run the pipeline locally (the runner's invocation, current dir).
+    /// Run the pipeline locally — in the watched repo's `dir`,
+    /// not cwd.
     Run {
         /// Function for the dagger runner (default: from config).
         function: Option<String>,
@@ -72,7 +74,8 @@ enum DeploySub {
         #[arg(long)]
         no_start: bool,
     },
-    /// Register/update the repo's push webhook via `gh api`.
+    /// Register/update the repo's push webhook via the REST API
+    /// (token from env/keyring/env file — no `gh` dependency).
     Webhook,
     /// Seed ~/.config/bupha/env with the secret names.
     Env,
