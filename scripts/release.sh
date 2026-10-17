@@ -5,6 +5,8 @@
 # releases. Runs inside a detached worktree — commits/tags are pushed
 # from here, not from the main checkout.
 set -euo pipefail
+# worktree-local secrets (gitignored); the service env file is canonical
+[ -f ./.env ] && { set -a; source ./.env; set +a; }
 sleep "${BUPHA_RELEASE_DEBOUNCE:-300}"
 
 git fetch origin --tags -q
