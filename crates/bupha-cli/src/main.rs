@@ -440,12 +440,15 @@ fn cmd_init(dir: &Path) {
             }
         }
     }
+    // Pinned to a sha, not @main — reproducible installs. Bump to the
+    // release tag once v0.1.0 exists.
     match Command::new("dagger")
-        .args(["install", "github.com/9aia/bupha/modules/dagger@main"])
+        .args(["install",
+               &format!("github.com/9aia/bupha/modules/dagger@{MODULE_SHA}")])
         .current_dir(dir).status()
     {
         Ok(s) if s.success() => {
-            println!("installed github.com/9aia/bupha/modules/dagger")
+            println!("installed github.com/9aia/bupha/modules/dagger@{MODULE_SHA}")
         }
         _ => eprintln!("warning: dagger install failed — check network/auth"),
     }
@@ -468,6 +471,10 @@ fn cmd_init(dir: &Path) {
     }
     println!("next: `dagger call ci --token env://BUPHA_TOKEN` to run the gate");
 }
+
+/// Module ref installed by `bupha init` — a commit sha, bumped at
+/// release time (see TODO).
+const MODULE_SHA: &str = "288f999895d6cc379b237a086e60d459bcca7b59";
 
 const DELEGATE_TEMPLATE: &str = r##""""""CI for this repo — delegates to the shared 9aia/bupha module.""""
 
