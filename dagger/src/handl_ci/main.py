@@ -59,7 +59,10 @@ import re, pathlib
 repo_dir = pathlib.Path("REPO_DIR")
 toml = repo_dir / "Cargo.toml"
 key = '[patch."https://github.com/handl-lang/REPO_NAME"]'
-if key not in toml.read_text():
+text = toml.read_text()
+text = re.sub(re.escape(key) + r"\n(?:[^\[].*\n?)*", "", text)
+toml.write_text(text)
+if True:
     rows = []
     for g in ("crates", "modules"):
         for t in sorted(repo_dir.glob(f"{g}/*/Cargo.toml")):
@@ -307,6 +310,14 @@ class HandlCi:
         sccache_conf: Optional[dagger.Secret] = None,
     ) -> str:
         """Run the full test gate: `shards` parallel nextest partitions + doctests."""
+        # Warm the shared cargo git db serially before fan-out: two
+        # concurrent first-time fetches race on the same cache volume
+        # ("failed to remove directory ... objects" errors).
+        ws = self._workspace(source, repo, token, sccache_conf=sccache_conf)
+        await self._exec(
+            ws, "cargo fetch --locked",
+            token is not None, sccache_conf is not None,
+        ).sync()
         tasks = [
             self.test_shard(source, i + 1, shards, jobs, repo,
                             token, sccache_conf)
