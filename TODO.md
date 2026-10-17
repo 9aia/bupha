@@ -31,6 +31,12 @@
 - [ ] `.github/workflows/` exists for releases only — fine, but keep
       docs noting release-GHA ≠ project-CI to prevent confusion.
 
+## Queue / jobs
+- [ ] Per-repo queue policy: `queue = "latest"` (current) vs
+      `"all"` (FIFO, run every push — VecDeque instead of pending slot).
+- [ ] `[[repos.jobs]]` — multiple pipelines per repo, each with own
+      queue policy + runner (e.g. `ci` gate + debounced `release`).
+
 ## Later
 - [ ] Remote/distributed runners: `bupha-webhook` runner (POST signed
       job to another bupha) + `bupha-http` trigger (generic signed job
