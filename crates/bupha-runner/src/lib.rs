@@ -16,6 +16,7 @@ pub struct RunCtx<'a> {
     pub token_env: &'a str,
 }
 
+/// Job execution — runs a single sha's pipeline.
 pub trait Runner: Send + Sync {
     /// Human name for logs ("dagger", "script").
     fn name(&self) -> &'static str;

@@ -13,10 +13,14 @@ pub trait Vcs: Send + Sync {
     fn has_commit(&self, repo: &Path, sha: &str) -> bool;
     /// Detached worktree of `sha` at `dir`.
     fn worktree_add(&self, repo: &Path, dir: &Path, sha: &str) -> bool;
+    /// Remove a worktree dir (best-effort — returns false on failure).
     fn worktree_remove(&self, repo: &Path, dir: &Path) -> bool;
     /// GC stale administrative worktree entries.
     fn worktree_prune(&self, repo: &Path) -> bool;
+    /// Whether a tag exists locally.
     fn tag_exists(&self, repo: &Path, tag: &str) -> bool;
+    /// Create a tag (no-op result check — false on failure).
     fn tag(&self, repo: &Path, tag: &str) -> bool;
+    /// Push a tag to the remote.
     fn push_tag(&self, repo: &Path, tag: &str) -> bool;
 }

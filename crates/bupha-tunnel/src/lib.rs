@@ -5,6 +5,7 @@
 use std::io;
 use std::process::Child;
 
+/// How the webhook listener reaches the public internet.
 pub trait Tunnel: Send + Sync {
     fn name(&self) -> &'static str;
     /// Spawn the tunnel process (or `None` for no-op providers like
