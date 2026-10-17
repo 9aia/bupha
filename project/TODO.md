@@ -16,10 +16,5 @@
 - [ ] e2e for cancel/supersede path (second signed push in flight).
 
 ## Distribution / nits
-- [ ] GHES support — `api_base` on `GitHubStatus`/`register_webhook`.
-- [ ] `bupha init` fuller delegate + optional non-rust skeleton for
       `runner.kind = "shell"`.
-- [ ] `doctor` checks release.sh deps (cargo-edit, dist, gh) when a
       repo's runner cmd is a release script.
-- [ ] `modules/dagger` dev-link exec dead `elif` — dedupe.
-- [ ] `repos.dir` relative paths — canonicalize at load (cwd-safe).
