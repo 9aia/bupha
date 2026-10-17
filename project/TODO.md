@@ -5,7 +5,7 @@
 - [ ] `CHANGELOG.md` — 0.1.0 entry (manual now, generated later).
 - [ ] README badges — crates.io + license (resolve green once live).
 
-## Ports (seams — see architecture.md)
+## Ports — landed in 0.1.0 (see project/SEAMS.md)
 - [x] `Vcs` port — `git()`/`repo_sync` behind a trait (`GitVcs`);
       unblocks jj/hg + makes git ops unit-testable.
 - [x] `QueueStore` port — `queue.json` behind load/persist;

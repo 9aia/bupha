@@ -1,13 +1,31 @@
-# Planned seams (0.2+)
+# Seams — ports landed and remaining
 
-Concrete couplings today, the port each becomes later.
+## Landed (0.1.0)
 
-| coupling | where | planned port |
+Every extracted seam is now a port/impl crate pair:
+
+| concern | port | impl(s) |
 |---|---|---|
-| OS service mgmt | `bupha-systemd` (systemd, df, journalctl) | `Service` — launchd/Windows |
-| secret storage | `secret()` — secret-tool | `keyring` crate (macOS/Win) |
-| config path | `~/.config/bupha` (XDG) | `dirs` crate |
-| VCS ops | `git()`/`repo_sync` shell to git | `Vcs` trait → `GitVcs` (jj/hg) |
-| queue persistence | `queue file (redb)` in cli | `QueueStore` — SQLite/remote for distributed runners |
+| config source | `bupha-config` | `bupha-config-toml` |
+| secrets | `bupha-secret` | `bupha-keyring`, `bupha-dotenv` |
+| queue persist | `bupha-queue` | `bupha-queue-redb` |
+| VCS ops | `bupha-vcs` | `bupha-git` |
+| OS service | `bupha-service` | `SystemdService` (in `bupha-systemd`) |
+| runner | `bupha-runner` | `bupha-shell`, `bupha-dagger` |
+| tunnel | `bupha-tunnel` | `bupha-cloudflared` |
+| trigger / status | `bupha-trigger`, `bupha-status` | `bupha-github` |
 
-Working list: project/TODO.md.
+`bupha-core` is pure domain; the CLI is the composition root.
+
+## Remaining (0.2+)
+
+| coupling | where | planned |
+|---|---|---|
+| launchd/Windows service | `bupha-systemd` only impl | `LaunchdService`, `WinService` impls |
+| macOS/Win keyring | `secret-tool` only impl | `keyring`-crate impl |
+| other VCS | `bupha-git` only impl | `bupha-jj`, `bupha-hg` impls |
+| other queue stores | `redb` only impl | SQLite/remote — prerequisite for distributed runners |
+| remote execution | `Runner` returns `Child` (local-only) | trait extension for non-local runners (ADR needed) |
+| cache backends | `sccache_conf` string only | generic `cache` config seam (file/S3/R2/GCS) |
+
+Working list: TODO.md.
