@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["DaggerRunner"]};
+window.SIDEBAR_ITEMS = {"struct":["DaggerCfg","DaggerRunner"]};

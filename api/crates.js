@@ -1,2 +1,2 @@
-window.ALL_CRATES = ["bupha","bupha_cloudflared","bupha_core","bupha_dagger","bupha_deploy","bupha_github","bupha_runner","bupha_script","bupha_status","bupha_trigger","bupha_tunnel"];
-//{"start":21,"fragment_lengths":[7,20,13,15,15,15,15,15,15,16,15]}
+window.ALL_CRATES = ["bupha","bupha_cache","bupha_cache_sccache","bupha_cloudflared","bupha_config","bupha_config_toml","bupha_core","bupha_dagger","bupha_dotenv","bupha_git","bupha_github","bupha_keyring","bupha_queue","bupha_queue_redb","bupha_runner","bupha_secret","bupha_service","bupha_shell","bupha_ssh","bupha_status","bupha_systemd","bupha_trigger","bupha_tunnel","bupha_vcs"];
+//{"start":21,"fragment_lengths":[7,14,22,20,15,20,13,15,15,12,15,16,14,19,15,15,16,14,12,15,16,16,15,12]}

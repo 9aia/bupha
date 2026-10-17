@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["disable_service","enable_service","write_env_skeleton","write_service_unit"],"struct":["SystemdService"]};

@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["RunCtx"],"trait":["Runner"]};
+window.SIDEBAR_ITEMS = {"struct":["RunCtx"],"trait":["RunHandle","Runner"]};

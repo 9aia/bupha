@@ -13,11 +13,11 @@ one box). Same-repo pushes may cancel their own in-flight run
 [[repo]]
 name = "org/api"
 dir = "/srv/checkouts/api"
-queue = "all"                    # every push runs (releases)
+queue = "all" # every push runs (releases)
 
 [[repo]]
 name = "org/web"
-dir = "/srv/checkouts/web"       # default latest-wins
+dir = "/srv/checkouts/web" # default latest-wins
 
 # [repo.runner]                # per-repo override; replaces global
 #   kind = "shell"

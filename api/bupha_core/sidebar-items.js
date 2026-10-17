@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"constant":["MAX_PENDING"],"enum":["EnqueueResult","QueuePolicy"],"fn":["is_valid_sha"],"struct":["Config","Queue","RepoCfg","RepoEntry","RunnerCfg","Seen","StatusCfg","TriggerCfg","TunnelCfg","WatchedRepo","WorktreeCfg"]};
+window.SIDEBAR_ITEMS = {"constant":["MAX_PENDING"],"enum":["EnqueueResult","QueuePolicy"],"fn":["is_valid_sha","publish_order"],"struct":["CacheCfg","Config","Queue","RepoEntry","RunnerCfg","Seen","StatusCfg","TriggerCfg","TunnelCfg","WatchedRepo","WorktreeCfg"]};

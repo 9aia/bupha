@@ -5,7 +5,9 @@
 <a href=#5 id=5 data-nosnippet>5</a>
 <a href=#6 id=6 data-nosnippet>6</a>/// Where run outcomes are reported (commit statuses, logs, chat, …).
 <a href=#7 id=7 data-nosnippet>7</a></span><span class="kw">pub trait </span>StatusSink: Send + Sync {
-<a href=#8 id=8 data-nosnippet>8</a>    <span class="kw">fn </span>context(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>str;
-<a href=#9 id=9 data-nosnippet>9</a>    <span class="kw">fn </span>post(<span class="kw-2">&amp;</span><span class="self">self</span>, sha: <span class="kw-2">&amp;</span>str, state: <span class="kw-2">&amp;</span>str, desc: <span class="kw-2">&amp;</span>str);
-<a href=#10 id=10 data-nosnippet>10</a>}
+<a href=#8 id=8 data-nosnippet>8</a>    <span class="doccomment">/// Status context label (e.g. "ci/bupha").
+<a href=#9 id=9 data-nosnippet>9</a>    </span><span class="kw">fn </span>context(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>str;
+<a href=#10 id=10 data-nosnippet>10</a>    <span class="doccomment">/// Post a commit status: pending/success/error/cancelled.
+<a href=#11 id=11 data-nosnippet>11</a>    </span><span class="kw">fn </span>post(<span class="kw-2">&amp;</span><span class="self">self</span>, sha: <span class="kw-2">&amp;</span>str, state: <span class="kw-2">&amp;</span>str, desc: <span class="kw-2">&amp;</span>str);
+<a href=#12 id=12 data-nosnippet>12</a>}
 </code></pre></div></section></main></body></html>

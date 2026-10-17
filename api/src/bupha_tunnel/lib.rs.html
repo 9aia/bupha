@@ -5,16 +5,17 @@
 <a href=#5 id=5 data-nosnippet>5</a></span><span class="kw">use </span>std::io;
 <a href=#6 id=6 data-nosnippet>6</a><span class="kw">use </span>std::process::Child;
 <a href=#7 id=7 data-nosnippet>7</a>
-<a href=#8 id=8 data-nosnippet>8</a><span class="kw">pub trait </span>Tunnel: Send + Sync {
-<a href=#9 id=9 data-nosnippet>9</a>    <span class="kw">fn </span>name(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str;
-<a href=#10 id=10 data-nosnippet>10</a>    <span class="doccomment">/// Spawn the tunnel process (or `None` for no-op providers like
-<a href=#11 id=11 data-nosnippet>11</a>    /// `direct`, where the box is already public).
-<a href=#12 id=12 data-nosnippet>12</a>    </span><span class="kw">fn </span>spawn(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; io::Result&lt;<span class="prelude-ty">Option</span>&lt;Child&gt;&gt;;
-<a href=#13 id=13 data-nosnippet>13</a>    <span class="doccomment">/// Public URL to register as the webhook endpoint, if known
-<a href=#14 id=14 data-nosnippet>14</a>    /// statically (named tunnels, direct). `None` = URL appears at
-<a href=#15 id=15 data-nosnippet>15</a>    /// runtime (quick tunnels) — read it from the provider's output.
-<a href=#16 id=16 data-nosnippet>16</a>    </span><span class="kw">fn </span>public_url(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;String&gt; {
-<a href=#17 id=17 data-nosnippet>17</a>        <span class="prelude-val">None
-<a href=#18 id=18 data-nosnippet>18</a>    </span>}
-<a href=#19 id=19 data-nosnippet>19</a>}
+<a href=#8 id=8 data-nosnippet>8</a><span class="doccomment">/// How the webhook listener reaches the public internet.
+<a href=#9 id=9 data-nosnippet>9</a></span><span class="kw">pub trait </span>Tunnel: Send + Sync {
+<a href=#10 id=10 data-nosnippet>10</a>    <span class="kw">fn </span>name(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str;
+<a href=#11 id=11 data-nosnippet>11</a>    <span class="doccomment">/// Spawn the tunnel process (or `None` for no-op providers like
+<a href=#12 id=12 data-nosnippet>12</a>    /// `direct`, where the box is already public).
+<a href=#13 id=13 data-nosnippet>13</a>    </span><span class="kw">fn </span>spawn(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; io::Result&lt;<span class="prelude-ty">Option</span>&lt;Child&gt;&gt;;
+<a href=#14 id=14 data-nosnippet>14</a>    <span class="doccomment">/// Public URL to register as the webhook endpoint, if known
+<a href=#15 id=15 data-nosnippet>15</a>    /// statically (named tunnels, direct). `None` = URL appears at
+<a href=#16 id=16 data-nosnippet>16</a>    /// runtime (quick tunnels) — read it from the provider's output.
+<a href=#17 id=17 data-nosnippet>17</a>    </span><span class="kw">fn </span>public_url(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;String&gt; {
+<a href=#18 id=18 data-nosnippet>18</a>        <span class="prelude-val">None
+<a href=#19 id=19 data-nosnippet>19</a>    </span>}
+<a href=#20 id=20 data-nosnippet>20</a>}
 </code></pre></div></section></main></body></html>

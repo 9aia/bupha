@@ -20,7 +20,7 @@ url: /bupha/reference/config.md
 | `dir` | `path` | required | Clone to fetch + create detached worktrees from. |
 | `branch` | `string` | optional | The ref to watch (e.g. "refs/heads/main"). |
 | `status_repo` | `string` | optional | Status repo override (defaults to `name`). |
-| `runner` | `RunnerCfg` | optional | Per-repo runner override — a full \[repo.runner] table replaces the global \[runner] for this repo. |
+| `runner` | `RunnerCfg` | optional | Per-repo runner override — a full \[repo.runner] table replaces the global `[runner]` for this repo. |
 | `queue` | `"latest" | "all"` | optional | Queue policy — `latest` (default) or `all` (run every push). |
 
 ## `[trigger]`
@@ -68,7 +68,7 @@ url: /bupha/reference/config.md
 
 | field | type | required | notes |
 |---|---|---|---|
-| `base` | `string` | optional | Worktree parent dir — runs land at \<base>-\<repo>-\<sha12>. |
+| `base` | `string` | optional | Worktree parent dir — runs land at `&lt;base&gt;-&lt;repo&gt;-&lt;sha12&gt;`. |
 
 ## `[runner]` — kind `dagger`
 
@@ -79,7 +79,7 @@ url: /bupha/reference/config.md
 | `jobs` | `string` | optional | — |
 | `dogfood_jobs` | `string` | optional | — |
 | `sequential` | `bool` | optional | — |
-| `sccache_conf` | `string` | optional | — |
+| `sccache_conf` | `string` | optional | sccache conf passed as `--sccache-conf` (resolved from `[cache]` by the composition root). |
 | `cli_source` | `string` | optional | — |
 | `extra_args` | `list` | optional | — |
 

@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["PushOutcome"],"trait":["Trigger"]};
+window.SIDEBAR_ITEMS = {"enum":["PushOutcome"],"trait":["ForgeAdmin","Trigger"]};
