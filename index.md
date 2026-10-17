@@ -10,8 +10,8 @@ hero:
       text: Getting Started
       link: /getting-started
     - theme: alt
-      text: GitHub
-      link: https://github.com/9aia/bupha
+      text: Tutorial
+      link: /tutorials/first-run
 
 features:
   - icon: ⚡
