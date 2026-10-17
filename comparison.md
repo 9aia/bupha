@@ -3,8 +3,8 @@ url: /bupha/comparison.md
 ---
 # bupha vs hosted CI
 
-bupha is for people who want push-triggered CI on hardware they
-control — not a GHA replacement at fleet scale.
+bupha runs push-triggered CI on self-controlled hardware —
+not a GHA replacement at fleet scale.
 
 ## vs GitHub Actions
 
@@ -21,10 +21,10 @@ control — not a GHA replacement at fleet scale.
 | cost | your box only | minutes billing |
 
 **When GHA is better:** you need parallelism, matrices across OSes,
-hosted macOS/Windows builds, or marketplace actions. **When bupha is
-better:** you want instant feedback on your own hardware, secrets
-that never leave the machine, warm caches on your own storage,
-and no YAML.
+hosted macOS/Windows builds, or marketplace actions. **When bupha
+fits:** instant feedback on self-owned hardware, secrets that
+never leave the machine, warm caches on self-owned storage, no
+YAML.
 
 ## vs others
 

@@ -167,7 +167,7 @@ the oxpecker on your repo's back — headless CI
 * `init` — Scaffold CI in a repo (dagger module install or script skeleton)
 * `doctor` — Check what the loaded config actually needs on this box
 * `run` — Run the pipeline locally (the runner's invocation, current dir)
-* `deploy` — Install-time helpers — no files to copy by hand
+* `deploy` — Install-time helpers — no manual file copies
 * `destroy` — Teardown counterparts of `deploy`
 
 ###### **Options:**
@@ -210,7 +210,7 @@ Run the pipeline locally (the runner's invocation, current dir)
 
 ## `bupha deploy`
 
-Install-time helpers — no files to copy by hand
+Install-time helpers — no manual file copies
 
 **Usage:** `bupha deploy <COMMAND>`
 
@@ -461,8 +461,8 @@ url: /bupha/comparison.md
 ---
 # bupha vs hosted CI
 
-bupha is for people who want push-triggered CI on hardware they
-control — not a GHA replacement at fleet scale.
+bupha runs push-triggered CI on self-controlled hardware —
+not a GHA replacement at fleet scale.
 
 ## vs GitHub Actions
 
@@ -479,10 +479,10 @@ control — not a GHA replacement at fleet scale.
 | cost | your box only | minutes billing |
 
 **When GHA is better:** you need parallelism, matrices across OSes,
-hosted macOS/Windows builds, or marketplace actions. **When bupha is
-better:** you want instant feedback on your own hardware, secrets
-that never leave the machine, warm caches on your own storage,
-and no YAML.
+hosted macOS/Windows builds, or marketplace actions. **When bupha
+fits:** instant feedback on self-owned hardware, secrets that
+never leave the machine, warm caches on self-owned storage, no
+YAML.
 
 ## vs others
 
