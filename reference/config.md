@@ -48,7 +48,7 @@ url: /bupha/reference/config.md
 | `cmd` | `string` | optional | script runner: command run in the worktree. |
 | `token_env` | `string` | optional | Env var naming the token passed to the runner + status sink. |
 | `extra_args` | `list` | optional | dagger runner: extra args appended verbatim (e.g. --cli-source). |
-| `cli_source` | `string` | optional | dagger runner: `--cli-source <dir>` for repos whose pipeline builds against a sibling checkout. |
+| `cli_source` | `string` | optional | dagger runner: `--cli-source &lt;dir&gt;` for repos whose pipeline builds against a sibling checkout. |
 
 ## `[status]`
 
