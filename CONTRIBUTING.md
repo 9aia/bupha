@@ -5,12 +5,13 @@ dogfoods its own CI. Fork freely under MIT.
 
 ## Layout
 
-`crates/` — rust workspace. `bupha-core` holds the queue, config, and
-the Trigger/StatusSink ports; ports `bupha-runner`/`bupha-tunnel` each
-have impl crates (`bupha-dagger`, `bupha-script`, `bupha-cloudflared`);
-`bupha-github` implements the trigger + status sink; `bupha-cli` is the
-binary; `bupha-deploy` covers install-time helpers. `modules/dagger/`
-is the shared pipeline module (Python SDK).
+`crates/` — rust workspace. `bupha-core` is pure domain (queue,
+config); ports are crates: `bupha-runner`, `bupha-tunnel`,
+`bupha-trigger`, `bupha-status`; impls: `bupha-github` (trigger +
+sink), `bupha-script`/`bupha-dagger` (runners), `bupha-cloudflared`
+(tunnel), `bupha-deploy` (install helpers — `Service` port pending);
+`bupha` (cli) is the composition root. `modules/dagger/` is the
+shared pipeline module (Python SDK).
 
 ## Rules of thumb
 
