@@ -7,8 +7,9 @@ watches pushes, batches them latest-wins, runs your pipeline per sha,
 and reports commit statuses — on any box with Git.
 
 ```
-push ──► webhook ──► verify HMAC ──► latest-wins queue ──► runner ──► status
-                                    (1 running + 1 pending)   (per repo)
+push ──► webhook ──► HMAC ──► dedup ──► queue ──► worktree ──► runner ──► status
+            (signed delivery)   id     latest-wins   detached   per repo
+                                   or bounded "all"   git dir
 ```
 
 ## Features
