@@ -14,7 +14,3 @@
 
 ## Tests
 - [ ] e2e for cancel/supersede path (second signed push in flight).
-
-## Distribution / nits
-      `runner.kind = "shell"`.
-      repo's runner cmd is a release script.
