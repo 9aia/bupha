@@ -22,13 +22,15 @@ def fields(name):
     m = re.search(rf"pub struct {name} \{{(.*?)\n\}}", src, re.S)
     rows = []
     for fm in re.finditer(
-            r"((?:\s*///[^\n]*\n)+)\s*(?:#\[[^\]]*\]\s*)*"
+            r"((?:\s*(?:///|#\[)[^\n]*\n)+)\s*"
             r"pub (\w+): ([^,\n]+),?", m.group(1)):
+        prelude = fm.group(1)
         doc = " ".join(l.split("///", 1)[1].strip()
-                       for l in fm.group(1).splitlines() if "///" in l)
+                       for l in prelude.splitlines() if "///" in l)
         fname, ty = fm.group(2), fm.group(3).strip()
-        opt = ty.startswith("Option")
-        inner = ty[7:-1] if opt else ty
+        opt = (ty.startswith("Option")
+               or "serde(default" in prelude)
+        inner = ty[7:-1] if ty.startswith("Option") else ty
         rows.append((fname, SIMPLE.get(inner, inner),
                      "" if opt else "required", doc or "—"))
     return rows

@@ -1,57 +1,86 @@
 # Architecture
 
-bupha is a port/adapter monorepo. `bupha-core` holds the domain —
-the queue, `bupha.toml`, and the `Trigger`/`StatusSink` ports — and
-knows nothing about GitHub, dagger or cloudflared. Ports
-`bupha-runner` and `bupha-tunnel` each have impl crates; `bupha-github`
-implements both trigger (HMAC verify + push parse) and status sink.
-`bupha-cli` is the binary; `bupha-deploy` holds install-time helpers.
-`modules/dagger/` is the shared pipeline module (Python SDK) that
-`bupha init` installs into consumer repos.
+bupha is a port/adapter monorepo: `bupha-core` owns the domain and
+knows nothing about GitHub, dagger, or cloudflared; every integration
+is an impl crate behind a port.
 
-The watcher pipeline:
+## Crate map
 
-```
-POST /hook → HMAC (constant-time) → dedup X-GitHub-Delivery
-  → route by repository.full_name → per-repo queue → one global
-    worker → detached worktree → spawned runner child → status posts
-```
-
-Key semantics:
-
-- **latest-wins** (default): at most 1 pending sha per repo; a newer
-  push supersedes it and the skipped sha gets an honest "error:
-  superseded" status. `queue = "all"` switches to bounded FIFO (32)
-  for release-style repos that must run every push.
-- **cancel_running**: kills the in-flight child on a new push —
-  valid only with `latest` (rejected under `all`, which would drop
-  a commit that was never superseded).
-- **Persistence**: accepted work writes `queue.json` (tmp+rename) in
-  `worktree.base`; a restart re-queues the interrupted `running` sha
-  at the front.
-- **Ingress is decoupled**: the listener binds localhost; a `Tunnel`
-  child (`cloudflared` today) is supervised — reaped and respawned
-  on exit. `direct`/`none` are for boxes already public.
-- **Config names, never stores, secrets**: `secret_env`/`token_env`
-  hold env-var names; values resolve env → OS keyring → env file,
-  and reach the runner only via its own mechanism (e.g. `env://`
-  secret for dagger).
-
-Design rule for extending: a new forge = a `Trigger`+`StatusSink`
-impl crate; a new pipeline = a `Runner` impl; a new ingress = a
-`Tunnel` impl. Core stays untouched.
-
-One **global worker** serializes runs across every repo — a second
-push queues behind the in-flight job, it does not run in parallel.
-That is deliberate (one box, bounded resource use), not a hang:
-`journalctl --user -u bupha-watch` shows the queue moves.
-
-## Extension seams (0.2+, by design — not yet ports)
-
-| Coupling | Where | Planned port |
+| crate | layer | role |
 |---|---|---|
-| OS service mgmt | `bupha-deploy` (systemd, df, journalctl) | `Service` — launchd/Windows later |
-| Secret storage | `secret()` — env → secret-tool → file | `keyring` crate backends (macOS/Win) |
-| Config path | `~/.config/bupha` (XDG) | `dirs` crate for native paths |
-| VCS ops | `git()`/`repo_sync` in cli shell to git | `Vcs` trait → `GitVcs` (jj/hg later) |
-| Queue persistence | `queue.json` load/save in cli | `QueueStore` — SQLite/remote for distributed runners |
+| `bupha-core` | domain | `bupha.toml` types, `Queue`, `Trigger` + `StatusSink` ports, replay `Seen`, sha validation |
+| `bupha-runner` | port | `Runner` trait — spawn/kill a pipeline child |
+| `bupha-tunnel` | port | `Tunnel` trait — expose the listener |
+| `bupha-github` | impl | webhook verify + parse (Trigger), commit statuses (StatusSink), hook register/delete |
+| `bupha-script` | impl | `bash -c <cmd>` in the worktree — zero containers |
+| `bupha-dagger` | impl | `dagger call` into the consumer repo's module |
+| `bupha-cloudflared` | impl | cloudflared child (quick + named tunnels) |
+| `bupha-deploy` | impl | systemd unit, env file, publish order, probe |
+| `bupha` (cli) | binary | wires it all: `watch`, `run`, `doctor`, `init`, `deploy`, `destroy` |
+
+`modules/dagger/` (Python SDK) is the shared pipeline module
+`bupha init` installs into consumer repos — pinned to a sha.
+
+## Request flow
+
+```
+POST /hook
+  → 1. path check (404 otherwise)
+  → 2. read body (≤ 2 MiB)
+  → 3. HMAC verify — sha256, constant-time
+  → 4. dedup X-GitHub-Delivery (bounded 10k ring)
+  → 5. parse — skip deletes/zero-sha; reject non-hex sha
+  → 6. route — repository.full_name → watched [[repos]] entry;
+       git_ref must equal repo.branch
+  → 7. enqueue — per-repo queue; atomic queue.json persist
+  → 8. one global worker — git fetch, detached worktree
+       at <base>-<repo>-<sha12>
+  → 9. spawn runner child (token via env:// name, never argv)
+  → 10. status — pending → success/error; superseded and
+        cancelled shas get honest error statuses
+```
+
+## Queue semantics
+
+| policy | pending | on new push | use for |
+|---|---|---|---|
+| `latest` (default) | 1 sha | supersedes pending; `cancel_running` may kill in-flight | CI gates |
+| `all` | bounded FIFO (32) | appends; oldest evicted past cap; `cancel_running` rejected at load — it would drop a promised commit | releases |
+
+Persistence: accepted work writes `queue.json` via tmp+rename inside
+`worktree.base`; on restart the interrupted `running` sha is
+re-queued at the front.
+
+One **global worker** serializes runs across all repos — a second
+push queues behind the in-flight job. Deliberate (one box, bounded
+resource use), not a hang: `journalctl --user -u bupha-watch` shows
+the queue moving.
+
+## Security model
+
+- mandatory HMAC (constant-time compare) — unauthenticated payloads
+  never reach the queue
+- body cap, delivery-id replay dedup, hex-sha validation before the
+  value touches paths or status URLs
+- webhook takeover is exact-URL only; hook API calls are timed out
+- config names secrets (`secret_env`/`token_env`) — values resolve
+  env → OS keyring → `~/.config/bupha/env` (0600); the runner gets
+  the token through its own mechanism (`env://` for dagger)
+
+## Extending
+
+| to add… | write… | core changes? |
+|---|---|---|
+| forge (gitea/gitlab) | `Trigger` + `StatusSink` impl crate | no |
+| pipeline backend | `Runner` impl crate | no |
+| ingress (fly/tailscale) | `Tunnel` impl crate | no |
+
+## Planned seams (0.2+)
+
+| coupling | where | planned port |
+|---|---|---|
+| OS service mgmt | `bupha-deploy` (systemd, df, journalctl) | `Service` — launchd/Windows |
+| secret storage | `secret()` — secret-tool | `keyring` crate (macOS/Win) |
+| config path | `~/.config/bupha` (XDG) | `dirs` crate |
+| VCS ops | `git()`/`repo_sync` shell to git | `Vcs` trait → `GitVcs` (jj/hg) |
+| queue persistence | `queue.json` in cli | `QueueStore` — SQLite/remote for distributed runners |
