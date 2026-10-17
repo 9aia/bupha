@@ -43,11 +43,14 @@ for c in $order; do
         cargo publish -p "$p" --allow-dirty && break || sleep 30
     done
     published="$published $p"
+    # Per-crate tag — versions diverge independently in a monorepo.
+    ver_c="$(grep -m1 '^version' "crates/$p/Cargo.toml" | cut -d'"' -f2)"
+    tags="$tags $p-v$ver_c"
 done
 
 git commit -aqm "release: bump crate versions"
+for t in $tags; do git tag "$t"; done
 ver="$(grep -m1 '^version' crates/bupha-cli/Cargo.toml | cut -d'"' -f2)"
-git tag "bupha-v${ver}"
 git push -q origin HEAD:main --tags
 
 # binaries: local dist build (host arch) → GitHub Release.
@@ -59,4 +62,4 @@ if command -v dist >/dev/null && command -v gh >/dev/null; then
         [ -f "$f" ] && gh release upload "bupha-v${ver}" "$f" --clobber
     done
 fi
-echo "released:${published} (tag bupha-v${ver})"
+echo "released:${published} (tags:${tags})"

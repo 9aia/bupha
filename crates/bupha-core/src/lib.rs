@@ -10,10 +10,14 @@ use serde::Deserialize;
 use std::collections::VecDeque;
 use std::path::PathBuf;
 
-/// A sha is hex of plausible length — rejects path-injection payloads
-/// before the value reaches worktree paths or status URLs.
+/// A revision is path-safe — rejects path-injection payloads before
+/// the value reaches worktree paths or status URLs. Deliberately not
+/// hex-only: the shape comes from the forge/VCS, not the domain.
 pub fn is_valid_sha(sha: &str) -> bool {
-    (7..=64).contains(&sha.len()) && sha.bytes().all(|b| b.is_ascii_hexdigit())
+    (7..=64).contains(&sha.len()) && !sha.contains("..")
+        && !sha.contains('/')
+        && sha.bytes().all(|b|
+            b.is_ascii_alphanumeric() || matches!(b, b'-' | b'_' | b'.'))
 }
 
 /// How a repo's pending work collapses: `latest` keeps one pending

@@ -151,7 +151,12 @@ fn sha_validation() {
     assert!(!is_valid_sha("")); // too short
     assert!(!is_valid_sha("abc")); // too short
     assert!(!is_valid_sha(&"a".repeat(65)));
-    assert!(!is_valid_sha(&"g".repeat(40)));
+    assert!(!is_valid_sha(&"a/b".repeat(12)));
+    assert!(!is_valid_sha(&"a..b".repeat(8)));
+    // path-safe non-hex refs are valid — the shape is the forge's
+    // concern, not the domain's
+    assert!(is_valid_sha(&"g".repeat(40)));
+    assert!(is_valid_sha("v0.1.0-rc1"));
     // all-zeros is hex-valid at this layer; the trigger maps it to Skip
     assert!(is_valid_sha(&"0".repeat(40)));
 }
