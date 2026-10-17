@@ -39,7 +39,8 @@ export default defineConfig({
         items: [
           { text: 'CLI', link: '/reference/cli' },
           { text: 'Config', link: '/reference/config' },
-            ],
+          { text: 'Crate API', link: '/reference/crate-api' },
+        ],
       },
       {
         text: 'Explanation',
