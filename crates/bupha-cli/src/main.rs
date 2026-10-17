@@ -486,8 +486,25 @@ fn cmd_init(dir: &Path) {
             .and_then(|d| d.file_name().map(|n| n.to_string_lossy()
                 .replace([' ', '/', '\\'], "-")))
             .unwrap_or_else(|| "repo".into());
+        // patch URL for self-patch: prefer the git remote, else the
+        // module derives it from Cargo.toml's `repository` field.
+        let patch_host = Command::new("git")
+            .args(["-C"]).arg(dir)
+            .args(["remote", "get-url", "origin"]).output().ok()
+            .filter(|o| o.status.success())
+            .map(|o| {
+                let u = String::from_utf8_lossy(&o.stdout)
+                    .trim().to_string();
+                let u = u.strip_suffix(".git")
+                    .map(|s| s.to_string()).unwrap_or(u);
+                if let Some(rest) = u.strip_prefix("git@") {
+                    rest.replacen(':', "/", 1)
+                        .replacen("", "https://", 1)
+                } else { u }
+            }).unwrap_or_default();
         std::fs::write(&main_py,
-            DELEGATE_TEMPLATE.replace("REPO_NAME", &repo_name))
+            DELEGATE_TEMPLATE.replace("REPO_NAME", &repo_name)
+                .replace("PATCH_HOST", &patch_host))
             .unwrap_or_else(|e| eprintln!("template: {e}"));
         println!("wrote {}", main_py.display());
     }
@@ -520,7 +537,8 @@ class Ci:
         hc = dag.bupha()
         return await hc.test(
             source=source, shards=shards, jobs=jobs,
-            repo="REPO_NAME", token=token, sccache_conf=sccache_conf)
+            repo="REPO_NAME", token=token, sccache_conf=sccache_conf,
+            patch_host="PATCH_HOST")
 "##;
 
 fn check(name: &str, ok: bool, detail: &str, failures: &mut usize) {
@@ -794,9 +812,9 @@ fn cmd_deploy_release(dry_run: bool) {
                 String::from_utf8_lossy(&o.stdout),
                 String::from_utf8_lossy(&o.stderr)))
                 .unwrap_or_default();
-            if text.contains("Finished") || text.contains("already")
-                || text.contains("Uploaded")
-            {
+            // "Finished" also appears for a successful package build
+            // whose upload then fails — only the upload counts.
+            if text.contains("Uploaded") || text.contains("already") {
                 println!("published {name}");
                 ok = true;
                 break;
