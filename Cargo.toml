@@ -4,6 +4,8 @@ members = [
     "crates/bupha-cli",
     "crates/bupha-deploy",
     "crates/bupha-core",
+    "crates/bupha-trigger",
+    "crates/bupha-status",
     "crates/bupha-github",
     "crates/bupha-runner",
     "crates/bupha-dagger",
@@ -26,6 +28,8 @@ lto = "thin"
 
 [workspace.dependencies]
 bupha-core = { path = "crates/bupha-core", version = "0.1.0" }
+bupha-trigger = { path = "crates/bupha-trigger", version = "0.1.0" }
+bupha-status = { path = "crates/bupha-status", version = "0.1.0" }
 bupha-runner = { path = "crates/bupha-runner", version = "0.1.0" }
 bupha-tunnel = { path = "crates/bupha-tunnel", version = "0.1.0" }
 bupha-dagger = { path = "crates/bupha-dagger", version = "0.1.0" }

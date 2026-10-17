@@ -14,6 +14,8 @@ path = "src/main.rs"
 
 [dependencies]
 bupha-core.workspace = true
+bupha-trigger.workspace = true
+bupha-status.workspace = true
 bupha-runner.workspace = true
 bupha-dagger.workspace = true
 bupha-script.workspace = true

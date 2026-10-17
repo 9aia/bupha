@@ -1,4 +1,4 @@
-use bupha_core::{PushOutcome, Trigger};
+use bupha_trigger::{PushOutcome, Trigger};
 use bupha_github::GitHubTrigger;
 use hmac::{Hmac, Mac};
 use sha2::Sha256;

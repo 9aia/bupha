@@ -4,9 +4,10 @@
 //!
 //! Config: bupha.toml (secrets come from env). See bupha-core::Config.
 
-use bupha_core::{Config, EnqueueResult, PushOutcome, Queue, StatusSink,
-                 Trigger};
+use bupha_core::{Config, EnqueueResult, Queue};
 use bupha_github::{GitHubStatus, GitHubTrigger, LogStatus};
+use bupha_status::StatusSink;
+use bupha_trigger::{PushOutcome, Trigger};
 use bupha_runner::{RunCtx, Runner};
 use bupha_dagger::DaggerRunner;
 use bupha_script::ScriptRunner;

@@ -2,7 +2,9 @@
 //! X-Hub-Signature-256, parses push payloads, and posts commit
 //! statuses to api.github.com.
 
-use bupha_core::{is_valid_sha, PushOutcome, StatusSink, Trigger};
+use bupha_core::is_valid_sha;
+use bupha_status::StatusSink;
+use bupha_trigger::{PushOutcome, Trigger};
 use hmac::{Hmac, Mac};
 use sha2::Sha256;
 use std::time::Duration;

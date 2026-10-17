@@ -90,6 +90,8 @@ dependencies = [
  "bupha-github",
  "bupha-runner",
  "bupha-script",
+ "bupha-status",
+ "bupha-trigger",
  "bupha-tunnel",
  "clap",
  "clap-markdown",
@@ -138,6 +140,8 @@ name = "bupha-github"
 version = "0.1.0"
 dependencies = [
  "bupha-core",
+ "bupha-status",
+ "bupha-trigger",
  "hex",
  "hmac",
  "serde_json",
@@ -156,6 +160,14 @@ dependencies = [
  "bupha-core",
  "bupha-runner",
 ]
+
+[[package]]
+name = "bupha-status"
+version = "0.1.0"
+
+[[package]]
+name = "bupha-trigger"
+version = "0.1.0"
 
 [[package]]
 name = "bupha-tunnel"

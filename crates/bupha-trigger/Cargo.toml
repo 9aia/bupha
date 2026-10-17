@@ -1,0 +1,11 @@
+[package]
+name = "bupha-trigger"
+description = "Trigger port: where pushes come from"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+keywords = ["ci", "bupha"]
+categories = ["development-tools"]
+
+[dependencies]

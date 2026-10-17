@@ -1,0 +1,11 @@
+[package]
+name = "bupha-status"
+description = "StatusSink port: where run outcomes are reported"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+keywords = ["ci", "bupha"]
+categories = ["development-tools"]
+
+[dependencies]
