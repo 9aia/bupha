@@ -1,2 +1,2 @@
-window.ALL_CRATES = ["bupha","bupha_cloudflared","bupha_core","bupha_dagger","bupha_deploy","bupha_github","bupha_runner","bupha_script","bupha_tunnel"];
-//{"start":21,"fragment_lengths":[7,20,13,15,15,15,15,15,15]}
+window.ALL_CRATES = ["bupha","bupha_cloudflared","bupha_core","bupha_dagger","bupha_deploy","bupha_github","bupha_runner","bupha_script","bupha_status","bupha_trigger","bupha_tunnel"];
+//{"start":21,"fragment_lengths":[7,20,13,15,15,15,15,15,15,16,15]}
