@@ -48,7 +48,7 @@ Push. `ci/bupha` commit statuses appear on each sha.
 
 ## Docs
 
-Full docs (Diátaxis): **[DOCS.md](DOCS.md)** — tutorial, how-tos,
+Full docs (Diátaxis): **[docs/index.md](docs/index.md)** — tutorial, how-tos,
 cli/config reference, architecture. API reference is generated from
 doc comments (`cargo rdme`).
 
