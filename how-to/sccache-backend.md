@@ -1,7 +1,7 @@
 # How-to: sccache backend
 
 sccache's backend is decoupled via an env file — set
-`runner.sccache_conf` to a `KEY=VAL` file (mounted into containers as
+`[cache] conf` to a `KEY=VAL` file (mounted into containers as
 a secret). Without it, sccache uses a local cache volume.
 
 ## Local S3 (garage)

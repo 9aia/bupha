@@ -34,3 +34,14 @@ s = re.sub(r"<!-- gen:crate-map -->.*?<!-- /gen:crate-map -->",
            "\n".join(table), s, flags=re.S)
 ARCH.write_text(s)
 print(f"crate map: {len(rows)} crates")
+
+# crate-api page: same data, link per crate to its rustdoc
+rows2 = ["# Crate API", "",
+         "Generated rustdoc for every workspace crate — the public", 
+         "APIs are documented at source (doc comments).", ""]
+for name, layer, _ in sorted(rows, key=lambda r: (order[r[1]], r[0])):
+    und = name.replace("-", "_")
+    rows2.append(f'- [{name}](/bupha/api/{und}/index.html)'
+                 f'{{target="_blank"}} — {layer}')
+pathlib.Path("reference/crate-api.md").write_text("\n".join(rows2) + "\n")
+print("crate-api regenerated")

@@ -7,7 +7,7 @@ does the build. No dagger, no docker, no image pulls.
 ```toml
 [runner]
 kind = "shell"
-cmd = "./ci.sh"                  # run with `bash -c` in the worktree
+cmd = "./ci.sh" # run with `bash -c` in the worktree
 ```
 
 The worktree is a detached checkout of the pushed sha at

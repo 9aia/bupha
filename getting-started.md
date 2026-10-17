@@ -15,4 +15,4 @@ Pick by what you need to do.
 
 Project: [CONTRIBUTING](https://github.com/9aia/bupha/blob/main/CONTRIBUTING.md) ·
 [SECURITY](https://github.com/9aia/bupha/blob/main/SECURITY.md) ·
-[project](https://github.com/9aia/bupha/blob/main/project/index.md) — TODO, seams, backlog, ADRs
+[project](https://github.com/9aia/bupha/blob/main/project/index.md) — TODO, backlog, ADRs

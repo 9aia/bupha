@@ -18,7 +18,7 @@ order and tag without touching anything.)
 
 ## Phase 2 — push-driven forever after
 
-From then on a release is *just another bupha job*: a push to `main`
+From then on a release is _just another bupha job_: a push to `main`
 hits the webhook, queues latest-wins, and runs `scripts/release.sh`
 in a detached worktree under the shell runner.
 
