@@ -59,9 +59,17 @@ import re, pathlib
 repo_dir = pathlib.Path("REPO_DIR")
 toml = repo_dir / "Cargo.toml"
 key = '[patch."https://github.com/handl-lang/REPO_NAME"]'
-text = toml.read_text()
-text = re.sub(re.escape(key) + r"\n(?:[^\[].*\n?)*", "", text)
-toml.write_text(text)
+lines = toml.read_text().splitlines(keepends=True)
+out, skipping = [], False
+for l in lines:
+    if l.startswith(key):
+        skipping = True
+        continue
+    if skipping and l.lstrip().startswith(("[", "#")):
+        skipping = False
+    if not skipping:
+        out.append(l)
+toml.write_text("".join(out))
 if True:
     rows = []
     for g in ("crates", "modules"):
