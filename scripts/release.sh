@@ -41,4 +41,14 @@ git commit -aqm "release: bump crate versions"
 ver="$(grep -m1 '^version' crates/bupha-cli/Cargo.toml | cut -d'"' -f2)"
 git tag "bupha-v${ver}"
 git push -q origin HEAD:main --tags
-echo "released:${published} (tag bupha-v${ver} pushed — dist builds binaries)"
+
+# binaries: local dist build (host arch) → GitHub Release.
+# Other arches join when the remote-runner pair lands (TODO).
+if command -v dist >/dev/null && command -v gh >/dev/null; then
+    dist build --output-format=json > /tmp/dist-manifest.json 2>&1 || true
+    gh release create "bupha-v${ver}" --generate-notes         --title "bupha ${ver}" 2>/dev/null || true
+    for f in target/distrib/*; do
+        [ -f "$f" ] && gh release upload "bupha-v${ver}" "$f" --clobber
+    done
+fi
+echo "released:${published} (tag bupha-v${ver})"
