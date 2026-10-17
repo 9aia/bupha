@@ -25,6 +25,12 @@
 - [ ] `bupha init` should emit a fuller delegate template + optional
       non-rust skeleton for `runner.kind = "script"`.
 
+## Nits
+- [ ] `modules/dagger` dev-link exec has a dead `elif` checking the same
+      path as the `if` — dedupe.
+- [ ] `.github/workflows/` exists for releases only — fine, but keep
+      docs noting release-GHA ≠ project-CI to prevent confusion.
+
 ## Later
 - [ ] Trigger impls: gitea/gitlab.
 - [ ] Runner impls: earthly, nix.
