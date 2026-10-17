@@ -2,7 +2,7 @@
 
 Planning and design docs for bupha's next iterations.
 
-- [TODO](TODO.md) — next version (post-0.1.0): post-publish, ports,
+- [TODO](TODO.md) — next version (post-0.1.0): post-publish,
   jobs, tests, nits
 - [BACKLOG](BACKLOG.md) — unscheduled ideas + remaining seams (0.2+)
 - [adrs/](adrs/) — design decisions

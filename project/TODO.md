@@ -8,9 +8,9 @@
 ## Queue / jobs
 - [ ] `[[repo.jobs]]` — multiple pipelines per repo, each with own
       queue policy + runner (e.g. `ci` gate + debounced `release`).
-- [ ] Remote/distributed runners — `bupha-webhook` runner +
-      `bupha-http` trigger; unblocks multi-arch + release.sh's
-      "other arches" dist step.
+- [ ] Distributed runners — `bupha-ssh` lands first; remote trigger
+      impl (`bupha-http`?) for cross-box fan-out; unblocks multi-arch
+      + release.sh's "other arches" dist step.
 
 ## Tests
 - [ ] e2e for cancel/supersede path (second signed push in flight).

@@ -19,17 +19,22 @@ push ──► webhook ──► HMAC ──► dedup ──► queue ──► 
 - latest-wins batching: 1 run in flight, 1 pending sha per repo,
   superseded commits get honest statuses
 - multi-repo webhook fan-in, HMAC-verified, repo-routed
-- swappable runner (`dagger` | `script`), tunnel
-  (`cloudflared` | `direct` | `none`), status sink — port/adapter crates
-- persistent queue across restarts; detached-git-worktree isolation
+- every concern behind a port: runner (`dagger` | `shell` | `ssh`),
+  tunnel (`cloudflared` | `direct` | `none`), forge
+  (`github` today), VCS (`git`), queue store (`redb`), service
+  (`systemd`), secrets (`keyring` | `env` file), config (`toml`),
+  cache (`sccache`) — ports/impls are separate crates
+- persistent queue across restarts (embedded ACID store);
+  detached-git-worktree isolation
 - self-contained deploy: systemd unit, webhook registration, env seed,
   endpoint check
-- sccache-compatible artifact cache (garage/minio/R2/S3)
-- Docker/dagger optional — `runner.kind = "shell"` needs only git
+- sccache-compatible artifact cache (local, garage/minio/R2/S3)
+- Docker/dagger optional — `runner.kind = "shell"` needs only git;
+  `kind = "ssh"` runs on a remote host
 
 ## vs GitHub Actions
 
-(full table: [docs/comparison.md](docs/comparison.md))
+(full table: [comparison](https://9aia.com/bupha/comparison.html))
 
 - pushes hit **your** box — no runner minutes, no cold-queue wait,
   secrets never leave the machine (cache backend is your pick:
@@ -55,7 +60,7 @@ cargo install --git https://github.com/9aia/bupha bupha   # today
 ```sh
 cd your-repo
 bupha init              # scaffold the dagger module + delegate
-bupha deploy env        # seed ~/.config/bupha/env (secrets)
+bupha deploy env        # secrets: env → OS keyring → ~/.config/bupha/env
 
 # write bupha.toml — see examples/bupha.toml.example
 bupha deploy service    # write + enable the systemd unit
@@ -72,8 +77,8 @@ Push. `ci/bupha` commit statuses appear on each sha.
 
 ## Docs
 
-Full docs (Diátaxis): **[docs/index.md](docs/index.md)** — tutorial, how-tos,
-cli/config reference, architecture.
+Full docs: **[9aia.com/bupha](https://9aia.com/bupha/)** — tutorial, how-tos,
+cli/config/crate-API reference, architecture (Diátaxis).
 
 [CONTRIBUTING](CONTRIBUTING.md) · [SECURITY](SECURITY.md) ·
 [LICENSE](LICENSE) (MIT) · [project](project/index.md) — TODO, backlog, ADRs
