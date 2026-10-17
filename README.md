@@ -61,6 +61,11 @@ bupha deploy env        # seed ~/.config/bupha/env (secrets)
 bupha deploy service    # write + enable the systemd unit
 bupha deploy webhook    # register the repo's push hook
 bupha deploy check      # verify unit, creds, endpoint
+
+# offboarding is one command per layer — nothing left behind:
+bupha destroy webhook   # remove the repo hook
+bupha destroy service   # stop + remove the unit
+bupha destroy worktrees # clean detached checkouts
 ```
 
 Push. `ci/bupha` commit statuses appear on each sha.
