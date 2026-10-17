@@ -7,7 +7,8 @@ Diátaxis-structured. Pick by what you need to do.
   [script runner](docs/how-to/script-runner.md) ·
   [sccache backend](docs/how-to/sccache-backend.md)
 - **Reference** (lookup): [cli](docs/reference/cli.md) ·
-  [config](docs/reference/config.md)
+  [config](docs/reference/config.md) ·
+  [releasing](docs/reference/releasing.md)
 - **Explanation** (why): [architecture](docs/explanation/architecture.md)
 
 Project: [CONTRIBUTING](CONTRIBUTING.md) · [SECURITY](SECURITY.md) ·

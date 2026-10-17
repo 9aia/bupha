@@ -344,38 +344,50 @@ fn cmd_watch(cfg: Arc<Config>) {
                         Some(r) if git_ref != r.branch =>
                             (200, "ignored: not the watched branch"),
                         Some(_) => {
-                            let mut g = shared.lock().unwrap();
-                            let (res, running) = {
-                                let q = g.queues
-                                    .get_mut(&repo_name).unwrap();
-                                (q.enqueue(sha.clone()),
-                                 q.running.is_some())
-                            };
-                            persist_queue(&g, &qfile);
-                            match res {
-                                EnqueueResult::Duplicate =>
-                                    (200, "already queued"),
-                                EnqueueResult::Queued { superseded } => {
-                                    if let Some(old) = superseded {
-                                        sinks[&repo_name].post(&old, "error",
-                                            &format!("superseded by {}",
-                                                &sha[..12.min(sha.len())]));
-                                        println!("superseded {repo_name} {old:.12} -> {:.12}", sha);
-                                    }
-                                    if cfg.runner.cancel_running && running {
-                                        g.queues.get_mut(&repo_name)
-                                            .unwrap().cancelled = true;
-                                        if let Some(c) =
-                                            child.lock().unwrap().as_mut()
-                                        {
-                                            let _ = c.kill();
-                                            println!("cancelled in-flight run");
+                            // Lock: mutate queue + decide, then drop.
+                            // HTTP posts and process kills happen after.
+                            let mut old = None;
+                            let mut kill = false;
+                            let (code, msg) = {
+                                let mut g = shared.lock().unwrap();
+                                let (res, running) = {
+                                    let q = g.queues
+                                        .get_mut(&repo_name).unwrap();
+                                    (q.enqueue(sha.clone()),
+                                     q.running.is_some())
+                                };
+                                persist_queue(&g, &qfile);
+                                match res {
+                                    EnqueueResult::Duplicate =>
+                                        (200, "already queued"),
+                                    EnqueueResult::Queued { superseded } => {
+                                        old = superseded;
+                                        kill = cfg.runner.cancel_running
+                                            && running;
+                                        if kill {
+                                            g.queues.get_mut(&repo_name)
+                                                .unwrap().cancelled = true;
                                         }
+                                        (202, "queued")
                                     }
-                                    cv.notify_one();
-                                    (202, "queued")
+                                }
+                            };
+                            if let Some(old) = old {
+                                sinks[&repo_name].post(&old, "error",
+                                    &format!("superseded by {}",
+                                        &sha[..12.min(sha.len())]));
+                                println!("superseded {repo_name} {old:.12} -> {:.12}", sha);
+                            }
+                            if kill {
+                                if let Some(c) =
+                                    child.lock().unwrap().as_mut()
+                                {
+                                    let _ = c.kill();
+                                    println!("cancelled in-flight run");
                                 }
                             }
+                            if code == 202 { cv.notify_one(); }
+                            (code, msg)
                         }
                     }
                 }

@@ -1,1 +1,4 @@
 /target
+coverage/
+*.profraw
+**/queue.json
