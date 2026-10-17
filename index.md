@@ -11,6 +11,6 @@ Diátaxis-structured. Pick by what you need to do.
   [releasing](reference/releasing.md)
 - **Explanation** (why): [architecture](explanation/architecture.md)
 
-Project: [CONTRIBUTING](../CONTRIBUTING.md) · [SECURITY](../SECURITY.md) ·
+Project: [CONTRIBUTING](https://github.com/9aia/bupha/blob/main/CONTRIBUTING.md) · [SECURITY](https://github.com/9aia/bupha/blob/main/SECURITY.md) ·
 [comparison](comparison.md) — vs GHA/hosted CI
-[TODO](../project/TODO.md)
+[TODO](https://github.com/9aia/bupha/blob/main/project/TODO.md)

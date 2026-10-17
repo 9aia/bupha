@@ -1,5 +1,4 @@
-/target
-coverage/
-*.profraw
-**/queue.json
-.env
+node_modules/
+.vitepress/dist/
+.vitepress/cache/
+public/api/
