@@ -22,6 +22,8 @@ use bupha_secret::Secrets;
 use bupha_keyring::KeyringSecrets;
 use bupha_dotenv::DotenvSecrets;
 use bupha_service::Service;
+use bupha_config::ConfigSource;
+use bupha_config_toml::TomlSource;
 use std::io::Read;
 use clap::{Parser, Subcommand};
 use std::path::{Path, PathBuf};
@@ -686,7 +688,7 @@ fn main() {
         Cmd::Deploy { sub: DeploySub::Release { dry_run } } =>
             cmd_deploy_release(*dry_run),
         _ => {
-            let cfg = Arc::new(Config::load(cli.config.as_deref())
+            let cfg = Arc::new(TomlSource { path: cli.config.clone() }.load()
                 .unwrap_or_else(|e| {
                     eprintln!("config: {e}");
                     std::process::exit(2);

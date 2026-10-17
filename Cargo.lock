@@ -84,6 +84,8 @@ name = "bupha"
 version = "0.1.0"
 dependencies = [
  "bupha-cloudflared",
+ "bupha-config",
+ "bupha-config-toml",
  "bupha-core",
  "bupha-dagger",
  "bupha-dotenv",
@@ -118,6 +120,22 @@ version = "0.1.0"
 dependencies = [
  "bupha-core",
  "bupha-tunnel",
+]
+
+[[package]]
+name = "bupha-config"
+version = "0.1.0"
+dependencies = [
+ "bupha-core",
+]
+
+[[package]]
+name = "bupha-config-toml"
+version = "0.1.0"
+dependencies = [
+ "bupha-config",
+ "bupha-core",
+ "toml",
 ]
 
 [[package]]

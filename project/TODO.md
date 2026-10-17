@@ -6,12 +6,12 @@
 - [ ] README badges — crates.io + license (resolve green once live).
 
 ## Ports (seams — see architecture.md)
-- [ ] `Vcs` port — `git()`/`repo_sync` behind a trait (`GitVcs`);
+- [x] `Vcs` port — `git()`/`repo_sync` behind a trait (`GitVcs`);
       unblocks jj/hg + makes git ops unit-testable.
-- [ ] `QueueStore` port — `queue.json` behind load/persist;
+- [x] `QueueStore` port — `queue.json` behind load/persist;
       SQLite/remote store = distributed-runner prerequisite.
-- [ ] `Service` port in bupha-systemd — systemd today, launchd/Windows.
-- [ ] `keyring`-crate secret backends + `dirs`-crate config paths
+- [x] `Service` port in bupha-systemd — systemd today, launchd/Windows.
+- [x] `keyring`-crate secret backends + `dirs`-crate config paths
       (macOS/Windows).
 - [ ] Cache seam — generic `cache` config so file/S3/R2/GCS are a
       config pick (today `sccache_conf` only).

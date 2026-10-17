@@ -13,6 +13,8 @@ members = [
     "crates/bupha-secret",
     "crates/bupha-keyring",
     "crates/bupha-dotenv",
+    "crates/bupha-config",
+    "crates/bupha-config-toml",
     "crates/bupha-status",
     "crates/bupha-github",
     "crates/bupha-runner",
@@ -45,6 +47,8 @@ bupha-service = { path = "crates/bupha-service", version = "0.1.0" }
 bupha-secret = { path = "crates/bupha-secret", version = "0.1.0" }
 bupha-keyring = { path = "crates/bupha-keyring", version = "0.1.0" }
 bupha-dotenv = { path = "crates/bupha-dotenv", version = "0.1.0" }
+bupha-config = { path = "crates/bupha-config", version = "0.1.0" }
+bupha-config-toml = { path = "crates/bupha-config-toml", version = "0.1.0" }
 serde_json = "1"
 bupha-status = { path = "crates/bupha-status", version = "0.1.0" }
 bupha-runner = { path = "crates/bupha-runner", version = "0.1.0" }

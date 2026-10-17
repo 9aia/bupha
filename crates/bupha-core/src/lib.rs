@@ -340,32 +340,6 @@ fn default_wt_base() -> String {
     "/tmp/bupha".into()
 }
 
-impl Config {
-    /// Load order: explicit path → $BUPHA_CONFIG → ./bupha.toml →
-    /// ~/.config/bupha/bupha.toml.
-    pub fn load(path: Option<&str>) -> Result<Config, String> {
-        let candidates: Vec<PathBuf> = match path.map(str::to_string)
-            .or_else(|| std::env::var("BUPHA_CONFIG").ok())
-        {
-            Some(p) => vec![PathBuf::from(p)],
-            None => vec![
-                PathBuf::from("bupha.toml"),
-                dirs_home().join(".config/bupha/bupha.toml"),
-            ],
-        };
-        for p in candidates {
-            if p.exists() {
-                let text = std::fs::read_to_string(&p)
-                    .map_err(|e| format!("read {}: {e}", p.display()))?;
-                return toml::from_str(&text)
-                    .map_err(|e| format!("parse {}: {e}", p.display()));
-            }
-        }
-        Err("no bupha.toml found (search: $BUPHA_CONFIG, ., ~/.config/bupha/)"
-            .into())
-    }
-}
-
 fn dirs_home() -> PathBuf {
     std::env::var("HOME").map(PathBuf::from).unwrap_or_else(|_| ".".into())
 }

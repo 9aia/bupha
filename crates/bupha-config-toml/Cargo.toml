@@ -1,0 +1,14 @@
+[package]
+name = "bupha-config-toml"
+description = "Config impl: bupha.toml file (explicit path, env, ./, ~/.config)"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+keywords = ["ci", "bupha"]
+categories = ["development-tools"]
+
+[dependencies]
+bupha-config.workspace = true
+bupha-core.workspace = true
+toml = "0.8"
