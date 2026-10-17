@@ -48,7 +48,8 @@ for name in STRUCTS:
             "| field | type | required | notes |",
             "|---|---|---|---|"]
     for fname, ty, req, doc in fields(name):
-        doc = doc.replace("|", "\\|")
+        doc = (doc.replace("|", "\\|")
+                  .replace("<", "&lt;").replace(">", "&gt;"))
         out.append(
             f"| `{fname}` | `{ty}` | {req or 'optional'} | {doc} |")
     out.append("")

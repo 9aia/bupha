@@ -1,8 +1,11 @@
 # Architecture
 
-bupha is a port/adapter monorepo: `bupha-core` owns the domain and
-knows nothing about GitHub, dagger, or cloudflared; every integration
-is an impl crate behind a port.
+bupha is a port/adapter monorepo: every external concern sits
+behind a trait (a *port*), and each integration is a crate that
+implements it (an *impl*). `bupha-core` is the pure domain — config
+shape, queue semantics, shared primitives — and depends on nothing
+outside itself; the binary is a thin composition root that wires
+impls to ports.
 
 ## Crate map
 
@@ -10,23 +13,23 @@ is an impl crate behind a port.
 
 | crate | layer | role |
 |---|---|---|
-| `bupha-core` | domain | Core domain types, config and the latest-wins queue |
+| `bupha-core` | domain | bupha domain core: config types, job queues, shared primitives — no ports, no integrations |
 | `bupha-runner` | port | Runner port: how a job becomes a spawned process |
 | `bupha-status` | port | StatusSink port: where run outcomes are reported |
 | `bupha-trigger` | port | Trigger port: where pushes come from |
 | `bupha-tunnel` | port | Tunnel port: expose the webhook listener publicly |
 | `bupha-cloudflared` | impl | Tunnel impl: cloudflared (named tunnel preferred, quick tunnel fallback) |
 | `bupha-dagger` | impl | Runner impl: `dagger call <fn>` per job |
-| `bupha-deploy` | impl | Deployment helpers: systemd units, webhook registration, env skeleton |
 | `bupha-dotenv` | impl | Secret impl: KEY=VAL env file (chmod 600) |
 | `bupha-git` | impl | Vcs impl: git via the git CLI |
 | `bupha-github` | impl | GitHub impl: push-webhook trigger + commit-status sink |
 | `bupha-keyring` | impl | Secret impl: OS keyring via secret-tool (libsecret) |
 | `bupha-queue` | impl | QueueStore port: queue persistence |
 | `bupha-queue-json` | impl | QueueStore impl: atomic queue.json |
-| `bupha-script` | impl | Runner impl: any shell command per job — no dagger, no docker |
 | `bupha-secret` | impl | Secret port: resolve named secrets from storage |
 | `bupha-service` | impl | Service port: OS service lifecycle |
+| `bupha-shell` | impl | Runner impl: bash -c <cmd> per job — no containers |
+| `bupha-systemd` | impl | Service impl: systemd user units |
 | `bupha-vcs` | impl | Vcs port: VCS operations for repos and worktrees |
 | `bupha` | binary | bupha — the oxpecker on your repo's back: headless CI CLI |
 <!-- /gen:crate-map -->
