@@ -1,0 +1,55 @@
+name: bupha-keyring
+path: crates/bupha-keyring/Cargo.toml
+purpose: 'Secret impl: OS keyring via secret-tool (libsecret)'
+api:
+- name: bupha-keyring
+  kind: module
+  file: crates/bupha-keyring/Cargo.toml
+  line: 1
+  module: bupha-keyring
+- name: KeyringSecrets
+  kind: type
+  file: crates/bupha-keyring/src/lib.rs
+  line: 9
+  module: bupha-keyring
+- name: default
+  kind: function
+  file: crates/bupha-keyring/src/lib.rs
+  line: 15
+  module: bupha-keyring
+- name: get
+  kind: function
+  file: crates/bupha-keyring/src/lib.rs
+  line: 23
+  module: bupha-keyring
+- name: set
+  kind: function
+  file: crates/bupha-keyring/src/lib.rs
+  line: 33
+  module: bupha-keyring
+deps:
+- bupha-secret
+- bupha_secret
+notes: ''
+verify:
+- crates/bupha-keyring/Cargo.toml
+- crates/bupha-keyring/src/lib.rs
+- crates/bupha-keyring/src/lib.rs
+- crates/bupha-keyring/src/lib.rs
+- crates/bupha-keyring/src/lib.rs
+provenance:
+  files:
+  - crates/bupha-keyring/Cargo.toml
+  - crates/bupha-keyring/src/lib.rs
+  - crates/bupha-keyring/src/lib.rs
+  - crates/bupha-keyring/src/lib.rs
+  - crates/bupha-keyring/src/lib.rs
+  hashes:
+  - 295c5fb2896a8e7a89dfabd77f0d1e85f22377b3
+  - 79bec75f88f1ac20cdf900652e2381a2eb705413
+  - 79bec75f88f1ac20cdf900652e2381a2eb705413
+  - 79bec75f88f1ac20cdf900652e2381a2eb705413
+  - 79bec75f88f1ac20cdf900652e2381a2eb705413
+  commit_sha: d5af451be3b898586fa2578542de0e87e0f5bcba
+  generated_at: '1792310968'
+  generator: kuda-template/0.1.0

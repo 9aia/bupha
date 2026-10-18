@@ -1,0 +1,29 @@
+name: bupha-service
+path: crates/bupha-service/Cargo.toml
+purpose: 'Service port: OS service lifecycle'
+api:
+- name: bupha-service
+  kind: module
+  file: crates/bupha-service/Cargo.toml
+  line: 1
+  module: bupha-service
+- name: Service
+  kind: trait
+  file: crates/bupha-service/src/lib.rs
+  line: 8
+  module: bupha-service
+deps: []
+notes: ''
+verify:
+- crates/bupha-service/Cargo.toml
+- crates/bupha-service/src/lib.rs
+provenance:
+  files:
+  - crates/bupha-service/Cargo.toml
+  - crates/bupha-service/src/lib.rs
+  hashes:
+  - 43f0f610caa55dcf9977c38f161c802aebf66e06
+  - eabac1d97e620a8d5c50ba44205d8c84de3d4b1d
+  commit_sha: d5af451be3b898586fa2578542de0e87e0f5bcba
+  generated_at: '1792310968'
+  generator: kuda-template/0.1.0

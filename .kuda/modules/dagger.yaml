@@ -1,0 +1,141 @@
+name: dagger
+path: modules/dagger/dagger/pyproject.toml
+purpose: '*The oxpecker on your repo''s back.*'
+api:
+- name: dagger
+  kind: module
+  file: modules/dagger/dagger/pyproject.toml
+  line: 1
+  module: dagger
+- name: Bupha
+  kind: type
+  file: modules/dagger/dagger/src/bupha/main.py
+  line: 102
+  module: dagger
+- name: _base
+  kind: function
+  file: modules/dagger/dagger/src/bupha/main.py
+  line: 105
+  module: dagger
+- name: _workspace
+  kind: function
+  file: modules/dagger/dagger/src/bupha/main.py
+  line: 137
+  module: dagger
+- name: _link_repo
+  kind: function
+  file: modules/dagger/dagger/src/bupha/main.py
+  line: 190
+  module: dagger
+- name: workspace
+  kind: function
+  file: modules/dagger/dagger/src/bupha/main.py
+  line: 209
+  module: dagger
+- name: with_sibling
+  kind: function
+  file: modules/dagger/dagger/src/bupha/main.py
+  line: 222
+  module: dagger
+- name: run_script
+  kind: function
+  file: modules/dagger/dagger/src/bupha/main.py
+  line: 238
+  module: dagger
+- name: _exec
+  kind: function
+  file: modules/dagger/dagger/src/bupha/main.py
+  line: 248
+  module: dagger
+- name: doctor
+  kind: function
+  file: modules/dagger/dagger/src/bupha/main.py
+  line: 268
+  module: dagger
+- name: test_shard
+  kind: function
+  file: modules/dagger/dagger/src/bupha/main.py
+  line: 292
+  module: dagger
+- name: doctests
+  kind: function
+  file: modules/dagger/dagger/src/bupha/main.py
+  line: 318
+  module: dagger
+- name: test
+  kind: function
+  file: modules/dagger/dagger/src/bupha/main.py
+  line: 335
+  module: dagger
+- name: coverage_report
+  kind: function
+  file: modules/dagger/dagger/src/bupha/main.py
+  line: 372
+  module: dagger
+- name: coverage_gate
+  kind: function
+  file: modules/dagger/dagger/src/bupha/main.py
+  line: 398
+  module: dagger
+- name: run
+  kind: function
+  file: modules/dagger/dagger/src/bupha/main.py
+  line: 416
+  module: dagger
+deps: []
+notes: ''
+verify:
+- modules/dagger/dagger/pyproject.toml
+- modules/dagger/dagger/src/bupha/main.py
+- modules/dagger/dagger/src/bupha/main.py
+- modules/dagger/dagger/src/bupha/main.py
+- modules/dagger/dagger/src/bupha/main.py
+- modules/dagger/dagger/src/bupha/main.py
+- modules/dagger/dagger/src/bupha/main.py
+- modules/dagger/dagger/src/bupha/main.py
+- modules/dagger/dagger/src/bupha/main.py
+- modules/dagger/dagger/src/bupha/main.py
+- modules/dagger/dagger/src/bupha/main.py
+- modules/dagger/dagger/src/bupha/main.py
+- modules/dagger/dagger/src/bupha/main.py
+- modules/dagger/dagger/src/bupha/main.py
+- modules/dagger/dagger/src/bupha/main.py
+- modules/dagger/dagger/src/bupha/main.py
+provenance:
+  files:
+  - modules/dagger/dagger/pyproject.toml
+  - modules/dagger/dagger/src/bupha/main.py
+  - modules/dagger/dagger/src/bupha/main.py
+  - modules/dagger/dagger/src/bupha/main.py
+  - modules/dagger/dagger/src/bupha/main.py
+  - modules/dagger/dagger/src/bupha/main.py
+  - modules/dagger/dagger/src/bupha/main.py
+  - modules/dagger/dagger/src/bupha/main.py
+  - modules/dagger/dagger/src/bupha/main.py
+  - modules/dagger/dagger/src/bupha/main.py
+  - modules/dagger/dagger/src/bupha/main.py
+  - modules/dagger/dagger/src/bupha/main.py
+  - modules/dagger/dagger/src/bupha/main.py
+  - modules/dagger/dagger/src/bupha/main.py
+  - modules/dagger/dagger/src/bupha/main.py
+  - modules/dagger/dagger/src/bupha/main.py
+  hashes:
+  - a787b6af9e98fd8cae6ece92467308d34e49bbce
+  - b266b7f034f3d194f5cba16fd2bf6a51886ccf46
+  - b266b7f034f3d194f5cba16fd2bf6a51886ccf46
+  - b266b7f034f3d194f5cba16fd2bf6a51886ccf46
+  - b266b7f034f3d194f5cba16fd2bf6a51886ccf46
+  - b266b7f034f3d194f5cba16fd2bf6a51886ccf46
+  - b266b7f034f3d194f5cba16fd2bf6a51886ccf46
+  - b266b7f034f3d194f5cba16fd2bf6a51886ccf46
+  - b266b7f034f3d194f5cba16fd2bf6a51886ccf46
+  - b266b7f034f3d194f5cba16fd2bf6a51886ccf46
+  - b266b7f034f3d194f5cba16fd2bf6a51886ccf46
+  - b266b7f034f3d194f5cba16fd2bf6a51886ccf46
+  - b266b7f034f3d194f5cba16fd2bf6a51886ccf46
+  - b266b7f034f3d194f5cba16fd2bf6a51886ccf46
+  - b266b7f034f3d194f5cba16fd2bf6a51886ccf46
+  - b266b7f034f3d194f5cba16fd2bf6a51886ccf46
+  commit_sha: d5af451be3b898586fa2578542de0e87e0f5bcba
+  generated_at: '1792310968'
+  generator: kuda-template/0.1.0

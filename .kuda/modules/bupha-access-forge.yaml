@@ -1,0 +1,67 @@
+name: bupha-access-forge
+path: crates/bupha-access-forge/Cargo.toml
+purpose: 'Access adapter: forge collaborator-permission check'
+api:
+- name: bupha-access-forge
+  kind: module
+  file: crates/bupha-access-forge/Cargo.toml
+  line: 1
+  module: bupha-access-forge
+- name: live_collaborator_allowed
+  kind: function
+  file: crates/bupha-access-forge/tests/live.rs
+  line: 10
+  module: bupha-access-forge
+- name: live_stranger_denied
+  kind: function
+  file: crates/bupha-access-forge/tests/live.rs
+  line: 20
+  module: bupha-access-forge
+- name: ForgeAccess
+  kind: type
+  file: crates/bupha-access-forge/src/lib.rs
+  line: 15
+  module: bupha-access-forge
+- name: new
+  kind: function
+  file: crates/bupha-access-forge/src/lib.rs
+  line: 23
+  module: bupha-access-forge
+- name: allow
+  kind: function
+  file: crates/bupha-access-forge/src/lib.rs
+  line: 34
+  module: bupha-access-forge
+deps:
+- bupha-access
+- serde_json
+- ureq
+- bupha_access
+- bupha_access_forge
+- bupha_access
+notes: ''
+verify:
+- crates/bupha-access-forge/Cargo.toml
+- crates/bupha-access-forge/tests/live.rs
+- crates/bupha-access-forge/tests/live.rs
+- crates/bupha-access-forge/src/lib.rs
+- crates/bupha-access-forge/src/lib.rs
+- crates/bupha-access-forge/src/lib.rs
+provenance:
+  files:
+  - crates/bupha-access-forge/Cargo.toml
+  - crates/bupha-access-forge/tests/live.rs
+  - crates/bupha-access-forge/tests/live.rs
+  - crates/bupha-access-forge/src/lib.rs
+  - crates/bupha-access-forge/src/lib.rs
+  - crates/bupha-access-forge/src/lib.rs
+  hashes:
+  - 977aa09725741778eef33809aaf4414e789e3f02
+  - 9625293d4aa5a549ce4501bbf653da6def9ed58e
+  - 9625293d4aa5a549ce4501bbf653da6def9ed58e
+  - 89b1ea476a52c54bd096ba2566fe512e2d16d518
+  - 89b1ea476a52c54bd096ba2566fe512e2d16d518
+  - 89b1ea476a52c54bd096ba2566fe512e2d16d518
+  commit_sha: d5af451be3b898586fa2578542de0e87e0f5bcba
+  generated_at: '1792310968'
+  generator: kuda-template/0.1.0

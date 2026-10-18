@@ -1,0 +1,61 @@
+name: bupha-queue-lease
+path: crates/bupha-queue-lease/Cargo.toml
+purpose: 'Queue-lease port: multi-worker fencing (try_claim + Fence)'
+api:
+- name: bupha-queue-lease
+  kind: module
+  file: crates/bupha-queue-lease/Cargo.toml
+  line: 1
+  module: bupha-queue-lease
+- name: Fence
+  kind: type
+  file: crates/bupha-queue-lease/src/lib.rs
+  line: 5
+  module: bupha-queue-lease
+- name: TryClaim
+  kind: trait
+  file: crates/bupha-queue-lease/src/lib.rs
+  line: 9
+  module: bupha-queue-lease
+- name: renew
+  kind: function
+  file: crates/bupha-queue-lease/src/lib.rs
+  line: 14
+  module: bupha-queue-lease
+- name: LocalClaim
+  kind: type
+  file: crates/bupha-queue-lease/src/lib.rs
+  line: 22
+  module: bupha-queue-lease
+- name: try_claim
+  kind: function
+  file: crates/bupha-queue-lease/src/lib.rs
+  line: 25
+  module: bupha-queue-lease
+deps: []
+notes: ''
+verify:
+- crates/bupha-queue-lease/Cargo.toml
+- crates/bupha-queue-lease/src/lib.rs
+- crates/bupha-queue-lease/src/lib.rs
+- crates/bupha-queue-lease/src/lib.rs
+- crates/bupha-queue-lease/src/lib.rs
+- crates/bupha-queue-lease/src/lib.rs
+provenance:
+  files:
+  - crates/bupha-queue-lease/Cargo.toml
+  - crates/bupha-queue-lease/src/lib.rs
+  - crates/bupha-queue-lease/src/lib.rs
+  - crates/bupha-queue-lease/src/lib.rs
+  - crates/bupha-queue-lease/src/lib.rs
+  - crates/bupha-queue-lease/src/lib.rs
+  hashes:
+  - bb98453a9f581da32d17c8d15210520bc93efe20
+  - 43771ffaa3611cf1879fe7e2ab7ad4dd5109db4d
+  - 43771ffaa3611cf1879fe7e2ab7ad4dd5109db4d
+  - 43771ffaa3611cf1879fe7e2ab7ad4dd5109db4d
+  - 43771ffaa3611cf1879fe7e2ab7ad4dd5109db4d
+  - 43771ffaa3611cf1879fe7e2ab7ad4dd5109db4d
+  commit_sha: d5af451be3b898586fa2578542de0e87e0f5bcba
+  generated_at: '1792310968'
+  generator: kuda-template/0.1.0

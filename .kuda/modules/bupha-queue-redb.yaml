@@ -1,0 +1,85 @@
+name: bupha-queue-redb
+path: crates/bupha-queue-redb/Cargo.toml
+purpose: 'QueueStore impl: redb embedded store (single file, ACID)'
+api:
+- name: bupha-queue-redb
+  kind: module
+  file: crates/bupha-queue-redb/Cargo.toml
+  line: 1
+  module: bupha-queue-redb
+- name: tmp
+  kind: function
+  file: crates/bupha-queue-redb/tests/store.rs
+  line: 5
+  module: bupha-queue-redb
+- name: roundtrip
+  kind: function
+  file: crates/bupha-queue-redb/tests/store.rs
+  line: 10
+  module: bupha-queue-redb
+- name: TABLE
+  kind: const
+  file: crates/bupha-queue-redb/src/lib.rs
+  line: 10
+  module: bupha-queue-redb
+- name: RedbQueueStore
+  kind: type
+  file: crates/bupha-queue-redb/src/lib.rs
+  line: 12
+  module: bupha-queue-redb
+- name: open
+  kind: function
+  file: crates/bupha-queue-redb/src/lib.rs
+  line: 17
+  module: bupha-queue-redb
+- name: load
+  kind: function
+  file: crates/bupha-queue-redb/src/lib.rs
+  line: 25
+  module: bupha-queue-redb
+- name: persist
+  kind: function
+  file: crates/bupha-queue-redb/src/lib.rs
+  line: 39
+  module: bupha-queue-redb
+deps:
+- bupha-core
+- bupha-queue
+- redb
+- serde_json
+- bupha_queue
+- bupha_queue_redb
+- bupha_queue
+- redb
+notes: ''
+verify:
+- crates/bupha-queue-redb/Cargo.toml
+- crates/bupha-queue-redb/tests/store.rs
+- crates/bupha-queue-redb/tests/store.rs
+- crates/bupha-queue-redb/src/lib.rs
+- crates/bupha-queue-redb/src/lib.rs
+- crates/bupha-queue-redb/src/lib.rs
+- crates/bupha-queue-redb/src/lib.rs
+- crates/bupha-queue-redb/src/lib.rs
+provenance:
+  files:
+  - crates/bupha-queue-redb/Cargo.toml
+  - crates/bupha-queue-redb/tests/store.rs
+  - crates/bupha-queue-redb/tests/store.rs
+  - crates/bupha-queue-redb/src/lib.rs
+  - crates/bupha-queue-redb/src/lib.rs
+  - crates/bupha-queue-redb/src/lib.rs
+  - crates/bupha-queue-redb/src/lib.rs
+  - crates/bupha-queue-redb/src/lib.rs
+  hashes:
+  - 906a52345372ef45d6baa7f267b50aaf4ba35c9f
+  - d8ba600e91500ca8a76425e4fbbe8f1d4fa27c1e
+  - d8ba600e91500ca8a76425e4fbbe8f1d4fa27c1e
+  - 98cd90c582415f7e102806c8e0e75221759e3c86
+  - 98cd90c582415f7e102806c8e0e75221759e3c86
+  - 98cd90c582415f7e102806c8e0e75221759e3c86
+  - 98cd90c582415f7e102806c8e0e75221759e3c86
+  - 98cd90c582415f7e102806c8e0e75221759e3c86
+  commit_sha: d5af451be3b898586fa2578542de0e87e0f5bcba
+  generated_at: '1792310968'
+  generator: kuda-template/0.1.0

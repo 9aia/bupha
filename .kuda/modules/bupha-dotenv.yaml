@@ -1,0 +1,73 @@
+name: bupha-dotenv
+path: crates/bupha-dotenv/Cargo.toml
+purpose: 'Secret impl: KEY=VAL env file (chmod 600)'
+api:
+- name: bupha-dotenv
+  kind: module
+  file: crates/bupha-dotenv/Cargo.toml
+  line: 1
+  module: bupha-dotenv
+- name: tmp
+  kind: function
+  file: crates/bupha-dotenv/tests/store.rs
+  line: 4
+  module: bupha-dotenv
+- name: set_get_update
+  kind: function
+  file: crates/bupha-dotenv/tests/store.rs
+  line: 9
+  module: bupha-dotenv
+- name: perms_600
+  kind: function
+  file: crates/bupha-dotenv/tests/store.rs
+  line: 25
+  module: bupha-dotenv
+- name: DotenvSecrets
+  kind: type
+  file: crates/bupha-dotenv/src/lib.rs
+  line: 9
+  module: bupha-dotenv
+- name: get
+  kind: function
+  file: crates/bupha-dotenv/src/lib.rs
+  line: 14
+  module: bupha-dotenv
+- name: set
+  kind: function
+  file: crates/bupha-dotenv/src/lib.rs
+  line: 21
+  module: bupha-dotenv
+deps:
+- bupha-secret
+- bupha_dotenv
+- bupha_secret
+- bupha_secret
+notes: ''
+verify:
+- crates/bupha-dotenv/Cargo.toml
+- crates/bupha-dotenv/tests/store.rs
+- crates/bupha-dotenv/tests/store.rs
+- crates/bupha-dotenv/tests/store.rs
+- crates/bupha-dotenv/src/lib.rs
+- crates/bupha-dotenv/src/lib.rs
+- crates/bupha-dotenv/src/lib.rs
+provenance:
+  files:
+  - crates/bupha-dotenv/Cargo.toml
+  - crates/bupha-dotenv/tests/store.rs
+  - crates/bupha-dotenv/tests/store.rs
+  - crates/bupha-dotenv/tests/store.rs
+  - crates/bupha-dotenv/src/lib.rs
+  - crates/bupha-dotenv/src/lib.rs
+  - crates/bupha-dotenv/src/lib.rs
+  hashes:
+  - 65cf007ad2f3d1e6517719d11469bc6e97b7326d
+  - 00c487c3a852cc391f3bbd1dd9973e049699d595
+  - 00c487c3a852cc391f3bbd1dd9973e049699d595
+  - 00c487c3a852cc391f3bbd1dd9973e049699d595
+  - c70ebf4e2ace035f4c8523a8d1eae24c1b98cedb
+  - c70ebf4e2ace035f4c8523a8d1eae24c1b98cedb
+  - c70ebf4e2ace035f4c8523a8d1eae24c1b98cedb
+  commit_sha: d5af451be3b898586fa2578542de0e87e0f5bcba
+  generated_at: '1792310968'
+  generator: kuda-template/0.1.0

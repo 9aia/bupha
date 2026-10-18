@@ -1,0 +1,30 @@
+name: bupha-config
+path: crates/bupha-config/Cargo.toml
+purpose: 'Config port: where bupha.toml-shaped config comes from'
+api:
+- name: bupha-config
+  kind: module
+  file: crates/bupha-config/Cargo.toml
+  line: 1
+  module: bupha-config
+- name: ConfigSource
+  kind: trait
+  file: crates/bupha-config/src/lib.rs
+  line: 5
+  module: bupha-config
+deps:
+- bupha-core
+notes: ''
+verify:
+- crates/bupha-config/Cargo.toml
+- crates/bupha-config/src/lib.rs
+provenance:
+  files:
+  - crates/bupha-config/Cargo.toml
+  - crates/bupha-config/src/lib.rs
+  hashes:
+  - 9d7929c8cd7d52e0d86ef960f909bee943799cd0
+  - aa4d79ee767b41df645fc3cb7f46b76d5635716f
+  commit_sha: d5af451be3b898586fa2578542de0e87e0f5bcba
+  generated_at: '1792310968'
+  generator: kuda-template/0.1.0

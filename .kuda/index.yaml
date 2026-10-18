@@ -1,0 +1,228 @@
+name: bupha
+root: /home/luis/GitHub/9aia/bupha
+purpose: '*The oxpecker on your repo''s back.*'
+modules:
+- _root
+- bupha
+- bupha-access
+- bupha-access-file
+- bupha-access-forge
+- bupha-attest
+- bupha-attest-file
+- bupha-attest-sigstore
+- bupha-cache
+- bupha-cache-sccache
+- bupha-cli
+- bupha-cloudflared
+- bupha-config
+- bupha-config-toml
+- bupha-container
+- bupha-core
+- bupha-dagger
+- bupha-dotenv
+- bupha-git
+- bupha-github
+- bupha-history
+- bupha-keyring
+- bupha-queue
+- bupha-queue-lease
+- bupha-queue-redb
+- bupha-queue-redis
+- bupha-runner
+- bupha-secret
+- bupha-service
+- bupha-shell
+- bupha-ssh
+- bupha-status
+- bupha-systemd
+- bupha-telemetry
+- bupha-telemetry-otel
+- bupha-trigger
+- bupha-tunnel
+- bupha-vcs
+- dagger
+commands:
+- cargo check
+- cargo test --workspace
+provenance:
+  files:
+  - Cargo.toml
+  - modules/dagger/dagger/pyproject.toml
+  - crates/bupha-telemetry-otel/Cargo.toml
+  - crates/bupha-cli/Cargo.toml
+  - crates/bupha-config-toml/Cargo.toml
+  - crates/bupha-cache/Cargo.toml
+  - crates/bupha-attest/Cargo.toml
+  - crates/bupha-status/Cargo.toml
+  - crates/bupha-queue/Cargo.toml
+  - crates/bupha-queue-lease/Cargo.toml
+  - crates/bupha-dagger/Cargo.toml
+  - crates/bupha-access-forge/Cargo.toml
+  - crates/bupha-git/Cargo.toml
+  - crates/bupha-access-file/Cargo.toml
+  - crates/bupha-core/Cargo.toml
+  - crates/bupha-queue-redis/Cargo.toml
+  - crates/bupha-shell/Cargo.toml
+  - crates/bupha-history/Cargo.toml
+  - crates/bupha-telemetry/Cargo.toml
+  - crates/bupha-systemd/Cargo.toml
+  - crates/bupha-service/Cargo.toml
+  - crates/bupha-runner/Cargo.toml
+  - crates/bupha-dotenv/Cargo.toml
+  - crates/bupha-trigger/Cargo.toml
+  - crates/bupha-ssh/Cargo.toml
+  - crates/bupha-container/Cargo.toml
+  - crates/bupha-config/Cargo.toml
+  - crates/bupha-queue-redb/Cargo.toml
+  - crates/bupha-attest-sigstore/Cargo.toml
+  - crates/bupha-access/Cargo.toml
+  - crates/bupha-secret/Cargo.toml
+  - crates/bupha-attest-file/Cargo.toml
+  - crates/bupha-github/Cargo.toml
+  - crates/bupha-vcs/Cargo.toml
+  - crates/bupha-tunnel/Cargo.toml
+  - crates/bupha-cache-sccache/Cargo.toml
+  - crates/bupha-cloudflared/Cargo.toml
+  - crates/bupha-keyring/Cargo.toml
+  - crates/bupha-telemetry-otel/src/lib.rs
+  - crates/bupha-cli/tests/e2e.rs
+  - crates/bupha-cli/src/main.rs
+  - crates/bupha-config-toml/tests/load.rs
+  - crates/bupha-config-toml/src/lib.rs
+  - crates/bupha-cache/src/lib.rs
+  - crates/bupha-attest/src/lib.rs
+  - crates/bupha-status/src/lib.rs
+  - crates/bupha-queue/src/lib.rs
+  - crates/bupha-queue-lease/src/lib.rs
+  - crates/bupha-dagger/src/lib.rs
+  - crates/bupha-access-forge/tests/live.rs
+  - crates/bupha-access-forge/src/lib.rs
+  - crates/bupha-git/tests/git.rs
+  - crates/bupha-git/src/lib.rs
+  - crates/bupha-access-file/src/lib.rs
+  - crates/bupha-core/tests/core.rs
+  - crates/bupha-core/src/lib.rs
+  - crates/bupha-queue-redis/tests/live.rs
+  - crates/bupha-queue-redis/src/lib.rs
+  - crates/bupha-shell/tests/runner.rs
+  - crates/bupha-shell/src/lib.rs
+  - crates/bupha-history/src/lib.rs
+  - crates/bupha-telemetry/src/lib.rs
+  - crates/bupha-systemd/tests/unit.rs
+  - crates/bupha-systemd/src/lib.rs
+  - crates/bupha-service/src/lib.rs
+  - crates/bupha-runner/src/lib.rs
+  - crates/bupha-dotenv/tests/store.rs
+  - crates/bupha-dotenv/src/lib.rs
+  - crates/bupha-trigger/src/lib.rs
+  - crates/bupha-ssh/src/lib.rs
+  - crates/bupha-container/src/lib.rs
+  - crates/bupha-config/src/lib.rs
+  - crates/bupha-queue-redb/tests/store.rs
+  - crates/bupha-queue-redb/src/lib.rs
+  - crates/bupha-attest-sigstore/src/lib.rs
+  - crates/bupha-access/src/lib.rs
+  - crates/bupha-secret/src/lib.rs
+  - crates/bupha-attest-file/src/lib.rs
+  - crates/bupha-github/tests/github.rs
+  - crates/bupha-github/src/lib.rs
+  - crates/bupha-vcs/src/lib.rs
+  - crates/bupha-tunnel/src/lib.rs
+  - crates/bupha-cache-sccache/src/lib.rs
+  - crates/bupha-cloudflared/src/lib.rs
+  - crates/bupha-keyring/src/lib.rs
+  - modules/dagger/dagger/src/bupha/main.py
+  - modules/dagger/dagger/src/bupha/__init__.py
+  - modules/dagger/tests/test_self_patch.py
+  hashes:
+  - c16785bc9063ec0f023885535674c8a2aef6c967
+  - a787b6af9e98fd8cae6ece92467308d34e49bbce
+  - 2a36671c2aaaac449a8e23391a72f3473f9fe3c9
+  - 68a69760a57b0aaa7d7d1a6e27e98386ab4a354e
+  - 7129a91f360f001dacbf97af0481e8941b05fc2c
+  - 1e8b72c77e68157b0bceb70cbb4e3ea5c6b4868e
+  - 6002241df00849ee276ea7cf0fa3090e2cffa290
+  - 72d19ee54274002b46b4eb143502f0a422bc6b9b
+  - 5049e1c02879f6e03c8b6378a657f113e07103e8
+  - bb98453a9f581da32d17c8d15210520bc93efe20
+  - 6ebc856617d9589fc7fa9c6363696d2e543e5f0b
+  - 977aa09725741778eef33809aaf4414e789e3f02
+  - 15329f105dd770552bcd21afd4cba3ac3467cded
+  - d3b36ada9a99ed7e36e96e47a7beb1f5bf3fe348
+  - 2949c06c8e71ef5da170506ce9cd8dfbb7312ce3
+  - 519cfd7d87f50d89a7905f92625bcde1ea63f8d7
+  - 6dce52587f4d41a91e9f578dddf2fec383a2f3a2
+  - bd3c49c8020bf9cc448326c4af9bd71df1191fb1
+  - fbe2fdbccfd7b8538a701e654208633efa99e493
+  - 90afffb3e13a350613d0fa7bada6420d14581028
+  - 43f0f610caa55dcf9977c38f161c802aebf66e06
+  - 4fefe465ba6004fda1b42f7c3358502f9fdbbc1f
+  - 65cf007ad2f3d1e6517719d11469bc6e97b7326d
+  - 34c4aca4ba6e1251a69392ff17ea20e8c88c57db
+  - 29f876e5787cf84ffefed9baa070cee30bda8972
+  - ed119b77d73632bed5f8699fe776993139cce885
+  - 9d7929c8cd7d52e0d86ef960f909bee943799cd0
+  - 906a52345372ef45d6baa7f267b50aaf4ba35c9f
+  - f12b90da40b7e3bb81eeb84c1ccd8529f31722a0
+  - faa9d3e3b2e30ebed8aecf8da83c4683f33024c8
+  - f77f1a255f54b328d61466935ed9b8845a61e3bc
+  - e88afab850e37b231dadc0bc5a6b916c3af3ef24
+  - 9a8bdeb02a9e8896e60f63d221a83f115d8a5980
+  - 634f96eb54a20f970a3488c4356ca2c51ffefa70
+  - 5e76ec1737eaa365ccdeadbb3706a163e1a97792
+  - 1ce58c0ddf98f4e695cbd71d19541ac6dc19034a
+  - c6468e2b1603699af53234b1fa10040bc21f84b9
+  - 295c5fb2896a8e7a89dfabd77f0d1e85f22377b3
+  - e99061d57c96dec6cb8df622e1039d397f591e8d
+  - 0ebb4263d8f11206e3cb4d9b6e78b4b63113b79f
+  - 9335aebfac1f0da60596d443f46124db57879a15
+  - 1a5699ae29b374aa66b9c3b9d31f1ac6202e455f
+  - 5b162f328bad30d1f63a20a97b53c8bf8f49803a
+  - 3edf8e04c6077d0facacfc1d57b016b8cb135a1c
+  - 9bd17f3687e086a78cb89d41c739980ad72b0957
+  - 85154a18e12e769fb604220c1106b94633c3ee2a
+  - e11171c9a2a33b18e32505760116b4a12a563073
+  - 43771ffaa3611cf1879fe7e2ab7ad4dd5109db4d
+  - 1df6231881479c8c56a4ee2f99daf2c868d52794
+  - 9625293d4aa5a549ce4501bbf653da6def9ed58e
+  - 89b1ea476a52c54bd096ba2566fe512e2d16d518
+  - 65f4f34a635c59f18df4c57f6ed3a6111ed75f37
+  - 05ebf0c824822e9fef1affd4cfaeb8c0d155702e
+  - e80cf9151320107d558b5c95335a97ccbe1a84cb
+  - 8b0cdc279339b83f4d0dea0c9e585ee2f6959ee7
+  - 0597fceb3dbfb33faaf7203f76ada4c5033ae566
+  - 2722b20e45c8747df321a55db7dc003989ae1a32
+  - 0f9e6c8b71e501cac01c92a0db9b16a92928947b
+  - 3570c40643ae419acdd53f387b4cd4e63ef47c4c
+  - b793961269033211bf1d1a2ee9c8f03142574e49
+  - a4d5f53943247c793bd60d1517db88365b083bf3
+  - 90122b23ae0a738e4760fb2e3ad0f035e9efde15
+  - 7704b2b4de462d3744681eb2aba48f6cb6a4e009
+  - cd2aa189389cd5b401959d8584c69c7964498c94
+  - eabac1d97e620a8d5c50ba44205d8c84de3d4b1d
+  - a1a83000991d20e56b8d036a8cc160f447fcf0d8
+  - 00c487c3a852cc391f3bbd1dd9973e049699d595
+  - c70ebf4e2ace035f4c8523a8d1eae24c1b98cedb
+  - c3a8ddd68b44c41af69e02c6996d969c850391f1
+  - 769915c2d636c6a3f5ac2c400230bc5e6aec7b29
+  - 3c7c0737799d9cc2061e27c9d35573bc55bb2828
+  - aa4d79ee767b41df645fc3cb7f46b76d5635716f
+  - d8ba600e91500ca8a76425e4fbbe8f1d4fa27c1e
+  - 98cd90c582415f7e102806c8e0e75221759e3c86
+  - 912f8356ff602b84f277a42e2f71bd6e7a6cd126
+  - 8b91fb0a4d401c219f10a137e43b455c86d1a104
+  - e35caacd71f5a6d9f71b7204f2fab395c4c74206
+  - 47990ea3a65827fe5ebb6a159feddc8999f4da39
+  - 1ce00ecb1c629347b73c517d2b8c8e96747eb261
+  - 78ea06b4fee8fdeb613f9efbcf7674cb4b3e8efc
+  - 3413f97a538109bac5e1a098bd221afebea34f28
+  - 3c07a1868ddf6091c443f927e285b3c2ad7bc371
+  - b38bbcfb1d097c290ada7870e2ed59c9b8408c96
+  - b0b010efc76a3f5188cb637c2491835bbc7a64ce
+  - 79bec75f88f1ac20cdf900652e2381a2eb705413
+  - b266b7f034f3d194f5cba16fd2bf6a51886ccf46
+  - 297de02314bb3e68d56e2e8a33bcad4ba6c92465
+  - 509a3147960f3aa59978a55730803da3c2ff0850
+  commit_sha: d5af451be3b898586fa2578542de0e87e0f5bcba
+  generated_at: '1792310968'
+  generator: kuda/0.1.0

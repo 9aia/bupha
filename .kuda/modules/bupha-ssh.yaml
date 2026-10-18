@@ -1,0 +1,67 @@
+name: bupha-ssh
+path: crates/bupha-ssh/Cargo.toml
+purpose: 'Runner impl: remote execution over ssh (rsync worktree + run)'
+api:
+- name: bupha-ssh
+  kind: module
+  file: crates/bupha-ssh/Cargo.toml
+  line: 1
+  module: bupha-ssh
+- name: SshCfg
+  kind: type
+  file: crates/bupha-ssh/src/lib.rs
+  line: 17
+  module: bupha-ssh
+- name: SshRunner
+  kind: type
+  file: crates/bupha-ssh/src/lib.rs
+  line: 27
+  module: bupha-ssh
+- name: new
+  kind: function
+  file: crates/bupha-ssh/src/lib.rs
+  line: 32
+  module: bupha-ssh
+- name: name
+  kind: function
+  file: crates/bupha-ssh/src/lib.rs
+  line: 38
+  module: bupha-ssh
+- name: spawn
+  kind: function
+  file: crates/bupha-ssh/src/lib.rs
+  line: 42
+  module: bupha-ssh
+deps:
+- bupha-core
+- bupha-runner
+- serde
+- toml
+- bupha_runner
+- serde
+notes: ''
+verify:
+- crates/bupha-ssh/Cargo.toml
+- crates/bupha-ssh/src/lib.rs
+- crates/bupha-ssh/src/lib.rs
+- crates/bupha-ssh/src/lib.rs
+- crates/bupha-ssh/src/lib.rs
+- crates/bupha-ssh/src/lib.rs
+provenance:
+  files:
+  - crates/bupha-ssh/Cargo.toml
+  - crates/bupha-ssh/src/lib.rs
+  - crates/bupha-ssh/src/lib.rs
+  - crates/bupha-ssh/src/lib.rs
+  - crates/bupha-ssh/src/lib.rs
+  - crates/bupha-ssh/src/lib.rs
+  hashes:
+  - 29f876e5787cf84ffefed9baa070cee30bda8972
+  - 769915c2d636c6a3f5ac2c400230bc5e6aec7b29
+  - 769915c2d636c6a3f5ac2c400230bc5e6aec7b29
+  - 769915c2d636c6a3f5ac2c400230bc5e6aec7b29
+  - 769915c2d636c6a3f5ac2c400230bc5e6aec7b29
+  - 769915c2d636c6a3f5ac2c400230bc5e6aec7b29
+  commit_sha: d5af451be3b898586fa2578542de0e87e0f5bcba
+  generated_at: '1792310968'
+  generator: kuda-template/0.1.0

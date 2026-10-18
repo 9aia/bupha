@@ -1,0 +1,121 @@
+name: bupha-git
+path: crates/bupha-git/Cargo.toml
+purpose: 'Vcs impl: git via the git CLI'
+api:
+- name: bupha-git
+  kind: module
+  file: crates/bupha-git/Cargo.toml
+  line: 1
+  module: bupha-git
+- name: repo
+  kind: function
+  file: crates/bupha-git/tests/git.rs
+  line: 5
+  module: bupha-git
+- name: sync_has_commit_worktree_tag
+  kind: function
+  file: crates/bupha-git/tests/git.rs
+  line: 47
+  module: bupha-git
+- name: GitVcs
+  kind: type
+  file: crates/bupha-git/src/lib.rs
+  line: 7
+  module: bupha-git
+- name: git
+  kind: function
+  file: crates/bupha-git/src/lib.rs
+  line: 9
+  module: bupha-git
+- name: sync
+  kind: function
+  file: crates/bupha-git/src/lib.rs
+  line: 20
+  module: bupha-git
+- name: has_commit
+  kind: function
+  file: crates/bupha-git/src/lib.rs
+  line: 23
+  module: bupha-git
+- name: worktree_add
+  kind: function
+  file: crates/bupha-git/src/lib.rs
+  line: 26
+  module: bupha-git
+- name: worktree_remove
+  kind: function
+  file: crates/bupha-git/src/lib.rs
+  line: 38
+  module: bupha-git
+- name: worktree_prune
+  kind: function
+  file: crates/bupha-git/src/lib.rs
+  line: 49
+  module: bupha-git
+- name: tag_exists
+  kind: function
+  file: crates/bupha-git/src/lib.rs
+  line: 52
+  module: bupha-git
+- name: tag
+  kind: function
+  file: crates/bupha-git/src/lib.rs
+  line: 58
+  module: bupha-git
+- name: push_tag
+  kind: function
+  file: crates/bupha-git/src/lib.rs
+  line: 61
+  module: bupha-git
+deps:
+- bupha-vcs
+- bupha_git
+- bupha_vcs
+- bupha_vcs
+notes: ''
+verify:
+- crates/bupha-git/Cargo.toml
+- crates/bupha-git/tests/git.rs
+- crates/bupha-git/tests/git.rs
+- crates/bupha-git/src/lib.rs
+- crates/bupha-git/src/lib.rs
+- crates/bupha-git/src/lib.rs
+- crates/bupha-git/src/lib.rs
+- crates/bupha-git/src/lib.rs
+- crates/bupha-git/src/lib.rs
+- crates/bupha-git/src/lib.rs
+- crates/bupha-git/src/lib.rs
+- crates/bupha-git/src/lib.rs
+- crates/bupha-git/src/lib.rs
+provenance:
+  files:
+  - crates/bupha-git/Cargo.toml
+  - crates/bupha-git/tests/git.rs
+  - crates/bupha-git/tests/git.rs
+  - crates/bupha-git/src/lib.rs
+  - crates/bupha-git/src/lib.rs
+  - crates/bupha-git/src/lib.rs
+  - crates/bupha-git/src/lib.rs
+  - crates/bupha-git/src/lib.rs
+  - crates/bupha-git/src/lib.rs
+  - crates/bupha-git/src/lib.rs
+  - crates/bupha-git/src/lib.rs
+  - crates/bupha-git/src/lib.rs
+  - crates/bupha-git/src/lib.rs
+  hashes:
+  - 15329f105dd770552bcd21afd4cba3ac3467cded
+  - 65f4f34a635c59f18df4c57f6ed3a6111ed75f37
+  - 65f4f34a635c59f18df4c57f6ed3a6111ed75f37
+  - 05ebf0c824822e9fef1affd4cfaeb8c0d155702e
+  - 05ebf0c824822e9fef1affd4cfaeb8c0d155702e
+  - 05ebf0c824822e9fef1affd4cfaeb8c0d155702e
+  - 05ebf0c824822e9fef1affd4cfaeb8c0d155702e
+  - 05ebf0c824822e9fef1affd4cfaeb8c0d155702e
+  - 05ebf0c824822e9fef1affd4cfaeb8c0d155702e
+  - 05ebf0c824822e9fef1affd4cfaeb8c0d155702e
+  - 05ebf0c824822e9fef1affd4cfaeb8c0d155702e
+  - 05ebf0c824822e9fef1affd4cfaeb8c0d155702e
+  - 05ebf0c824822e9fef1affd4cfaeb8c0d155702e
+  commit_sha: d5af451be3b898586fa2578542de0e87e0f5bcba
+  generated_at: '1792310968'
+  generator: kuda-template/0.1.0

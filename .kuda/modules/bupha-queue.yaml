@@ -1,0 +1,39 @@
+name: bupha-queue
+path: crates/bupha-queue/Cargo.toml
+purpose: 'QueueStore port: queue persistence'
+api:
+- name: bupha-queue
+  kind: module
+  file: crates/bupha-queue/Cargo.toml
+  line: 1
+  module: bupha-queue
+- name: PersistedQueue
+  kind: type
+  file: crates/bupha-queue/src/lib.rs
+  line: 12
+  module: bupha-queue
+- name: QueueStore
+  kind: trait
+  file: crates/bupha-queue/src/lib.rs
+  line: 18
+  module: bupha-queue
+deps:
+- serde
+- serde
+notes: ''
+verify:
+- crates/bupha-queue/Cargo.toml
+- crates/bupha-queue/src/lib.rs
+- crates/bupha-queue/src/lib.rs
+provenance:
+  files:
+  - crates/bupha-queue/Cargo.toml
+  - crates/bupha-queue/src/lib.rs
+  - crates/bupha-queue/src/lib.rs
+  hashes:
+  - 5049e1c02879f6e03c8b6378a657f113e07103e8
+  - e11171c9a2a33b18e32505760116b4a12a563073
+  - e11171c9a2a33b18e32505760116b4a12a563073
+  commit_sha: d5af451be3b898586fa2578542de0e87e0f5bcba
+  generated_at: '1792310968'
+  generator: kuda-template/0.1.0

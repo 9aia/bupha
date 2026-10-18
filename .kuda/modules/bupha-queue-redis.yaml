@@ -1,0 +1,151 @@
+name: bupha-queue-redis
+path: crates/bupha-queue-redis/Cargo.toml
+purpose: 'QueueStore adapter: redis (multi-worker; SET NX claim + INCR fence)'
+api:
+- name: bupha-queue-redis
+  kind: module
+  file: crates/bupha-queue-redis/Cargo.toml
+  line: 1
+  module: bupha-queue-redis
+- name: url
+  kind: function
+  file: crates/bupha-queue-redis/tests/live.rs
+  line: 10
+  module: bupha-queue-redis
+- name: live_persist_load_roundtrip
+  kind: function
+  file: crates/bupha-queue-redis/tests/live.rs
+  line: 16
+  module: bupha-queue-redis
+- name: live_claim_fences_and_excludes
+  kind: function
+  file: crates/bupha-queue-redis/tests/live.rs
+  line: 34
+  module: bupha-queue-redis
+- name: live_renew_extends_lease
+  kind: function
+  file: crates/bupha-queue-redis/tests/live.rs
+  line: 49
+  module: bupha-queue-redis
+- name: RedisQueueStore
+  kind: type
+  file: crates/bupha-queue-redis/src/lib.rs
+  line: 15
+  module: bupha-queue-redis
+- name: QUEUE_KEY
+  kind: const
+  file: crates/bupha-queue-redis/src/lib.rs
+  line: 19
+  module: bupha-queue-redis
+- name: FENCE_KEY
+  kind: const
+  file: crates/bupha-queue-redis/src/lib.rs
+  line: 20
+  module: bupha-queue-redis
+- name: CLAIM_TTL_MS
+  kind: const
+  file: crates/bupha-queue-redis/src/lib.rs
+  line: 21
+  module: bupha-queue-redis
+- name: err
+  kind: function
+  file: crates/bupha-queue-redis/src/lib.rs
+  line: 23
+  module: bupha-queue-redis
+- name: open
+  kind: function
+  file: crates/bupha-queue-redis/src/lib.rs
+  line: 29
+  module: bupha-queue-redis
+- name: load
+  kind: function
+  file: crates/bupha-queue-redis/src/lib.rs
+  line: 39
+  module: bupha-queue-redis
+- name: persist
+  kind: function
+  file: crates/bupha-queue-redis/src/lib.rs
+  line: 49
+  module: bupha-queue-redis
+- name: renew
+  kind: function
+  file: crates/bupha-queue-redis/src/lib.rs
+  line: 58
+  module: bupha-queue-redis
+- name: try_claim
+  kind: function
+  file: crates/bupha-queue-redis/src/lib.rs
+  line: 62
+  module: bupha-queue-redis
+- name: renew_inner
+  kind: function
+  file: crates/bupha-queue-redis/src/lib.rs
+  line: 83
+  module: bupha-queue-redis
+deps:
+- bupha-queue
+- bupha-queue-lease
+- redis
+- serde_json
+- bupha_queue
+- bupha_queue_lease
+- bupha_queue_redis
+- bupha_queue
+- bupha_queue_lease
+- redis
+notes: ''
+verify:
+- crates/bupha-queue-redis/Cargo.toml
+- crates/bupha-queue-redis/tests/live.rs
+- crates/bupha-queue-redis/tests/live.rs
+- crates/bupha-queue-redis/tests/live.rs
+- crates/bupha-queue-redis/tests/live.rs
+- crates/bupha-queue-redis/src/lib.rs
+- crates/bupha-queue-redis/src/lib.rs
+- crates/bupha-queue-redis/src/lib.rs
+- crates/bupha-queue-redis/src/lib.rs
+- crates/bupha-queue-redis/src/lib.rs
+- crates/bupha-queue-redis/src/lib.rs
+- crates/bupha-queue-redis/src/lib.rs
+- crates/bupha-queue-redis/src/lib.rs
+- crates/bupha-queue-redis/src/lib.rs
+- crates/bupha-queue-redis/src/lib.rs
+- crates/bupha-queue-redis/src/lib.rs
+provenance:
+  files:
+  - crates/bupha-queue-redis/Cargo.toml
+  - crates/bupha-queue-redis/tests/live.rs
+  - crates/bupha-queue-redis/tests/live.rs
+  - crates/bupha-queue-redis/tests/live.rs
+  - crates/bupha-queue-redis/tests/live.rs
+  - crates/bupha-queue-redis/src/lib.rs
+  - crates/bupha-queue-redis/src/lib.rs
+  - crates/bupha-queue-redis/src/lib.rs
+  - crates/bupha-queue-redis/src/lib.rs
+  - crates/bupha-queue-redis/src/lib.rs
+  - crates/bupha-queue-redis/src/lib.rs
+  - crates/bupha-queue-redis/src/lib.rs
+  - crates/bupha-queue-redis/src/lib.rs
+  - crates/bupha-queue-redis/src/lib.rs
+  - crates/bupha-queue-redis/src/lib.rs
+  - crates/bupha-queue-redis/src/lib.rs
+  hashes:
+  - 519cfd7d87f50d89a7905f92625bcde1ea63f8d7
+  - 2722b20e45c8747df321a55db7dc003989ae1a32
+  - 2722b20e45c8747df321a55db7dc003989ae1a32
+  - 2722b20e45c8747df321a55db7dc003989ae1a32
+  - 2722b20e45c8747df321a55db7dc003989ae1a32
+  - 0f9e6c8b71e501cac01c92a0db9b16a92928947b
+  - 0f9e6c8b71e501cac01c92a0db9b16a92928947b
+  - 0f9e6c8b71e501cac01c92a0db9b16a92928947b
+  - 0f9e6c8b71e501cac01c92a0db9b16a92928947b
+  - 0f9e6c8b71e501cac01c92a0db9b16a92928947b
+  - 0f9e6c8b71e501cac01c92a0db9b16a92928947b
+  - 0f9e6c8b71e501cac01c92a0db9b16a92928947b
+  - 0f9e6c8b71e501cac01c92a0db9b16a92928947b
+  - 0f9e6c8b71e501cac01c92a0db9b16a92928947b
+  - 0f9e6c8b71e501cac01c92a0db9b16a92928947b
+  - 0f9e6c8b71e501cac01c92a0db9b16a92928947b
+  commit_sha: d5af451be3b898586fa2578542de0e87e0f5bcba
+  generated_at: '1792310968'
+  generator: kuda-template/0.1.0

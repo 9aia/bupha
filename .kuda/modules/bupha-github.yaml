@@ -1,0 +1,257 @@
+name: bupha-github
+path: crates/bupha-github/Cargo.toml
+purpose: 'GitHub impl: push-webhook trigger + commit-status sink'
+api:
+- name: bupha-github
+  kind: module
+  file: crates/bupha-github/Cargo.toml
+  line: 1
+  module: bupha-github
+- name: sign
+  kind: function
+  file: crates/bupha-github/tests/github.rs
+  line: 6
+  module: bupha-github
+- name: BODY
+  kind: const
+  file: crates/bupha-github/tests/github.rs
+  line: 12
+  module: bupha-github
+- name: verify_accepts_good_sig
+  kind: function
+  file: crates/bupha-github/tests/github.rs
+  line: 16
+  module: bupha-github
+- name: verify_rejects_bad_sig
+  kind: function
+  file: crates/bupha-github/tests/github.rs
+  line: 23
+  module: bupha-github
+- name: is_event_checks_push_header
+  kind: function
+  file: crates/bupha-github/tests/github.rs
+  line: 31
+  module: bupha-github
+- name: parse_push_extracts_repo_ref_sha
+  kind: function
+  file: crates/bupha-github/tests/github.rs
+  line: 39
+  module: bupha-github
+- name: parse_push_skips_deleted_branch
+  kind: function
+  file: crates/bupha-github/tests/github.rs
+  line: 57
+  module: bupha-github
+- name: parse_push_rejects_non_sha
+  kind: function
+  file: crates/bupha-github/tests/github.rs
+  line: 78
+  module: bupha-github
+- name: delivery_id_header
+  kind: function
+  file: crates/bupha-github/tests/github.rs
+  line: 91
+  module: bupha-github
+- name: agent
+  kind: function
+  file: crates/bupha-github/src/lib.rs
+  line: 14
+  module: bupha-github
+- name: GitHubTrigger
+  kind: type
+  file: crates/bupha-github/src/lib.rs
+  line: 21
+  module: bupha-github
+- name: is_event
+  kind: function
+  file: crates/bupha-github/src/lib.rs
+  line: 26
+  module: bupha-github
+- name: verify
+  kind: function
+  file: crates/bupha-github/src/lib.rs
+  line: 32
+  module: bupha-github
+- name: delivery_id
+  kind: function
+  file: crates/bupha-github/src/lib.rs
+  line: 53
+  module: bupha-github
+- name: parse_push
+  kind: function
+  file: crates/bupha-github/src/lib.rs
+  line: 60
+  module: bupha-github
+- name: GitHubStatus
+  kind: type
+  file: crates/bupha-github/src/lib.rs
+  line: 90
+  module: bupha-github
+- name: context
+  kind: function
+  file: crates/bupha-github/src/lib.rs
+  line: 100
+  module: bupha-github
+- name: post
+  kind: function
+  file: crates/bupha-github/src/lib.rs
+  line: 104
+  module: bupha-github
+- name: LogStatus
+  kind: type
+  file: crates/bupha-github/src/lib.rs
+  line: 125
+  module: bupha-github
+- name: context
+  kind: function
+  file: crates/bupha-github/src/lib.rs
+  line: 130
+  module: bupha-github
+- name: post
+  kind: function
+  file: crates/bupha-github/src/lib.rs
+  line: 134
+  module: bupha-github
+- name: unregister_webhook
+  kind: function
+  file: crates/bupha-github/src/lib.rs
+  line: 141
+  module: bupha-github
+- name: register_webhook
+  kind: function
+  file: crates/bupha-github/src/lib.rs
+  line: 194
+  module: bupha-github
+- name: GitHubAdmin
+  kind: type
+  file: crates/bupha-github/src/lib.rs
+  line: 262
+  module: bupha-github
+- name: register_hook
+  kind: function
+  file: crates/bupha-github/src/lib.rs
+  line: 270
+  module: bupha-github
+- name: remove_hook
+  kind: function
+  file: crates/bupha-github/src/lib.rs
+  line: 273
+  module: bupha-github
+- name: repo
+  kind: function
+  file: crates/bupha-github/src/lib.rs
+  line: 276
+  module: bupha-github
+deps:
+- bupha-core
+- bupha-status
+- bupha-trigger
+- hex
+- hmac
+- serde_json
+- sha2
+- ureq
+- hex
+- hmac
+- sha2
+- bupha_github
+- bupha_trigger
+- hmac
+- sha2
+- bupha_core
+- bupha_status
+- bupha_trigger
+- hmac
+- sha2
+notes: ''
+verify:
+- crates/bupha-github/Cargo.toml
+- crates/bupha-github/tests/github.rs
+- crates/bupha-github/tests/github.rs
+- crates/bupha-github/tests/github.rs
+- crates/bupha-github/tests/github.rs
+- crates/bupha-github/tests/github.rs
+- crates/bupha-github/tests/github.rs
+- crates/bupha-github/tests/github.rs
+- crates/bupha-github/tests/github.rs
+- crates/bupha-github/tests/github.rs
+- crates/bupha-github/src/lib.rs
+- crates/bupha-github/src/lib.rs
+- crates/bupha-github/src/lib.rs
+- crates/bupha-github/src/lib.rs
+- crates/bupha-github/src/lib.rs
+- crates/bupha-github/src/lib.rs
+- crates/bupha-github/src/lib.rs
+- crates/bupha-github/src/lib.rs
+- crates/bupha-github/src/lib.rs
+- crates/bupha-github/src/lib.rs
+- crates/bupha-github/src/lib.rs
+- crates/bupha-github/src/lib.rs
+- crates/bupha-github/src/lib.rs
+- crates/bupha-github/src/lib.rs
+- crates/bupha-github/src/lib.rs
+- crates/bupha-github/src/lib.rs
+- crates/bupha-github/src/lib.rs
+- crates/bupha-github/src/lib.rs
+provenance:
+  files:
+  - crates/bupha-github/Cargo.toml
+  - crates/bupha-github/tests/github.rs
+  - crates/bupha-github/tests/github.rs
+  - crates/bupha-github/tests/github.rs
+  - crates/bupha-github/tests/github.rs
+  - crates/bupha-github/tests/github.rs
+  - crates/bupha-github/tests/github.rs
+  - crates/bupha-github/tests/github.rs
+  - crates/bupha-github/tests/github.rs
+  - crates/bupha-github/tests/github.rs
+  - crates/bupha-github/src/lib.rs
+  - crates/bupha-github/src/lib.rs
+  - crates/bupha-github/src/lib.rs
+  - crates/bupha-github/src/lib.rs
+  - crates/bupha-github/src/lib.rs
+  - crates/bupha-github/src/lib.rs
+  - crates/bupha-github/src/lib.rs
+  - crates/bupha-github/src/lib.rs
+  - crates/bupha-github/src/lib.rs
+  - crates/bupha-github/src/lib.rs
+  - crates/bupha-github/src/lib.rs
+  - crates/bupha-github/src/lib.rs
+  - crates/bupha-github/src/lib.rs
+  - crates/bupha-github/src/lib.rs
+  - crates/bupha-github/src/lib.rs
+  - crates/bupha-github/src/lib.rs
+  - crates/bupha-github/src/lib.rs
+  - crates/bupha-github/src/lib.rs
+  hashes:
+  - 9a8bdeb02a9e8896e60f63d221a83f115d8a5980
+  - 1ce00ecb1c629347b73c517d2b8c8e96747eb261
+  - 1ce00ecb1c629347b73c517d2b8c8e96747eb261
+  - 1ce00ecb1c629347b73c517d2b8c8e96747eb261
+  - 1ce00ecb1c629347b73c517d2b8c8e96747eb261
+  - 1ce00ecb1c629347b73c517d2b8c8e96747eb261
+  - 1ce00ecb1c629347b73c517d2b8c8e96747eb261
+  - 1ce00ecb1c629347b73c517d2b8c8e96747eb261
+  - 1ce00ecb1c629347b73c517d2b8c8e96747eb261
+  - 1ce00ecb1c629347b73c517d2b8c8e96747eb261
+  - 78ea06b4fee8fdeb613f9efbcf7674cb4b3e8efc
+  - 78ea06b4fee8fdeb613f9efbcf7674cb4b3e8efc
+  - 78ea06b4fee8fdeb613f9efbcf7674cb4b3e8efc
+  - 78ea06b4fee8fdeb613f9efbcf7674cb4b3e8efc
+  - 78ea06b4fee8fdeb613f9efbcf7674cb4b3e8efc
+  - 78ea06b4fee8fdeb613f9efbcf7674cb4b3e8efc
+  - 78ea06b4fee8fdeb613f9efbcf7674cb4b3e8efc
+  - 78ea06b4fee8fdeb613f9efbcf7674cb4b3e8efc
+  - 78ea06b4fee8fdeb613f9efbcf7674cb4b3e8efc
+  - 78ea06b4fee8fdeb613f9efbcf7674cb4b3e8efc
+  - 78ea06b4fee8fdeb613f9efbcf7674cb4b3e8efc
+  - 78ea06b4fee8fdeb613f9efbcf7674cb4b3e8efc
+  - 78ea06b4fee8fdeb613f9efbcf7674cb4b3e8efc
+  - 78ea06b4fee8fdeb613f9efbcf7674cb4b3e8efc
+  - 78ea06b4fee8fdeb613f9efbcf7674cb4b3e8efc
+  - 78ea06b4fee8fdeb613f9efbcf7674cb4b3e8efc
+  - 78ea06b4fee8fdeb613f9efbcf7674cb4b3e8efc
+  - 78ea06b4fee8fdeb613f9efbcf7674cb4b3e8efc
+  commit_sha: d5af451be3b898586fa2578542de0e87e0f5bcba
+  generated_at: '1792310968'
+  generator: kuda-template/0.1.0

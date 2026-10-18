@@ -1,0 +1,91 @@
+name: bupha-dagger
+path: crates/bupha-dagger/Cargo.toml
+purpose: 'Runner impl: `dagger call <fn>` per job'
+api:
+- name: bupha-dagger
+  kind: module
+  file: crates/bupha-dagger/Cargo.toml
+  line: 1
+  module: bupha-dagger
+- name: DaggerCfg
+  kind: type
+  file: crates/bupha-dagger/src/lib.rs
+  line: 13
+  module: bupha-dagger
+- name: default_function
+  kind: function
+  file: crates/bupha-dagger/src/lib.rs
+  line: 34
+  module: bupha-dagger
+- name: default_shards
+  kind: function
+  file: crates/bupha-dagger/src/lib.rs
+  line: 37
+  module: bupha-dagger
+- name: default_jobs
+  kind: function
+  file: crates/bupha-dagger/src/lib.rs
+  line: 40
+  module: bupha-dagger
+- name: DaggerRunner
+  kind: type
+  file: crates/bupha-dagger/src/lib.rs
+  line: 44
+  module: bupha-dagger
+- name: new
+  kind: function
+  file: crates/bupha-dagger/src/lib.rs
+  line: 52
+  module: bupha-dagger
+- name: name
+  kind: function
+  file: crates/bupha-dagger/src/lib.rs
+  line: 58
+  module: bupha-dagger
+- name: spawn
+  kind: function
+  file: crates/bupha-dagger/src/lib.rs
+  line: 62
+  module: bupha-dagger
+deps:
+- bupha-core
+- bupha-runner
+- serde
+- toml
+- bupha_runner
+- serde
+notes: ''
+verify:
+- crates/bupha-dagger/Cargo.toml
+- crates/bupha-dagger/src/lib.rs
+- crates/bupha-dagger/src/lib.rs
+- crates/bupha-dagger/src/lib.rs
+- crates/bupha-dagger/src/lib.rs
+- crates/bupha-dagger/src/lib.rs
+- crates/bupha-dagger/src/lib.rs
+- crates/bupha-dagger/src/lib.rs
+- crates/bupha-dagger/src/lib.rs
+provenance:
+  files:
+  - crates/bupha-dagger/Cargo.toml
+  - crates/bupha-dagger/src/lib.rs
+  - crates/bupha-dagger/src/lib.rs
+  - crates/bupha-dagger/src/lib.rs
+  - crates/bupha-dagger/src/lib.rs
+  - crates/bupha-dagger/src/lib.rs
+  - crates/bupha-dagger/src/lib.rs
+  - crates/bupha-dagger/src/lib.rs
+  - crates/bupha-dagger/src/lib.rs
+  hashes:
+  - 6ebc856617d9589fc7fa9c6363696d2e543e5f0b
+  - 1df6231881479c8c56a4ee2f99daf2c868d52794
+  - 1df6231881479c8c56a4ee2f99daf2c868d52794
+  - 1df6231881479c8c56a4ee2f99daf2c868d52794
+  - 1df6231881479c8c56a4ee2f99daf2c868d52794
+  - 1df6231881479c8c56a4ee2f99daf2c868d52794
+  - 1df6231881479c8c56a4ee2f99daf2c868d52794
+  - 1df6231881479c8c56a4ee2f99daf2c868d52794
+  - 1df6231881479c8c56a4ee2f99daf2c868d52794
+  commit_sha: d5af451be3b898586fa2578542de0e87e0f5bcba
+  generated_at: '1792310968'
+  generator: kuda-template/0.1.0

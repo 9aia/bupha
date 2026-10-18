@@ -1,0 +1,101 @@
+name: _root
+path: modules/dagger/tests/test_self_patch.py
+purpose: '*The oxpecker on your repo''s back.*'
+api:
+- name: module_source
+  kind: function
+  file: modules/dagger/tests/test_self_patch.py
+  line: 20
+  module: _root
+- name: extract
+  kind: function
+  file: modules/dagger/tests/test_self_patch.py
+  line: 24
+  module: _root
+- name: run
+  kind: function
+  file: modules/dagger/tests/test_self_patch.py
+  line: 37
+  module: _root
+- name: run_raw
+  kind: function
+  file: modules/dagger/tests/test_self_patch.py
+  line: 48
+  module: _root
+- name: make_repo
+  kind: function
+  file: modules/dagger/tests/test_self_patch.py
+  line: 57
+  module: _root
+- name: test_appends_patch_block_from_repository_field
+  kind: function
+  file: modules/dagger/tests/test_self_patch.py
+  line: 70
+  module: _root
+- name: test_patch_host_overrides_repository
+  kind: function
+  file: modules/dagger/tests/test_self_patch.py
+  line: 85
+  module: _root
+- name: test_idempotent_rerun
+  kind: function
+  file: modules/dagger/tests/test_self_patch.py
+  line: 96
+  module: _root
+- name: test_strips_stale_rows_and_inner_comments
+  kind: function
+  file: modules/dagger/tests/test_self_patch.py
+  line: 108
+  module: _root
+- name: test_no_repository_no_patch_host_errors
+  kind: function
+  file: modules/dagger/tests/test_self_patch.py
+  line: 127
+  module: _root
+- name: test_no_public_fn_forwards_undeclared_names
+  kind: function
+  file: modules/dagger/tests/test_self_patch.py
+  line: 135
+  module: _root
+deps: []
+notes: ''
+verify:
+- modules/dagger/tests/test_self_patch.py
+- modules/dagger/tests/test_self_patch.py
+- modules/dagger/tests/test_self_patch.py
+- modules/dagger/tests/test_self_patch.py
+- modules/dagger/tests/test_self_patch.py
+- modules/dagger/tests/test_self_patch.py
+- modules/dagger/tests/test_self_patch.py
+- modules/dagger/tests/test_self_patch.py
+- modules/dagger/tests/test_self_patch.py
+- modules/dagger/tests/test_self_patch.py
+- modules/dagger/tests/test_self_patch.py
+provenance:
+  files:
+  - modules/dagger/tests/test_self_patch.py
+  - modules/dagger/tests/test_self_patch.py
+  - modules/dagger/tests/test_self_patch.py
+  - modules/dagger/tests/test_self_patch.py
+  - modules/dagger/tests/test_self_patch.py
+  - modules/dagger/tests/test_self_patch.py
+  - modules/dagger/tests/test_self_patch.py
+  - modules/dagger/tests/test_self_patch.py
+  - modules/dagger/tests/test_self_patch.py
+  - modules/dagger/tests/test_self_patch.py
+  - modules/dagger/tests/test_self_patch.py
+  hashes:
+  - 509a3147960f3aa59978a55730803da3c2ff0850
+  - 509a3147960f3aa59978a55730803da3c2ff0850
+  - 509a3147960f3aa59978a55730803da3c2ff0850
+  - 509a3147960f3aa59978a55730803da3c2ff0850
+  - 509a3147960f3aa59978a55730803da3c2ff0850
+  - 509a3147960f3aa59978a55730803da3c2ff0850
+  - 509a3147960f3aa59978a55730803da3c2ff0850
+  - 509a3147960f3aa59978a55730803da3c2ff0850
+  - 509a3147960f3aa59978a55730803da3c2ff0850
+  - 509a3147960f3aa59978a55730803da3c2ff0850
+  - 509a3147960f3aa59978a55730803da3c2ff0850
+  commit_sha: d5af451be3b898586fa2578542de0e87e0f5bcba
+  generated_at: '1792310968'
+  generator: kuda-template/0.1.0

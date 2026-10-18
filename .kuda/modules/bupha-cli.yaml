@@ -1,0 +1,329 @@
+name: bupha-cli
+path: crates/bupha-cli/tests/e2e.rs
+purpose: '*The oxpecker on your repo''s back.*'
+api:
+- name: sign
+  kind: function
+  file: crates/bupha-cli/tests/e2e.rs
+  line: 9
+  module: bupha-cli
+- name: Svc
+  kind: type
+  file: crates/bupha-cli/tests/e2e.rs
+  line: 15
+  module: bupha-cli
+- name: drop
+  kind: function
+  file: crates/bupha-cli/tests/e2e.rs
+  line: 17
+  module: bupha-cli
+- name: post
+  kind: function
+  file: crates/bupha-cli/tests/e2e.rs
+  line: 22
+  module: bupha-cli
+- name: post_d
+  kind: function
+  file: crates/bupha-cli/tests/e2e.rs
+  line: 26
+  module: bupha-cli
+- name: watch_e2e
+  kind: function
+  file: crates/bupha-cli/tests/e2e.rs
+  line: 53
+  module: bupha-cli
+- name: Cli
+  kind: type
+  file: crates/bupha-cli/src/main.rs
+  line: 52
+  module: bupha-cli
+- name: Cmd
+  kind: type
+  file: crates/bupha-cli/src/main.rs
+  line: 62
+  module: bupha-cli
+- name: DeploySub
+  kind: type
+  file: crates/bupha-cli/src/main.rs
+  line: 112
+  module: bupha-cli
+- name: DestroySub
+  kind: type
+  file: crates/bupha-cli/src/main.rs
+  line: 137
+  module: bupha-cli
+- name: build_runner
+  kind: function
+  file: crates/bupha-cli/src/main.rs
+  line: 146
+  module: bupha-cli
+- name: cfg_dir
+  kind: function
+  file: crates/bupha-cli/src/main.rs
+  line: 204
+  module: bupha-cli
+- name: secret
+  kind: function
+  file: crates/bupha-cli/src/main.rs
+  line: 217
+  module: bupha-cli
+- name: ChildSlot
+  kind: type
+  file: crates/bupha-cli/src/main.rs
+  line: 230
+  module: bupha-cli
+- name: Worker
+  kind: type
+  file: crates/bupha-cli/src/main.rs
+  line: 233
+  module: bupha-cli
+- name: run_job
+  kind: function
+  file: crates/bupha-cli/src/main.rs
+  line: 239
+  module: bupha-cli
+- name: Shared
+  kind: type
+  file: crates/bupha-cli/src/main.rs
+  line: 331
+  module: bupha-cli
+- name: persist_queue
+  kind: function
+  file: crates/bupha-cli/src/main.rs
+  line: 337
+  module: bupha-cli
+- name: cmd_watch
+  kind: function
+  file: crates/bupha-cli/src/main.rs
+  line: 354
+  module: bupha-cli
+- name: cmd_init
+  kind: function
+  file: crates/bupha-cli/src/main.rs
+  line: 757
+  module: bupha-cli
+- name: MODULE_REF
+  kind: const
+  file: crates/bupha-cli/src/main.rs
+  line: 847
+  module: bupha-cli
+- name: DELEGATE_TEMPLATE
+  kind: const
+  file: crates/bupha-cli/src/main.rs
+  line: 849
+  module: bupha-cli
+- name: check
+  kind: function
+  file: crates/bupha-cli/src/main.rs
+  line: 875
+  module: bupha-cli
+- name: cmd_doctor
+  kind: function
+  file: crates/bupha-cli/src/main.rs
+  line: 883
+  module: bupha-cli
+- name: cmd_run
+  kind: function
+  file: crates/bupha-cli/src/main.rs
+  line: 1067
+  module: bupha-cli
+- name: main
+  kind: function
+  file: crates/bupha-cli/src/main.rs
+  line: 1099
+  module: bupha-cli
+- name: cmd_deploy
+  kind: function
+  file: crates/bupha-cli/src/main.rs
+  line: 1137
+  module: bupha-cli
+- name: cmd_deploy_release
+  kind: function
+  file: crates/bupha-cli/src/main.rs
+  line: 1247
+  module: bupha-cli
+- name: cmd_destroy
+  kind: function
+  file: crates/bupha-cli/src/main.rs
+  line: 1372
+  module: bupha-cli
+- name: deploy_check
+  kind: function
+  file: crates/bupha-cli/src/main.rs
+  line: 1454
+  module: bupha-cli
+- name: ureq_probe
+  kind: function
+  file: crates/bupha-cli/src/main.rs
+  line: 1523
+  module: bupha-cli
+- name: history_path
+  kind: function
+  file: crates/bupha-cli/src/main.rs
+  line: 1541
+  module: bupha-cli
+- name: cmd_runs
+  kind: function
+  file: crates/bupha-cli/src/main.rs
+  line: 1545
+  module: bupha-cli
+- name: cmd_log
+  kind: function
+  file: crates/bupha-cli/src/main.rs
+  line: 1570
+  module: bupha-cli
+- name: cmd_explain
+  kind: function
+  file: crates/bupha-cli/src/main.rs
+  line: 1585
+  module: bupha-cli
+deps:
+- hmac
+- sha2
+- bupha_access
+- bupha_access_file
+- bupha_access_forge
+- bupha_attest
+- bupha_attest_file
+- bupha_attest_sigstore
+- bupha_cache
+- bupha_cache_sccache
+- bupha_cloudflared
+- bupha_config
+- bupha_config_toml
+- bupha_container
+- bupha_core
+- bupha_dagger
+- bupha_dotenv
+- bupha_git
+- bupha_github
+- bupha_history
+- bupha_keyring
+- bupha_queue
+- bupha_queue_lease
+- bupha_queue_redb
+- bupha_runner
+- bupha_secret
+- bupha_service
+- bupha_shell
+- bupha_status
+- bupha_telemetry
+- bupha_telemetry_otel
+- bupha_trigger
+- bupha_trigger
+- bupha_tunnel
+- bupha_vcs
+- clap
+notes: ''
+verify:
+- crates/bupha-cli/tests/e2e.rs
+- crates/bupha-cli/tests/e2e.rs
+- crates/bupha-cli/tests/e2e.rs
+- crates/bupha-cli/tests/e2e.rs
+- crates/bupha-cli/tests/e2e.rs
+- crates/bupha-cli/tests/e2e.rs
+- crates/bupha-cli/src/main.rs
+- crates/bupha-cli/src/main.rs
+- crates/bupha-cli/src/main.rs
+- crates/bupha-cli/src/main.rs
+- crates/bupha-cli/src/main.rs
+- crates/bupha-cli/src/main.rs
+- crates/bupha-cli/src/main.rs
+- crates/bupha-cli/src/main.rs
+- crates/bupha-cli/src/main.rs
+- crates/bupha-cli/src/main.rs
+- crates/bupha-cli/src/main.rs
+- crates/bupha-cli/src/main.rs
+- crates/bupha-cli/src/main.rs
+- crates/bupha-cli/src/main.rs
+- crates/bupha-cli/src/main.rs
+- crates/bupha-cli/src/main.rs
+- crates/bupha-cli/src/main.rs
+- crates/bupha-cli/src/main.rs
+- crates/bupha-cli/src/main.rs
+- crates/bupha-cli/src/main.rs
+- crates/bupha-cli/src/main.rs
+- crates/bupha-cli/src/main.rs
+- crates/bupha-cli/src/main.rs
+- crates/bupha-cli/src/main.rs
+- crates/bupha-cli/src/main.rs
+- crates/bupha-cli/src/main.rs
+- crates/bupha-cli/src/main.rs
+- crates/bupha-cli/src/main.rs
+- crates/bupha-cli/src/main.rs
+provenance:
+  files:
+  - crates/bupha-cli/tests/e2e.rs
+  - crates/bupha-cli/tests/e2e.rs
+  - crates/bupha-cli/tests/e2e.rs
+  - crates/bupha-cli/tests/e2e.rs
+  - crates/bupha-cli/tests/e2e.rs
+  - crates/bupha-cli/tests/e2e.rs
+  - crates/bupha-cli/src/main.rs
+  - crates/bupha-cli/src/main.rs
+  - crates/bupha-cli/src/main.rs
+  - crates/bupha-cli/src/main.rs
+  - crates/bupha-cli/src/main.rs
+  - crates/bupha-cli/src/main.rs
+  - crates/bupha-cli/src/main.rs
+  - crates/bupha-cli/src/main.rs
+  - crates/bupha-cli/src/main.rs
+  - crates/bupha-cli/src/main.rs
+  - crates/bupha-cli/src/main.rs
+  - crates/bupha-cli/src/main.rs
+  - crates/bupha-cli/src/main.rs
+  - crates/bupha-cli/src/main.rs
+  - crates/bupha-cli/src/main.rs
+  - crates/bupha-cli/src/main.rs
+  - crates/bupha-cli/src/main.rs
+  - crates/bupha-cli/src/main.rs
+  - crates/bupha-cli/src/main.rs
+  - crates/bupha-cli/src/main.rs
+  - crates/bupha-cli/src/main.rs
+  - crates/bupha-cli/src/main.rs
+  - crates/bupha-cli/src/main.rs
+  - crates/bupha-cli/src/main.rs
+  - crates/bupha-cli/src/main.rs
+  - crates/bupha-cli/src/main.rs
+  - crates/bupha-cli/src/main.rs
+  - crates/bupha-cli/src/main.rs
+  - crates/bupha-cli/src/main.rs
+  hashes:
+  - 0ebb4263d8f11206e3cb4d9b6e78b4b63113b79f
+  - 0ebb4263d8f11206e3cb4d9b6e78b4b63113b79f
+  - 0ebb4263d8f11206e3cb4d9b6e78b4b63113b79f
+  - 0ebb4263d8f11206e3cb4d9b6e78b4b63113b79f
+  - 0ebb4263d8f11206e3cb4d9b6e78b4b63113b79f
+  - 0ebb4263d8f11206e3cb4d9b6e78b4b63113b79f
+  - 9335aebfac1f0da60596d443f46124db57879a15
+  - 9335aebfac1f0da60596d443f46124db57879a15
+  - 9335aebfac1f0da60596d443f46124db57879a15
+  - 9335aebfac1f0da60596d443f46124db57879a15
+  - 9335aebfac1f0da60596d443f46124db57879a15
+  - 9335aebfac1f0da60596d443f46124db57879a15
+  - 9335aebfac1f0da60596d443f46124db57879a15
+  - 9335aebfac1f0da60596d443f46124db57879a15
+  - 9335aebfac1f0da60596d443f46124db57879a15
+  - 9335aebfac1f0da60596d443f46124db57879a15
+  - 9335aebfac1f0da60596d443f46124db57879a15
+  - 9335aebfac1f0da60596d443f46124db57879a15
+  - 9335aebfac1f0da60596d443f46124db57879a15
+  - 9335aebfac1f0da60596d443f46124db57879a15
+  - 9335aebfac1f0da60596d443f46124db57879a15
+  - 9335aebfac1f0da60596d443f46124db57879a15
+  - 9335aebfac1f0da60596d443f46124db57879a15
+  - 9335aebfac1f0da60596d443f46124db57879a15
+  - 9335aebfac1f0da60596d443f46124db57879a15
+  - 9335aebfac1f0da60596d443f46124db57879a15
+  - 9335aebfac1f0da60596d443f46124db57879a15
+  - 9335aebfac1f0da60596d443f46124db57879a15
+  - 9335aebfac1f0da60596d443f46124db57879a15
+  - 9335aebfac1f0da60596d443f46124db57879a15
+  - 9335aebfac1f0da60596d443f46124db57879a15
+  - 9335aebfac1f0da60596d443f46124db57879a15
+  - 9335aebfac1f0da60596d443f46124db57879a15
+  - 9335aebfac1f0da60596d443f46124db57879a15
+  - 9335aebfac1f0da60596d443f46124db57879a15
+  commit_sha: d5af451be3b898586fa2578542de0e87e0f5bcba
+  generated_at: '1792310968'
+  generator: kuda-template/0.1.0

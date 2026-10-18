@@ -1,0 +1,21 @@
+# mimus.toml — per-repo critic config. Secrets (LLM provider
+# keys) resolve via env var -> OS keyring -> ~/.config/mimus/env;
+# never this file.
+
+[sources]
+docs = ["README.md", "docs/**/*.md", "AGENTS.md", "project/**/*.md"]
+comments = true                  # extract claims from code comments
+cards = ".kuda/modules/*.yaml"   # audit the memory layer itself
+
+[check]
+mechanical = true                # paths, commands, symbols, counts
+semantic = false                 # prose-vs-behavior; report tier
+kuda_index = ".kuda/index.sqlite"   # adapter: mimus-check-symbol — live
+
+[rules]
+dir = "rules"                    # data-driven convention rules
+# strict = true                  # fail CI on rule violations too
+
+[report]
+format = "human"                 # human | json
+# min_confidence = "high"        # suppress low-evidence findings

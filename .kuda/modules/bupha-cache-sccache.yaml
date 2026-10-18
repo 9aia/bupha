@@ -1,0 +1,47 @@
+name: bupha-cache-sccache
+path: crates/bupha-cache-sccache/Cargo.toml
+purpose: 'Cache impl: sccache-compatible conf (file/S3/R2/GCS via conf)'
+api:
+- name: bupha-cache-sccache
+  kind: module
+  file: crates/bupha-cache-sccache/Cargo.toml
+  line: 1
+  module: bupha-cache-sccache
+- name: SccacheConf
+  kind: type
+  file: crates/bupha-cache-sccache/src/lib.rs
+  line: 9
+  module: bupha-cache-sccache
+- name: kind
+  kind: function
+  file: crates/bupha-cache-sccache/src/lib.rs
+  line: 14
+  module: bupha-cache-sccache
+- name: conf
+  kind: function
+  file: crates/bupha-cache-sccache/src/lib.rs
+  line: 17
+  module: bupha-cache-sccache
+deps:
+- bupha-cache
+- bupha_cache
+notes: ''
+verify:
+- crates/bupha-cache-sccache/Cargo.toml
+- crates/bupha-cache-sccache/src/lib.rs
+- crates/bupha-cache-sccache/src/lib.rs
+- crates/bupha-cache-sccache/src/lib.rs
+provenance:
+  files:
+  - crates/bupha-cache-sccache/Cargo.toml
+  - crates/bupha-cache-sccache/src/lib.rs
+  - crates/bupha-cache-sccache/src/lib.rs
+  - crates/bupha-cache-sccache/src/lib.rs
+  hashes:
+  - 1ce58c0ddf98f4e695cbd71d19541ac6dc19034a
+  - b38bbcfb1d097c290ada7870e2ed59c9b8408c96
+  - b38bbcfb1d097c290ada7870e2ed59c9b8408c96
+  - b38bbcfb1d097c290ada7870e2ed59c9b8408c96
+  commit_sha: d5af451be3b898586fa2578542de0e87e0f5bcba
+  generated_at: '1792310968'
+  generator: kuda-template/0.1.0

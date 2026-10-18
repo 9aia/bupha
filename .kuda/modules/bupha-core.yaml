@@ -1,0 +1,538 @@
+name: bupha-core
+path: crates/bupha-core/Cargo.toml
+purpose: 'bupha domain core: config types, job queues, shared primitives — no ports, no integrations'
+api:
+- name: bupha-core
+  kind: module
+  file: crates/bupha-core/Cargo.toml
+  line: 1
+  module: bupha-core
+- name: queue_latest_wins
+  kind: function
+  file: crates/bupha-core/tests/core.rs
+  line: 4
+  module: bupha-core
+- name: queue_all_runs_every_push
+  kind: function
+  file: crates/bupha-core/tests/core.rs
+  line: 36
+  module: bupha-core
+- name: queue_all_evicts_oldest_when_full
+  kind: function
+  file: crates/bupha-core/tests/core.rs
+  line: 52
+  module: bupha-core
+- name: TOML
+  kind: const
+  file: crates/bupha-core/tests/core.rs
+  line: 68
+  module: bupha-core
+- name: config_repo_queue_policy
+  kind: function
+  file: crates/bupha-core/tests/core.rs
+  line: 82
+  module: bupha-core
+- name: config_multi_repo
+  kind: function
+  file: crates/bupha-core/tests/core.rs
+  line: 95
+  module: bupha-core
+- name: config_repos_alias
+  kind: function
+  file: crates/bupha-core/tests/core.rs
+  line: 104
+  module: bupha-core
+- name: config_rejects_unknown_fields
+  kind: function
+  file: crates/bupha-core/tests/core.rs
+  line: 124
+  module: bupha-core
+- name: config_all_rejects_cancel_running
+  kind: function
+  file: crates/bupha-core/tests/core.rs
+  line: 130
+  module: bupha-core
+- name: sha_validation
+  kind: function
+  file: crates/bupha-core/tests/core.rs
+  line: 147
+  module: bupha-core
+- name: config_no_repo_errors
+  kind: function
+  file: crates/bupha-core/tests/core.rs
+  line: 165
+  module: bupha-core
+- name: seen_dedups_and_evicts
+  kind: function
+  file: crates/bupha-core/tests/core.rs
+  line: 181
+  module: bupha-core
+- name: is_valid_sha
+  kind: function
+  file: crates/bupha-core/src/lib.rs
+  line: 16
+  module: bupha-core
+- name: QueuePolicy
+  kind: type
+  file: crates/bupha-core/src/lib.rs
+  line: 30
+  module: bupha-core
+- name: MAX_PENDING
+  kind: const
+  file: crates/bupha-core/src/lib.rs
+  line: 37
+  module: bupha-core
+- name: Seen
+  kind: type
+  file: crates/bupha-core/src/lib.rs
+  line: 43
+  module: bupha-core
+- name: new
+  kind: function
+  file: crates/bupha-core/src/lib.rs
+  line: 50
+  module: bupha-core
+- name: insert
+  kind: function
+  file: crates/bupha-core/src/lib.rs
+  line: 58
+  module: bupha-core
+- name: default
+  kind: function
+  file: crates/bupha-core/src/lib.rs
+  line: 73
+  module: bupha-core
+- name: Queue
+  kind: type
+  file: crates/bupha-core/src/lib.rs
+  line: 81
+  module: bupha-core
+- name: with_policy
+  kind: function
+  file: crates/bupha-core/src/lib.rs
+  line: 89
+  module: bupha-core
+- name: enqueue
+  kind: function
+  file: crates/bupha-core/src/lib.rs
+  line: 99
+  module: bupha-core
+- name: dequeue
+  kind: function
+  file: crates/bupha-core/src/lib.rs
+  line: 113
+  module: bupha-core
+- name: EnqueueResult
+  kind: type
+  file: crates/bupha-core/src/lib.rs
+  line: 118
+  module: bupha-core
+- name: CacheCfg
+  kind: type
+  file: crates/bupha-core/src/lib.rs
+  line: 128
+  module: bupha-core
+- name: default_cache_kind
+  kind: function
+  file: crates/bupha-core/src/lib.rs
+  line: 137
+  module: bupha-core
+- name: default_api_base
+  kind: function
+  file: crates/bupha-core/src/lib.rs
+  line: 141
+  module: bupha-core
+- name: AccessCfg
+  kind: type
+  file: crates/bupha-core/src/lib.rs
+  line: 150
+  module: bupha-core
+- name: default_access_kind
+  kind: function
+  file: crates/bupha-core/src/lib.rs
+  line: 160
+  module: bupha-core
+- name: default
+  kind: function
+  file: crates/bupha-core/src/lib.rs
+  line: 165
+  module: bupha-core
+- name: TelemetryCfg
+  kind: type
+  file: crates/bupha-core/src/lib.rs
+  line: 177
+  module: bupha-core
+- name: default_telemetry_kind
+  kind: function
+  file: crates/bupha-core/src/lib.rs
+  line: 188
+  module: bupha-core
+- name: AttestCfg
+  kind: type
+  file: crates/bupha-core/src/lib.rs
+  line: 196
+  module: bupha-core
+- name: default_attest_kind
+  kind: function
+  file: crates/bupha-core/src/lib.rs
+  line: 211
+  module: bupha-core
+- name: default
+  kind: function
+  file: crates/bupha-core/src/lib.rs
+  line: 216
+  module: bupha-core
+- name: QueueCfg
+  kind: type
+  file: crates/bupha-core/src/lib.rs
+  line: 229
+  module: bupha-core
+- name: default_queue_kind
+  kind: function
+  file: crates/bupha-core/src/lib.rs
+  line: 238
+  module: bupha-core
+- name: default
+  kind: function
+  file: crates/bupha-core/src/lib.rs
+  line: 243
+  module: bupha-core
+- name: default
+  kind: function
+  file: crates/bupha-core/src/lib.rs
+  line: 252
+  module: bupha-core
+- name: Config
+  kind: type
+  file: crates/bupha-core/src/lib.rs
+  line: 262
+  module: bupha-core
+- name: RepoEntry
+  kind: type
+  file: crates/bupha-core/src/lib.rs
+  line: 299
+  module: bupha-core
+- name: status_repo
+  kind: function
+  file: crates/bupha-core/src/lib.rs
+  line: 321
+  module: bupha-core
+- name: WatchedRepo
+  kind: type
+  file: crates/bupha-core/src/lib.rs
+  line: 329
+  module: bupha-core
+- name: watched
+  kind: function
+  file: crates/bupha-core/src/lib.rs
+  line: 340
+  module: bupha-core
+- name: TriggerCfg
+  kind: type
+  file: crates/bupha-core/src/lib.rs
+  line: 374
+  module: bupha-core
+- name: RunnerCfg
+  kind: type
+  file: crates/bupha-core/src/lib.rs
+  line: 390
+  module: bupha-core
+- name: default_token_env
+  kind: function
+  file: crates/bupha-core/src/lib.rs
+  line: 406
+  module: bupha-core
+- name: StatusCfg
+  kind: type
+  file: crates/bupha-core/src/lib.rs
+  line: 412
+  module: bupha-core
+- name: TunnelCfg
+  kind: type
+  file: crates/bupha-core/src/lib.rs
+  line: 426
+  module: bupha-core
+- name: default
+  kind: function
+  file: crates/bupha-core/src/lib.rs
+  line: 442
+  module: bupha-core
+- name: WorktreeCfg
+  kind: type
+  file: crates/bupha-core/src/lib.rs
+  line: 454
+  module: bupha-core
+- name: default
+  kind: function
+  file: crates/bupha-core/src/lib.rs
+  line: 461
+  module: bupha-core
+- name: default_branch
+  kind: function
+  file: crates/bupha-core/src/lib.rs
+  line: 468
+  module: bupha-core
+- name: default_listen
+  kind: function
+  file: crates/bupha-core/src/lib.rs
+  line: 471
+  module: bupha-core
+- name: default_secret_env
+  kind: function
+  file: crates/bupha-core/src/lib.rs
+  line: 474
+  module: bupha-core
+- name: default_status_kind
+  kind: function
+  file: crates/bupha-core/src/lib.rs
+  line: 477
+  module: bupha-core
+- name: default_context
+  kind: function
+  file: crates/bupha-core/src/lib.rs
+  line: 480
+  module: bupha-core
+- name: default_tunnel_provider
+  kind: function
+  file: crates/bupha-core/src/lib.rs
+  line: 483
+  module: bupha-core
+- name: default_local_url
+  kind: function
+  file: crates/bupha-core/src/lib.rs
+  line: 486
+  module: bupha-core
+- name: default_wt_base
+  kind: function
+  file: crates/bupha-core/src/lib.rs
+  line: 489
+  module: bupha-core
+- name: publish_order
+  kind: function
+  file: crates/bupha-core/src/lib.rs
+  line: 496
+  module: bupha-core
+- name: tests
+  kind: module
+  file: crates/bupha-core/src/lib.rs
+  line: 524
+  module: bupha-core
+- name: order_respects_path_deps
+  kind: function
+  file: crates/bupha-core/src/lib.rs
+  line: 528
+  module: bupha-core
+- name: cycle_errors
+  kind: function
+  file: crates/bupha-core/src/lib.rs
+  line: 542
+  module: bupha-core
+deps:
+- serde
+- serde_json
+- toml
+- bupha_core
+- serde
+notes: ''
+verify:
+- crates/bupha-core/Cargo.toml
+- crates/bupha-core/tests/core.rs
+- crates/bupha-core/tests/core.rs
+- crates/bupha-core/tests/core.rs
+- crates/bupha-core/tests/core.rs
+- crates/bupha-core/tests/core.rs
+- crates/bupha-core/tests/core.rs
+- crates/bupha-core/tests/core.rs
+- crates/bupha-core/tests/core.rs
+- crates/bupha-core/tests/core.rs
+- crates/bupha-core/tests/core.rs
+- crates/bupha-core/tests/core.rs
+- crates/bupha-core/tests/core.rs
+- crates/bupha-core/src/lib.rs
+- crates/bupha-core/src/lib.rs
+- crates/bupha-core/src/lib.rs
+- crates/bupha-core/src/lib.rs
+- crates/bupha-core/src/lib.rs
+- crates/bupha-core/src/lib.rs
+- crates/bupha-core/src/lib.rs
+- crates/bupha-core/src/lib.rs
+- crates/bupha-core/src/lib.rs
+- crates/bupha-core/src/lib.rs
+- crates/bupha-core/src/lib.rs
+- crates/bupha-core/src/lib.rs
+- crates/bupha-core/src/lib.rs
+- crates/bupha-core/src/lib.rs
+- crates/bupha-core/src/lib.rs
+- crates/bupha-core/src/lib.rs
+- crates/bupha-core/src/lib.rs
+- crates/bupha-core/src/lib.rs
+- crates/bupha-core/src/lib.rs
+- crates/bupha-core/src/lib.rs
+- crates/bupha-core/src/lib.rs
+- crates/bupha-core/src/lib.rs
+- crates/bupha-core/src/lib.rs
+- crates/bupha-core/src/lib.rs
+- crates/bupha-core/src/lib.rs
+- crates/bupha-core/src/lib.rs
+- crates/bupha-core/src/lib.rs
+- crates/bupha-core/src/lib.rs
+- crates/bupha-core/src/lib.rs
+- crates/bupha-core/src/lib.rs
+- crates/bupha-core/src/lib.rs
+- crates/bupha-core/src/lib.rs
+- crates/bupha-core/src/lib.rs
+- crates/bupha-core/src/lib.rs
+- crates/bupha-core/src/lib.rs
+- crates/bupha-core/src/lib.rs
+- crates/bupha-core/src/lib.rs
+- crates/bupha-core/src/lib.rs
+- crates/bupha-core/src/lib.rs
+- crates/bupha-core/src/lib.rs
+- crates/bupha-core/src/lib.rs
+- crates/bupha-core/src/lib.rs
+- crates/bupha-core/src/lib.rs
+- crates/bupha-core/src/lib.rs
+- crates/bupha-core/src/lib.rs
+- crates/bupha-core/src/lib.rs
+- crates/bupha-core/src/lib.rs
+- crates/bupha-core/src/lib.rs
+- crates/bupha-core/src/lib.rs
+- crates/bupha-core/src/lib.rs
+- crates/bupha-core/src/lib.rs
+- crates/bupha-core/src/lib.rs
+provenance:
+  files:
+  - crates/bupha-core/Cargo.toml
+  - crates/bupha-core/tests/core.rs
+  - crates/bupha-core/tests/core.rs
+  - crates/bupha-core/tests/core.rs
+  - crates/bupha-core/tests/core.rs
+  - crates/bupha-core/tests/core.rs
+  - crates/bupha-core/tests/core.rs
+  - crates/bupha-core/tests/core.rs
+  - crates/bupha-core/tests/core.rs
+  - crates/bupha-core/tests/core.rs
+  - crates/bupha-core/tests/core.rs
+  - crates/bupha-core/tests/core.rs
+  - crates/bupha-core/tests/core.rs
+  - crates/bupha-core/src/lib.rs
+  - crates/bupha-core/src/lib.rs
+  - crates/bupha-core/src/lib.rs
+  - crates/bupha-core/src/lib.rs
+  - crates/bupha-core/src/lib.rs
+  - crates/bupha-core/src/lib.rs
+  - crates/bupha-core/src/lib.rs
+  - crates/bupha-core/src/lib.rs
+  - crates/bupha-core/src/lib.rs
+  - crates/bupha-core/src/lib.rs
+  - crates/bupha-core/src/lib.rs
+  - crates/bupha-core/src/lib.rs
+  - crates/bupha-core/src/lib.rs
+  - crates/bupha-core/src/lib.rs
+  - crates/bupha-core/src/lib.rs
+  - crates/bupha-core/src/lib.rs
+  - crates/bupha-core/src/lib.rs
+  - crates/bupha-core/src/lib.rs
+  - crates/bupha-core/src/lib.rs
+  - crates/bupha-core/src/lib.rs
+  - crates/bupha-core/src/lib.rs
+  - crates/bupha-core/src/lib.rs
+  - crates/bupha-core/src/lib.rs
+  - crates/bupha-core/src/lib.rs
+  - crates/bupha-core/src/lib.rs
+  - crates/bupha-core/src/lib.rs
+  - crates/bupha-core/src/lib.rs
+  - crates/bupha-core/src/lib.rs
+  - crates/bupha-core/src/lib.rs
+  - crates/bupha-core/src/lib.rs
+  - crates/bupha-core/src/lib.rs
+  - crates/bupha-core/src/lib.rs
+  - crates/bupha-core/src/lib.rs
+  - crates/bupha-core/src/lib.rs
+  - crates/bupha-core/src/lib.rs
+  - crates/bupha-core/src/lib.rs
+  - crates/bupha-core/src/lib.rs
+  - crates/bupha-core/src/lib.rs
+  - crates/bupha-core/src/lib.rs
+  - crates/bupha-core/src/lib.rs
+  - crates/bupha-core/src/lib.rs
+  - crates/bupha-core/src/lib.rs
+  - crates/bupha-core/src/lib.rs
+  - crates/bupha-core/src/lib.rs
+  - crates/bupha-core/src/lib.rs
+  - crates/bupha-core/src/lib.rs
+  - crates/bupha-core/src/lib.rs
+  - crates/bupha-core/src/lib.rs
+  - crates/bupha-core/src/lib.rs
+  - crates/bupha-core/src/lib.rs
+  - crates/bupha-core/src/lib.rs
+  - crates/bupha-core/src/lib.rs
+  hashes:
+  - 2949c06c8e71ef5da170506ce9cd8dfbb7312ce3
+  - 8b0cdc279339b83f4d0dea0c9e585ee2f6959ee7
+  - 8b0cdc279339b83f4d0dea0c9e585ee2f6959ee7
+  - 8b0cdc279339b83f4d0dea0c9e585ee2f6959ee7
+  - 8b0cdc279339b83f4d0dea0c9e585ee2f6959ee7
+  - 8b0cdc279339b83f4d0dea0c9e585ee2f6959ee7
+  - 8b0cdc279339b83f4d0dea0c9e585ee2f6959ee7
+  - 8b0cdc279339b83f4d0dea0c9e585ee2f6959ee7
+  - 8b0cdc279339b83f4d0dea0c9e585ee2f6959ee7
+  - 8b0cdc279339b83f4d0dea0c9e585ee2f6959ee7
+  - 8b0cdc279339b83f4d0dea0c9e585ee2f6959ee7
+  - 8b0cdc279339b83f4d0dea0c9e585ee2f6959ee7
+  - 8b0cdc279339b83f4d0dea0c9e585ee2f6959ee7
+  - 0597fceb3dbfb33faaf7203f76ada4c5033ae566
+  - 0597fceb3dbfb33faaf7203f76ada4c5033ae566
+  - 0597fceb3dbfb33faaf7203f76ada4c5033ae566
+  - 0597fceb3dbfb33faaf7203f76ada4c5033ae566
+  - 0597fceb3dbfb33faaf7203f76ada4c5033ae566
+  - 0597fceb3dbfb33faaf7203f76ada4c5033ae566
+  - 0597fceb3dbfb33faaf7203f76ada4c5033ae566
+  - 0597fceb3dbfb33faaf7203f76ada4c5033ae566
+  - 0597fceb3dbfb33faaf7203f76ada4c5033ae566
+  - 0597fceb3dbfb33faaf7203f76ada4c5033ae566
+  - 0597fceb3dbfb33faaf7203f76ada4c5033ae566
+  - 0597fceb3dbfb33faaf7203f76ada4c5033ae566
+  - 0597fceb3dbfb33faaf7203f76ada4c5033ae566
+  - 0597fceb3dbfb33faaf7203f76ada4c5033ae566
+  - 0597fceb3dbfb33faaf7203f76ada4c5033ae566
+  - 0597fceb3dbfb33faaf7203f76ada4c5033ae566
+  - 0597fceb3dbfb33faaf7203f76ada4c5033ae566
+  - 0597fceb3dbfb33faaf7203f76ada4c5033ae566
+  - 0597fceb3dbfb33faaf7203f76ada4c5033ae566
+  - 0597fceb3dbfb33faaf7203f76ada4c5033ae566
+  - 0597fceb3dbfb33faaf7203f76ada4c5033ae566
+  - 0597fceb3dbfb33faaf7203f76ada4c5033ae566
+  - 0597fceb3dbfb33faaf7203f76ada4c5033ae566
+  - 0597fceb3dbfb33faaf7203f76ada4c5033ae566
+  - 0597fceb3dbfb33faaf7203f76ada4c5033ae566
+  - 0597fceb3dbfb33faaf7203f76ada4c5033ae566
+  - 0597fceb3dbfb33faaf7203f76ada4c5033ae566
+  - 0597fceb3dbfb33faaf7203f76ada4c5033ae566
+  - 0597fceb3dbfb33faaf7203f76ada4c5033ae566
+  - 0597fceb3dbfb33faaf7203f76ada4c5033ae566
+  - 0597fceb3dbfb33faaf7203f76ada4c5033ae566
+  - 0597fceb3dbfb33faaf7203f76ada4c5033ae566
+  - 0597fceb3dbfb33faaf7203f76ada4c5033ae566
+  - 0597fceb3dbfb33faaf7203f76ada4c5033ae566
+  - 0597fceb3dbfb33faaf7203f76ada4c5033ae566
+  - 0597fceb3dbfb33faaf7203f76ada4c5033ae566
+  - 0597fceb3dbfb33faaf7203f76ada4c5033ae566
+  - 0597fceb3dbfb33faaf7203f76ada4c5033ae566
+  - 0597fceb3dbfb33faaf7203f76ada4c5033ae566
+  - 0597fceb3dbfb33faaf7203f76ada4c5033ae566
+  - 0597fceb3dbfb33faaf7203f76ada4c5033ae566
+  - 0597fceb3dbfb33faaf7203f76ada4c5033ae566
+  - 0597fceb3dbfb33faaf7203f76ada4c5033ae566
+  - 0597fceb3dbfb33faaf7203f76ada4c5033ae566
+  - 0597fceb3dbfb33faaf7203f76ada4c5033ae566
+  - 0597fceb3dbfb33faaf7203f76ada4c5033ae566
+  - 0597fceb3dbfb33faaf7203f76ada4c5033ae566
+  - 0597fceb3dbfb33faaf7203f76ada4c5033ae566
+  - 0597fceb3dbfb33faaf7203f76ada4c5033ae566
+  - 0597fceb3dbfb33faaf7203f76ada4c5033ae566
+  - 0597fceb3dbfb33faaf7203f76ada4c5033ae566
+  - 0597fceb3dbfb33faaf7203f76ada4c5033ae566
+  commit_sha: d5af451be3b898586fa2578542de0e87e0f5bcba
+  generated_at: '1792310968'
+  generator: kuda-template/0.1.0

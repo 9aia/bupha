@@ -1,0 +1,53 @@
+name: bupha-telemetry
+path: crates/bupha-telemetry/Cargo.toml
+purpose: 'Telemetry port: fire-and-forget pipeline events'
+api:
+- name: bupha-telemetry
+  kind: module
+  file: crates/bupha-telemetry/Cargo.toml
+  line: 1
+  module: bupha-telemetry
+- name: RunEvent
+  kind: type
+  file: crates/bupha-telemetry/src/lib.rs
+  line: 8
+  module: bupha-telemetry
+- name: Telemetry
+  kind: trait
+  file: crates/bupha-telemetry/src/lib.rs
+  line: 25
+  module: bupha-telemetry
+- name: NoopTelemetry
+  kind: type
+  file: crates/bupha-telemetry/src/lib.rs
+  line: 31
+  module: bupha-telemetry
+- name: event
+  kind: function
+  file: crates/bupha-telemetry/src/lib.rs
+  line: 33
+  module: bupha-telemetry
+deps: []
+notes: ''
+verify:
+- crates/bupha-telemetry/Cargo.toml
+- crates/bupha-telemetry/src/lib.rs
+- crates/bupha-telemetry/src/lib.rs
+- crates/bupha-telemetry/src/lib.rs
+- crates/bupha-telemetry/src/lib.rs
+provenance:
+  files:
+  - crates/bupha-telemetry/Cargo.toml
+  - crates/bupha-telemetry/src/lib.rs
+  - crates/bupha-telemetry/src/lib.rs
+  - crates/bupha-telemetry/src/lib.rs
+  - crates/bupha-telemetry/src/lib.rs
+  hashes:
+  - fbe2fdbccfd7b8538a701e654208633efa99e493
+  - 90122b23ae0a738e4760fb2e3ad0f035e9efde15
+  - 90122b23ae0a738e4760fb2e3ad0f035e9efde15
+  - 90122b23ae0a738e4760fb2e3ad0f035e9efde15
+  - 90122b23ae0a738e4760fb2e3ad0f035e9efde15
+  commit_sha: d5af451be3b898586fa2578542de0e87e0f5bcba
+  generated_at: '1792310968'
+  generator: kuda-template/0.1.0

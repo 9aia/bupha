@@ -1,0 +1,37 @@
+name: bupha-history
+path: crates/bupha-history/Cargo.toml
+purpose: 'Run-history adapter: JSONL records per finished run'
+api:
+- name: bupha-history
+  kind: module
+  file: crates/bupha-history/Cargo.toml
+  line: 1
+  module: bupha-history
+- name: RunRecord
+  kind: type
+  file: crates/bupha-history/src/lib.rs
+  line: 9
+  module: bupha-history
+- name: record
+  kind: function
+  file: crates/bupha-history/src/lib.rs
+  line: 22
+  module: bupha-history
+deps: []
+notes: ''
+verify:
+- crates/bupha-history/Cargo.toml
+- crates/bupha-history/src/lib.rs
+- crates/bupha-history/src/lib.rs
+provenance:
+  files:
+  - crates/bupha-history/Cargo.toml
+  - crates/bupha-history/src/lib.rs
+  - crates/bupha-history/src/lib.rs
+  hashes:
+  - bd3c49c8020bf9cc448326c4af9bd71df1191fb1
+  - a4d5f53943247c793bd60d1517db88365b083bf3
+  - a4d5f53943247c793bd60d1517db88365b083bf3
+  commit_sha: d5af451be3b898586fa2578542de0e87e0f5bcba
+  generated_at: '1792310968'
+  generator: kuda-template/0.1.0

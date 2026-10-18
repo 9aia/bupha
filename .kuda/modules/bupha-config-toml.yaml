@@ -1,0 +1,67 @@
+name: bupha-config-toml
+path: crates/bupha-config-toml/Cargo.toml
+purpose: 'Config impl: bupha.toml file (explicit path, env, ./, ~/.config)'
+api:
+- name: bupha-config-toml
+  kind: module
+  file: crates/bupha-config-toml/Cargo.toml
+  line: 1
+  module: bupha-config-toml
+- name: tmp
+  kind: function
+  file: crates/bupha-config-toml/tests/load.rs
+  line: 4
+  module: bupha-config-toml
+- name: loads_via_env_var
+  kind: function
+  file: crates/bupha-config-toml/tests/load.rs
+  line: 9
+  module: bupha-config-toml
+- name: explicit_path_and_missing_error
+  kind: function
+  file: crates/bupha-config-toml/tests/load.rs
+  line: 24
+  module: bupha-config-toml
+- name: TomlSource
+  kind: type
+  file: crates/bupha-config-toml/src/lib.rs
+  line: 7
+  module: bupha-config-toml
+- name: load
+  kind: function
+  file: crates/bupha-config-toml/src/lib.rs
+  line: 13
+  module: bupha-config-toml
+deps:
+- bupha-config
+- bupha-core
+- toml
+- bupha_config
+- bupha_config_toml
+- bupha_config
+notes: ''
+verify:
+- crates/bupha-config-toml/Cargo.toml
+- crates/bupha-config-toml/tests/load.rs
+- crates/bupha-config-toml/tests/load.rs
+- crates/bupha-config-toml/tests/load.rs
+- crates/bupha-config-toml/src/lib.rs
+- crates/bupha-config-toml/src/lib.rs
+provenance:
+  files:
+  - crates/bupha-config-toml/Cargo.toml
+  - crates/bupha-config-toml/tests/load.rs
+  - crates/bupha-config-toml/tests/load.rs
+  - crates/bupha-config-toml/tests/load.rs
+  - crates/bupha-config-toml/src/lib.rs
+  - crates/bupha-config-toml/src/lib.rs
+  hashes:
+  - 7129a91f360f001dacbf97af0481e8941b05fc2c
+  - 1a5699ae29b374aa66b9c3b9d31f1ac6202e455f
+  - 1a5699ae29b374aa66b9c3b9d31f1ac6202e455f
+  - 1a5699ae29b374aa66b9c3b9d31f1ac6202e455f
+  - 5b162f328bad30d1f63a20a97b53c8bf8f49803a
+  - 5b162f328bad30d1f63a20a97b53c8bf8f49803a
+  commit_sha: d5af451be3b898586fa2578542de0e87e0f5bcba
+  generated_at: '1792310968'
+  generator: kuda-template/0.1.0

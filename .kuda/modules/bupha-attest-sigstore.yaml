@@ -1,0 +1,41 @@
+name: bupha-attest-sigstore
+path: crates/bupha-attest-sigstore/Cargo.toml
+purpose: 'Attest adapter: cosign-signed run predicates (needs cosign + key)'
+api:
+- name: bupha-attest-sigstore
+  kind: module
+  file: crates/bupha-attest-sigstore/Cargo.toml
+  line: 1
+  module: bupha-attest-sigstore
+- name: SigstoreAttest
+  kind: type
+  file: crates/bupha-attest-sigstore/src/lib.rs
+  line: 13
+  module: bupha-attest-sigstore
+- name: attest
+  kind: function
+  file: crates/bupha-attest-sigstore/src/lib.rs
+  line: 23
+  module: bupha-attest-sigstore
+deps:
+- bupha-attest
+- bupha-attest-file
+- bupha_attest
+- bupha_attest_file
+notes: ''
+verify:
+- crates/bupha-attest-sigstore/Cargo.toml
+- crates/bupha-attest-sigstore/src/lib.rs
+- crates/bupha-attest-sigstore/src/lib.rs
+provenance:
+  files:
+  - crates/bupha-attest-sigstore/Cargo.toml
+  - crates/bupha-attest-sigstore/src/lib.rs
+  - crates/bupha-attest-sigstore/src/lib.rs
+  hashes:
+  - f12b90da40b7e3bb81eeb84c1ccd8529f31722a0
+  - 912f8356ff602b84f277a42e2f71bd6e7a6cd126
+  - 912f8356ff602b84f277a42e2f71bd6e7a6cd126
+  commit_sha: d5af451be3b898586fa2578542de0e87e0f5bcba
+  generated_at: '1792310968'
+  generator: kuda-template/0.1.0

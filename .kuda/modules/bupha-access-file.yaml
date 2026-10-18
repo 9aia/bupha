@@ -1,0 +1,71 @@
+name: bupha-access-file
+path: crates/bupha-access-file/Cargo.toml
+purpose: 'Access adapter: allowlist of forge logins from config'
+api:
+- name: bupha-access-file
+  kind: module
+  file: crates/bupha-access-file/Cargo.toml
+  line: 1
+  module: bupha-access-file
+- name: FileAccess
+  kind: type
+  file: crates/bupha-access-file/src/lib.rs
+  line: 10
+  module: bupha-access-file
+- name: allow
+  kind: function
+  file: crates/bupha-access-file/src/lib.rs
+  line: 16
+  module: bupha-access-file
+- name: tests
+  kind: module
+  file: crates/bupha-access-file/src/lib.rs
+  line: 22
+  module: bupha-access-file
+- name: allowlist_matches_sender
+  kind: function
+  file: crates/bupha-access-file/src/lib.rs
+  line: 26
+  module: bupha-access-file
+- name: empty_allowlist_denies_all
+  kind: function
+  file: crates/bupha-access-file/src/lib.rs
+  line: 36
+  module: bupha-access-file
+- name: allow_all_is_open
+  kind: function
+  file: crates/bupha-access-file/src/lib.rs
+  line: 42
+  module: bupha-access-file
+deps:
+- bupha-access
+- bupha_access
+notes: ''
+verify:
+- crates/bupha-access-file/Cargo.toml
+- crates/bupha-access-file/src/lib.rs
+- crates/bupha-access-file/src/lib.rs
+- crates/bupha-access-file/src/lib.rs
+- crates/bupha-access-file/src/lib.rs
+- crates/bupha-access-file/src/lib.rs
+- crates/bupha-access-file/src/lib.rs
+provenance:
+  files:
+  - crates/bupha-access-file/Cargo.toml
+  - crates/bupha-access-file/src/lib.rs
+  - crates/bupha-access-file/src/lib.rs
+  - crates/bupha-access-file/src/lib.rs
+  - crates/bupha-access-file/src/lib.rs
+  - crates/bupha-access-file/src/lib.rs
+  - crates/bupha-access-file/src/lib.rs
+  hashes:
+  - d3b36ada9a99ed7e36e96e47a7beb1f5bf3fe348
+  - e80cf9151320107d558b5c95335a97ccbe1a84cb
+  - e80cf9151320107d558b5c95335a97ccbe1a84cb
+  - e80cf9151320107d558b5c95335a97ccbe1a84cb
+  - e80cf9151320107d558b5c95335a97ccbe1a84cb
+  - e80cf9151320107d558b5c95335a97ccbe1a84cb
+  - e80cf9151320107d558b5c95335a97ccbe1a84cb
+  commit_sha: d5af451be3b898586fa2578542de0e87e0f5bcba
+  generated_at: '1792310968'
+  generator: kuda-template/0.1.0

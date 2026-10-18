@@ -1,0 +1,85 @@
+name: bupha-shell
+path: crates/bupha-shell/Cargo.toml
+purpose: 'Runner impl: bash -c <cmd> per job — no containers'
+api:
+- name: bupha-shell
+  kind: module
+  file: crates/bupha-shell/Cargo.toml
+  line: 1
+  module: bupha-shell
+- name: runs_cmd_in_worktree
+  kind: function
+  file: crates/bupha-shell/tests/runner.rs
+  line: 5
+  module: bupha-shell
+- name: failure_propagates
+  kind: function
+  file: crates/bupha-shell/tests/runner.rs
+  line: 19
+  module: bupha-shell
+- name: ShellRunner
+  kind: type
+  file: crates/bupha-shell/src/lib.rs
+  line: 10
+  module: bupha-shell
+- name: ShellCfg
+  kind: type
+  file: crates/bupha-shell/src/lib.rs
+  line: 16
+  module: bupha-shell
+- name: new
+  kind: function
+  file: crates/bupha-shell/src/lib.rs
+  line: 22
+  module: bupha-shell
+- name: name
+  kind: function
+  file: crates/bupha-shell/src/lib.rs
+  line: 28
+  module: bupha-shell
+- name: spawn
+  kind: function
+  file: crates/bupha-shell/src/lib.rs
+  line: 32
+  module: bupha-shell
+deps:
+- bupha-core
+- bupha-runner
+- serde
+- toml
+- bupha_runner
+- bupha_shell
+- bupha_runner
+- serde
+notes: ''
+verify:
+- crates/bupha-shell/Cargo.toml
+- crates/bupha-shell/tests/runner.rs
+- crates/bupha-shell/tests/runner.rs
+- crates/bupha-shell/src/lib.rs
+- crates/bupha-shell/src/lib.rs
+- crates/bupha-shell/src/lib.rs
+- crates/bupha-shell/src/lib.rs
+- crates/bupha-shell/src/lib.rs
+provenance:
+  files:
+  - crates/bupha-shell/Cargo.toml
+  - crates/bupha-shell/tests/runner.rs
+  - crates/bupha-shell/tests/runner.rs
+  - crates/bupha-shell/src/lib.rs
+  - crates/bupha-shell/src/lib.rs
+  - crates/bupha-shell/src/lib.rs
+  - crates/bupha-shell/src/lib.rs
+  - crates/bupha-shell/src/lib.rs
+  hashes:
+  - 6dce52587f4d41a91e9f578dddf2fec383a2f3a2
+  - 3570c40643ae419acdd53f387b4cd4e63ef47c4c
+  - 3570c40643ae419acdd53f387b4cd4e63ef47c4c
+  - b793961269033211bf1d1a2ee9c8f03142574e49
+  - b793961269033211bf1d1a2ee9c8f03142574e49
+  - b793961269033211bf1d1a2ee9c8f03142574e49
+  - b793961269033211bf1d1a2ee9c8f03142574e49
+  - b793961269033211bf1d1a2ee9c8f03142574e49
+  commit_sha: d5af451be3b898586fa2578542de0e87e0f5bcba
+  generated_at: '1792310968'
+  generator: kuda-template/0.1.0

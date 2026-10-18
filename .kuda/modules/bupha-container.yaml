@@ -1,0 +1,81 @@
+name: bupha-container
+path: crates/bupha-container/Cargo.toml
+purpose: 'Runner adapter: unprivileged container (podman/docker), network-off'
+api:
+- name: bupha-container
+  kind: module
+  file: crates/bupha-container/Cargo.toml
+  line: 1
+  module: bupha-container
+- name: default_engine
+  kind: function
+  file: crates/bupha-container/src/lib.rs
+  line: 10
+  module: bupha-container
+- name: default_network
+  kind: function
+  file: crates/bupha-container/src/lib.rs
+  line: 13
+  module: bupha-container
+- name: ContainerCfg
+  kind: type
+  file: crates/bupha-container/src/lib.rs
+  line: 19
+  module: bupha-container
+- name: ContainerRunner
+  kind: type
+  file: crates/bupha-container/src/lib.rs
+  line: 34
+  module: bupha-container
+- name: new
+  kind: function
+  file: crates/bupha-container/src/lib.rs
+  line: 39
+  module: bupha-container
+- name: name
+  kind: function
+  file: crates/bupha-container/src/lib.rs
+  line: 45
+  module: bupha-container
+- name: spawn
+  kind: function
+  file: crates/bupha-container/src/lib.rs
+  line: 49
+  module: bupha-container
+deps:
+- bupha-runner
+- serde
+- bupha_runner
+- serde
+notes: ''
+verify:
+- crates/bupha-container/Cargo.toml
+- crates/bupha-container/src/lib.rs
+- crates/bupha-container/src/lib.rs
+- crates/bupha-container/src/lib.rs
+- crates/bupha-container/src/lib.rs
+- crates/bupha-container/src/lib.rs
+- crates/bupha-container/src/lib.rs
+- crates/bupha-container/src/lib.rs
+provenance:
+  files:
+  - crates/bupha-container/Cargo.toml
+  - crates/bupha-container/src/lib.rs
+  - crates/bupha-container/src/lib.rs
+  - crates/bupha-container/src/lib.rs
+  - crates/bupha-container/src/lib.rs
+  - crates/bupha-container/src/lib.rs
+  - crates/bupha-container/src/lib.rs
+  - crates/bupha-container/src/lib.rs
+  hashes:
+  - ed119b77d73632bed5f8699fe776993139cce885
+  - 3c7c0737799d9cc2061e27c9d35573bc55bb2828
+  - 3c7c0737799d9cc2061e27c9d35573bc55bb2828
+  - 3c7c0737799d9cc2061e27c9d35573bc55bb2828
+  - 3c7c0737799d9cc2061e27c9d35573bc55bb2828
+  - 3c7c0737799d9cc2061e27c9d35573bc55bb2828
+  - 3c7c0737799d9cc2061e27c9d35573bc55bb2828
+  - 3c7c0737799d9cc2061e27c9d35573bc55bb2828
+  commit_sha: d5af451be3b898586fa2578542de0e87e0f5bcba
+  generated_at: '1792310968'
+  generator: kuda-template/0.1.0

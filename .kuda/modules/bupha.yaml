@@ -1,0 +1,75 @@
+name: bupha
+path: Cargo.toml
+purpose: '*The oxpecker on your repo''s back.*'
+api:
+- name: bupha
+  kind: module
+  file: Cargo.toml
+  line: 1
+  module: bupha
+- name: bupha
+  kind: module
+  file: crates/bupha-cli/Cargo.toml
+  line: 1
+  module: bupha
+deps:
+- bupha-access
+- bupha-access-file
+- bupha-access-forge
+- bupha-attest
+- bupha-attest-file
+- bupha-attest-sigstore
+- bupha-cache
+- bupha-cache-sccache
+- bupha-cloudflared
+- bupha-config
+- bupha-config-toml
+- bupha-container
+- bupha-core
+- bupha-dagger
+- bupha-dotenv
+- bupha-git
+- bupha-github
+- bupha-history
+- bupha-keyring
+- bupha-queue
+- bupha-queue-lease
+- bupha-queue-redb
+- bupha-queue-redis
+- bupha-runner
+- bupha-secret
+- bupha-service
+- bupha-shell
+- bupha-ssh
+- bupha-status
+- bupha-systemd
+- bupha-telemetry
+- bupha-telemetry-otel
+- bupha-trigger
+- bupha-tunnel
+- bupha-vcs
+- clap
+- clap-markdown
+- dirs
+- serde_json
+- tiny_http
+- toml
+- ureq
+- hex
+- hmac
+- sha2
+- ureq
+notes: ''
+verify:
+- Cargo.toml
+- crates/bupha-cli/Cargo.toml
+provenance:
+  files:
+  - Cargo.toml
+  - crates/bupha-cli/Cargo.toml
+  hashes:
+  - c16785bc9063ec0f023885535674c8a2aef6c967
+  - 68a69760a57b0aaa7d7d1a6e27e98386ab4a354e
+  commit_sha: d5af451be3b898586fa2578542de0e87e0f5bcba
+  generated_at: '1792310968'
+  generator: kuda-template/0.1.0
