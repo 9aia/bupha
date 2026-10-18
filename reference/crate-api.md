@@ -24,6 +24,7 @@ documented at source (doc comments).
 * [bupha-access-file](/bupha/api/bupha_access_file/index.html) — adapter
 * [bupha-access-forge](/bupha/api/bupha_access_forge/index.html) — adapter
 * [bupha-attest-file](/bupha/api/bupha_attest_file/index.html) — adapter
+* [bupha-attest-sigstore](/bupha/api/bupha_attest_sigstore/index.html) — adapter
 * [bupha-cache-sccache](/bupha/api/bupha_cache_sccache/index.html) — adapter
 * [bupha-cloudflared](/bupha/api/bupha_cloudflared/index.html) — adapter
 * [bupha-config-toml](/bupha/api/bupha_config_toml/index.html) — adapter

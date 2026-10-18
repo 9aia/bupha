@@ -484,6 +484,7 @@ documented at source (doc comments).
 * [bupha-access-file](/bupha/api/bupha_access_file/index.html) — adapter
 * [bupha-access-forge](/bupha/api/bupha_access_forge/index.html) — adapter
 * [bupha-attest-file](/bupha/api/bupha_attest_file/index.html) — adapter
+* [bupha-attest-sigstore](/bupha/api/bupha_attest_sigstore/index.html) — adapter
 * [bupha-cache-sccache](/bupha/api/bupha_cache_sccache/index.html) — adapter
 * [bupha-cloudflared](/bupha/api/bupha_cloudflared/index.html) — adapter
 * [bupha-config-toml](/bupha/api/bupha_config_toml/index.html) — adapter
@@ -538,6 +539,7 @@ impls to ports.
 | `bupha-access-file` | adapter | Access adapter: allowlist of forge logins from config |
 | `bupha-access-forge` | adapter | Access adapter: forge collaborator-permission check |
 | `bupha-attest-file` | adapter | Attest adapter: SLSA-shape predicate JSON per run (unsigned v1) |
+| `bupha-attest-sigstore` | adapter | Attest adapter: cosign-signed run predicates (needs cosign + key) |
 | `bupha-cache-sccache` | adapter | Cache impl: sccache-compatible conf (file/S3/R2/GCS via conf) |
 | `bupha-cloudflared` | adapter | Tunnel impl: cloudflared (named tunnel preferred, quick tunnel fallback) |
 | `bupha-config-toml` | adapter | Config impl: bupha.toml file (explicit path, env, ./, ~/.config) |
