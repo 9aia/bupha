@@ -104,3 +104,99 @@ no crash breadcrumbs.
 4. Fleet (needs QueueStore lease) →
 5. Compliance (needs fleet/stable runs first) →
 6. Support (last — it sits on all the above).
+
+---
+
+## Self-review (honest corrections)
+
+1. **`StatusSink.metric()` was a hack** — metrics aren't status. The
+   correct seam is a `Telemetry` port that receives *domain events*
+   (`queued`, `run_started`, `run_finished`, `superseded`) — sink
+   stays pure, prometheus/otel adapters are clean.
+2. **Fleet lease under-specified fencing** — plain `try_claim` can
+   double-run under split-brain. Needs a fencing token (monotonic
+   counter in the store); honest cost framing: worst case a duplicate
+   run posts the same status — redundant but not corrupt.
+3. **Retry semantics underspecified** — retry pushes a *failed* sha
+   to the tail of the same queue (both policies keep meaning), `max`
+   per `[[repo]]`, status shows "retriable error" until final.
+
+## Concrete shape
+
+### New crates (ports then adapters — naming consistent)
+
+| crate | role |
+|---|---|
+| `bupha-access` | port: `trait Access { fn allow(&self, sender: &str, repo: &str) -> bool }` |
+| `bupha-access-file` | adapter: `[access] allow = [...]` per repo |
+| `bupha-telemetry` | port: `trait Telemetry { fn event(&self, e: RunEvent) }` |
+| `bupha-telemetry-otel` | adapter: OpenMetrics textfile/OTLP |
+| `bupha-container` | adapter (Runner): podman `--network=none` |
+| `bupha-attest` | port: `trait Attest { fn attest(&self, ...) -> Result<PathBuf> }` |
+| `bupha-attest-sigstore` | adapter: cosign predicate per run |
+| `bupha-queue-lease` | port ext: `try_claim(sha, worker_id) -> Option<Fence>` |
+| `bupha-history` | adapter: redb run-history + `bupha runs` |
+
+### Trait deltas (what changes vs today)
+
+```rust
+// bupha-trigger — sender extraction rides the parse result
+pub enum PushOutcome { Push { repo, git_ref, sha, sender }, Skip }
+
+// bupha-queue — optional lease for multi-worker stores
+pub trait QueueStore {
+    fn load(&self) -> ...;
+    fn persist(&self, ...) -> ...;
+    fn try_claim(&self, repo: &str, sha: &str, worker: &str)
+        -> io::Result<Option<Fence>>;   // default: always Some(Fence)
+}
+
+// new port — bupha-telemetry
+pub enum RunEvent {
+    Queued { repo: String, sha: String },
+    Started { repo: String, sha: String },
+    Finished { repo: String, sha: String, status: RunStatus,
+               wall: Duration },
+    Superseded { repo: String, sha: String, by: String },
+}
+```
+
+### Request flow deltas
+
+```
+… verify → dedup → parse (now yields `sender`) →
+  → access check (Access port; deny → 403 + audit entry)
+  → enqueue + telemetry(Queued)
+worker: claim(sha) [fenced] → worktree → spawn →
+  telemetry(Started/Finished) + history.record + status
+```
+
+### Config surface (additive only)
+
+```toml
+[access]                 # optional; absent = allow all
+allow = ["alice", "ci-bot"]
+
+[[repo]]
+retry = 2                # optional; default 0 (today's behavior)
+
+[telemetry]              # optional
+kind = "otel"            # "none" default today
+endpoint = "…"
+```
+
+### Quality checklist verdict
+
+- **Decoupled** ✓ — every surface is a port; no cross-impl calls
+- **Consistent** ✓ — same port/adapter naming; config stays additive
+  with serde defaults (zero breaking changes)
+- **Modular** ✓ — each concern is its own crate pair; a box can run
+  bare (none of this compiles in unless configured — once
+  feature-gates land)
+- **Scalable** — fleet is the only hard one; honest scope: shared
+  queue + fencing. True multi-region needs a real store impl
+- **Robust/resilient** ✓ — leases expire, fencing prevents double-
+  claim, retries bounded, events are fire-and-forget (telemetry never
+  blocks the pipeline)
+- **Professional** ✓ — metrics/history/audit are first-class, not
+  bolted-on prints
