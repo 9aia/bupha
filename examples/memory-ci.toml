@@ -1,0 +1,24 @@
+# memory-ci.toml — bupha recipe: keep repo memory + doc truth fresh
+# on every push. [[repo]] watches; the shell runner runs the CLIs.
+# kuda sync is incremental — unchanged modules never re-prompt the
+# agent; mimus check is mechanical (semantic needs acp_cmd + credits).
+
+[[repo]]
+name = "owner/repo"
+dir = "/path/to/clone"
+# runner runs inside a detached worktree — .kuda/ + verdicts.json
+# land there; commit cards back or push to a memory branch to persist.
+  [repo.runner]
+  kind = "shell"
+  cmd = "kuda sync && mimus check --no-cmd"
+  # semantic tier variant:
+  # cmd = "kuda sync && mimus check --all"
+
+[trigger]
+kind = "github"
+listen = "127.0.0.1:9000"
+secret_env = "BUPHA_WEBHOOK_SECRET"
+
+[status]
+kind = "github"
+context = "memory/bupha"
