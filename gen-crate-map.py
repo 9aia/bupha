@@ -15,6 +15,8 @@ LAYER = {
     "bupha-vcs": "port", "bupha-queue": "port",
     "bupha-service": "port", "bupha-secret": "port",
     "bupha-config": "port", "bupha-cache": "port",
+    "bupha-access": "port", "bupha-telemetry": "port",
+    "bupha-attest": "port", "bupha-queue-lease": "port",
 }
 
 # workspace members — match `"crates/…"` paths only (not dep paths)

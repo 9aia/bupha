@@ -9,6 +9,8 @@
 | `repos` | `Vec<RepoEntry>` | required | Watched repos — one pending slot each, one global worker. TOML-conventional singular; `repos` kept as alias for existing configs. |
 | `tunnel` | `TunnelCfg` | optional | How the listener is exposed publicly (cloudflared, direct, none). |
 | `cache` | `CacheCfg` | optional | Artifact cache backend (`[cache]`); `runner.sccache_conf` is accepted for older configs — `[cache]` wins. |
+| `access` | `AccessCfg` | optional | Who may trigger (`[access]`). Absent = open. |
+| `telemetry` | `TelemetryCfg` | optional | Pipeline observability (`[telemetry]`). Absent = none. |
 | `worktree` | `WorktreeCfg` | optional | Where detached git worktrees for runs are created. |
 
 ## `[[repo]]`
@@ -96,6 +98,15 @@
 | `remote` | `string` | optional | Remote host ("user@host"; ssh config resolves auth). |
 | `remote_dir` | `string` | optional | Remote workdir the worktree syncs into. |
 | `cmd` | `string` | optional | Command run remotely (`bash -c`). |
+
+## `[runner]` — kind `container`
+
+| field | type | required | notes |
+|---|---|---|---|
+| `image` | `string` | required | Image the pipeline runs in (required). |
+| `cmd` | `string` | optional | Shell command executed inside the container. |
+| `engine` | `string` | optional | Engine binary — `"podman"` (default) or `"docker"`. |
+| `network` | `string` | optional | Network mode — `"none"` default (isolated); `"host"`/`"bridge"` for pipelines that genuinely need outbound. |
 
 ## Constraints
 
