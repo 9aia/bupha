@@ -23,6 +23,7 @@ documented at source (doc comments).
 * [bupha-vcs](/bupha/api/bupha_vcs/index.html) — port
 * [bupha-access-file](/bupha/api/bupha_access_file/index.html) — adapter
 * [bupha-access-forge](/bupha/api/bupha_access_forge/index.html) — adapter
+* [bupha-attest-file](/bupha/api/bupha_attest_file/index.html) — adapter
 * [bupha-cache-sccache](/bupha/api/bupha_cache_sccache/index.html) — adapter
 * [bupha-cloudflared](/bupha/api/bupha_cloudflared/index.html) — adapter
 * [bupha-config-toml](/bupha/api/bupha_config_toml/index.html) — adapter
@@ -34,6 +35,7 @@ documented at source (doc comments).
 * [bupha-history](/bupha/api/bupha_history/index.html) — adapter
 * [bupha-keyring](/bupha/api/bupha_keyring/index.html) — adapter
 * [bupha-queue-redb](/bupha/api/bupha_queue_redb/index.html) — adapter
+* [bupha-queue-redis](/bupha/api/bupha_queue_redis/index.html) — adapter
 * [bupha-shell](/bupha/api/bupha_shell/index.html) — adapter
 * [bupha-ssh](/bupha/api/bupha_ssh/index.html) — adapter
 * [bupha-systemd](/bupha/api/bupha_systemd/index.html) — adapter

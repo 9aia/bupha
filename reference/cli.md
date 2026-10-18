@@ -22,6 +22,9 @@ This document contains the help content for the `bupha` command-line program.
 * [`bupha destroy service`↴](#bupha-destroy-service)
 * [`bupha destroy webhook`↴](#bupha-destroy-webhook)
 * [`bupha destroy worktrees`↴](#bupha-destroy-worktrees)
+* [`bupha runs`↴](#bupha-runs)
+* [`bupha log`↴](#bupha-log)
+* [`bupha explain`↴](#bupha-explain)
 
 ## `bupha`
 
@@ -37,6 +40,9 @@ the oxpecker on your repo's back — headless CI
 * `run` — Run the pipeline locally — in the watched repo's `dir`, not cwd
 * `deploy` — Install-time helpers — no manual file copies
 * `destroy` — Teardown counterparts of `deploy`
+* `runs` — Recent finished runs (reads `<worktree.base>/history.jsonl`)
+* `log` — Raw run log — last N lines of history.jsonl
+* `explain` — Why a sha did/didn't run — history + queue + worktree state
 
 ###### **Options:**
 
@@ -157,6 +163,38 @@ Delete the repo's webhook whose URL matches tunnel.public_url
 Remove detached worktrees and the persisted queue file
 
 **Usage:** `bupha destroy worktrees`
+
+## `bupha runs`
+
+Recent finished runs (reads `<worktree.base>/history.jsonl`)
+
+**Usage:** `bupha runs [REPO]`
+
+###### **Arguments:**
+
+* `<REPO>` — Filter to one repo ("owner/name")
+
+## `bupha log`
+
+Raw run log — last N lines of history.jsonl
+
+**Usage:** `bupha log [OPTIONS]`
+
+###### **Options:**
+
+* `-n`, `--n <N>` — Lines to show
+
+  Default value: `50`
+
+## `bupha explain`
+
+Why a sha did/didn't run — history + queue + worktree state
+
+**Usage:** `bupha explain <SHA>`
+
+###### **Arguments:**
+
+* `<SHA>` — The pushed sha (any prefix ≥ 4 chars)
 
 &#xA;This document was generated automatically by
 clap-markdown.&#xA;

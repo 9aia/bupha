@@ -156,6 +156,9 @@ This document contains the help content for the `bupha` command-line program.
 * [`bupha destroy service`↴](#bupha-destroy-service)
 * [`bupha destroy webhook`↴](#bupha-destroy-webhook)
 * [`bupha destroy worktrees`↴](#bupha-destroy-worktrees)
+* [`bupha runs`↴](#bupha-runs)
+* [`bupha log`↴](#bupha-log)
+* [`bupha explain`↴](#bupha-explain)
 
 ## `bupha`
 
@@ -171,6 +174,9 @@ the oxpecker on your repo's back — headless CI
 * `run` — Run the pipeline locally — in the watched repo's `dir`, not cwd
 * `deploy` — Install-time helpers — no manual file copies
 * `destroy` — Teardown counterparts of `deploy`
+* `runs` — Recent finished runs (reads `<worktree.base>/history.jsonl`)
+* `log` — Raw run log — last N lines of history.jsonl
+* `explain` — Why a sha did/didn't run — history + queue + worktree state
 
 ###### **Options:**
 
@@ -292,6 +298,38 @@ Remove detached worktrees and the persisted queue file
 
 **Usage:** `bupha destroy worktrees`
 
+## `bupha runs`
+
+Recent finished runs (reads `<worktree.base>/history.jsonl`)
+
+**Usage:** `bupha runs [REPO]`
+
+###### **Arguments:**
+
+* `<REPO>` — Filter to one repo ("owner/name")
+
+## `bupha log`
+
+Raw run log — last N lines of history.jsonl
+
+**Usage:** `bupha log [OPTIONS]`
+
+###### **Options:**
+
+* `-n`, `--n <N>` — Lines to show
+
+  Default value: `50`
+
+## `bupha explain`
+
+Why a sha did/didn't run — history + queue + worktree state
+
+**Usage:** `bupha explain <SHA>`
+
+###### **Arguments:**
+
+* `<SHA>` — The pushed sha (any prefix ≥ 4 chars)
+
 &#xA;This document was generated automatically by
 clap-markdown.&#xA;
 
@@ -311,6 +349,7 @@ url: /bupha/reference/config.md
 | `cache` | `CacheCfg` | optional | Artifact cache backend (`[cache]`); `runner.sccache_conf` is accepted for older configs — `[cache]` wins. |
 | `access` | `AccessCfg` | optional | Who may trigger (`[access]`). Absent = open. |
 | `telemetry` | `TelemetryCfg` | optional | Pipeline observability (`[telemetry]`). Absent = none. |
+| `attest` | `AttestCfg` | optional | Run provenance (`[attest]`). Absent = none. |
 | `worktree` | `WorktreeCfg` | optional | Where detached git worktrees for runs are created. |
 
 ## `[[repo]]`
@@ -443,6 +482,7 @@ documented at source (doc comments).
 * [bupha-vcs](/bupha/api/bupha_vcs/index.html) — port
 * [bupha-access-file](/bupha/api/bupha_access_file/index.html) — adapter
 * [bupha-access-forge](/bupha/api/bupha_access_forge/index.html) — adapter
+* [bupha-attest-file](/bupha/api/bupha_attest_file/index.html) — adapter
 * [bupha-cache-sccache](/bupha/api/bupha_cache_sccache/index.html) — adapter
 * [bupha-cloudflared](/bupha/api/bupha_cloudflared/index.html) — adapter
 * [bupha-config-toml](/bupha/api/bupha_config_toml/index.html) — adapter
@@ -454,6 +494,7 @@ documented at source (doc comments).
 * [bupha-history](/bupha/api/bupha_history/index.html) — adapter
 * [bupha-keyring](/bupha/api/bupha_keyring/index.html) — adapter
 * [bupha-queue-redb](/bupha/api/bupha_queue_redb/index.html) — adapter
+* [bupha-queue-redis](/bupha/api/bupha_queue_redis/index.html) — adapter
 * [bupha-shell](/bupha/api/bupha_shell/index.html) — adapter
 * [bupha-ssh](/bupha/api/bupha_ssh/index.html) — adapter
 * [bupha-systemd](/bupha/api/bupha_systemd/index.html) — adapter
@@ -495,6 +536,7 @@ impls to ports.
 | `bupha-vcs` | port | Vcs port: VCS operations for repos and worktrees |
 | `bupha-access-file` | adapter | Access adapter: allowlist of forge logins from config |
 | `bupha-access-forge` | adapter | Access adapter: forge collaborator-permission check |
+| `bupha-attest-file` | adapter | Attest adapter: SLSA-shape predicate JSON per run (unsigned v1) |
 | `bupha-cache-sccache` | adapter | Cache impl: sccache-compatible conf (file/S3/R2/GCS via conf) |
 | `bupha-cloudflared` | adapter | Tunnel impl: cloudflared (named tunnel preferred, quick tunnel fallback) |
 | `bupha-config-toml` | adapter | Config impl: bupha.toml file (explicit path, env, ./, ~/.config) |
@@ -506,6 +548,7 @@ impls to ports.
 | `bupha-history` | adapter | Run-history adapter: JSONL records per finished run |
 | `bupha-keyring` | adapter | Secret impl: OS keyring via secret-tool (libsecret) |
 | `bupha-queue-redb` | adapter | QueueStore impl: redb embedded store (single file, ACID) |
+| `bupha-queue-redis` | adapter | QueueStore adapter: redis (multi-worker; SET NX claim + INCR fence) |
 | `bupha-shell` | adapter | Runner impl: bash -c \<cmd> per job — no containers |
 | `bupha-ssh` | adapter | Runner impl: remote execution over ssh (rsync worktree + run) |
 | `bupha-systemd` | adapter | Service impl: systemd user units |

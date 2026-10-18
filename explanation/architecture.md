@@ -31,6 +31,7 @@ impls to ports.
 | `bupha-vcs` | port | Vcs port: VCS operations for repos and worktrees |
 | `bupha-access-file` | adapter | Access adapter: allowlist of forge logins from config |
 | `bupha-access-forge` | adapter | Access adapter: forge collaborator-permission check |
+| `bupha-attest-file` | adapter | Attest adapter: SLSA-shape predicate JSON per run (unsigned v1) |
 | `bupha-cache-sccache` | adapter | Cache impl: sccache-compatible conf (file/S3/R2/GCS via conf) |
 | `bupha-cloudflared` | adapter | Tunnel impl: cloudflared (named tunnel preferred, quick tunnel fallback) |
 | `bupha-config-toml` | adapter | Config impl: bupha.toml file (explicit path, env, ./, ~/.config) |
@@ -42,6 +43,7 @@ impls to ports.
 | `bupha-history` | adapter | Run-history adapter: JSONL records per finished run |
 | `bupha-keyring` | adapter | Secret impl: OS keyring via secret-tool (libsecret) |
 | `bupha-queue-redb` | adapter | QueueStore impl: redb embedded store (single file, ACID) |
+| `bupha-queue-redis` | adapter | QueueStore adapter: redis (multi-worker; SET NX claim + INCR fence) |
 | `bupha-shell` | adapter | Runner impl: bash -c \<cmd> per job — no containers |
 | `bupha-ssh` | adapter | Runner impl: remote execution over ssh (rsync worktree + run) |
 | `bupha-systemd` | adapter | Service impl: systemd user units |
