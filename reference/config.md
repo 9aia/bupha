@@ -12,6 +12,7 @@
 | `access` | `AccessCfg` | optional | Who may trigger (`[access]`). Absent = open. |
 | `telemetry` | `TelemetryCfg` | optional | Pipeline observability (`[telemetry]`). Absent = none. |
 | `attest` | `AttestCfg` | optional | Run provenance (`[attest]`). Absent = none. |
+| `queue` | `QueueCfg` | optional | Queue persistence backend (`[queue]`). Absent = redb. |
 | `worktree` | `WorktreeCfg` | optional | Where detached git worktrees for runs are created. |
 
 ## `[[repo]]`
