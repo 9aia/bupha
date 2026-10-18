@@ -189,6 +189,33 @@ fn default_telemetry_kind() -> String {
     "none".into()
 }
 
+/// Run provenance (`[attest]`). SLSA-shaped predicate per finished
+/// run. Absent section = no attestations.
+#[derive(Debug, Deserialize, Clone)]
+#[serde(deny_unknown_fields)]
+pub struct AttestCfg {
+    /// Adapter kind: "none" (default) or "file" (predicate JSON dir).
+    #[serde(default = "default_attest_kind")]
+    pub kind: String,
+    /// Where predicates are written (kind = "file"). Default:
+    /// "<worktree.base>/attest".
+    #[serde(default)]
+    pub dir: Option<String>,
+}
+
+fn default_attest_kind() -> String {
+    "none".into()
+}
+
+impl Default for AttestCfg {
+    fn default() -> Self {
+        Self {
+            kind: default_attest_kind(),
+            dir: None,
+        }
+    }
+}
+
 impl Default for TelemetryCfg {
     fn default() -> Self {
         Self {
@@ -223,6 +250,9 @@ pub struct Config {
     /// Pipeline observability (`[telemetry]`). Absent = none.
     #[serde(default)]
     pub telemetry: TelemetryCfg,
+    /// Run provenance (`[attest]`). Absent = none.
+    #[serde(default)]
+    pub attest: AttestCfg,
     /// Where detached git worktrees for runs are created.
     #[serde(default)]
     pub worktree: WorktreeCfg,

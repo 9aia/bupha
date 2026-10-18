@@ -1,6 +1,8 @@
 [workspace]
 resolver = "2"
 members = [
+    "crates/bupha-queue-redis",
+    "crates/bupha-attest-file",
     "crates/bupha-queue-lease",
     "crates/bupha-history",
     "crates/bupha-attest",
@@ -49,6 +51,8 @@ inherits = "release"
 lto = "thin"
 
 [workspace.dependencies]
+bupha-queue-redis = { path = "crates/bupha-queue-redis", version = "0.1.0" }
+bupha-attest-file = { path = "crates/bupha-attest-file", version = "0.1.0" }
 bupha-access = { path = "crates/bupha-access", version = "0.1.0" }
 bupha-access-file = { path = "crates/bupha-access-file", version = "0.1.0" }
 bupha-access-forge = { path = "crates/bupha-access-forge", version = "0.1.0" }

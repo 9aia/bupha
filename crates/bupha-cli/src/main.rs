@@ -7,6 +7,8 @@
 use bupha_access::{Access, AllowAll};
 use bupha_access_file::FileAccess;
 use bupha_access_forge::ForgeAccess;
+use bupha_attest::{Attest, RunAttestation};
+use bupha_attest_file::FileAttest;
 use bupha_cache::Cache;
 use bupha_cache_sccache::SccacheConf;
 use bupha_cloudflared::CloudflaredTunnel;
@@ -18,6 +20,7 @@ use bupha_dagger::DaggerRunner;
 use bupha_dotenv::DotenvSecrets;
 use bupha_git::GitVcs;
 use bupha_github::{GitHubAdmin, GitHubStatus, GitHubTrigger, LogStatus};
+use bupha_history::RunRecord;
 use bupha_keyring::KeyringSecrets;
 use bupha_queue::{PersistedQueue, QueueStore};
 use bupha_queue_redb::RedbQueueStore;
@@ -81,6 +84,22 @@ enum Cmd {
     Destroy {
         #[command(subcommand)]
         sub: DestroySub,
+    },
+    /// Recent finished runs (reads `<worktree.base>/history.jsonl`).
+    Runs {
+        /// Filter to one repo ("owner/name").
+        repo: Option<String>,
+    },
+    /// Raw run log — last N lines of history.jsonl.
+    Log {
+        /// Lines to show.
+        #[arg(short, long, default_value = "50")]
+        n: usize,
+    },
+    /// Why a sha did/didn't run — history + queue + worktree state.
+    Explain {
+        /// The pushed sha (any prefix ≥ 4 chars).
+        sha: String,
     },
     /// Print the CLI reference as markdown (docs pipeline).
     #[command(hide = true, name = "gen-cli-docs")]
@@ -362,6 +381,23 @@ fn cmd_watch(cfg: Arc<Config>) {
         }
     };
 
+    let attest: Option<Arc<dyn Attest>> = match cfg.attest.kind.as_str() {
+        "none" | "" => None,
+        "file" => {
+            let dir = cfg
+                .attest
+                .dir
+                .clone()
+                .map(PathBuf::from)
+                .unwrap_or_else(|| PathBuf::from(&cfg.worktree.base).join("attest"));
+            Some(Arc::new(FileAttest { dir }))
+        }
+        other => {
+            eprintln!("unknown attest kind '{other}' (none|file)");
+            std::process::exit(2);
+        }
+    };
+
     let mut sinks: std::collections::HashMap<String, Arc<dyn StatusSink>> =
         std::collections::HashMap::new();
     for r in watched.iter() {
@@ -446,6 +482,7 @@ fn cmd_watch(cfg: Arc<Config>) {
         let watched = Arc::clone(&watched);
         let sinks = Arc::clone(&sinks);
         let telemetry = telemetry.clone();
+        let attest = attest.clone();
         std::thread::spawn({
             let store = store.clone();
             move || loop {
@@ -475,12 +512,33 @@ fn cmd_watch(cfg: Arc<Config>) {
                 });
                 let t0 = std::time::Instant::now();
                 let ok = run_job(&cfg, repo, sink, runner, &shared, &child, &sha);
+                let wall = t0.elapsed();
+                let status = if ok { "success" } else { "failure" };
                 telemetry.event(&RunEvent::Finished {
                     repo: repo_name.clone(),
                     sha: sha.clone(),
-                    status: if ok { "success" } else { "failure" },
-                    wall: t0.elapsed(),
+                    status,
+                    wall,
                 });
+                // Observability write-paths — failures never break the run.
+                let _ = bupha_history::record(
+                    &PathBuf::from(&cfg.worktree.base).join("history.jsonl"),
+                    &RunRecord {
+                        sha: sha.clone(),
+                        repo: repo_name.clone(),
+                        status: status.into(),
+                        wall_secs: wall.as_secs(),
+                    },
+                );
+                if let Some(att) = &attest {
+                    let _ = att.attest(&RunAttestation {
+                        sha: sha.clone(),
+                        repo: repo_name.clone(),
+                        runner: runner.name().into(),
+                        status: status.into(),
+                        wall_secs: wall.as_secs(),
+                    });
+                }
                 let mut g = shared.lock().unwrap();
                 if let Some(q) = g.queues.get_mut(&repo_name) {
                     q.running = None;
@@ -990,6 +1048,9 @@ fn main() {
                 Cmd::Run { function } => cmd_run(&cfg, function.clone()),
                 Cmd::Deploy { sub } => cmd_deploy(&cfg, sub, cli.config.clone()),
                 Cmd::Destroy { sub } => cmd_destroy(&cfg, sub),
+                Cmd::Runs { repo } => cmd_runs(&cfg, repo.as_deref()),
+                Cmd::Log { n } => cmd_log(&cfg, *n),
+                Cmd::Explain { sha } => cmd_explain(&cfg, sha),
                 Cmd::Init { .. } | Cmd::GenCliDocs => unreachable!(),
             }
         }
@@ -1398,4 +1459,104 @@ fn ureq_probe(url: &str) -> Option<u16> {
         Err(ureq::Error::StatusCode(c)) => Some(c),
         Err(_) => None,
     }
+}
+
+fn history_path(cfg: &Config) -> PathBuf {
+    PathBuf::from(&cfg.worktree.base).join("history.jsonl")
+}
+
+fn cmd_runs(cfg: &Config, repo: Option<&str>) {
+    let p = history_path(cfg);
+    let Ok(s) = std::fs::read_to_string(&p) else {
+        println!("no runs yet ({})", p.display());
+        return;
+    };
+    println!("{:<12} {:<30} {:<9} {:>6}", "sha", "repo", "status", "wall");
+    for line in s.lines() {
+        let Ok(v) = serde_json::from_str::<serde_json::Value>(line) else {
+            continue;
+        };
+        let r = v["repo"].as_str().unwrap_or_default();
+        if repo.is_some_and(|w| w != r) {
+            continue;
+        }
+        println!(
+            "{:<12} {:<30} {:<9} {:>5}s",
+            &v["sha"].as_str().unwrap_or("?")[..12.min(v["sha"].as_str().unwrap_or("?").len())],
+            r,
+            v["status"].as_str().unwrap_or("?"),
+            v["wall_secs"].as_u64().unwrap_or(0),
+        );
+    }
+}
+
+fn cmd_log(cfg: &Config, n: usize) {
+    let p = history_path(cfg);
+    match std::fs::read_to_string(&p) {
+        Ok(s) => s
+            .lines()
+            .rev()
+            .take(n)
+            .collect::<Vec<_>>()
+            .into_iter()
+            .rev()
+            .for_each(|l| println!("{l}")),
+        Err(_) => println!("no log yet ({})", p.display()),
+    }
+}
+
+fn cmd_explain(cfg: &Config, sha: &str) {
+    // 1. History — did it run?
+    if let Ok(s) = std::fs::read_to_string(history_path(cfg)) {
+        for line in s.lines().rev() {
+            let Ok(v) = serde_json::from_str::<serde_json::Value>(line) else {
+                continue;
+            };
+            if v["sha"].as_str().unwrap_or_default().starts_with(sha) {
+                println!(
+                    "ran: {} ({}) in {}s",
+                    v["status"].as_str().unwrap_or("?"),
+                    v["repo"].as_str().unwrap_or("?"),
+                    v["wall_secs"].as_u64().unwrap_or(0)
+                );
+                return;
+            }
+        }
+    }
+    // 2. Queue — is it pending/running?
+    let qf = PathBuf::from(&cfg.worktree.base).join("queue.redb");
+    if let Ok(store) = RedbQueueStore::open(qf) {
+        if let Ok(map) = store.load() {
+            for (name, q) in &map {
+                if q.running.as_deref().is_some_and(|r| r.starts_with(sha)) {
+                    println!("running now on {name}");
+                    return;
+                }
+                if q.pending.iter().any(|p| p.starts_with(sha)) {
+                    println!(
+                        "queued on {name} ({} ahead in line)",
+                        q.pending
+                            .iter()
+                            .position(|p| p.starts_with(sha))
+                            .unwrap_or(0)
+                    );
+                    return;
+                }
+            }
+        }
+    }
+    // 3. Worktree — did a run start but never finish?
+    let base = &cfg.worktree.base;
+    if let Ok(rd) = std::fs::read_dir(base) {
+        for e in rd.flatten() {
+            if e.file_name().to_string_lossy().ends_with(sha) {
+                println!(
+                    "worktree exists ({}), no result — run died mid-flight",
+                    e.path().display()
+                );
+                return;
+            }
+        }
+    }
+    println!("never seen — not in history, queue, or worktrees");
 }

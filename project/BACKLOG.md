@@ -31,8 +31,6 @@ Ideas parked, not scheduled. Pull into project/TODO.md when picked up.
 
 ## Enterprise surfaces (ADR-0002 — ports landed 0.1.x)
 - [ ] `bupha-access-forge` — live permission check needs real GH token e2e test.
-- [ ] `bupha-attest-sigstore` adapter — cosign predicates (port landed).
-- [ ] `bupha-queue-redis`/pg impl — the real multi-worker store behind
-      `bupha-queue-lease` (port landed; redb stays single-box).
-- [ ] `bupha runs` cli — read path for bupha-history JSONL.
-- [ ] `bupha log|explain` — structured-log read path (support surface).
+- [ ] `bupha-attest-sigstore` adapter — cosign predicates (file adapter landed).
+- [ ] `bupha-queue-redis` — landed; needs live-redis integration test +
+      the watcher actually selecting it via config (`[queue] kind`).

@@ -1,0 +1,15 @@
+[package]
+name = "bupha-queue-redis"
+description = "QueueStore adapter: redis (multi-worker; SET NX claim + INCR fence)"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+keywords = ["ci", "bupha"]
+categories = ["development-tools"]
+
+[dependencies]
+bupha-queue.workspace = true
+bupha-queue-lease.workspace = true
+redis = "0.32"
+serde_json = "1"

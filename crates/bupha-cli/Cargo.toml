@@ -51,6 +51,12 @@ bupha-telemetry.workspace = true
 bupha-telemetry-otel.workspace = true
 bupha-container.workspace = true
 
+bupha-history.workspace = true
+
+bupha-attest.workspace = true
+
+bupha-attest-file.workspace = true
+
 [dev-dependencies]
 hmac = "0.12"
 sha2 = "0.10"
