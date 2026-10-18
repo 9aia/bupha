@@ -426,18 +426,18 @@ documented at source (doc comments).
 * [bupha-trigger](/bupha/api/bupha_trigger/index.html) — port
 * [bupha-tunnel](/bupha/api/bupha_tunnel/index.html) — port
 * [bupha-vcs](/bupha/api/bupha_vcs/index.html) — port
-* [bupha-cache-sccache](/bupha/api/bupha_cache_sccache/index.html) — impl
-* [bupha-cloudflared](/bupha/api/bupha_cloudflared/index.html) — impl
-* [bupha-config-toml](/bupha/api/bupha_config_toml/index.html) — impl
-* [bupha-dagger](/bupha/api/bupha_dagger/index.html) — impl
-* [bupha-dotenv](/bupha/api/bupha_dotenv/index.html) — impl
-* [bupha-git](/bupha/api/bupha_git/index.html) — impl
-* [bupha-github](/bupha/api/bupha_github/index.html) — impl
-* [bupha-keyring](/bupha/api/bupha_keyring/index.html) — impl
-* [bupha-queue-redb](/bupha/api/bupha_queue_redb/index.html) — impl
-* [bupha-shell](/bupha/api/bupha_shell/index.html) — impl
-* [bupha-ssh](/bupha/api/bupha_ssh/index.html) — impl
-* [bupha-systemd](/bupha/api/bupha_systemd/index.html) — impl
+* [bupha-cache-sccache](/bupha/api/bupha_cache_sccache/index.html) — adapter
+* [bupha-cloudflared](/bupha/api/bupha_cloudflared/index.html) — adapter
+* [bupha-config-toml](/bupha/api/bupha_config_toml/index.html) — adapter
+* [bupha-dagger](/bupha/api/bupha_dagger/index.html) — adapter
+* [bupha-dotenv](/bupha/api/bupha_dotenv/index.html) — adapter
+* [bupha-git](/bupha/api/bupha_git/index.html) — adapter
+* [bupha-github](/bupha/api/bupha_github/index.html) — adapter
+* [bupha-keyring](/bupha/api/bupha_keyring/index.html) — adapter
+* [bupha-queue-redb](/bupha/api/bupha_queue_redb/index.html) — adapter
+* [bupha-shell](/bupha/api/bupha_shell/index.html) — adapter
+* [bupha-ssh](/bupha/api/bupha_ssh/index.html) — adapter
+* [bupha-systemd](/bupha/api/bupha_systemd/index.html) — adapter
 * [bupha](/bupha/api/bupha/index.html) — binary
 
 ---
@@ -469,18 +469,18 @@ impls to ports.
 | `bupha-trigger` | port | Trigger port: where pushes come from |
 | `bupha-tunnel` | port | Tunnel port: expose the webhook listener publicly |
 | `bupha-vcs` | port | Vcs port: VCS operations for repos and worktrees |
-| `bupha-cache-sccache` | impl | Cache impl: sccache-compatible conf (file/S3/R2/GCS via conf) |
-| `bupha-cloudflared` | impl | Tunnel impl: cloudflared (named tunnel preferred, quick tunnel fallback) |
-| `bupha-config-toml` | impl | Config impl: bupha.toml file (explicit path, env, ./, ~/.config) |
-| `bupha-dagger` | impl | Runner impl: `dagger call &lt;fn&gt;` per job |
-| `bupha-dotenv` | impl | Secret impl: KEY=VAL env file (chmod 600) |
-| `bupha-git` | impl | Vcs impl: git via the git CLI |
-| `bupha-github` | impl | GitHub impl: push-webhook trigger + commit-status sink |
-| `bupha-keyring` | impl | Secret impl: OS keyring via secret-tool (libsecret) |
-| `bupha-queue-redb` | impl | QueueStore impl: redb embedded store (single file, ACID) |
-| `bupha-shell` | impl | Runner impl: bash -c \<cmd> per job — no containers |
-| `bupha-ssh` | impl | Runner impl: remote execution over ssh (rsync worktree + run) |
-| `bupha-systemd` | impl | Service impl: systemd user units |
+| `bupha-cache-sccache` | adapter | Cache impl: sccache-compatible conf (file/S3/R2/GCS via conf) |
+| `bupha-cloudflared` | adapter | Tunnel impl: cloudflared (named tunnel preferred, quick tunnel fallback) |
+| `bupha-config-toml` | adapter | Config impl: bupha.toml file (explicit path, env, ./, ~/.config) |
+| `bupha-dagger` | adapter | Runner impl: `dagger call &lt;fn&gt;` per job |
+| `bupha-dotenv` | adapter | Secret impl: KEY=VAL env file (chmod 600) |
+| `bupha-git` | adapter | Vcs impl: git via the git CLI |
+| `bupha-github` | adapter | GitHub impl: push-webhook trigger + commit-status sink |
+| `bupha-keyring` | adapter | Secret impl: OS keyring via secret-tool (libsecret) |
+| `bupha-queue-redb` | adapter | QueueStore impl: redb embedded store (single file, ACID) |
+| `bupha-shell` | adapter | Runner impl: bash -c \<cmd> per job — no containers |
+| `bupha-ssh` | adapter | Runner impl: remote execution over ssh (rsync worktree + run) |
+| `bupha-systemd` | adapter | Service impl: systemd user units |
 | `bupha` | binary | bupha — the oxpecker on your repo's back: headless CI CLI |
 
 `modules/dagger/` (Python SDK) is the shared pipeline module
@@ -539,9 +539,9 @@ the queue moving.
 
 | to add…                 | write…                              | core changes? |
 | ----------------------- | ----------------------------------- | ------------- |
-| forge (gitea/gitlab)    | `Trigger` + `StatusSink` impl crate | no            |
-| pipeline backend        | `Runner` impl crate                 | no            |
-| ingress (fly/tailscale) | `Tunnel` impl crate                 | no            |
+| forge (gitea/gitlab)    | `Trigger` + `StatusSink` adapter crate | no            |
+| pipeline backend        | `Runner` adapter crate                 | no            |
+| ingress (fly/tailscale) | `Tunnel` adapter crate                 | no            |
 
 ---
 

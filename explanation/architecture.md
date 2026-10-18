@@ -25,18 +25,18 @@ impls to ports.
 | `bupha-trigger` | port | Trigger port: where pushes come from |
 | `bupha-tunnel` | port | Tunnel port: expose the webhook listener publicly |
 | `bupha-vcs` | port | Vcs port: VCS operations for repos and worktrees |
-| `bupha-cache-sccache` | impl | Cache impl: sccache-compatible conf (file/S3/R2/GCS via conf) |
-| `bupha-cloudflared` | impl | Tunnel impl: cloudflared (named tunnel preferred, quick tunnel fallback) |
-| `bupha-config-toml` | impl | Config impl: bupha.toml file (explicit path, env, ./, ~/.config) |
-| `bupha-dagger` | impl | Runner impl: `dagger call &lt;fn&gt;` per job |
-| `bupha-dotenv` | impl | Secret impl: KEY=VAL env file (chmod 600) |
-| `bupha-git` | impl | Vcs impl: git via the git CLI |
-| `bupha-github` | impl | GitHub impl: push-webhook trigger + commit-status sink |
-| `bupha-keyring` | impl | Secret impl: OS keyring via secret-tool (libsecret) |
-| `bupha-queue-redb` | impl | QueueStore impl: redb embedded store (single file, ACID) |
-| `bupha-shell` | impl | Runner impl: bash -c \<cmd> per job — no containers |
-| `bupha-ssh` | impl | Runner impl: remote execution over ssh (rsync worktree + run) |
-| `bupha-systemd` | impl | Service impl: systemd user units |
+| `bupha-cache-sccache` | adapter | Cache impl: sccache-compatible conf (file/S3/R2/GCS via conf) |
+| `bupha-cloudflared` | adapter | Tunnel impl: cloudflared (named tunnel preferred, quick tunnel fallback) |
+| `bupha-config-toml` | adapter | Config impl: bupha.toml file (explicit path, env, ./, ~/.config) |
+| `bupha-dagger` | adapter | Runner impl: `dagger call &lt;fn&gt;` per job |
+| `bupha-dotenv` | adapter | Secret impl: KEY=VAL env file (chmod 600) |
+| `bupha-git` | adapter | Vcs impl: git via the git CLI |
+| `bupha-github` | adapter | GitHub impl: push-webhook trigger + commit-status sink |
+| `bupha-keyring` | adapter | Secret impl: OS keyring via secret-tool (libsecret) |
+| `bupha-queue-redb` | adapter | QueueStore impl: redb embedded store (single file, ACID) |
+| `bupha-shell` | adapter | Runner impl: bash -c \<cmd> per job — no containers |
+| `bupha-ssh` | adapter | Runner impl: remote execution over ssh (rsync worktree + run) |
+| `bupha-systemd` | adapter | Service impl: systemd user units |
 | `bupha` | binary | bupha — the oxpecker on your repo's back: headless CI CLI |
 
 `modules/dagger/` (Python SDK) is the shared pipeline module
@@ -95,6 +95,6 @@ the queue moving.
 
 | to add…                 | write…                              | core changes? |
 | ----------------------- | ----------------------------------- | ------------- |
-| forge (gitea/gitlab)    | `Trigger` + `StatusSink` impl crate | no            |
-| pipeline backend        | `Runner` impl crate                 | no            |
-| ingress (fly/tailscale) | `Tunnel` impl crate                 | no            |
+| forge (gitea/gitlab)    | `Trigger` + `StatusSink` adapter crate | no            |
+| pipeline backend        | `Runner` adapter crate                 | no            |
+| ingress (fly/tailscale) | `Tunnel` adapter crate                 | no            |
