@@ -18,6 +18,7 @@ bupha-vcs.workspace = true
 bupha-git.workspace = true
 bupha-queue.workspace = true
 bupha-queue-redb.workspace = true
+bupha-queue-redis.workspace = true
 bupha-secret.workspace = true
 bupha-keyring.workspace = true
 bupha-dotenv.workspace = true

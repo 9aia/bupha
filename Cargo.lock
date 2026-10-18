@@ -109,6 +109,7 @@ dependencies = [
  "bupha-keyring",
  "bupha-queue",
  "bupha-queue-redb",
+ "bupha-queue-redis",
  "bupha-runner",
  "bupha-secret",
  "bupha-service",

@@ -216,6 +216,32 @@ impl Default for AttestCfg {
     }
 }
 
+/// Queue persistence (`[queue]`). redb is the single-box default;
+/// redis enables multi-worker fleets behind the lease port.
+#[derive(Debug, Deserialize, Clone)]
+#[serde(deny_unknown_fields)]
+pub struct QueueCfg {
+    /// Store kind: "redb" (default, embedded) or "redis" (multi-worker).
+    #[serde(default = "default_queue_kind")]
+    pub kind: String,
+    /// redis URL ("redis://127.0.0.1/") — used when kind = "redis".
+    #[serde(default)]
+    pub url: Option<String>,
+}
+
+fn default_queue_kind() -> String {
+    "redb".into()
+}
+
+impl Default for QueueCfg {
+    fn default() -> Self {
+        Self {
+            kind: default_queue_kind(),
+            url: None,
+        }
+    }
+}
+
 impl Default for TelemetryCfg {
     fn default() -> Self {
         Self {
@@ -253,6 +279,9 @@ pub struct Config {
     /// Run provenance (`[attest]`). Absent = none.
     #[serde(default)]
     pub attest: AttestCfg,
+    /// Queue persistence backend (`[queue]`). Absent = redb.
+    #[serde(default)]
+    pub queue: QueueCfg,
     /// Where detached git worktrees for runs are created.
     #[serde(default)]
     pub worktree: WorktreeCfg,

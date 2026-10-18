@@ -312,7 +312,7 @@ struct Shared {
     seen: bupha_core::Seen,
 }
 
-fn persist_queue(g: &Shared, store: &RedbQueueStore) {
+fn persist_queue(g: &Shared, store: &dyn QueueStore) {
     let map: std::collections::BTreeMap<String, PersistedQueue> = g
         .queues
         .iter()
@@ -453,10 +453,26 @@ fn cmd_watch(cfg: Arc<Config>) {
             .queues
             .insert(r.name.clone(), Queue::with_policy(r.policy));
     }
-    let store = Arc::new(
-        RedbQueueStore::open(qfile.with_extension("redb"))
-            .unwrap_or_else(|e| panic!("queue store: {e}")),
-    );
+    let store: Arc<dyn QueueStore> = match cfg.queue.kind.as_str() {
+        "redb" | "" => Arc::new(
+            RedbQueueStore::open(qfile.with_extension("redb"))
+                .unwrap_or_else(|e| panic!("queue store: {e}")),
+        ),
+        "redis" => {
+            let url = cfg.queue.url.clone().unwrap_or_else(|| {
+                eprintln!("[queue] kind=redis needs `url`");
+                std::process::exit(2);
+            });
+            Arc::new(
+                bupha_queue_redis::RedisQueueStore::open(&url)
+                    .unwrap_or_else(|e| panic!("redis: {e}")),
+            )
+        }
+        other => {
+            eprintln!("unknown queue kind '{other}' (redb|redis)");
+            std::process::exit(2);
+        }
+    };
     if let Ok(saved) = store.load() {
         for (name, pq) in saved {
             if let Some(q) = shared.queues.get_mut(&name) {
@@ -497,7 +513,7 @@ fn cmd_watch(cfg: Arc<Config>) {
                             })
                         });
                         if let Some(x) = hit {
-                            persist_queue(&g, &store);
+                            persist_queue(&g, &*store);
                             break x;
                         }
                         g = cv.wait(g).unwrap();
@@ -543,7 +559,7 @@ fn cmd_watch(cfg: Arc<Config>) {
                 if let Some(q) = g.queues.get_mut(&repo_name) {
                     q.running = None;
                 }
-                persist_queue(&g, &store);
+                persist_queue(&g, &*store);
             }
         });
     }
@@ -626,7 +642,7 @@ fn cmd_watch(cfg: Arc<Config>) {
                                         let q = g.queues.get_mut(&repo_name).unwrap();
                                         (q.enqueue(sha.clone()), q.running.is_some())
                                     };
-                                    persist_queue(&g, &store);
+                                    persist_queue(&g, &*store);
                                     match res {
                                         EnqueueResult::Duplicate => (200, "already queued"),
                                         EnqueueResult::Queued { superseded } => {

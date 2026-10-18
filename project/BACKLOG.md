@@ -32,5 +32,6 @@ Ideas parked, not scheduled. Pull into project/TODO.md when picked up.
 ## Enterprise surfaces (ADR-0002 — ports landed 0.1.x)
 - [ ] `bupha-access-forge` — live permission check needs real GH token e2e test.
 - [ ] `bupha-attest-sigstore` adapter — cosign predicates (file adapter landed).
-- [ ] `bupha-queue-redis` — landed; needs live-redis integration test +
-      the watcher actually selecting it via config (`[queue] kind`).
+- [ ] `bupha-queue-redis` — landed + live-tested (SET NX claim, INCR
+      fence); `[queue] kind = "redis"` selects it. Fleet still needs
+      worker-id + lease-renewal wiring in the worker loop.
