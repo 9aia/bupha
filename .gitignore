@@ -4,3 +4,5 @@ coverage/
 **/queue.json
 .env
 docs/
+.kuda/index.sqlite
+.kuda/meta.json
