@@ -15,28 +15,37 @@ impls to ports.
 | crate | layer | purpose |
 |---|---|---|
 | `bupha-core` | domain | bupha domain core: config types, job queues, shared primitives — no ports, no integrations |
+| `bupha-access` | port | Access port: who may trigger a repo |
+| `bupha-attest` | port | Attest port: signed run provenance (SLSA-style predicate) |
 | `bupha-cache` | port | Cache port: artifact-cache backend for runners |
 | `bupha-config` | port | Config port: where bupha.toml-shaped config comes from |
 | `bupha-queue` | port | QueueStore port: queue persistence |
+| `bupha-queue-lease` | port | Queue-lease port: multi-worker fencing (try_claim + Fence) |
 | `bupha-runner` | port | Runner port: how a job becomes a spawned process |
 | `bupha-secret` | port | Secret port: resolve named secrets from storage |
 | `bupha-service` | port | Service port: OS service lifecycle |
 | `bupha-status` | port | StatusSink port: where run outcomes are reported |
+| `bupha-telemetry` | port | Telemetry port: fire-and-forget pipeline events |
 | `bupha-trigger` | port | Trigger port: where pushes come from |
 | `bupha-tunnel` | port | Tunnel port: expose the webhook listener publicly |
 | `bupha-vcs` | port | Vcs port: VCS operations for repos and worktrees |
+| `bupha-access-file` | adapter | Access adapter: allowlist of forge logins from config |
+| `bupha-access-forge` | adapter | Access adapter: forge collaborator-permission check |
 | `bupha-cache-sccache` | adapter | Cache impl: sccache-compatible conf (file/S3/R2/GCS via conf) |
 | `bupha-cloudflared` | adapter | Tunnel impl: cloudflared (named tunnel preferred, quick tunnel fallback) |
 | `bupha-config-toml` | adapter | Config impl: bupha.toml file (explicit path, env, ./, ~/.config) |
+| `bupha-container` | adapter | Runner adapter: unprivileged container (podman/docker), network-off |
 | `bupha-dagger` | adapter | Runner impl: `dagger call &lt;fn&gt;` per job |
 | `bupha-dotenv` | adapter | Secret impl: KEY=VAL env file (chmod 600) |
 | `bupha-git` | adapter | Vcs impl: git via the git CLI |
 | `bupha-github` | adapter | GitHub impl: push-webhook trigger + commit-status sink |
+| `bupha-history` | adapter | Run-history adapter: JSONL records per finished run |
 | `bupha-keyring` | adapter | Secret impl: OS keyring via secret-tool (libsecret) |
 | `bupha-queue-redb` | adapter | QueueStore impl: redb embedded store (single file, ACID) |
 | `bupha-shell` | adapter | Runner impl: bash -c \<cmd> per job — no containers |
 | `bupha-ssh` | adapter | Runner impl: remote execution over ssh (rsync worktree + run) |
 | `bupha-systemd` | adapter | Service impl: systemd user units |
+| `bupha-telemetry-otel` | adapter | Telemetry adapter: OpenMetrics textfile for Prometheus |
 | `bupha` | binary | bupha — the oxpecker on your repo's back: headless CI CLI |
 
 `modules/dagger/` (Python SDK) is the shared pipeline module
