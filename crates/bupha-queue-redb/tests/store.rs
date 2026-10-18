@@ -1,6 +1,6 @@
 use bupha_queue::{PersistedQueue, QueueStore};
 use bupha_queue_redb::RedbQueueStore;
-use std::collections::{BTreeMap, VecDeque};
+use std::collections::BTreeMap;
 
 fn tmp() -> std::path::PathBuf {
     std::env::temp_dir().join(format!("bupha-q-{}", std::process::id()))

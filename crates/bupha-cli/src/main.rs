@@ -4,11 +4,15 @@
 //!
 //! Config: bupha.toml (secrets come from env). See bupha-core::Config.
 
+use bupha_access::{Access, AllowAll};
+use bupha_access_file::FileAccess;
+use bupha_access_forge::ForgeAccess;
 use bupha_cache::Cache;
 use bupha_cache_sccache::SccacheConf;
 use bupha_cloudflared::CloudflaredTunnel;
 use bupha_config::ConfigSource;
 use bupha_config_toml::TomlSource;
+use bupha_container::{ContainerCfg, ContainerRunner};
 use bupha_core::{Config, EnqueueResult, Queue};
 use bupha_dagger::DaggerRunner;
 use bupha_dotenv::DotenvSecrets;
@@ -23,6 +27,8 @@ use bupha_service::Service;
 use bupha_shell::ShellRunner;
 use bupha_status::StatusSink;
 use bupha_systemd as deploy;
+use bupha_telemetry::{NoopTelemetry, RunEvent, Telemetry};
+use bupha_telemetry_otel::OtelTelemetry;
 use bupha_trigger::ForgeAdmin;
 use bupha_trigger::{PushOutcome, Trigger};
 use bupha_tunnel::Tunnel;
@@ -160,8 +166,15 @@ fn build_runner(rc: &bupha_core::RunnerCfg, cache: &bupha_core::CacheCfg) -> Arc
             });
             Arc::new(bupha_ssh::SshRunner::new(sc))
         }
+        "container" => {
+            let cc: ContainerCfg = table.clone().try_into().unwrap_or_else(|e| {
+                eprintln!("runner config (container): {e}");
+                std::process::exit(2)
+            });
+            Arc::new(ContainerRunner::new(cc))
+        }
         other => {
-            eprintln!("unknown runner kind '{other}' (dagger|shell|ssh)");
+            eprintln!("unknown runner kind '{other}' (dagger|shell|ssh|container)");
             std::process::exit(2);
         }
     }
@@ -319,6 +332,36 @@ fn cmd_watch(cfg: Arc<Config>) {
             std::process::exit(2);
         }
     };
+    // Who may trigger — forge-attested sender checked against policy.
+    let access: Arc<dyn Access> = match cfg.access.kind.as_str() {
+        "all" => Arc::new(AllowAll),
+        "file" => Arc::new(FileAccess {
+            allow: cfg.access.allow.clone(),
+        }),
+        "forge" => Arc::new(ForgeAccess::new(&cfg.trigger.api_base, &token)),
+        other => {
+            eprintln!("unknown access kind '{other}' (all|file|forge)");
+            std::process::exit(2);
+        }
+    };
+
+    let telemetry: Arc<dyn Telemetry> = match cfg.telemetry.kind.as_str() {
+        "none" | "" => Arc::new(NoopTelemetry),
+        "otel" => {
+            let path = cfg
+                .telemetry
+                .path
+                .clone()
+                .map(PathBuf::from)
+                .unwrap_or_else(|| PathBuf::from(&cfg.worktree.base).join("bupha.prom"));
+            Arc::new(OtelTelemetry::new(path))
+        }
+        other => {
+            eprintln!("unknown telemetry kind '{other}' (none|otel)");
+            std::process::exit(2);
+        }
+    };
+
     let mut sinks: std::collections::HashMap<String, Arc<dyn StatusSink>> =
         std::collections::HashMap::new();
     for r in watched.iter() {
@@ -402,6 +445,7 @@ fn cmd_watch(cfg: Arc<Config>) {
         let cfg = Arc::clone(&cfg);
         let watched = Arc::clone(&watched);
         let sinks = Arc::clone(&sinks);
+        let telemetry = telemetry.clone();
         std::thread::spawn({
             let store = store.clone();
             move || loop {
@@ -425,7 +469,18 @@ fn cmd_watch(cfg: Arc<Config>) {
                 let repo = watched.iter().find(|r| r.name == repo_name).unwrap();
                 let sink = &*sinks[&repo_name];
                 let runner = &*runners[&repo_name];
-                run_job(&cfg, repo, sink, runner, &shared, &child, &sha);
+                telemetry.event(&RunEvent::Started {
+                    repo: repo_name.clone(),
+                    sha: sha.clone(),
+                });
+                let t0 = std::time::Instant::now();
+                let ok = run_job(&cfg, repo, sink, runner, &shared, &child, &sha);
+                telemetry.event(&RunEvent::Finished {
+                    repo: repo_name.clone(),
+                    sha: sha.clone(),
+                    status: if ok { "success" } else { "failure" },
+                    wall: t0.elapsed(),
+                });
                 let mut g = shared.lock().unwrap();
                 if let Some(q) = g.queues.get_mut(&repo_name) {
                     q.running = None;
@@ -448,6 +503,8 @@ fn cmd_watch(cfg: Arc<Config>) {
         let child = Arc::clone(&child);
         let store = store.clone();
         let watched = Arc::clone(&watched);
+        let access = access.clone();
+        let telemetry = telemetry.clone();
         std::thread::spawn(move || {
             let mut req = req;
             let headers: Vec<(String, String)> = req
@@ -488,12 +545,17 @@ fn cmd_watch(cfg: Arc<Config>) {
                         repo: repo_name,
                         git_ref,
                         sha,
+                        sender,
                     }) => {
                         let repo = watched.iter().find(|r| r.name == repo_name);
                         match repo {
                             None => (200, "ignored: unwatched repo"),
                             Some(r) if git_ref != r.branch => {
                                 (200, "ignored: not the watched branch")
+                            }
+                            Some(_) if !access.allow(&sender, &repo_name) => {
+                                println!("denied: {sender} may not trigger {repo_name}");
+                                (403, "sender not allowed")
                             }
                             Some(r) => {
                                 // Lock: mutate queue + decide, then drop.
@@ -511,6 +573,10 @@ fn cmd_watch(cfg: Arc<Config>) {
                                         EnqueueResult::Duplicate => (200, "already queued"),
                                         EnqueueResult::Queued { superseded } => {
                                             old = superseded;
+                                            telemetry.event(&RunEvent::Queued {
+                                                repo: repo_name.clone(),
+                                                sha: sha.clone(),
+                                            });
                                             kill = r.runner.cancel_running && running;
                                             if kill {
                                                 g.queues.get_mut(&repo_name).unwrap().cancelled =
@@ -521,6 +587,10 @@ fn cmd_watch(cfg: Arc<Config>) {
                                     }
                                 };
                                 if let Some(old) = old {
+                                    telemetry.event(&RunEvent::Superseded {
+                                        repo: repo_name.clone(),
+                                        sha: old.clone(),
+                                    });
                                     sinks[&repo_name].post(
                                         &old,
                                         "error",

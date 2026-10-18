@@ -1,6 +1,6 @@
 # ADR-0002: Enterprise-grade surfaces
 
-Status: proposed — designs for fleet, access, SLA, isolation, compliance, support-surface.
+Status: partially landed (0.1.x) — access+telemetry+isolation wired; attest/lease/history-read pending — designs for fleet, access, SLA, isolation, compliance, support-surface.
 
 Each proposal names the port it hangs off. The architecture already pays
 for this — all six are *new ports or new impls*, not rewrites.

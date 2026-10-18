@@ -74,10 +74,15 @@ impl Trigger for GitHubTrigger {
         if !is_valid_sha(sha) {
             return None;
         }
+        let sender = v
+            .pointer("/sender/login")
+            .and_then(|l| l.as_str())
+            .unwrap_or_default();
         Some(PushOutcome::Push {
             repo: repo.to_string(),
             git_ref: git_ref.to_string(),
             sha: sha.to_string(),
+            sender: sender.to_string(),
         })
     }
 }
@@ -133,7 +138,12 @@ impl StatusSink for LogStatus {
 
 /// Delete the webhook pointing at `{url}/hook` — exact URL match only,
 /// mirroring register_webhook. Returns a human message.
-pub fn unregister_webhook(token: &str, repo: &str, url: &str, api_base: &str) -> std::io::Result<String> {
+pub fn unregister_webhook(
+    token: &str,
+    repo: &str,
+    url: &str,
+    api_base: &str,
+) -> std::io::Result<String> {
     let hook_url = format!("{}/hook", url.trim_end_matches('/'));
     let agent = agent();
     let list = agent

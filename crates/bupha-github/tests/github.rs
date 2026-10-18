@@ -41,7 +41,9 @@ fn parse_push_extracts_repo_ref_sha() {
     let sha40 = "a".repeat(40);
     let body = BODY.replace("abc123def456", &sha40);
     match t.parse_push(body.as_bytes()).unwrap() {
-        PushOutcome::Push { repo, git_ref, sha } => assert_eq!(
+        PushOutcome::Push {
+            repo, git_ref, sha, ..
+        } => assert_eq!(
             (repo.as_str(), git_ref.as_str(), sha.as_str()),
             ("o/r", "refs/heads/main", sha40.as_str())
         ),

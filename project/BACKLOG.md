@@ -28,3 +28,11 @@ Ideas parked, not scheduled. Pull into project/TODO.md when picked up.
   today sccache conf reaches them)
 - [ ] Remote runner impls beyond ssh (e.g. K8s, hosted agents —
   `RunHandle` doesn't assume local processes)
+
+## Enterprise surfaces (ADR-0002 — ports landed 0.1.x)
+- [ ] `bupha-access-forge` — live permission check needs real GH token e2e test.
+- [ ] `bupha-attest-sigstore` adapter — cosign predicates (port landed).
+- [ ] `bupha-queue-redis`/pg impl — the real multi-worker store behind
+      `bupha-queue-lease` (port landed; redb stays single-box).
+- [ ] `bupha runs` cli — read path for bupha-history JSONL.
+- [ ] `bupha log|explain` — structured-log read path (support surface).

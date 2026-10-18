@@ -1,0 +1,12 @@
+[package]
+name = "bupha-queue-lease"
+description = "Queue-lease port: multi-worker fencing (try_claim + Fence)"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+keywords = ["ci", "bupha"]
+categories = ["development-tools"]
+
+[dependencies]
+

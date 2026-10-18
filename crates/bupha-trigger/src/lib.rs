@@ -24,12 +24,15 @@ pub trait Trigger: Send + Sync {
 
 /// What a parsed payload asks the watcher to do.
 pub enum PushOutcome {
-    /// (repo_name, git_ref, sha) — repo is `repository.full_name`;
-    /// the caller filters ref per watched repo.
+    /// (repo_name, git_ref, sha, sender) — repo is
+    /// `repository.full_name`; the caller filters ref per watched
+    /// repo. `sender` is the forge-attested identity that triggered
+    /// the event (empty string if the forge does not provide one).
     Push {
         repo: String,
         git_ref: String,
         sha: String,
+        sender: String,
     },
     /// Well-formed event that needs no run (deleted branch, zero sha).
     Skip,

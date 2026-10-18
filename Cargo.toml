@@ -1,6 +1,15 @@
 [workspace]
 resolver = "2"
 members = [
+    "crates/bupha-queue-lease",
+    "crates/bupha-history",
+    "crates/bupha-attest",
+    "crates/bupha-container",
+    "crates/bupha-telemetry-otel",
+    "crates/bupha-telemetry",
+    "crates/bupha-access-forge",
+    "crates/bupha-access-file",
+    "crates/bupha-access",
     "crates/bupha-cli",
     "crates/bupha-systemd",
     "crates/bupha-core",
@@ -40,6 +49,15 @@ inherits = "release"
 lto = "thin"
 
 [workspace.dependencies]
+bupha-access = { path = "crates/bupha-access", version = "0.1.0" }
+bupha-access-file = { path = "crates/bupha-access-file", version = "0.1.0" }
+bupha-access-forge = { path = "crates/bupha-access-forge", version = "0.1.0" }
+bupha-telemetry = { path = "crates/bupha-telemetry", version = "0.1.0" }
+bupha-telemetry-otel = { path = "crates/bupha-telemetry-otel", version = "0.1.0" }
+bupha-container = { path = "crates/bupha-container", version = "0.1.0" }
+bupha-attest = { path = "crates/bupha-attest", version = "0.1.0" }
+bupha-history = { path = "crates/bupha-history", version = "0.1.0" }
+bupha-queue-lease = { path = "crates/bupha-queue-lease", version = "0.1.0" }
 bupha-core = { path = "crates/bupha-core", version = "0.1.0" }
 bupha-trigger = { path = "crates/bupha-trigger", version = "0.1.0" }
 bupha-vcs = { path = "crates/bupha-vcs", version = "0.1.0" }

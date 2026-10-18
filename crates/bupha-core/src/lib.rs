@@ -142,6 +142,62 @@ fn default_api_base() -> String {
     "https://api.github.com".into()
 }
 
+/// Authorization for *who may trigger* (`[access]`). The `sender` in
+/// a push is forge-attested (signed payload) — this checks it against
+/// a policy. Absent section = open (anyone whose push verifies).
+#[derive(Debug, Deserialize, Clone)]
+#[serde(deny_unknown_fields)]
+pub struct AccessCfg {
+    /// Policy kind: "all" (default, open), "file" (allowlist below),
+    /// "forge" (collaborator-permission check via the forge API).
+    #[serde(default = "default_access_kind")]
+    pub kind: String,
+    /// Allowlist of forge logins — used when kind = "file".
+    #[serde(default)]
+    pub allow: Vec<String>,
+}
+
+fn default_access_kind() -> String {
+    "all".into()
+}
+
+impl Default for AccessCfg {
+    fn default() -> Self {
+        Self {
+            kind: default_access_kind(),
+            allow: vec![],
+        }
+    }
+}
+
+/// Observability (`[telemetry]`). Fire-and-forget domain events —
+/// never blocks the pipeline. Absent section = no telemetry.
+#[derive(Debug, Deserialize, Clone)]
+#[serde(deny_unknown_fields)]
+pub struct TelemetryCfg {
+    /// Backend kind: "none" (default) or "otel" (OpenMetrics textfile
+    /// for node_exporter/Prometheus).
+    #[serde(default = "default_telemetry_kind")]
+    pub kind: String,
+    /// Where the .prom textfile is written when kind = "otel".
+    /// Default: "<worktree.base>/bupha.prom".
+    #[serde(default)]
+    pub path: Option<String>,
+}
+
+fn default_telemetry_kind() -> String {
+    "none".into()
+}
+
+impl Default for TelemetryCfg {
+    fn default() -> Self {
+        Self {
+            kind: default_telemetry_kind(),
+            path: None,
+        }
+    }
+}
+
 #[derive(Debug, Deserialize, Clone)]
 #[serde(deny_unknown_fields)]
 pub struct Config {
@@ -161,6 +217,12 @@ pub struct Config {
     /// accepted for older configs — `[cache]` wins.
     #[serde(default)]
     pub cache: CacheCfg,
+    /// Who may trigger (`[access]`). Absent = open.
+    #[serde(default)]
+    pub access: AccessCfg,
+    /// Pipeline observability (`[telemetry]`). Absent = none.
+    #[serde(default)]
+    pub telemetry: TelemetryCfg,
     /// Where detached git worktrees for runs are created.
     #[serde(default)]
     pub worktree: WorktreeCfg,
@@ -211,9 +273,7 @@ pub struct WatchedRepo {
 
 impl Config {
     pub fn watched(&self) -> Result<Vec<WatchedRepo>, String> {
-        let canon = |p: &str| {
-            std::fs::canonicalize(p).unwrap_or_else(|_| p.into())
-        };
+        let canon = |p: &str| std::fs::canonicalize(p).unwrap_or_else(|_| p.into());
         if !self.repos.is_empty() {
             return self
                 .repos
@@ -231,7 +291,7 @@ impl Config {
                     }
                     Ok(WatchedRepo {
                         name: r.name.clone(),
-                        dir: canon(&r.dir.to_string_lossy()).into(),
+                        dir: canon(&r.dir.to_string_lossy()),
                         branch: r.branch.clone(),
                         status_repo: r.status_repo().to_string(),
                         runner,

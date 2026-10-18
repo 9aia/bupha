@@ -83,11 +83,15 @@ dependencies = [
 name = "bupha"
 version = "0.1.0"
 dependencies = [
+ "bupha-access",
+ "bupha-access-file",
+ "bupha-access-forge",
  "bupha-cache",
  "bupha-cache-sccache",
  "bupha-cloudflared",
  "bupha-config",
  "bupha-config-toml",
+ "bupha-container",
  "bupha-core",
  "bupha-dagger",
  "bupha-dotenv",
@@ -103,6 +107,8 @@ dependencies = [
  "bupha-ssh",
  "bupha-status",
  "bupha-systemd",
+ "bupha-telemetry",
+ "bupha-telemetry-otel",
  "bupha-trigger",
  "bupha-tunnel",
  "bupha-vcs",
@@ -117,6 +123,30 @@ dependencies = [
  "toml",
  "ureq",
 ]
+
+[[package]]
+name = "bupha-access"
+version = "0.1.0"
+
+[[package]]
+name = "bupha-access-file"
+version = "0.1.0"
+dependencies = [
+ "bupha-access",
+]
+
+[[package]]
+name = "bupha-access-forge"
+version = "0.1.0"
+dependencies = [
+ "bupha-access",
+ "serde_json",
+ "ureq",
+]
+
+[[package]]
+name = "bupha-attest"
+version = "0.1.0"
 
 [[package]]
 name = "bupha-cache"
@@ -151,6 +181,14 @@ dependencies = [
  "bupha-config",
  "bupha-core",
  "toml",
+]
+
+[[package]]
+name = "bupha-container"
+version = "0.1.0"
+dependencies = [
+ "bupha-runner",
+ "serde",
 ]
 
 [[package]]
@@ -201,6 +239,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "bupha-history"
+version = "0.1.0"
+
+[[package]]
 name = "bupha-keyring"
 version = "0.1.0"
 dependencies = [
@@ -213,6 +255,10 @@ version = "0.1.0"
 dependencies = [
  "serde",
 ]
+
+[[package]]
+name = "bupha-queue-lease"
+version = "0.1.0"
 
 [[package]]
 name = "bupha-queue-redb"
@@ -266,6 +312,17 @@ version = "0.1.0"
 dependencies = [
  "bupha-core",
  "bupha-service",
+]
+
+[[package]]
+name = "bupha-telemetry"
+version = "0.1.0"
+
+[[package]]
+name = "bupha-telemetry-otel"
+version = "0.1.0"
+dependencies = [
+ "bupha-telemetry",
 ]
 
 [[package]]

@@ -1,0 +1,13 @@
+[package]
+name = "bupha-container"
+description = "Runner adapter: unprivileged container (podman/docker), network-off"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+keywords = ["ci", "bupha"]
+categories = ["development-tools"]
+
+[dependencies]
+bupha-runner.workspace = true
+serde = { version = "1", features = ["derive"] }

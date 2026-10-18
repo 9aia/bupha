@@ -1,0 +1,11 @@
+[package]
+name = "bupha-access"
+description = "Access port: who may trigger a repo"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+keywords = ["ci", "bupha"]
+categories = ["development-tools"]
+
+[dependencies]

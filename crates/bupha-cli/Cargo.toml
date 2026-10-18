@@ -44,6 +44,13 @@ clap-markdown = "0.1.5"
 dirs = "7.0.0"
 toml = "0.8"
 
+bupha-access.workspace = true
+bupha-access-file.workspace = true
+bupha-access-forge.workspace = true
+bupha-telemetry.workspace = true
+bupha-telemetry-otel.workspace = true
+bupha-container.workspace = true
+
 [dev-dependencies]
 hmac = "0.12"
 sha2 = "0.10"
