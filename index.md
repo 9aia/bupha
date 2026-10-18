@@ -34,7 +34,7 @@ features:
     details: every run is an isolated git worktree of the pushed sha — never a shared, dirty checkout
   - icon: 🧩
     title: Ports, not frameworks
-    details: runner (dagger | script), tunnel (cloudflared | direct | none), trigger + status — swap via config or a new impl crate
+    details: runner (dagger | shell | ssh), tunnel (cloudflared | direct | none), trigger + status — swap via config or a new adapter crate
     link: /explanation/architecture
     linkText: architecture
   - icon: 🔐

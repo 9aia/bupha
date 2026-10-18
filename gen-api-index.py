@@ -6,7 +6,7 @@ import pathlib, sys
 
 api = (pathlib.Path(sys.argv[1]) if len(sys.argv) > 1
        else pathlib.Path("public/api"))
-if api.is_file():
+if not api.is_dir():
     api = api.parent
 crates = sorted(d.name for d in api.iterdir()
                 if d.is_dir() and d.name.startswith("bupha"))
