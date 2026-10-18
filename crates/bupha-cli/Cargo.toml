@@ -58,6 +58,10 @@ bupha-attest.workspace = true
 
 bupha-attest-file.workspace = true
 
+bupha-attest-sigstore.workspace = true
+
+bupha-queue-lease.workspace = true
+
 [dev-dependencies]
 hmac = "0.12"
 sha2 = "0.10"

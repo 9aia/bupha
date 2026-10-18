@@ -9,6 +9,7 @@ use bupha_access_file::FileAccess;
 use bupha_access_forge::ForgeAccess;
 use bupha_attest::{Attest, RunAttestation};
 use bupha_attest_file::FileAttest;
+use bupha_attest_sigstore::SigstoreAttest;
 use bupha_cache::Cache;
 use bupha_cache_sccache::SccacheConf;
 use bupha_cloudflared::CloudflaredTunnel;
@@ -23,6 +24,7 @@ use bupha_github::{GitHubAdmin, GitHubStatus, GitHubTrigger, LogStatus};
 use bupha_history::RunRecord;
 use bupha_keyring::KeyringSecrets;
 use bupha_queue::{PersistedQueue, QueueStore};
+use bupha_queue_lease::{LocalClaim, TryClaim};
 use bupha_queue_redb::RedbQueueStore;
 use bupha_runner::{RunCtx, RunHandle, Runner};
 use bupha_secret::Secrets;
@@ -392,8 +394,18 @@ fn cmd_watch(cfg: Arc<Config>) {
                 .unwrap_or_else(|| PathBuf::from(&cfg.worktree.base).join("attest"));
             Some(Arc::new(FileAttest { dir }))
         }
+        "sigstore" => {
+            let dir = cfg
+                .attest
+                .dir
+                .clone()
+                .map(PathBuf::from)
+                .unwrap_or_else(|| PathBuf::from(&cfg.worktree.base).join("attest"));
+            let key = secret(&cfg.attest.key_env).unwrap_or_default();
+            Some(Arc::new(SigstoreAttest { dir, key }))
+        }
         other => {
-            eprintln!("unknown attest kind '{other}' (none|file)");
+            eprintln!("unknown attest kind '{other}' (none|file|sigstore)");
             std::process::exit(2);
         }
     };
@@ -453,6 +465,7 @@ fn cmd_watch(cfg: Arc<Config>) {
             .queues
             .insert(r.name.clone(), Queue::with_policy(r.policy));
     }
+    let mut claim: Arc<dyn TryClaim> = Arc::new(LocalClaim);
     let store: Arc<dyn QueueStore> = match cfg.queue.kind.as_str() {
         "redb" | "" => Arc::new(
             RedbQueueStore::open(qfile.with_extension("redb"))
@@ -463,10 +476,12 @@ fn cmd_watch(cfg: Arc<Config>) {
                 eprintln!("[queue] kind=redis needs `url`");
                 std::process::exit(2);
             });
-            Arc::new(
+            let redis = Arc::new(
                 bupha_queue_redis::RedisQueueStore::open(&url)
                     .unwrap_or_else(|e| panic!("redis: {e}")),
-            )
+            );
+            claim = redis.clone();
+            redis
         }
         other => {
             eprintln!("unknown queue kind '{other}' (redb|redis)");
@@ -499,18 +514,32 @@ fn cmd_watch(cfg: Arc<Config>) {
         let sinks = Arc::clone(&sinks);
         let telemetry = telemetry.clone();
         let attest = attest.clone();
+        let worker_id = format!(
+            "{}:{}",
+            std::env::var("HOSTNAME").unwrap_or_else(|_| "bupha".into()),
+            std::process::id()
+        );
         std::thread::spawn({
             let store = store.clone();
+            let claim = claim.clone();
             move || loop {
                 let (repo_name, sha) = {
                     let mut g = shared.lock().unwrap();
                     loop {
+                        // Peek the front pending sha per repo; claim it
+                        // in the shared store before dequeuing so a
+                        // second watcher can't double-run it.
                         let hit = g.queues.iter_mut().find_map(|(n, q)| {
-                            q.dequeue().map(|s| {
-                                q.running = Some(s.clone());
-                                q.cancelled = false;
-                                (n.clone(), s)
-                            })
+                            let front = q.pending.front()?.clone();
+                            match claim.try_claim(n, &front, &worker_id) {
+                                Ok(Some(_)) => {
+                                    let s = q.dequeue().unwrap();
+                                    q.running = Some(s.clone());
+                                    q.cancelled = false;
+                                    Some((n.clone(), s))
+                                }
+                                _ => None, // claimed elsewhere or store down
+                            }
                         });
                         if let Some(x) = hit {
                             persist_queue(&g, &*store);

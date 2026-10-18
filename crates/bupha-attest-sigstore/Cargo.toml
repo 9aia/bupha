@@ -1,0 +1,13 @@
+[package]
+name = "bupha-attest-sigstore"
+description = "Attest adapter: cosign-signed run predicates (needs cosign + key)"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+keywords = ["ci", "bupha"]
+categories = ["development-tools"]
+
+[dependencies]
+bupha-attest.workspace = true
+bupha-attest-file.workspace = true

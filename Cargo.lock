@@ -94,6 +94,7 @@ dependencies = [
  "bupha-access-forge",
  "bupha-attest",
  "bupha-attest-file",
+ "bupha-attest-sigstore",
  "bupha-cache",
  "bupha-cache-sccache",
  "bupha-cloudflared",
@@ -108,6 +109,7 @@ dependencies = [
  "bupha-history",
  "bupha-keyring",
  "bupha-queue",
+ "bupha-queue-lease",
  "bupha-queue-redb",
  "bupha-queue-redis",
  "bupha-runner",
@@ -163,6 +165,14 @@ name = "bupha-attest-file"
 version = "0.1.0"
 dependencies = [
  "bupha-attest",
+]
+
+[[package]]
+name = "bupha-attest-sigstore"
+version = "0.1.0"
+dependencies = [
+ "bupha-attest",
+ "bupha-attest-file",
 ]
 
 [[package]]

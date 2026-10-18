@@ -197,10 +197,15 @@ pub struct AttestCfg {
     /// Adapter kind: "none" (default) or "file" (predicate JSON dir).
     #[serde(default = "default_attest_kind")]
     pub kind: String,
-    /// Where predicates are written (kind = "file"). Default:
-    /// "<worktree.base>/attest".
+    /// Where predicates are written (kind = "file"/"sigstore").
+    /// Default: "<worktree.base>/attest".
     #[serde(default)]
     pub dir: Option<String>,
+    /// Signing key env-var name (kind = "sigstore") — env/keyring/
+    /// file chain resolves the value; the key itself never enters the
+    /// config. Empty/resolved-empty = keyless (Fulcio).
+    #[serde(default)]
+    pub key_env: String,
 }
 
 fn default_attest_kind() -> String {
@@ -212,6 +217,7 @@ impl Default for AttestCfg {
         Self {
             kind: default_attest_kind(),
             dir: None,
+            key_env: String::new(),
         }
     }
 }

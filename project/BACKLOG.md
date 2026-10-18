@@ -30,8 +30,10 @@ Ideas parked, not scheduled. Pull into project/TODO.md when picked up.
   `RunHandle` doesn't assume local processes)
 
 ## Enterprise surfaces (ADR-0002 — ports landed 0.1.x)
-- [ ] `bupha-access-forge` — live permission check needs real GH token e2e test.
-- [ ] `bupha-attest-sigstore` adapter — cosign predicates (file adapter landed).
-- [ ] `bupha-queue-redis` — landed + live-tested (SET NX claim, INCR
-      fence); `[queue] kind = "redis"` selects it. Fleet still needs
-      worker-id + lease-renewal wiring in the worker loop.
+- [ ] `bupha-access-forge` — live test exists (`--ignored`); needs
+      GH_TOKEN + FORGE_TEST_REPO envs to run against a real repo.
+- [ ] `bupha-attest-sigstore` — landed (cosign sign-blob); needs a
+      box with cosign + a key to verify end-to-end.
+- [ ] Fleet is wired — `[queue] kind = "redis"` + worker claims via
+      SET NX + INCR fence. Remaining: lease renewal mid-run (long
+      builds can out-live the 5-min claim TTL).
