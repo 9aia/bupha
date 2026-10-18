@@ -578,13 +578,13 @@ fn cmd_init(dir: &Path) {
     match Command::new("dagger")
         .args([
             "install",
-            &format!("github.com/9aia/bupha/modules/dagger@{MODULE_SHA}"),
+            &format!("github.com/9aia/bupha/modules/dagger@{MODULE_REF}"),
         ])
         .current_dir(dir)
         .status()
     {
         Ok(s) if s.success() => {
-            println!("installed github.com/9aia/bupha/modules/dagger@{MODULE_SHA}")
+            println!("installed github.com/9aia/bupha/modules/dagger@{MODULE_REF}")
         }
         _ => eprintln!("warning: dagger install failed — check network/auth"),
     }
@@ -637,7 +637,9 @@ fn cmd_init(dir: &Path) {
 
 /// Module ref installed by `bupha init` — a commit sha, bumped at
 /// release time (see TODO).
-const MODULE_SHA: &str = "288f999895d6cc379b237a086e60d459bcca7b59";
+// The scaffolded module pins to the release tag matching this
+// binary — the cli and module versions must move together.
+const MODULE_REF: &str = concat!("bupha-v", env!("CARGO_PKG_VERSION"));
 
 const DELEGATE_TEMPLATE: &str = r##""""""CI for this repo — delegates to the shared 9aia/bupha module.""""
 
