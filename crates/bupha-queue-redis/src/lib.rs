@@ -55,6 +55,10 @@ impl QueueStore for RedisQueueStore {
 }
 
 impl TryClaim for RedisQueueStore {
+    fn renew(&self, repo: &str, sha: &str, worker: &str) -> io::Result<bool> {
+        self.renew_inner(repo, sha, worker)
+    }
+
     fn try_claim(&self, repo: &str, sha: &str, worker: &str) -> io::Result<Option<Fence>> {
         let key = format!("bupha:claim:{repo}:{sha}");
         let mut c = self.conn.lock().unwrap();
@@ -71,5 +75,23 @@ impl TryClaim for RedisQueueStore {
         }
         let n: u64 = c.incr(FENCE_KEY, 1u64).map_err(err)?;
         Ok(Some(Fence(n)))
+    }
+}
+
+impl RedisQueueStore {
+    /// Renew only if we still hold the claim — one atomic Lua step.
+    fn renew_inner(&self, repo: &str, sha: &str, worker: &str) -> io::Result<bool> {
+        let key = format!("bupha:claim:{repo}:{sha}");
+        let script = redis::Script::new(
+            "if redis.call('get', KEYS[1]) == ARGV[1]              then return redis.call('pexpire', KEYS[1], ARGV[2])              else return 0 end",
+        );
+        let mut c = self.conn.lock().unwrap();
+        let n: u32 = script
+            .key(key)
+            .arg(worker)
+            .arg(CLAIM_TTL_MS)
+            .invoke(&mut *c)
+            .map_err(err)?;
+        Ok(n == 1)
     }
 }

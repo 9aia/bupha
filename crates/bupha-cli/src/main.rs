@@ -229,13 +229,20 @@ fn secret(name: &str) -> Option<String> {
 
 type ChildSlot = Arc<Mutex<Option<Box<dyn RunHandle>>>>;
 
+/// Per-worker runtime state shared across run_jobs on this box.
+struct Worker<'a> {
+    child: &'a ChildSlot,
+    claim: &'a dyn TryClaim,
+    id: &'a str,
+}
+
 fn run_job(
     cfg: &Config,
     repo: &bupha_core::WatchedRepo,
     sink: &dyn StatusSink,
     runner: &dyn Runner,
     shared: &Mutex<Shared>,
-    child: &ChildSlot,
+    worker: &Worker<'_>,
     sha: &str,
 ) -> bool {
     let wt = PathBuf::from(format!(
@@ -265,12 +272,25 @@ fn run_job(
     };
     let ok = match runner.spawn(&ctx) {
         Ok(ch) => {
-            *child.lock().unwrap() = Some(ch);
+            *worker.child.lock().unwrap() = Some(ch);
+            let mut ticks = 0u32;
             loop {
-                let done = child.lock().unwrap().as_mut().unwrap().try_wait();
+                let done = worker.child.lock().unwrap().as_mut().unwrap().try_wait();
                 match done {
                     Ok(Some(s)) => break s.success(),
-                    Ok(None) => std::thread::sleep(std::time::Duration::from_millis(500)),
+                    Ok(None) => {
+                        // Renew the fleet claim every ~2 min — the
+                        // 5-min lease must out-live long builds.
+                        ticks += 1;
+                        if ticks.is_multiple_of(240) {
+                            match worker.claim.renew(&repo.name, sha, worker.id) {
+                                Ok(true) => {}
+                                Ok(false) => eprintln!("claim lost for {sha:.12} — run contested"),
+                                Err(e) => eprintln!("claim renew failed: {e}"),
+                            }
+                        }
+                        std::thread::sleep(std::time::Duration::from_millis(500));
+                    }
                     Err(e) => {
                         eprintln!("runner wait failed: {e}");
                         break false;
@@ -283,7 +303,7 @@ fn run_job(
             false
         }
     };
-    *child.lock().unwrap() = None;
+    *worker.child.lock().unwrap() = None;
     // A killed child exits non-zero; report cancelled, not failed.
     let cancelled = shared
         .lock()
@@ -556,7 +576,19 @@ fn cmd_watch(cfg: Arc<Config>) {
                     sha: sha.clone(),
                 });
                 let t0 = std::time::Instant::now();
-                let ok = run_job(&cfg, repo, sink, runner, &shared, &child, &sha);
+                let ok = run_job(
+                    &cfg,
+                    repo,
+                    sink,
+                    runner,
+                    &shared,
+                    &Worker {
+                        child: &child,
+                        claim: &*claim,
+                        id: &worker_id,
+                    },
+                    &sha,
+                );
                 let wall = t0.elapsed();
                 let status = if ok { "success" } else { "failure" };
                 telemetry.event(&RunEvent::Finished {

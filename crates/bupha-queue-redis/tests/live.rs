@@ -43,3 +43,14 @@ fn live_claim_fences_and_excludes() {
     let f3 = s.try_claim("org/api", "sha2", "worker-b").unwrap();
     assert!(f3.unwrap().0 > f1.unwrap().0);
 }
+
+#[test]
+#[ignore]
+fn live_renew_extends_lease() {
+    let s = RedisQueueStore::open(&url()).unwrap();
+    s.try_claim("org/api", "renew-sha", "worker-a").unwrap();
+    // Our renew succeeds…
+    assert!(s.renew("org/api", "renew-sha", "worker-a").unwrap());
+    // …a stranger's renew does not (value mismatch → Lua returns 0).
+    assert!(!s.renew("org/api", "renew-sha", "worker-b").unwrap());
+}

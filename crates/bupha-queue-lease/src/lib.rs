@@ -8,6 +8,13 @@ pub struct Fence(pub u64);
 /// the run; `None` = another worker holds it.
 pub trait TryClaim: Send + Sync {
     fn try_claim(&self, repo: &str, sha: &str, worker: &str) -> std::io::Result<Option<Fence>>;
+    /// Extend a held claim's TTL. Long runs renew periodically so the
+    /// lease doesn't expire mid-build. `false` = the claim was lost
+    /// (expired or stolen). Default: always-held (single-box stores).
+    fn renew(&self, repo: &str, sha: &str, worker: &str) -> std::io::Result<bool> {
+        let _ = (repo, sha, worker);
+        Ok(true)
+    }
 }
 
 /// Single-box claim — always succeeds with a zero fence. Used when
