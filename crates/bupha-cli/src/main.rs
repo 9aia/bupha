@@ -87,6 +87,12 @@ enum Cmd {
         #[command(subcommand)]
         sub: DestroySub,
     },
+    /// Toggle the watcher unit without removing it — free the box
+    /// when CI isn't needed, `enable` brings it back.
+    Service {
+        #[command(subcommand)]
+        sub: ServiceSub,
+    },
     /// Recent finished runs (reads `<worktree.base>/history.jsonl`).
     Runs {
         /// Filter to one repo ("owner/name").
@@ -141,6 +147,17 @@ enum DestroySub {
     Webhook,
     /// Remove detached worktrees and the persisted queue file.
     Worktrees,
+}
+
+#[derive(Subcommand)]
+enum ServiceSub {
+    /// Enable + start the watcher unit now and at login.
+    Enable,
+    /// Stop the watcher now; stays stopped across logins until
+    /// `service enable` (the unit file is kept).
+    Disable,
+    /// Whether the watcher unit is enabled and running.
+    Status,
 }
 
 fn build_runner(rc: &bupha_core::RunnerCfg, cache: &bupha_core::CacheCfg) -> Arc<dyn Runner> {
@@ -1108,6 +1125,8 @@ fn main() {
         Cmd::Deploy {
             sub: DeploySub::Release { dry_run },
         } => cmd_deploy_release(*dry_run),
+        // Toggling the unit needs no bupha.toml either.
+        Cmd::Service { sub } => cmd_service(sub),
         _ => {
             let cfg = Arc::new(
                 TomlSource {
@@ -1128,9 +1147,40 @@ fn main() {
                 Cmd::Runs { repo } => cmd_runs(&cfg, repo.as_deref()),
                 Cmd::Log { n } => cmd_log(&cfg, *n),
                 Cmd::Explain { sha } => cmd_explain(&cfg, sha),
-                Cmd::Init { .. } | Cmd::GenCliDocs => unreachable!(),
+                Cmd::Init { .. } | Cmd::GenCliDocs | Cmd::Service { .. } => unreachable!(),
             }
         }
+    }
+}
+
+/// `bupha service enable|disable|status` — toggle the watcher unit
+/// without touching its files. The install path stays `deploy
+/// service`; `destroy service` still removes the unit entirely.
+fn cmd_service(sub: &ServiceSub) {
+    #[cfg(not(target_os = "linux"))]
+    {
+        eprintln!(
+            "service requires systemd (Linux). \
+            bupha supports Linux only for now — macOS/Windows \
+            may follow."
+        );
+        std::process::exit(1);
+    }
+    let unit = "bupha-watch.service";
+    let r = match sub {
+        ServiceSub::Enable => deploy::enable_service(unit).map(|_| {
+            println!("bupha-watch enabled — running now and at login");
+        }),
+        ServiceSub::Disable => deploy::stop_service(unit).map(|_| {
+            println!("bupha-watch disabled — stopped, will not restart at login");
+        }),
+        ServiceSub::Status => deploy::unit_status(unit).map(|s| {
+            println!("{s}");
+        }),
+    };
+    if let Err(e) = r {
+        eprintln!("service: {e}");
+        std::process::exit(1);
     }
 }
 

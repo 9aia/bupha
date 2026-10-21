@@ -78,6 +78,31 @@ pub fn write_env_skeleton(dir: &Path) -> io::Result<PathBuf> {
     Ok(path)
 }
 
+/// systemctl --user disable --now — stop now, skip at login. Keeps
+/// the unit file so `enable_service` brings it back without a
+/// reinstall (unlike `disable_service`, which removes it).
+pub fn stop_service(unit: &str) -> io::Result<()> {
+    run("systemctl", &["--user", "disable", "--now", unit])
+}
+
+/// One-line "enabled=<state> active=<state>" for `service status` —
+/// is-enabled/is-active exit non-zero on disabled/inactive units,
+/// so failures report the state instead of throwing.
+pub fn unit_status(unit: &str) -> io::Result<String> {
+    let probe = |args: &[&str]| -> String {
+        Command::new("systemctl")
+            .args(args)
+            .output()
+            .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())
+            .unwrap_or_else(|_| "unknown".into())
+    };
+    Ok(format!(
+        "enabled={} active={}",
+        probe(&["--user", "is-enabled", unit]),
+        probe(&["--user", "is-active", unit])
+    ))
+}
+
 /// Disable + remove the user unit. Best-effort stop first — an absent
 /// or never-enabled unit still gets its file removed.
 pub fn disable_service(unit: &str) -> io::Result<PathBuf> {
