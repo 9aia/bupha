@@ -19,6 +19,10 @@ This document contains the help content for the `bupha` command-line program.
 * [`bupha destroy service`↴](#bupha-destroy-service)
 * [`bupha destroy webhook`↴](#bupha-destroy-webhook)
 * [`bupha destroy worktrees`↴](#bupha-destroy-worktrees)
+* [`bupha service`↴](#bupha-service)
+* [`bupha service enable`↴](#bupha-service-enable)
+* [`bupha service disable`↴](#bupha-service-disable)
+* [`bupha service status`↴](#bupha-service-status)
 * [`bupha runs`↴](#bupha-runs)
 * [`bupha log`↴](#bupha-log)
 * [`bupha explain`↴](#bupha-explain)
@@ -37,6 +41,7 @@ the oxpecker on your repo's back — headless CI
 * `run` — Run the pipeline locally — in the watched repo's `dir`, not cwd
 * `deploy` — Install-time helpers — no manual file copies
 * `destroy` — Teardown counterparts of `deploy`
+* `service` — Toggle the watcher unit without removing it — free the box when CI isn't needed, `enable` brings it back
 * `runs` — Recent finished runs (reads `<worktree.base>/history.jsonl`)
 * `log` — Raw run log — last N lines of history.jsonl
 * `explain` — Why a sha did/didn't run — history + queue + worktree state
@@ -188,6 +193,44 @@ Delete the repo's webhook whose URL matches tunnel.public_url
 Remove detached worktrees and the persisted queue file
 
 **Usage:** `bupha destroy worktrees`
+
+
+
+## `bupha service`
+
+Toggle the watcher unit without removing it — free the box when CI isn't needed, `enable` brings it back
+
+**Usage:** `bupha service <COMMAND>`
+
+###### **Subcommands:**
+
+* `enable` — Enable + start the watcher unit now and at login
+* `disable` — Stop the watcher now; stays stopped across logins until `service enable` (the unit file is kept)
+* `status` — Whether the watcher unit is enabled and running
+
+
+
+## `bupha service enable`
+
+Enable + start the watcher unit now and at login
+
+**Usage:** `bupha service enable`
+
+
+
+## `bupha service disable`
+
+Stop the watcher now; stays stopped across logins until `service enable` (the unit file is kept)
+
+**Usage:** `bupha service disable`
+
+
+
+## `bupha service status`
+
+Whether the watcher unit is enabled and running
+
+**Usage:** `bupha service status`
 
 
 
