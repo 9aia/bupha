@@ -23,6 +23,8 @@ This document contains the help content for the `bupha` command-line program.
 * [`bupha service enable`↴](#bupha-service-enable)
 * [`bupha service disable`↴](#bupha-service-disable)
 * [`bupha service status`↴](#bupha-service-status)
+* [`bupha service restart`↴](#bupha-service-restart)
+* [`bupha service logs`↴](#bupha-service-logs)
 * [`bupha runs`↴](#bupha-runs)
 * [`bupha log`↴](#bupha-log)
 * [`bupha explain`↴](#bupha-explain)
@@ -207,6 +209,8 @@ Toggle the watcher unit without removing it — free the box when CI isn't neede
 * `enable` — Enable + start the watcher unit now and at login
 * `disable` — Stop the watcher now; stays stopped across logins until `service enable` (the unit file is kept)
 * `status` — Whether the watcher unit is enabled and running
+* `restart` — Restart the watcher unit
+* `logs` — Print (or follow, -f) the watcher unit log
 
 
 
@@ -231,6 +235,26 @@ Stop the watcher now; stays stopped across logins until `service enable` (the un
 Whether the watcher unit is enabled and running
 
 **Usage:** `bupha service status`
+
+
+
+## `bupha service restart`
+
+Restart the watcher unit
+
+**Usage:** `bupha service restart`
+
+
+
+## `bupha service logs`
+
+Print (or follow, -f) the watcher unit log
+
+**Usage:** `bupha service logs [OPTIONS]`
+
+###### **Options:**
+
+* `-f`, `--f` — Follow the log stream (journalctl -f)
 
 
 
