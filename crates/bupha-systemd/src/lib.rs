@@ -103,6 +103,32 @@ pub fn unit_status(unit: &str) -> io::Result<String> {
     ))
 }
 
+/// systemctl --user restart — bounce the watcher; enablement and the
+/// unit file are untouched.
+pub fn restart_service(unit: &str) -> io::Result<()> {
+    run("systemctl", &["--user", "restart", unit])
+}
+
+/// `service logs` — journal tail for the unit. `follow` hands the
+/// terminal to `journalctl -f` (inherited stdio) and returns its exit
+/// code; non-follow captures + prints the last 50 lines.
+pub fn service_logs(unit: &str, follow: bool) -> io::Result<i32> {
+    if follow {
+        let st = Command::new("journalctl")
+            .args(["--user", "-u", unit, "-f"])
+            .status()?;
+        return Ok(st.code().unwrap_or(-1));
+    }
+    let out = Command::new("journalctl")
+        .args(["--user", "-u", unit, "-n", "50", "--no-pager"])
+        .output()?;
+    print!("{}", String::from_utf8_lossy(&out.stdout));
+    if !out.status.success() {
+        eprint!("{}", String::from_utf8_lossy(&out.stderr));
+    }
+    Ok(out.status.code().unwrap_or(-1))
+}
+
 /// Disable + remove the user unit. Best-effort stop first — an absent
 /// or never-enabled unit still gets its file removed.
 pub fn disable_service(unit: &str) -> io::Result<PathBuf> {

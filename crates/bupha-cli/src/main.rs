@@ -158,6 +158,14 @@ enum ServiceSub {
     Disable,
     /// Whether the watcher unit is enabled and running.
     Status,
+    /// Restart the watcher unit.
+    Restart,
+    /// Print (or follow, -f) the watcher unit log.
+    Logs {
+        /// Follow the log stream (journalctl -f).
+        #[arg(short = 'f', long = "f")]
+        follow: bool,
+    },
 }
 
 fn build_runner(rc: &bupha_core::RunnerCfg, cache: &bupha_core::CacheCfg) -> Arc<dyn Runner> {
@@ -1177,6 +1185,15 @@ fn cmd_service(sub: &ServiceSub) {
         ServiceSub::Status => deploy::unit_status(unit).map(|s| {
             println!("{s}");
         }),
+        ServiceSub::Restart => deploy::restart_service(unit).map(|_| {
+            println!("bupha-watch restarted");
+        }),
+        ServiceSub::Logs { follow } => match deploy::service_logs(unit, *follow) {
+            Ok(0) => Ok(()),
+            // -f hands the terminal to journalctl — keep its exit code.
+            Ok(code) => std::process::exit(code),
+            Err(e) => Err(e),
+        },
     };
     if let Err(e) = r {
         eprintln!("service: {e}");
