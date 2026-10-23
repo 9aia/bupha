@@ -18,6 +18,8 @@ shared pipeline module (Python SDK).
 - New runner/tunnel/trigger = a new impl crate, not a core change.
 - `cargo build --workspace` and `cargo test --workspace` must stay green
   (unit tests + the e2e in `crates/bupha-cli/tests/` — no docker needed).
+- Coverage: `scripts/coverage.sh` — cargo-llvm-cov HTML report in
+  `target/llvm-cov/html`; pass `--fail-under-lines 100` to gate.
 - Keep the binary dependency-light and sync; no async runtime.
 - Commits: conventional prefixes (`feat:`/`fix:`/`refactor:`/`docs:`/`chore:`).
 - Never commit secrets — `bupha.toml` takes names of env vars, not values.
