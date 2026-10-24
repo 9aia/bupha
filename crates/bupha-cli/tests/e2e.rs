@@ -39,12 +39,12 @@ fn post_d(
     if let Some(d) = delivery {
         req = req.header("X-GitHub-Delivery", d);
     }
-    match req.send(body) {
+    // Keep error bodies — the watcher explains rejections in them.
+    match req.config().http_status_as_error(false).build().send(body) {
         Ok(mut r) => (
             r.status().as_u16(),
             r.body_mut().read_to_string().unwrap_or_default(),
         ),
-        Err(ureq::Error::StatusCode(c)) => (c, String::new()),
         Err(e) => panic!("http: {e}"),
     }
 }
@@ -123,14 +123,22 @@ dir = "{repo}"
     let cfg_path = tmp.join("bupha.toml");
     std::fs::write(&cfg_path, cfg).unwrap();
 
-    let _svc = Svc(Command::new(env!("CARGO_BIN_EXE_bupha"))
+    let shutdown = tmp.join("shutdown");
+    let mut svc = Svc(Command::new(env!("CARGO_BIN_EXE_bupha"))
         .args(["watch", "--config"])
         .arg(&cfg_path)
         .env("BUPHA_E2E_SECRET", "s3cr3t")
         .env("BUPHA_TOKEN", "")
+        .env("BUPHA_WATCH_SHUTDOWN_FILE", &shutdown)
         .spawn()
         .unwrap());
-    std::thread::sleep(std::time::Duration::from_secs(2));
+    // Poll the port instead of a fixed sleep — instrumented builds on
+    // a loaded box can take a while to bind.
+    let up = (0..600).any(|_| {
+        std::thread::sleep(std::time::Duration::from_millis(100));
+        std::net::TcpStream::connect(("127.0.0.1", port)).is_ok()
+    });
+    assert!(up, "watcher did not start listening");
 
     let good =
         |body: &str, event: &str| post(port, "/hook", Some(&sign("s3cr3t", body)), body, event);
@@ -182,5 +190,9 @@ dir = "{repo}"
     let (c, m) = good(del, "push");
     assert_eq!((c, m.as_str()), (200, "ignored: no-op event"));
 
+    // Graceful exit — the sentinel file ends the accept loop so the
+    // child exits 0 (and flushed coverage lands).
+    std::fs::write(&shutdown, "").unwrap();
+    let _ = svc.0.wait();
     std::fs::remove_dir_all(&tmp).ok();
 }

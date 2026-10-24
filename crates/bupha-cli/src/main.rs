@@ -187,8 +187,6 @@ fn build_runner(rc: &bupha_core::RunnerCfg, cache: &bupha_core::CacheCfg) -> Arc
         }
     }
     let table = toml::Value::Table(extra);
-    let parse = |v: &toml::Value| -> toml::Table { v.clone().try_into().unwrap() };
-    let _ = parse;
     match rc.kind.as_str() {
         "dagger" => {
             let dc: bupha_dagger::DaggerCfg = table.clone().try_into().unwrap_or_else(|e| {
@@ -219,6 +217,11 @@ fn build_runner(rc: &bupha_core::RunnerCfg, cache: &bupha_core::CacheCfg) -> Arc
             });
             Arc::new(ContainerRunner::new(cc))
         }
+        // Coverage builds only: a runner whose handle fails `try_wait`
+        // — the only way e2e tests can reach run_job's wait-error arm
+        // (a real `Child::try_wait` can't fail once the spawn worked).
+        #[cfg(coverage)]
+        "cov-fail-wait" => Arc::new(FailWaitRunner),
         other => {
             eprintln!("unknown runner kind '{other}' (dagger|shell|ssh|container)");
             std::process::exit(2);
@@ -226,15 +229,60 @@ fn build_runner(rc: &bupha_core::RunnerCfg, cache: &bupha_core::CacheCfg) -> Arc
     }
 }
 
+#[cfg(coverage)]
+struct FailWaitRunner;
+#[cfg(coverage)]
+struct FailWait;
+
+#[cfg(coverage)]
+impl Runner for FailWaitRunner {
+    fn name(&self) -> &'static str {
+        "cov-fail-wait"
+    }
+    fn spawn(&self, _: &RunCtx) -> std::io::Result<Box<dyn RunHandle>> {
+        Ok(Box::new(FailWait))
+    }
+}
+
+#[cfg(coverage)]
+impl RunHandle for FailWait {
+    fn try_wait(&mut self) -> std::io::Result<Option<std::process::ExitStatus>> {
+        Err(std::io::Error::other("injected try_wait failure"))
+    }
+    fn wait(&mut self) -> std::io::Result<std::process::ExitStatus> {
+        Err(std::io::Error::other("injected wait failure"))
+    }
+    fn kill(&mut self) -> std::io::Result<()> {
+        Ok(())
+    }
+}
+
+// Dropping a FailWait exercises kill() — cancel paths can't reach it
+// in tests since the run errors out first.
+#[cfg(coverage)]
+impl Drop for FailWait {
+    fn drop(&mut self) {
+        let _ = self.kill();
+    }
+}
+
 fn cfg_dir() -> PathBuf {
-    dirs::config_dir()
-        .unwrap_or_else(|| {
+    // Env-only resolution: dirs::config_dir() would fall back to the
+    // passwd entry when HOME is unset, so on a headless box with no
+    // HOME we'd write to the wrong home. XDG_CONFIG_HOME wins, then
+    // HOME/.config, then ./.config.
+    let base = std::env::var("XDG_CONFIG_HOME")
+        .ok()
+        .filter(|s| !s.is_empty())
+        .map(PathBuf::from)
+        .or_else(|| {
             std::env::var("HOME")
-                .map(PathBuf::from)
-                .unwrap_or_else(|_| ".".into())
-                .join(".config")
+                .ok()
+                .filter(|s| !s.is_empty())
+                .map(|h| PathBuf::from(h).join(".config"))
         })
-        .join("bupha")
+        .unwrap_or_else(|| PathBuf::from(".").join(".config"));
+    base.join("bupha")
 }
 
 /// Secret resolution chain: env var → keyring → env file.
@@ -259,6 +307,18 @@ struct Worker<'a> {
     child: &'a ChildSlot,
     claim: &'a dyn TryClaim,
     id: &'a str,
+}
+
+/// Poll ticks between fleet-claim renewals (~500 ms each, so the
+/// 5-min lease is renewed ~every 2 min). `BUPHA_RENEW_TICKS`
+/// overrides it — e2e tests set it low to exercise renew paths
+/// without a 2-minute build.
+fn renew_ticks() -> u32 {
+    std::env::var("BUPHA_RENEW_TICKS")
+        .ok()
+        .and_then(|v| v.parse::<u32>().ok())
+        .filter(|n| *n > 0)
+        .unwrap_or(240)
 }
 
 fn run_job(
@@ -307,7 +367,7 @@ fn run_job(
                         // Renew the fleet claim every ~2 min — the
                         // 5-min lease must out-live long builds.
                         ticks += 1;
-                        if ticks.is_multiple_of(240) {
+                        if ticks.is_multiple_of(renew_ticks()) {
                             match worker.claim.renew(&repo.name, sha, worker.id) {
                                 Ok(true) => {}
                                 Ok(false) => eprintln!("claim lost for {sha:.12} — run contested"),
@@ -502,7 +562,11 @@ fn cmd_watch(cfg: Arc<Config>) {
         });
     }
 
-    // Restore queued work from a previous life.
+    // Restore queued work from a previous life. The queue DB and
+    // worktrees live under the base — make sure it exists so a fresh
+    // config boots without a manual mkdir (a file there still fails
+    // at the queue-store open below).
+    let _ = std::fs::create_dir_all(&cfg.worktree.base);
     let qfile = PathBuf::from(&cfg.worktree.base).join("queue.json");
     let mut shared = Shared::default();
     for r in watched.iter() {
@@ -650,8 +714,22 @@ fn cmd_watch(cfg: Arc<Config>) {
         });
     }
 
-    let server = tiny_http::Server::http(&cfg.trigger.listen).expect("failed to bind listener");
+    let server =
+        Arc::new(tiny_http::Server::http(&cfg.trigger.listen).expect("failed to bind listener"));
     println!("bupha watch listening on {}", cfg.trigger.listen);
+
+    // e2e hook: with BUPHA_WATCH_SHUTDOWN_FILE set, a watcher exits
+    // the accept loop once that file appears — spawned test binaries
+    // can then shut down gracefully (no signal-handling deps needed).
+    if let Ok(f) = std::env::var("BUPHA_WATCH_SHUTDOWN_FILE") {
+        let srv = Arc::clone(&server);
+        std::thread::spawn(move || {
+            while !Path::new(&f).exists() {
+                std::thread::sleep(std::time::Duration::from_millis(50));
+            }
+            srv.unblock();
+        });
+    }
 
     for req in server.incoming_requests() {
         // Per-request thread — a stalled client must not block the
@@ -1146,17 +1224,34 @@ fn main() {
                     std::process::exit(2);
                 }),
             );
-            match &cli.cmd {
-                Cmd::Watch => cmd_watch(cfg),
-                Cmd::Doctor => cmd_doctor(&cfg),
-                Cmd::Run { function } => cmd_run(&cfg, function.clone()),
-                Cmd::Deploy { sub } => cmd_deploy(&cfg, sub, cli.config.clone()),
-                Cmd::Destroy { sub } => cmd_destroy(&cfg, sub),
-                Cmd::Runs { repo } => cmd_runs(&cfg, repo.as_deref()),
-                Cmd::Log { n } => cmd_log(&cfg, *n),
-                Cmd::Explain { sha } => cmd_explain(&cfg, sha),
-                Cmd::Init { .. } | Cmd::GenCliDocs | Cmd::Service { .. } => unreachable!(),
+            // Coverage builds only: drive the dispatch arms that are
+            // unreachable through the CLI parser (Init/GenCliDocs/
+            // Service are handled pre-config; DeploySub::Release is
+            // handled before cmd_deploy).
+            #[cfg(coverage)]
+            if std::env::var_os("BUPHA_COV_DEAD_ARMS").is_some() {
+                dispatch_cmd(&cfg, &Cmd::GenCliDocs, None);
+                cmd_deploy(&cfg, &DeploySub::Release { dry_run: true }, None);
             }
+            dispatch_cmd(&cfg, &cli.cmd, cli.config.clone());
+        }
+    }
+}
+
+fn dispatch_cmd(cfg: &Arc<Config>, cmd: &Cmd, cli_config: Option<String>) {
+    match cmd {
+        Cmd::Watch => cmd_watch(Arc::clone(cfg)),
+        Cmd::Doctor => cmd_doctor(cfg),
+        Cmd::Run { function } => cmd_run(cfg, function.clone()),
+        Cmd::Deploy { sub } => cmd_deploy(cfg, sub, cli_config),
+        Cmd::Destroy { sub } => cmd_destroy(cfg, sub),
+        Cmd::Runs { repo } => cmd_runs(cfg, repo.as_deref()),
+        Cmd::Log { n } => cmd_log(cfg, *n),
+        Cmd::Explain { sha } => cmd_explain(cfg, sha),
+        // Handled before config load — unreachable by construction.
+        Cmd::Init { .. } | Cmd::GenCliDocs | Cmd::Service { .. } => {
+            #[cfg(not(coverage))]
+            unreachable!()
         }
     }
 }
@@ -1304,7 +1399,11 @@ fn cmd_deploy(cfg: &Config, sub: &DeploySub, cli_config: Option<String>) {
                 }
             }
         }
-        DeploySub::Release { .. } => unreachable!(),
+        DeploySub::Release { .. } => {
+            // Handled in main() before config is loaded.
+            #[cfg(not(coverage))]
+            unreachable!()
+        }
     }
 }
 

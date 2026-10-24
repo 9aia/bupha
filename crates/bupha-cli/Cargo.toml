@@ -68,3 +68,8 @@ sha2 = "0.10"
 hex = "0.4"
 ureq = { version = "3" }
 
+# cargo-llvm-cov compiles with `--cfg coverage` (see coverage-gated
+# test hooks in main.rs and tests/) — declare it for check-cfg.
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ["cfg(coverage)"] }
+

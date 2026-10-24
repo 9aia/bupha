@@ -25,6 +25,12 @@ fn verify_rejects_bad_sig() {
     let h = vec![("X-Hub-Signature-256".into(), "sha256=deadbeef".into())];
     assert!(!t.verify(BODY.as_bytes(), &h));
     assert!(!t.verify(BODY.as_bytes(), &[]));
+    // sig present but wrong scheme -> strip_prefix arm
+    let h2 = vec![("X-Hub-Signature-256".into(), "sha1=abc".into())];
+    assert!(!t.verify(BODY.as_bytes(), &h2));
+    // sha256= prefix but non-hex value -> hex decode arm
+    let h3 = vec![("X-Hub-Signature-256".into(), "sha256=zz".into())];
+    assert!(!t.verify(BODY.as_bytes(), &h3));
 }
 
 #[test]
