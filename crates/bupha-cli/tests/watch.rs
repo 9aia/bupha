@@ -429,10 +429,12 @@ fn redis_queue_claim_renew_and_contention() {
     // Seed: sha0 restored into o/r's pending via the store blob, and
     // its claim key pre-held by "someone-else" -> the worker's
     // try_claim sees contention and skips (claim `_ => None` arm).
+    // o/r2 (watched, empty) hits the `n == 0` restore arm; "ghost"
+    // (unwatched) hits the get_mut-miss arm.
     rmap.lock().unwrap().insert(
         "bupha:queue".into(),
         format!(
-            r#"{{"o/r":{{"pending":["{}"],"running":null}},"o/r2":{{"pending":[],"running":null}}}}"#,
+            r#"{{"o/r":{{"pending":["{}"],"running":null}},"o/r2":{{"pending":[],"running":null}},"ghost":{{"pending":[],"running":null}}}}"#,
             shas[0]
         ),
     );
@@ -712,7 +714,17 @@ fn tunnel_spawn_restart_and_failure() {
         ],
     );
     wait_listen(port);
-    wait_for(|| t.join("calls").exists(), "cloudflared spawn");
+    // Two calls prove the full restart cycle ran once — spawn ->
+    // "started" -> reap -> "exited" -> sleep(5) -> respawn — so the
+    // restarted-arm and sleep lines land before shutdown.
+    wait_for(
+        || {
+            std::fs::read_to_string(t.join("calls"))
+                .map(|s| s.lines().count() >= 2)
+                .unwrap_or(false)
+        },
+        "cloudflared restart",
+    );
     stop(svc, &shutdown);
 
     // cloudflared missing entirely -> spawn error -> break arm. The
@@ -918,6 +930,37 @@ fn spawn_failure_records_failed_run() {
         "spawn-failure record",
     );
     stop(svc, &shutdown);
+}
+
+#[test]
+fn watch_timed_shutdown_hook() {
+    if !cfg!(coverage) {
+        return; // BUPHA_WATCH_SHUTDOWN_MS exists only in coverage builds
+    }
+    // No BUPHA_WATCH_SHUTDOWN_FILE -> the file-hook if-let takes its
+    // no-env path; the timed hook still ends the accept loop so the
+    // spawned binary unwinds and flushes its profile.
+    let t = tmp("msdown");
+    let repo_dir = t.join("repo");
+    std::fs::create_dir_all(&repo_dir).unwrap();
+    let _ = repo(&repo_dir, 1);
+    let port = free_port();
+    let cfg = cfg_text(port, "", &t.join("wt"), &repo_dir, "");
+    let cfg_path = t.join("bupha.toml");
+    std::fs::write(&cfg_path, &cfg).unwrap();
+    let out = Command::new(env!("CARGO_BIN_EXE_bupha"))
+        .args(["watch", "--config"])
+        .arg(&cfg_path)
+        .env("E2E_SECRET", "s")
+        .env("BUPHA_WATCH_SHUTDOWN_MS", "400")
+        .output()
+        .unwrap();
+    assert!(
+        out.status.success(),
+        "timed shutdown should exit cleanly: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    assert!(String::from_utf8_lossy(&out.stdout).contains("listening"));
 }
 
 #[test]

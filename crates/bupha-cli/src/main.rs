@@ -496,7 +496,7 @@ fn cmd_watch(cfg: Arc<Config>) {
                 .dir
                 .clone()
                 .map(PathBuf::from)
-                .unwrap_or_else(|| PathBuf::from(&cfg.worktree.base).join("attest"));
+                .unwrap_or(PathBuf::from(&cfg.worktree.base).join("attest"));
             Some(Arc::new(FileAttest { dir }))
         }
         "sigstore" => {
@@ -505,7 +505,7 @@ fn cmd_watch(cfg: Arc<Config>) {
                 .dir
                 .clone()
                 .map(PathBuf::from)
-                .unwrap_or_else(|| PathBuf::from(&cfg.worktree.base).join("attest"));
+                .unwrap_or(PathBuf::from(&cfg.worktree.base).join("attest"));
             let key = secret(&cfg.attest.key_env).unwrap_or_default();
             Some(Arc::new(SigstoreAttest { dir, key }))
         }
@@ -550,14 +550,12 @@ fn cmd_watch(cfg: Arc<Config>) {
     };
     if let Some(t) = tunnel {
         std::thread::spawn(move || loop {
-            match t.spawn() {
-                Ok(Some(mut c)) => {
-                    println!("tunnel {} started", t.name());
-                    let _ = c.wait(); // reap, then restart
-                    eprintln!("tunnel {} exited — restarting in 5s", t.name());
-                }
-                Ok(None) | Err(_) => break, // no-op provider or spawn fail
-            }
+            let Ok(Some(mut c)) = t.spawn() else {
+                break; // no-op provider or spawn fail
+            };
+            println!("tunnel {} started", t.name());
+            let _ = c.wait(); // reap, then restart
+            eprintln!("tunnel {} exited — restarting in 5s", t.name());
             std::thread::sleep(std::time::Duration::from_secs(5));
         });
     }
@@ -597,16 +595,16 @@ fn cmd_watch(cfg: Arc<Config>) {
             std::process::exit(2);
         }
     };
-    if let Ok(saved) = store.load() {
-        for (name, pq) in saved {
-            if let Some(q) = shared.queues.get_mut(&name) {
-                let n = pq.pending.len();
-                q.pending = pq.pending;
-                q.running = pq.running;
-                if n > 0 {
-                    println!("restored {n} pending sha(s) for {name}");
-                }
-            }
+    // A load failure means "no saved work" — same as an empty map.
+    for (name, pq) in store.load().unwrap_or_default() {
+        let Some(q) = shared.queues.get_mut(&name) else {
+            continue; // saved entry for a repo we no longer watch
+        };
+        let n = pq.pending.len();
+        q.pending = pq.pending;
+        q.running = pq.running;
+        if n > 0 {
+            println!("restored {n} pending sha(s) for {name}");
         }
     }
 
@@ -706,9 +704,7 @@ fn cmd_watch(cfg: Arc<Config>) {
                     });
                 }
                 let mut g = shared.lock().unwrap();
-                if let Some(q) = g.queues.get_mut(&repo_name) {
-                    q.running = None;
-                }
+                let _ = g.queues.get_mut(&repo_name).map(|q| q.running = None);
                 persist_queue(&g, &*store);
             }
         });
@@ -729,6 +725,21 @@ fn cmd_watch(cfg: Arc<Config>) {
             }
             srv.unblock();
         });
+    }
+    #[cfg(coverage)]
+    {
+        // Second e2e hook (coverage builds only): end the accept loop
+        // after N ms. Lets a test reach the loop *without* the
+        // shutdown-file hook — covering its no-env path — while the
+        // spawned binary still unwinds cleanly and flushes its profile.
+        if let Ok(ms) = std::env::var("BUPHA_WATCH_SHUTDOWN_MS") {
+            let srv = Arc::clone(&server);
+            std::thread::spawn(move || {
+                let ms = ms.parse().unwrap_or(500);
+                std::thread::sleep(std::time::Duration::from_millis(ms));
+                srv.unblock();
+            });
+        }
     }
 
     for req in server.incoming_requests() {
@@ -837,10 +848,10 @@ fn cmd_watch(cfg: Arc<Config>) {
                                     println!("superseded {repo_name} {old:.12} -> {:.12}", sha);
                                 }
                                 if kill {
-                                    if let Some(c) = child.lock().unwrap().as_mut() {
+                                    let _ = child.lock().unwrap().as_mut().map(|c| {
                                         let _ = c.kill();
                                         println!("cancelled in-flight run");
-                                    }
+                                    });
                                 }
                                 if code == 202 {
                                     cv.notify_one();
@@ -901,9 +912,7 @@ fn cmd_init(dir: &Path) {
     // is a sensible default.
     let main_py = dir.join("dagger/src/ci/main.py");
     if !main_py.exists() {
-        if let Some(parent) = main_py.parent() {
-            let _ = std::fs::create_dir_all(parent);
-        }
+        let _ = main_py.parent().map(std::fs::create_dir_all);
         let repo_name = dir
             .canonicalize()
             .ok()
@@ -911,7 +920,7 @@ fn cmd_init(dir: &Path) {
                 d.file_name()
                     .map(|n| n.to_string_lossy().replace([' ', '/', '\\'], "-"))
             })
-            .unwrap_or_else(|| "repo".into());
+            .unwrap_or("repo".into());
         // patch URL for self-patch: prefer the git remote, else the
         // module derives it from Cargo.toml's `repository` field.
         let patch_host = Command::new("git")
@@ -1078,7 +1087,7 @@ fn cmd_doctor(cfg: &Config) {
     let env_file = std::fs::read_to_string(cfg_dir().join("env")).unwrap_or_default();
     let has = |name: &str| {
         secret(name).is_some()
-            || env_file
+            | env_file
                 .lines()
                 .any(|l| l.starts_with(&format!("{name}=")) && l.len() > name.len() + 1)
     };
@@ -1339,7 +1348,7 @@ fn cmd_deploy(cfg: &Config, sub: &DeploySub, cli_config: Option<String>) {
                 );
                 std::process::exit(1);
             }
-            let bin = std::env::current_exe().unwrap_or_else(|_| PathBuf::from("bupha"));
+            let bin = std::env::current_exe().unwrap_or(PathBuf::from("bupha"));
             let cfg_path = cli_config.clone().map(PathBuf::from);
             let svc = deploy::SystemdService {
                 unit: "bupha-watch.service".into(),
@@ -1383,21 +1392,18 @@ fn cmd_deploy(cfg: &Config, sub: &DeploySub, cli_config: Option<String>) {
                 std::process::exit(1);
             });
             let token = secret(&cfg.runner.token_env).unwrap_or_default();
-            for r in &watched {
-                match (GitHubAdmin {
+            watched.iter().for_each(|r| {
+                let msg = (GitHubAdmin {
                     repo: r.name.clone(),
                     api_base: cfg.trigger.api_base.clone(),
                 })
                 .register_hook(&url, &wh_secret, &token)
-                .as_ref()
-                {
-                    Ok(msg) => println!("{msg}"),
-                    Err(e) => {
-                        eprintln!("webhook {}: {e}", r.name);
-                        std::process::exit(1);
-                    }
-                }
-            }
+                .unwrap_or_else(|e| {
+                    eprintln!("webhook {}: {e}", r.name);
+                    std::process::exit(1);
+                });
+                println!("{msg}");
+            });
         }
         DeploySub::Release { .. } => {
             // Handled in main() before config is loaded.
@@ -1411,7 +1417,7 @@ fn cmd_deploy(cfg: &Config, sub: &DeploySub, cli_config: Option<String>) {
 /// order, then tag `{repo}-v{version}` and push the tag. Explicit —
 /// this is the only irreversible step in bupha's lifecycle.
 fn cmd_deploy_release(dry_run: bool) {
-    let repo_dir = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
+    let repo_dir = std::env::current_dir().unwrap_or(PathBuf::from("."));
     if std::env::var("CARGO_REGISTRY_TOKEN")
         .unwrap_or_default()
         .is_empty()
@@ -1483,7 +1489,7 @@ fn cmd_deploy_release(dry_run: bool) {
         repo_dir
             .file_name()
             .map(|n| n.to_string_lossy().to_string())
-            .unwrap_or_else(|| "release".into())
+            .unwrap_or("release".into())
     );
     if dry_run {
         println!("publish order: {}", order.join(" -> "));
@@ -1565,21 +1571,18 @@ fn cmd_destroy(cfg: &Config, sub: &DestroySub) {
                 std::process::exit(1);
             });
             let token = secret(&cfg.runner.token_env).unwrap_or_default();
-            for r in &watched {
-                match (GitHubAdmin {
+            watched.iter().for_each(|r| {
+                let msg = (GitHubAdmin {
                     repo: r.name.clone(),
                     api_base: cfg.trigger.api_base.clone(),
                 })
                 .remove_hook(&cfg.tunnel.public_url, &token)
-                .as_ref()
-                {
-                    Ok(msg) => println!("{msg}"),
-                    Err(e) => {
-                        eprintln!("webhook {}: {e}", r.name);
-                        std::process::exit(1);
-                    }
-                }
-            }
+                .unwrap_or_else(|e| {
+                    eprintln!("webhook {}: {e}", r.name);
+                    std::process::exit(1);
+                });
+                println!("{msg}");
+            });
         }
         DestroySub::Worktrees => {
             // worktrees land at <base>-<repo>-<sha12>; queue.json in base
@@ -1621,7 +1624,7 @@ fn deploy_check(cfg: &Config) {
     let mut fails = 0usize;
     let home = std::env::var("HOME")
         .map(PathBuf::from)
-        .unwrap_or_else(|_| ".".into());
+        .unwrap_or(".".into());
     check(
         "unit file",
         home.join(".config/systemd/user/bupha-watch.service")
@@ -1769,22 +1772,21 @@ fn cmd_explain(cfg: &Config, sha: &str) {
     // 2. Queue — is it pending/running?
     let qf = PathBuf::from(&cfg.worktree.base).join("queue.redb");
     if let Ok(store) = RedbQueueStore::open(qf) {
-        if let Ok(map) = store.load() {
-            for (name, q) in &map {
-                if q.running.as_deref().is_some_and(|r| r.starts_with(sha)) {
-                    println!("running now on {name}");
-                    return;
-                }
-                if q.pending.iter().any(|p| p.starts_with(sha)) {
-                    println!(
-                        "queued on {name} ({} ahead in line)",
-                        q.pending
-                            .iter()
-                            .position(|p| p.starts_with(sha))
-                            .unwrap_or(0)
-                    );
-                    return;
-                }
+        let map = store.load().unwrap_or_default();
+        for (name, q) in &map {
+            if q.running.as_deref().is_some_and(|r| r.starts_with(sha)) {
+                println!("running now on {name}");
+                return;
+            }
+            if q.pending.iter().any(|p| p.starts_with(sha)) {
+                println!(
+                    "queued on {name} ({} ahead in line)",
+                    q.pending
+                        .iter()
+                        .position(|p| p.starts_with(sha))
+                        .unwrap_or(0)
+                );
+                return;
             }
         }
     }

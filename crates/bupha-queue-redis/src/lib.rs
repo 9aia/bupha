@@ -48,7 +48,7 @@ impl QueueStore for RedisQueueStore {
 
     fn persist(&self, queues: &BTreeMap<String, PersistedQueue>) -> io::Result<()> {
         let s = serde_json::to_string(queues)
-            .map_err(|e| io::Error::new(ErrorKind::InvalidData, e.to_string()))?;
+            .expect("PersistedQueue serialization cannot fail");
         let mut c = self.conn.lock().unwrap();
         c.set::<_, _, ()>(QUEUE_KEY, s).map_err(err)
     }

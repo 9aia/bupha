@@ -45,3 +45,13 @@ fn set_with_no_parent_dir() {
     assert_eq!(s.get("A").as_deref(), Some("1"));
     std::env::set_current_dir(cwd).unwrap();
 }
+
+#[test]
+fn set_with_root_path_has_no_parent() {
+    // "/" has no parent at all -> the `if let Some(d)` skips
+    // create_dir_all; the write itself then fails (EISDIR).
+    let s = DotenvSecrets {
+        path: PathBuf::from("/"),
+    };
+    assert!(s.set("A", "1").is_err());
+}

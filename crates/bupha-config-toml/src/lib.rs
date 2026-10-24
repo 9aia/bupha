@@ -21,7 +21,7 @@ impl ConfigSource for TomlSource {
                 PathBuf::from("bupha.toml"),
                 std::env::var("HOME")
                     .map(PathBuf::from)
-                    .unwrap_or_else(|_| ".".into())
+                    .unwrap_or(".".into())
                     .join(".config/bupha/bupha.toml"),
             ],
         };

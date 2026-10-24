@@ -230,6 +230,28 @@ fn doctor_variants() {
     let o = bupha(&["doctor", "--config", p.to_str().unwrap()], &env);
     assert!(out_ok(&o).contains("no [[repo]] entries configured"));
     assert_eq!(o.status.code(), Some(1));
+
+    // PATH without `df` -> the disk-check if-let takes its Err path.
+    // kind=bogus keeps every earlier tool probe silent.
+    let empty = t.join("empty-bin");
+    std::fs::create_dir_all(&empty).unwrap();
+    let p5 = t.join("df.toml");
+    std::fs::write(
+        &p5,
+        "[trigger]\nkind = \"github\"\n[runner]\nkind = \"bogus\"\n[status]\nkind = \"log\"\n",
+    )
+    .unwrap();
+    let o = bupha(
+        &["doctor", "--config", p5.to_str().unwrap()],
+        &[
+            ("HOME", home.display().to_string()),
+            ("PATH", empty.display().to_string()),
+            ("BUPHA_WEBHOOK_SECRET", "s".into()),
+            ("BUPHA_TOKEN", "t".into()),
+        ],
+    );
+    assert_eq!(o.status.code(), Some(1), "{}", out_ok(&o));
+    assert!(out_ok(&o).contains("failure(s)"));
 }
 
 #[test]
@@ -504,6 +526,20 @@ fn service_subcommands() {
     let o = bupha(&["service", "enable"], &env);
     assert_eq!(o.status.code(), Some(1));
     assert!(out_ok(&o).contains("service:"));
+
+    // journalctl missing entirely -> service_logs spawn Err ->
+    // `Err(e) => Err(e)` arm -> "service: ..." exit 1
+    let empty = t.join("empty-bin");
+    std::fs::create_dir_all(&empty).unwrap();
+    let o = bupha(
+        &["service", "logs"],
+        &[
+            ("HOME", home.display().to_string()),
+            ("PATH", empty.display().to_string()),
+        ],
+    );
+    assert_eq!(o.status.code(), Some(1));
+    assert!(out_ok(&o).contains("service:"));
 }
 
 #[test]
@@ -520,6 +556,7 @@ fn deploy_env_variants() {
         &["deploy", "env", "--config", cfgp.to_str().unwrap()],
         &[
             ("HOME", home.display().to_string()),
+            ("XDG_CONFIG_HOME", t.join("xdg").display().to_string()),
             ("PATH", stubbed_path(&bin)),
             ("BUPHA_WEBHOOK_SECRET", "sekrit".into()),
             ("BUPHA_TOKEN", "".into()),
@@ -527,7 +564,8 @@ fn deploy_env_variants() {
     );
     assert!(o.status.success(), "{}", out_ok(&o));
     assert!(out_ok(&o).contains("stored in keyring"));
-    assert!(home.join(".config/bupha/env").exists());
+    // XDG_CONFIG_HOME beats HOME/.config for the env file location.
+    assert!(t.join("xdg/bupha/env").exists());
 
     // no secret-tool -> keyring unavailable note
     let home2 = t.join("home2");
@@ -1133,6 +1171,44 @@ fn destroy_variants() {
     assert!(o.status.success(), "{}", out_ok(&o));
     assert!(!orphan.exists() && notorphan.exists());
     assert!(!base.join("queue.json").exists());
+
+    // base="/" -> parent() is None (no read_dir at all); queue.json
+    // absent; watched() errors with no [[repo]] -> all three
+    // skip-paths in one shot.
+    let p4 = t.join("dwt2.toml");
+    std::fs::write(
+        &p4,
+        "[trigger]\nkind = \"github\"\n[runner]\nkind = \"shell\"\n[status]\nkind = \"log\"\n[worktree]\nbase = \"/\"\n",
+    )
+    .unwrap();
+    let o = bupha(
+        &["destroy", "worktrees", "--config", p4.to_str().unwrap()],
+        &[("HOME", t.join("h7").display().to_string())],
+    );
+    assert!(o.status.success(), "{}", out_ok(&o));
+
+    // base under a regular FILE -> parent() resolves but read_dir
+    // fails (ENOTDIR) -> the read_dir Err arm.
+    let blocker = t.join("afile");
+    std::fs::write(&blocker, "x").unwrap();
+    let p5 = t.join("dwt3.toml");
+    std::fs::write(
+        &p5,
+        format!(
+            "[trigger]\nkind = \"github\"\n[runner]\nkind = \"shell\"\n[status]\nkind = \"log\"\n[worktree]\nbase = \"{}\"\n[[repo]]\nname = \"o/r\"\ndir = \"{}\"\n",
+            blocker.join("sub").display(),
+            repo_dir.display()
+        ),
+    )
+    .unwrap();
+    let o = bupha(
+        &["destroy", "worktrees", "--config", p5.to_str().unwrap()],
+        &[
+            ("HOME", t.join("h8").display().to_string()),
+            ("PATH", stubbed_path(&bin)),
+        ],
+    );
+    assert!(o.status.success(), "{}", out_ok(&o));
 }
 
 #[test]
@@ -1143,7 +1219,10 @@ fn runs_log_explain() {
     let base = t.join("wt");
     std::fs::create_dir_all(&base).unwrap();
     let cfgp = cfg_repo(&t, &repo_dir, "");
-    let env: Vec<(&str, String)> = vec![("HOME", t.join("h").display().to_string())];
+    let env: Vec<(&str, String)> = vec![
+        ("HOME", t.join("h").display().to_string()),
+        ("XDG_CONFIG_HOME", t.join("xdg").display().to_string()),
+    ];
 
     // no history yet
     let o = bupha(&["runs", "--config", cfgp.to_str().unwrap()], &env);
@@ -1234,6 +1313,24 @@ fn runs_log_explain() {
         &env,
     );
     assert!(out_ok(&o).contains("never seen"));
+
+    // missing worktree.base entirely -> every explain source takes
+    // its Err arm: no history file, queue store won't open, worktree
+    // read_dir fails.
+    let p_gone = t.join("gone.toml");
+    std::fs::write(
+        &p_gone,
+        format!(
+            "[trigger]\nkind = \"github\"\n[runner]\nkind = \"shell\"\n[status]\nkind = \"log\"\n[worktree]\nbase = \"{}\"\n",
+            t.join("missing-base").display()
+        ),
+    )
+    .unwrap();
+    let o = bupha(
+        &["explain", "deadbeef", "--config", p_gone.to_str().unwrap()],
+        &env,
+    );
+    assert!(out_ok(&o).contains("never seen"), "{}", out_ok(&o));
 }
 
 #[test]
@@ -1339,4 +1436,19 @@ fn init_variants() {
     );
     assert_eq!(o.status.code(), Some(1));
     assert!(out_ok(&o).contains("dagger init failed"));
+
+    // ci.sh write failure -> warning only (dangling symlink target)
+    let d6 = t.join("r6");
+    std::fs::create_dir_all(&d6).unwrap();
+    #[cfg(unix)]
+    std::os::unix::fs::symlink("/nonexistent-dir-xyz/x", d6.join("ci.sh")).unwrap();
+    let o = bupha(&["init", d6.to_str().unwrap()], &env);
+    assert!(out_ok(&o).contains("ci.sh:"), "{}", out_ok(&o));
+
+    // dagger template write failure -> warning only (dagger path is a file)
+    let d7 = t.join("r7");
+    std::fs::create_dir_all(&d7).unwrap();
+    std::fs::write(d7.join("dagger"), "not-a-dir").unwrap();
+    let o = bupha(&["init", d7.to_str().unwrap()], &env);
+    assert!(out_ok(&o).contains("template:"), "{}", out_ok(&o));
 }

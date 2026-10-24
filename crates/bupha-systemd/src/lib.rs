@@ -10,7 +10,7 @@ use std::process::Command;
 fn home() -> PathBuf {
     std::env::var("HOME")
         .map(PathBuf::from)
-        .unwrap_or_else(|_| ".".into())
+        .unwrap_or(".".into())
 }
 
 /// Render the user unit. `unit` is a systemd user service running

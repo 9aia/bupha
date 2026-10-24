@@ -86,4 +86,8 @@ fn store_writes_stdin_and_failure_errors() {
     std::env::set_var("STUB_STORE_CODE", "1");
     let e = k.set("TOKEN", "x").unwrap_err();
     assert!(e.to_string().contains("secret-tool store failed"));
+
+    // child exits instantly without reading -> write_all hits EPIPE
+    std::fs::write(d.join("secret-tool"), "#!/bin/sh\nexit 0\n").unwrap();
+    assert!(k.set("TOKEN", &"v".repeat(200_000)).is_err());
 }

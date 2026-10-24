@@ -184,3 +184,31 @@ fn skeleton_error_and_disable_error() {
     );
     assert!(deploy::disable_service("bupha-watch.service").is_err());
 }
+
+#[test]
+fn write_unit_and_skeleton_write_errors() {
+    let home = dir("h6");
+    let stubs = dir("s6");
+    env_with(&home, &stubs);
+
+    // unit path exists as a DIRECTORY -> fs::write fails at the `?`
+    let unit_dir = home.join(".config/systemd/user");
+    std::fs::create_dir_all(&unit_dir).unwrap();
+    std::fs::create_dir_all(unit_dir.join("bupha-watch.service")).unwrap();
+    assert!(deploy::write_service_unit(
+        Path::new("/x/bupha"),
+        Path::new("/x/env"),
+        None
+    )
+    .is_err());
+
+    // env path is a dangling symlink: `!exists()` is true so the write
+    // is attempted — and fails (target's parent missing).
+    let cfg = home.join(".config/bupha2");
+    std::fs::create_dir_all(&cfg).unwrap();
+    #[cfg(unix)]
+    {
+        std::os::unix::fs::symlink(cfg.join("missing/env"), cfg.join("env")).unwrap();
+        assert!(deploy::write_env_skeleton(&cfg).is_err());
+    }
+}
