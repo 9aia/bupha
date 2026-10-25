@@ -1,0 +1,35 @@
+name: CI
+
+on: [push, pull_request]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  coverage:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@1.98.0
+        with:
+          components: llvm-tools
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-llvm-cov, cargo-nextest
+      - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: ci
+          cache-on-failure: true
+      - run: ./scripts/coverage.sh --lcov --output-path lcov.info
+      - name: Gate — every source line covered
+        # DA:<line>,0 = a line executed 0 times. Summary % counts
+        # per-instantiation regions and can read <100% spuriously.
+        run: |
+          if grep -nE 'DA:[0-9]+,0(,|$)' lcov.info; then
+            echo "::error::uncovered lines remain"
+            exit 1
+          fi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: lcov
+          path: lcov.info
