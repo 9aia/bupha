@@ -44,7 +44,7 @@ fn stub_cloudflared(dir: &Path) {
 fn cfg(name: &str, public_url: &str) -> TunnelCfg {
     TunnelCfg {
         name: name.into(),
-        local_url: "http://127.0.0.1:9000".into(),
+        local_url: "http://127.0.0.1:29173".into(),
         public_url: public_url.into(),
         ..Default::default()
     }
@@ -71,7 +71,7 @@ fn quick_tunnel_args() {
     assert!(t.public_url().is_none());
     let mut c = t.spawn().unwrap().unwrap();
     let args = args_of(&d);
-    assert!(args.contains("tunnel --url http://127.0.0.1:9000 --no-autoupdate"));
+    assert!(args.contains("tunnel --url http://127.0.0.1:29173 --no-autoupdate"));
     let _ = c.kill();
     let _ = c.wait();
 }

@@ -378,7 +378,7 @@ pub struct TriggerCfg {
     pub api_base: String,
     /// "github" today; other forges = new impl crates.
     pub kind: String,
-    /// Webhook listener bind address ("127.0.0.1:9000").
+    /// Webhook listener bind address ("127.0.0.1:29173").
     #[serde(default = "default_listen")]
     pub listen: String,
     /// Env var holding the webhook secret.
@@ -469,7 +469,7 @@ fn default_branch() -> String {
     "refs/heads/main".into()
 }
 fn default_listen() -> String {
-    "127.0.0.1:9000".into()
+    "127.0.0.1:29173".into()
 }
 fn default_secret_env() -> String {
     "BUPHA_WEBHOOK_SECRET".into()
@@ -484,7 +484,7 @@ fn default_tunnel_provider() -> String {
     "none".into()
 }
 fn default_local_url() -> String {
-    "http://127.0.0.1:9000".into()
+    "http://127.0.0.1:29173".into()
 }
 fn default_wt_base() -> String {
     "/tmp/bupha".into()

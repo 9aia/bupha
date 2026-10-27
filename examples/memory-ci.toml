@@ -16,7 +16,7 @@ dir = "/path/to/clone"
 
 [trigger]
 kind = "github"
-listen = "127.0.0.1:9000"
+listen = "127.0.0.1:29173"
 secret_env = "BUPHA_WEBHOOK_SECRET"
 
 [status]

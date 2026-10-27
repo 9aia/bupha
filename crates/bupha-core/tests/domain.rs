@@ -135,14 +135,14 @@ fn serde_defaults_and_deny_unknown() {
     )
     .unwrap();
     assert_eq!(cfg.trigger.api_base, "https://api.github.com");
-    assert_eq!(cfg.trigger.listen, "127.0.0.1:9000");
+    assert_eq!(cfg.trigger.listen, "127.0.0.1:29173");
     assert_eq!(cfg.trigger.secret_env, "BUPHA_WEBHOOK_SECRET");
     assert_eq!(cfg.runner.token_env, "BUPHA_TOKEN");
     assert!(!cfg.runner.cancel_running);
     assert_eq!(cfg.status.kind, "log");
     assert_eq!(cfg.status.context, "ci/bupha");
     assert_eq!(cfg.tunnel.provider, "none");
-    assert_eq!(cfg.tunnel.local_url, "http://127.0.0.1:9000");
+    assert_eq!(cfg.tunnel.local_url, "http://127.0.0.1:29173");
     // No [cache] table at all -> derived Default -> "" (disabled).
     assert_eq!(cfg.cache.kind, "");
     assert_eq!(cfg.access.kind, "all");
