@@ -1,6 +1,11 @@
 {
   "version": 1,
   "skills": {
+    "myco": {
+      "source": "/home/luis/GitHub/9aia/myco/.agents/skills/myco",
+      "sourceType": "local",
+      "computedHash": "1bf3b14f1961053d170092458bab1e961f08fdad7b557bce399b4cc3f9b7c398"
+    },
     "writing-documentation-with-diataxis": {
       "source": "sammcj/agentic-coding",
       "sourceType": "github",

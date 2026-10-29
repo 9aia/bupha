@@ -6,3 +6,6 @@ coverage/
 docs/
 .kuda/index.sqlite
 .kuda/meta.json
+
+# myco worktree mount point (created by `myco init`)
+project/
