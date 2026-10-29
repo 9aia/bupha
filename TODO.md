@@ -9,7 +9,8 @@
 ## Queue / jobs
 
 - [ ] T-004 \[\[repo.jobs]] — multiple pipelines per repo, each with own queue policy + runner (e.g. ci gate + debounced release ).
-- [ ] T-005 Distributed runners — bupha-ssh lands first; remote trigger impl ( bupha-http ?) for cross-box fan-out; unblocks multi-arch + release.sh's "other arches" dist step.
+- [ ] T-005 Distributed runners — bupha-ssh lands first; remote trigger impl (bupha-http?) for cross-box fan-out; unblocks multi-arch
+  - [ ] T-022 release.sh's "other arches" dist step.
 
 ## Tests
 
