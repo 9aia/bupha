@@ -1,5 +1,5 @@
 +++
-id = "ADR-0004"
+id = "ADR-0002"
 title = "ADR-0002: Enterprise-grade surfaces"
 status = "open"
 priority = "medium"

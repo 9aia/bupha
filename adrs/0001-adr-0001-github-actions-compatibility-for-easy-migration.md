@@ -1,5 +1,5 @@
 +++
-id = "ADR-0003"
+id = "ADR-0001"
 title = "ADR-0001: GitHub Actions compatibility for easy migration"
 status = "open"
 priority = "medium"
