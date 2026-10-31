@@ -300,6 +300,30 @@ fn secret(name: &str) -> Option<String> {
         })
 }
 
+/// Webhook-secret env NAMES: the trigger's global plus each repo's
+/// `secret_env` override (deduped). Values resolve via `secret()`.
+fn webhook_secret_names(cfg: &Config) -> Vec<&str> {
+    let mut names: Vec<&str> = std::iter::once(cfg.trigger.secret_env.as_str())
+        .chain(cfg.repos.iter().filter_map(|r| r.secret_env.as_deref()))
+        .collect();
+    names.sort();
+    names.dedup();
+    names
+}
+
+/// Every env-var name the config resolves secrets from — webhook
+/// secrets plus the runner token.
+fn secret_names(cfg: &Config) -> Vec<String> {
+    let mut names: Vec<String> = webhook_secret_names(cfg)
+        .into_iter()
+        .map(str::to_string)
+        .chain(std::iter::once(cfg.runner.token_env.clone()))
+        .collect();
+    names.sort();
+    names.dedup();
+    names
+}
+
 type ChildSlot = Arc<Mutex<Option<Box<dyn RunHandle>>>>;
 
 /// Per-worker runtime state shared across run_jobs on this box.
@@ -449,10 +473,22 @@ fn cmd_watch(cfg: Arc<Config>) {
         eprintln!("config: {e}");
         std::process::exit(2);
     });
+    // Per-repo webhook secrets resolved once at boot — a repo with
+    // `secret_env` set fails fast like the global when the name
+    // doesn't resolve; repos without it share `wh_secret`.
+    let mut secrets: std::collections::HashMap<String, String> = Default::default();
+    for r in watched.iter() {
+        if let Some(name) = &r.secret_env {
+            let v = secret(name)
+                .unwrap_or_else(|| panic!("{name} required (env, keyring or env file)"));
+            secrets.insert(r.name.clone(), v);
+        }
+    }
+    let secrets = Arc::new(secrets);
     let watched = Arc::new(watched);
 
     let trigger: Arc<dyn Trigger> = match cfg.trigger.kind.as_str() {
-        "github" => Arc::new(GitHubTrigger { secret: wh_secret }),
+        "github" => Arc::new(GitHubTrigger),
         other => {
             eprintln!("unknown trigger '{other}' (github)");
             std::process::exit(2);
@@ -752,6 +788,8 @@ fn cmd_watch(cfg: Arc<Config>) {
         let child = Arc::clone(&child);
         let store = store.clone();
         let watched = Arc::clone(&watched);
+        let secrets = Arc::clone(&secrets);
+        let wh_secret = wh_secret.clone();
         let access = access.clone();
         let telemetry = telemetry.clone();
         std::thread::spawn(move || {
@@ -778,89 +816,106 @@ fn cmd_watch(cfg: Arc<Config>) {
                 (200, "pong")
             } else if !trigger.is_event(&headers) {
                 (400, "not a push event")
-            } else if !trigger.verify(&body, &headers) {
-                (401, "bad signature")
-            } else if trigger
-                .delivery_id(&headers)
-                .map(|id| !shared.lock().unwrap().seen.insert(id))
-                .unwrap_or(false)
-            {
-                // replayed signed payload: same delivery id
-                (200, "duplicate delivery")
             } else {
-                match trigger.parse_push(&body) {
-                    Some(PushOutcome::Skip) => (200, "ignored: no-op event"),
-                    Some(PushOutcome::Push {
-                        repo: repo_name,
-                        git_ref,
-                        sha,
-                        sender,
-                    }) => {
-                        let repo = watched.iter().find(|r| r.name == repo_name);
-                        match repo {
-                            None => (200, "ignored: unwatched repo"),
-                            Some(r) if git_ref != r.branch => {
-                                (200, "ignored: not the watched branch")
-                            }
-                            Some(_) if !access.allow(&sender, &repo_name) => {
-                                println!("denied: {sender} may not trigger {repo_name}");
-                                (403, "sender not allowed")
-                            }
-                            Some(r) => {
-                                // Lock: mutate queue + decide, then drop.
-                                // HTTP posts and process kills happen after.
-                                let mut old = None;
-                                let mut kill = false;
-                                let (code, msg) = {
-                                    let mut g = shared.lock().unwrap();
-                                    let (res, running) = {
-                                        let q = g.queues.get_mut(&repo_name).unwrap();
-                                        (q.enqueue(sha.clone()), q.running.is_some())
-                                    };
-                                    persist_queue(&g, &*store);
-                                    match res {
-                                        EnqueueResult::Duplicate => (200, "already queued"),
-                                        EnqueueResult::Queued { superseded } => {
-                                            old = superseded;
-                                            telemetry.event(&RunEvent::Queued {
-                                                repo: repo_name.clone(),
-                                                sha: sha.clone(),
-                                            });
-                                            kill = r.runner.cancel_running && running;
-                                            if kill {
-                                                g.queues.get_mut(&repo_name).unwrap().cancelled =
-                                                    true;
+                // repo_hint is untrusted until verify passes — it
+                // only picks which watched repo (and secret) applies.
+                let repo = trigger
+                    .repo_hint(&body)
+                    .and_then(|n| watched.iter().find(|r| r.name == n));
+                match repo {
+                    // An unwatched repo can't verify — no secret of
+                    // ours was used to sign it. Reject, not ignore.
+                    None => (404, "unwatched repo"),
+                    Some(r)
+                        if !trigger.verify(
+                            secrets.get(&r.name).unwrap_or(&wh_secret),
+                            &body,
+                            &headers,
+                        ) =>
+                    {
+                        (401, "bad signature")
+                    }
+                    Some(_)
+                        if trigger
+                            .delivery_id(&headers)
+                            .map(|id| !shared.lock().unwrap().seen.insert(id))
+                            .unwrap_or(false) =>
+                    {
+                        // replayed signed payload: same delivery id
+                        (200, "duplicate delivery")
+                    }
+                    Some(r) => {
+                        match trigger.parse_push(&body) {
+                            Some(PushOutcome::Skip) => (200, "ignored: no-op event"),
+                            Some(PushOutcome::Push {
+                                repo: repo_name,
+                                git_ref,
+                                sha,
+                                sender,
+                            }) => {
+                                if git_ref != r.branch {
+                                    (200, "ignored: not the watched branch")
+                                } else if !access.allow(&sender, &repo_name) {
+                                    println!("denied: {sender} may not trigger {repo_name}");
+                                    (403, "sender not allowed")
+                                } else {
+                                    // Lock: mutate queue + decide, then drop.
+                                    // HTTP posts and process kills happen after.
+                                    let mut old = None;
+                                    let mut kill = false;
+                                    let (code, msg) = {
+                                        let mut g = shared.lock().unwrap();
+                                        let (res, running) = {
+                                            let q = g.queues.get_mut(&repo_name).unwrap();
+                                            (q.enqueue(sha.clone()), q.running.is_some())
+                                        };
+                                        persist_queue(&g, &*store);
+                                        match res {
+                                            EnqueueResult::Duplicate => (200, "already queued"),
+                                            EnqueueResult::Queued { superseded } => {
+                                                old = superseded;
+                                                telemetry.event(&RunEvent::Queued {
+                                                    repo: repo_name.clone(),
+                                                    sha: sha.clone(),
+                                                });
+                                                kill = r.runner.cancel_running && running;
+                                                if kill {
+                                                    g.queues
+                                                        .get_mut(&repo_name)
+                                                        .unwrap()
+                                                        .cancelled = true;
+                                                }
+                                                (202, "queued")
                                             }
-                                            (202, "queued")
                                         }
+                                    };
+                                    if let Some(old) = old {
+                                        telemetry.event(&RunEvent::Superseded {
+                                            repo: repo_name.clone(),
+                                            sha: old.clone(),
+                                        });
+                                        sinks[&repo_name].post(
+                                            &old,
+                                            "error",
+                                            &format!("superseded by {}", &sha[..12.min(sha.len())]),
+                                        );
+                                        println!("superseded {repo_name} {old:.12} -> {:.12}", sha);
                                     }
-                                };
-                                if let Some(old) = old {
-                                    telemetry.event(&RunEvent::Superseded {
-                                        repo: repo_name.clone(),
-                                        sha: old.clone(),
-                                    });
-                                    sinks[&repo_name].post(
-                                        &old,
-                                        "error",
-                                        &format!("superseded by {}", &sha[..12.min(sha.len())]),
-                                    );
-                                    println!("superseded {repo_name} {old:.12} -> {:.12}", sha);
+                                    if kill {
+                                        let _ = child.lock().unwrap().as_mut().map(|c| {
+                                            let _ = c.kill();
+                                            println!("cancelled in-flight run");
+                                        });
+                                    }
+                                    if code == 202 {
+                                        cv.notify_one();
+                                    }
+                                    (code, msg)
                                 }
-                                if kill {
-                                    let _ = child.lock().unwrap().as_mut().map(|c| {
-                                        let _ = c.kill();
-                                        println!("cancelled in-flight run");
-                                    });
-                                }
-                                if code == 202 {
-                                    cv.notify_one();
-                                }
-                                (code, msg)
                             }
+                            None => (400, "unparseable payload"),
                         }
                     }
-                    None => (400, "unparseable payload"),
                 }
             };
             let _ = req.respond(tiny_http::Response::from_string(msg).with_status_code(code));
@@ -1091,12 +1146,11 @@ fn cmd_doctor(cfg: &Config) {
                 .lines()
                 .any(|l| l.starts_with(&format!("{name}=")) && l.len() > name.len() + 1)
     };
-    check(
-        "webhook secret",
-        has(&cfg.trigger.secret_env),
-        &cfg.trigger.secret_env,
-        &mut failures,
-    );
+    // Global secret plus every per-repo override — each name must
+    // resolve (env, keyring, or the env file).
+    for name in webhook_secret_names(cfg) {
+        check("webhook secret", has(name), name, &mut failures);
+    }
     check(
         "token",
         has(&cfg.runner.token_env),
@@ -1309,7 +1363,9 @@ fn cmd_deploy(cfg: &Config, sub: &DeploySub, cli_config: Option<String>) {
     let cfg_dir = cfg_dir();
     match sub {
         DeploySub::Env => {
-            match deploy::write_env_skeleton(&cfg_dir) {
+            let names: Vec<String> = secret_names(cfg);
+            let names: Vec<&str> = names.iter().map(String::as_str).collect();
+            match deploy::write_env_skeleton(&cfg_dir, &names) {
                 Ok(p) => println!(
                     "env file: {} (fill the secrets — or set them via secret-tool)",
                     p.display()
@@ -1321,7 +1377,7 @@ fn cmd_deploy(cfg: &Config, sub: &DeploySub, cli_config: Option<String>) {
             }
             // If values are already in the environment, migrate them
             // into the OS keyring (resolution order: env > keyring > file).
-            for name in [&cfg.trigger.secret_env, &cfg.runner.token_env] {
+            for name in names {
                 if let Ok(v) = std::env::var(name) {
                     if v.is_empty() {
                         continue;
@@ -1375,13 +1431,6 @@ fn cmd_deploy(cfg: &Config, sub: &DeploySub, cli_config: Option<String>) {
         }
         DeploySub::Check => deploy_check(cfg),
         DeploySub::Webhook => {
-            let wh_secret = secret(&cfg.trigger.secret_env).unwrap_or_else(|| {
-                eprintln!(
-                    "{} required (env, keyring or env file)",
-                    cfg.trigger.secret_env
-                );
-                std::process::exit(1);
-            });
             let url = cfg.tunnel.public_url.clone();
             if url.is_empty() {
                 eprintln!("tunnel.public_url not set — point the webhook                            at <public-url>/hook manually");
@@ -1393,6 +1442,13 @@ fn cmd_deploy(cfg: &Config, sub: &DeploySub, cli_config: Option<String>) {
             });
             let token = secret(&cfg.runner.token_env).unwrap_or_default();
             watched.iter().for_each(|r| {
+                // Each hook registers with its own secret — the
+                // repo's secret_env when set, else the global.
+                let env = r.secret_env.as_deref().unwrap_or(&cfg.trigger.secret_env);
+                let wh_secret = secret(env).unwrap_or_else(|| {
+                    eprintln!("{env} required (env, keyring or env file)");
+                    std::process::exit(1);
+                });
                 let msg = (GitHubAdmin {
                     repo: r.name.clone(),
                     api_base: cfg.trigger.api_base.clone(),
@@ -1635,17 +1691,18 @@ fn deploy_check(cfg: &Config) {
     let env_ok = home.join(".config/bupha/env").exists();
     check("env file", env_ok, "~/.config/bupha/env", &mut fails);
     let env_file = std::fs::read_to_string(home.join(".config/bupha/env")).unwrap_or_default();
-    let secret_ok = secret(&cfg.trigger.secret_env).is_some()
-        || env_file.lines().any(|l| {
-            l.starts_with(&format!("{}=", cfg.trigger.secret_env))
-                && l.len() > cfg.trigger.secret_env.len() + 1
-        });
-    check(
-        "webhook secret set",
-        secret_ok,
-        &format!("{} (env or env file)", cfg.trigger.secret_env),
-        &mut fails,
-    );
+    for name in webhook_secret_names(cfg) {
+        let secret_ok = secret(name).is_some()
+            || env_file
+                .lines()
+                .any(|l| l.starts_with(&format!("{name}=")) && l.len() > name.len() + 1);
+        check(
+            "webhook secret set",
+            secret_ok,
+            &format!("{name} (env or env file)"),
+            &mut fails,
+        );
+    }
     let token_ok = secret(&cfg.runner.token_env).is_some()
         || env_file.lines().any(|l| {
             l.starts_with(&format!("{}=", cfg.runner.token_env))

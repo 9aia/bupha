@@ -58,16 +58,19 @@ pub fn enable_service(unit: &str) -> io::Result<()> {
 }
 
 /// Seed ~/.config/bupha/env with the secret names (empty values —
-/// never invent secrets).
-pub fn write_env_skeleton(dir: &Path) -> io::Result<PathBuf> {
+/// never invent secrets). `names` is every env var the config
+/// resolves secrets from (global + per-repo + token).
+pub fn write_env_skeleton(dir: &Path, names: &[&str]) -> io::Result<PathBuf> {
     std::fs::create_dir_all(dir)?;
     let path = dir.join("env");
     if !path.exists() {
-        std::fs::write(
-            &path,
-            "# Secrets only — everything else lives in bupha.toml\n\
-             BUPHA_WEBHOOK_SECRET=\nBUPHA_TOKEN=\n# CODECOV_TOKEN=\n",
-        )?;
+        let mut body = "# Secrets only — everything else lives in bupha.toml\n".to_string();
+        for n in names {
+            body.push_str(n);
+            body.push_str("=\n");
+        }
+        body.push_str("# CODECOV_TOKEN=\n");
+        std::fs::write(&path, body)?;
     }
     #[cfg(unix)]
     {

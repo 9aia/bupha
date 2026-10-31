@@ -1,6 +1,6 @@
 //! End-to-end: bupha watch on a fixture repo with the script runner —
 //! signed push -> queued; ping -> pong; bad sig -> 401; wrong branch
-//! ignored; unknown repo ignored. No docker/dagger needed.
+//! ignored; unknown repo rejected. No docker/dagger needed.
 
 use hmac::{Hmac, Mac};
 use sha2::Sha256;
@@ -161,11 +161,13 @@ dir = "{repo}"
     );
     assert_eq!((c, m.as_str()), (200, "ignored: not the watched branch"));
 
+    // unwatched repo — its payload can't verify against any secret
+    // we hold, so it's rejected outright (not silently ignored)
     let (c, m) = good(
         r#"{"ref":"refs/heads/main","repository":{"full_name":"o/other"},"after":"cccccccccccccccccccccccccccccccccccccccc"}"#,
         "push",
     );
-    assert_eq!((c, m.as_str()), (200, "ignored: unwatched repo"));
+    assert_eq!((c, m.as_str()), (404, "unwatched repo"));
 
     let body = format!(
         r#"{{"ref":"refs/heads/main","repository":{{"full_name":"o/r"}},"after":"{sha}"}}"#

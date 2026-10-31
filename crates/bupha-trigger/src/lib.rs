@@ -8,8 +8,12 @@
 pub trait Trigger: Send + Sync {
     /// Is this request the kind of event we run CI on (e.g. a push)?
     fn is_event(&self, headers: &[(String, String)]) -> bool;
-    /// Verify the request signature over the raw body.
-    fn verify(&self, body: &[u8], headers: &[(String, String)]) -> bool;
+    /// Cheap peek at `repository.full_name` — untrusted input used
+    /// only to pick the watched repo (and its secret) before verify.
+    fn repo_hint(&self, body: &[u8]) -> Option<String>;
+    /// Verify the request signature over the raw body with `secret`
+    /// (resolved per repo by the caller via `repo_hint`).
+    fn verify(&self, secret: &str, body: &[u8], headers: &[(String, String)]) -> bool;
     /// Parse the payload — `Push` to enqueue, `Skip` for well-formed
     /// events with nothing to run (e.g. branch deletion), `None` for
     /// malformed bodies.

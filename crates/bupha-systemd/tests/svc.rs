@@ -134,7 +134,7 @@ fn disable_removes_unit_and_env_skeleton() {
 
     // env skeleton: created 0600, second call keeps contents
     let cfg = home.join(".config/bupha");
-    let p = deploy::write_env_skeleton(&cfg).unwrap();
+    let p = deploy::write_env_skeleton(&cfg, &["BUPHA_WEBHOOK_SECRET", "BUPHA_TOKEN"]).unwrap();
     let body = std::fs::read_to_string(&p).unwrap();
     assert!(body.contains("BUPHA_WEBHOOK_SECRET="));
     #[cfg(unix)]
@@ -146,7 +146,7 @@ fn disable_removes_unit_and_env_skeleton() {
         );
     }
     std::fs::write(&p, "CUSTOM=1\n").unwrap();
-    deploy::write_env_skeleton(&cfg).unwrap();
+    deploy::write_env_skeleton(&cfg, &["BUPHA_WEBHOOK_SECRET", "BUPHA_TOKEN"]).unwrap();
     assert_eq!(std::fs::read_to_string(&p).unwrap(), "CUSTOM=1\n");
 
     // trait impl: write + enable + disable
@@ -173,7 +173,7 @@ fn skeleton_error_and_disable_error() {
     let cfg = home.join(".config/bupha");
     std::fs::create_dir_all(cfg.parent().unwrap()).unwrap();
     std::fs::write(&cfg, "x").unwrap();
-    assert!(deploy::write_env_skeleton(&cfg).is_err());
+    assert!(deploy::write_env_skeleton(&cfg, &["BUPHA_WEBHOOK_SECRET", "BUPHA_TOKEN"]).is_err());
 
     // daemon-reload fails -> disable_service errors
     std::env::set_var("SYSTEMCTL_LOG", stubs.join("calls"));
@@ -195,12 +195,7 @@ fn write_unit_and_skeleton_write_errors() {
     let unit_dir = home.join(".config/systemd/user");
     std::fs::create_dir_all(&unit_dir).unwrap();
     std::fs::create_dir_all(unit_dir.join("bupha-watch.service")).unwrap();
-    assert!(deploy::write_service_unit(
-        Path::new("/x/bupha"),
-        Path::new("/x/env"),
-        None
-    )
-    .is_err());
+    assert!(deploy::write_service_unit(Path::new("/x/bupha"), Path::new("/x/env"), None).is_err());
 
     // env path is a dangling symlink: `!exists()` is true so the write
     // is attempted — and fails (target's parent missing).
@@ -209,6 +204,8 @@ fn write_unit_and_skeleton_write_errors() {
     #[cfg(unix)]
     {
         std::os::unix::fs::symlink(cfg.join("missing/env"), cfg.join("env")).unwrap();
-        assert!(deploy::write_env_skeleton(&cfg).is_err());
+        assert!(
+            deploy::write_env_skeleton(&cfg, &["BUPHA_WEBHOOK_SECRET", "BUPHA_TOKEN"]).is_err()
+        );
     }
 }

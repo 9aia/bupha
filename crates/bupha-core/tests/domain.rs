@@ -90,6 +90,7 @@ dir = "/nonexistent-for-canon"
 branch = "refs/heads/dev"
 status_repo = "o/status-other"
 queue = "all"
+secret_env = "R2_SECRET"
 [repo.runner]
 kind = "ssh"
 "#,
@@ -106,6 +107,8 @@ kind = "ssh"
     assert_eq!(w[1].status_repo, "o/status-other");
     assert_eq!(w[1].branch, "refs/heads/dev");
     assert_eq!(w[1].policy, QueuePolicy::All);
+    assert_eq!(w[0].secret_env, None); // falls back to trigger.secret_env
+    assert_eq!(w[1].secret_env.as_deref(), Some("R2_SECRET"));
     // non-canonicalizable dir comes back as given
     assert_eq!(w[1].dir.to_string_lossy(), "/nonexistent-for-canon");
 }

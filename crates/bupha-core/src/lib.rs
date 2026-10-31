@@ -315,6 +315,11 @@ pub struct RepoEntry {
     /// Queue policy — `latest` (default) or `all` (run every push).
     #[serde(default)]
     pub queue: QueuePolicy,
+    /// Per-repo webhook-secret env var — a NAME resolved like
+    /// `trigger.secret_env` (its fallback). Lets each repo's hook be
+    /// managed and rotated independently of the other watched repos.
+    #[serde(default)]
+    pub secret_env: Option<String>,
 }
 
 impl RepoEntry {
@@ -334,6 +339,9 @@ pub struct WatchedRepo {
     /// Global `[runner]` or the repo's `[repo.runner]` override.
     pub runner: RunnerCfg,
     pub policy: QueuePolicy,
+    /// Resolved `secret_env` override — None verifies with the
+    /// trigger's global secret.
+    pub secret_env: Option<String>,
 }
 
 impl Config {
@@ -361,6 +369,7 @@ impl Config {
                         status_repo: r.status_repo().to_string(),
                         runner,
                         policy: r.queue,
+                        secret_env: r.secret_env.clone(),
                     })
                 })
                 .collect();
@@ -381,7 +390,8 @@ pub struct TriggerCfg {
     /// Webhook listener bind address ("127.0.0.1:29173").
     #[serde(default = "default_listen")]
     pub listen: String,
-    /// Env var holding the webhook secret.
+    /// Env var holding the webhook secret — the default for every
+    /// watched repo; `[[repo]] secret_env` overrides it per repo.
     #[serde(default = "default_secret_env")]
     pub secret_env: String,
 }

@@ -9,7 +9,10 @@ impl Trigger for Nop {
     fn is_event(&self, _headers: &[(String, String)]) -> bool {
         false
     }
-    fn verify(&self, _body: &[u8], _headers: &[(String, String)]) -> bool {
+    fn repo_hint(&self, _body: &[u8]) -> Option<String> {
+        None
+    }
+    fn verify(&self, _secret: &str, _body: &[u8], _headers: &[(String, String)]) -> bool {
         false
     }
     fn parse_push(&self, _body: &[u8]) -> Option<PushOutcome> {

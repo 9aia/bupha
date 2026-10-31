@@ -18,9 +18,9 @@ fn agent() -> ureq::Agent {
         .new_agent()
 }
 
-pub struct GitHubTrigger {
-    pub secret: String,
-}
+/// Secretless — the watcher resolves each repo's secret (repo_hint
+/// first) and passes it to verify per request.
+pub struct GitHubTrigger;
 
 impl Trigger for GitHubTrigger {
     fn is_event(&self, headers: &[(String, String)]) -> bool {
@@ -29,7 +29,12 @@ impl Trigger for GitHubTrigger {
             .any(|(k, v)| k.eq_ignore_ascii_case("x-github-event") && v == "push")
     }
 
-    fn verify(&self, body: &[u8], headers: &[(String, String)]) -> bool {
+    fn repo_hint(&self, body: &[u8]) -> Option<String> {
+        let v: serde_json::Value = serde_json::from_slice(body).ok()?;
+        Some(v.pointer("/repository/full_name")?.as_str()?.to_string())
+    }
+
+    fn verify(&self, secret: &str, body: &[u8], headers: &[(String, String)]) -> bool {
         let Some(sig) = headers
             .iter()
             .find(|(k, _)| k.eq_ignore_ascii_case("x-hub-signature-256"))
@@ -42,7 +47,7 @@ impl Trigger for GitHubTrigger {
         let Ok(sig) = hex::decode(hex_sig) else {
             return false;
         };
-        let mut mac = <Hmac<Sha256> as Mac>::new_from_slice(self.secret.as_bytes())
+        let mut mac = <Hmac<Sha256> as Mac>::new_from_slice(secret.as_bytes())
             .expect("hmac accepts any key length");
         mac.update(body);
         mac.verify_slice(&sig).is_ok()

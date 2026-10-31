@@ -9,6 +9,9 @@ dir = "/path/to/clone"
 branch = "refs/heads/main"
 # queue = "all"                  # run every push FIFO (default: latest-wins)
 # status_repo = "owner/name"     # optional override for statuses
+# secret_env = "REPO_WEBHOOK_SECRET"  # per-repo hook secret (default:
+                                  # trigger.secret_env) — lets each repo's
+                                  # hook be managed independently
 # [repo.runner]                # optional per-repo runner override
 #   kind = "shell"             #   (full replacement of [runner])
 #   cmd = "./scripts/release.sh"

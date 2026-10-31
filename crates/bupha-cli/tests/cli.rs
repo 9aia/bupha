@@ -196,7 +196,7 @@ fn doctor_variants() {
     // repo dir missing + no secrets -> failures -> exit 1
     let home2 = t.join("h2");
     std::fs::create_dir_all(&home2).unwrap();
-    let cfgp2 = cfg_repo(&t, &t.join("nope"), "");
+    let cfgp2 = cfg_repo(&t, &t.join("nope"), "secret_env = \"REPO_WH\"\n");
     let o = bupha(
         &["doctor", "--config", cfgp2.to_str().unwrap()],
         &[
@@ -210,7 +210,11 @@ fn doctor_variants() {
     // secret resolvable only via env file -> has() exercises file lines
     let cfgd = home2.join(".config/bupha");
     std::fs::create_dir_all(&cfgd).unwrap();
-    std::fs::write(cfgd.join("env"), "BUPHA_WEBHOOK_SECRET=s3\nBUPHA_TOKEN=t\n").unwrap();
+    std::fs::write(
+        cfgd.join("env"),
+        "BUPHA_WEBHOOK_SECRET=s3\nBUPHA_TOKEN=t\nREPO_WH=r\n",
+    )
+    .unwrap();
     let o = bupha(
         &["doctor", "--config", cfgp2.to_str().unwrap()],
         &[
@@ -218,7 +222,7 @@ fn doctor_variants() {
             ("PATH", "/usr/bin:/bin".into()),
         ],
     );
-    assert!(out_ok(&o).contains("webhook secret"));
+    assert!(out_ok(&o).contains("webhook secret") && out_ok(&o).contains("REPO_WH"));
 
     // status= github + no repos -> status.repo failure arm
     let p = t.join("gh.toml");
@@ -567,6 +571,26 @@ fn deploy_env_variants() {
     // XDG_CONFIG_HOME beats HOME/.config for the env file location.
     assert!(t.join("xdg/bupha/env").exists());
 
+    // per-repo secret_env names are seeded into the env file and
+    // migrated to the keyring like the global
+    let home4 = t.join("home4");
+    let cfg4 = t.join("persec.toml");
+    std::fs::write(&cfg4,
+        "[trigger]\nkind = \"github\"\n[runner]\nkind = \"shell\"\n[status]\nkind = \"log\"\n[tunnel]\nprovider = \"none\"\n[[repo]]\nname = \"o/r\"\ndir = \"/tmp\"\nsecret_env = \"REPO_WH\"\n"
+    ).unwrap();
+    let o = bupha(
+        &["deploy", "env", "--config", cfg4.to_str().unwrap()],
+        &[
+            ("HOME", home4.display().to_string()),
+            ("PATH", stubbed_path(&bin)),
+            ("REPO_WH", "rs".into()),
+        ],
+    );
+    assert!(o.status.success(), "{}", out_ok(&o));
+    assert!(out_ok(&o).contains("REPO_WH: stored in keyring"));
+    let env_body = std::fs::read_to_string(home4.join(".config/bupha/env")).unwrap();
+    assert!(env_body.contains("REPO_WH=") && env_body.contains("BUPHA_WEBHOOK_SECRET="));
+
     // no secret-tool -> keyring unavailable note
     let home2 = t.join("home2");
     let o = bupha(
@@ -746,6 +770,43 @@ fn deploy_webhook_variants() {
     assert_eq!(o.status.code(), Some(1));
     assert!(out_ok(&o).contains("webhook o/r"));
 
+    // per-repo secret_env: o/r2 registers with its own secret
+    let got = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
+    let g = got.clone();
+    let api3 = serve(move |req, body| {
+        if req.starts_with("GET") {
+            return (200, "[]".into());
+        }
+        g.lock()
+            .unwrap()
+            .push(format!("{req} {}", String::from_utf8_lossy(body)));
+        (201, "{}".into())
+    });
+    let p5 = t.join("persec.toml");
+    std::fs::write(&p5, format!(
+        "[trigger]\nkind = \"github\"\napi_base = \"{api3}\"\n[runner]\nkind = \"shell\"\n[status]\nkind = \"log\"\n[tunnel]\nprovider = \"direct\"\npublic_url = \"http://ci.example\"\n[[repo]]\nname = \"o/r\"\ndir = \"{d}\"\n[[repo]]\nname = \"o/r2\"\ndir = \"{d}\"\nsecret_env = \"REPO_WH\"\n",
+        d = repo_dir.display()
+    )).unwrap();
+    // REPO_WH unset -> the per-repo resolution fails for o/r2
+    let o = bupha(
+        &["deploy", "webhook", "--config", p5.to_str().unwrap()],
+        &env_base,
+    );
+    assert_eq!(o.status.code(), Some(1));
+    assert!(out_ok(&o).contains("REPO_WH"));
+    let mut env2 = env_base.clone();
+    env2.push(("REPO_WH", "repo-secret".into()));
+    let o = bupha(
+        &["deploy", "webhook", "--config", p5.to_str().unwrap()],
+        &env2,
+    );
+    assert!(o.status.success(), "{}", out_ok(&o));
+    let seen = got.lock().unwrap();
+    let r2 = seen.iter().find(|l| l.contains("/repos/o/r2/")).unwrap();
+    assert!(r2.contains("\"repo-secret\""), "{r2}");
+    let r1 = seen.iter().find(|l| l.contains("/repos/o/r/")).unwrap();
+    assert!(r1.contains("\"wh\""), "{r1}");
+
     // public_url set but no [[repo]] -> watched() error arm
     let p4 = t.join("norepo.toml");
     std::fs::write(
@@ -781,7 +842,7 @@ fn deploy_check_variants() {
     std::fs::write(home.join(".config/bupha/env"), "E2E_SECRET=s\n").unwrap();
     let p = t.join("ok.toml");
     std::fs::write(&p, format!(
-        "[trigger]\nkind = \"github\"\nsecret_env = \"E2E_SECRET\"\n[runner]\nkind = \"shell\"\ntoken_env = \"MYTOK\"\n[status]\nkind = \"log\"\n[tunnel]\nprovider = \"direct\"\npublic_url = \"{api}\"\n"
+        "[trigger]\nkind = \"github\"\nsecret_env = \"E2E_SECRET\"\n[runner]\nkind = \"shell\"\ntoken_env = \"MYTOK\"\n[status]\nkind = \"log\"\n[tunnel]\nprovider = \"direct\"\npublic_url = \"{api}\"\n[[repo]]\nname = \"o/r\"\ndir = \"/tmp\"\nsecret_env = \"REPO_WH\"\n"
     )).unwrap();
     let o = bupha(
         &["deploy", "check", "--config", p.to_str().unwrap()],
@@ -789,6 +850,7 @@ fn deploy_check_variants() {
             ("HOME", home.display().to_string()),
             ("PATH", "/usr/bin:/bin".into()),
             ("MYTOK", "t".into()),
+            ("REPO_WH", "rs".into()),
         ],
     );
     assert!(o.status.success(), "{}", out_ok(&o));
@@ -820,7 +882,7 @@ fn deploy_check_variants() {
     )
     .unwrap();
     let p9 = t.join("scan.toml");
-    std::fs::write(&p9, "[trigger]\nkind = \"github\"\nsecret_env = \"ZZ_MISSING_SECRET\"\n[runner]\nkind = \"shell\"\ntoken_env = \"ZZ_MISSING_TOK\"\n[status]\nkind = \"log\"\n[tunnel]\nprovider = \"direct\"\npublic_url = \"http://x\"\n").unwrap();
+    std::fs::write(&p9, "[trigger]\nkind = \"github\"\nsecret_env = \"ZZ_MISSING_SECRET\"\n[runner]\nkind = \"shell\"\ntoken_env = \"ZZ_MISSING_TOK\"\n[status]\nkind = \"log\"\n[tunnel]\nprovider = \"direct\"\npublic_url = \"http://x\"\n[[repo]]\nname = \"o/r\"\ndir = \"/tmp\"\nsecret_env = \"ZZ_REPO_WH\"\n").unwrap();
     let o = bupha(
         &["deploy", "check", "--config", p9.to_str().unwrap()],
         &[
@@ -828,7 +890,11 @@ fn deploy_check_variants() {
             ("PATH", "/usr/bin:/bin".into()),
         ],
     );
-    assert!(out_ok(&o).contains("webhook secret") && out_ok(&o).contains("token set"));
+    assert!(
+        out_ok(&o).contains("webhook secret")
+            && out_ok(&o).contains("token set")
+            && out_ok(&o).contains("ZZ_REPO_WH")
+    );
 
     // unreachable + trycloudflare note -> failure exit
     let p = t.join("cf.toml");

@@ -287,12 +287,22 @@ dir = "{repo}"
     let (c, m) = good(port, "s3cr3t", &push_body("o/r", &missing, "alice"));
     assert_eq!((c, m.as_str()), (202, "queued"));
 
-    // Not a push event / unsigned / malformed-body pushes.
+    // Not a push event / unsigned / no-hint / malformed-body pushes.
     let (c, m) = post(port, "/hook", Some(&sign("s3cr3t", "{}")), "{}", "issues");
     assert_eq!((c, m.as_str()), (400, "not a push event"));
-    let (c, m) = post(port, "/hook", None, "{}", "push");
+    let (c, m) = post(
+        port,
+        "/hook",
+        None,
+        &push_body("o/r", &shas[1], "alice"),
+        "push",
+    );
     assert_eq!((c, m.as_str()), (401, "bad signature"));
+    // no repository.full_name -> no repo_hint -> 404 before verify
     let (c, m) = good(port, "s3cr3t", "{}");
+    assert_eq!((c, m.as_str()), (404, "unwatched repo"));
+    // hint resolves + signature verifies but the push is malformed
+    let (c, m) = good(port, "s3cr3t", r#"{"repository":{"full_name":"o/r"}}"#);
     assert_eq!((c, m.as_str()), (400, "unparseable payload"));
     // Not the hook path.
     let (c, _) = post(port, "/other", None, "", "push");
@@ -504,7 +514,9 @@ dir = "{repo}"
 }
 
 fn expect_exit(cfg: &str, code: i32, needle: &str) {
-    let t = tmp("err");
+    // Unique dir per call — callers run as parallel tests.
+    static N: AtomicUsize = AtomicUsize::new(0);
+    let t = tmp(&format!("err-{}", N.fetch_add(1, Ordering::SeqCst)));
     let p = t.join("bupha.toml");
     std::fs::write(&p, cfg).unwrap();
     let out = Command::new(env!("CARGO_BIN_EXE_bupha"))
@@ -605,6 +617,22 @@ fn watch_boot_failures() {
     // check passes and the repo check is what rejects).
     let cfg = "[trigger]\nkind = \"github\"\nsecret_env = \"E2E_SECRET\"\n[runner]\nkind = \"script\"\ncmd = \"true\"\n[status]\nkind = \"log\"\n";
     expect_exit(cfg, 2, "no [[repo]]");
+
+    // a repo secret_env that resolves nowhere -> same panic as the
+    // global (extra lands inside the [[repo]] table).
+    let cfg = mk("secret_env = \"ZZ_MISSING\"");
+    let p = t.join("reposec.toml");
+    std::fs::write(&p, &cfg).unwrap();
+    let out = Command::new(env!("CARGO_BIN_EXE_bupha"))
+        .args(["watch", "--config"])
+        .arg(&p)
+        .env("E2E_SECRET", "s")
+        .env("HOME", &t)
+        .env("PATH", "/usr/bin:/bin")
+        .output()
+        .unwrap();
+    assert_eq!(out.status.code(), Some(101));
+    assert!(String::from_utf8_lossy(&out.stderr).contains("ZZ_MISSING"));
 }
 
 #[test]
@@ -668,6 +696,79 @@ fn secret_fallbacks_keyring_and_file() {
         ],
     );
     wait_listen(port);
+    stop(svc, &shutdown);
+}
+
+#[test]
+fn per_repo_secret_verify_and_fallback() {
+    // o/r carries its own secret_env; o/r2 falls back to the global.
+    // Cross-signed pushes fail: each repo verifies only with its own.
+    let t = tmp("persec");
+    let repo_dir = t.join("repo");
+    std::fs::create_dir_all(&repo_dir).unwrap();
+    let shas = repo(&repo_dir, 3);
+    let port = free_port();
+    let shutdown = t.join("down");
+    let cfg = format!(
+        r#"
+[trigger]
+kind = "github"
+listen = "127.0.0.1:{port}"
+secret_env = "E2E_SECRET"
+[runner]
+kind = "script"
+cmd = "true"
+[status]
+kind = "log"
+[tunnel]
+provider = "none"
+[worktree]
+base = "{base}"
+[[repo]]
+name = "o/r"
+dir = "{repo}"
+secret_env = "REPO_SECRET"
+[[repo]]
+name = "o/r2"
+dir = "{repo}"
+"#,
+        port = port,
+        base = t.display(),
+        repo = repo_dir.display()
+    );
+    let cfg_path = t.join("bupha.toml");
+    std::fs::write(&cfg_path, &cfg).unwrap();
+    let svc = spawn_watch(
+        &cfg_path,
+        &shutdown,
+        &[("E2E_SECRET", "global"), ("REPO_SECRET", "own")],
+    );
+    wait_listen(port);
+
+    // The repo's own secret verifies; the global does not (and vice
+    // versa for the fallback repo — a hook admin can't cross-forge).
+    let (c, m) = good(port, "own", &push_body("o/r", &shas[0], "alice"));
+    assert_eq!((c, m.as_str()), (202, "queued"));
+    let (c, m) = good(port, "global", &push_body("o/r", &shas[1], "alice"));
+    assert_eq!((c, m.as_str()), (401, "bad signature"));
+    let (c, m) = good(port, "global", &push_body("o/r2", &shas[2], "alice"));
+    assert_eq!((c, m.as_str()), (202, "queued"));
+    let (c, m) = good(port, "own", &push_body("o/r2", &shas[1], "alice"));
+    assert_eq!((c, m.as_str()), (401, "bad signature"));
+
+    // A correctly-signed push for a repo we don't watch can't be
+    // verified at all -> rejected, never "ignored".
+    let (c, m) = good(port, "global", &push_body("o/nope", &shas[0], "alice"));
+    assert_eq!((c, m.as_str()), (404, "unwatched repo"));
+
+    wait_for(
+        || {
+            std::fs::read_to_string(t.join("history.jsonl"))
+                .map(|s| s.lines().count() >= 2)
+                .unwrap_or(false)
+        },
+        "both runs to finish",
+    );
     stop(svc, &shutdown);
 }
 
