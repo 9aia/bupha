@@ -56,4 +56,16 @@ impl QueueStore for RedbQueueStore {
         }
         tx.commit().map_err(io::Error::other)
     }
+
+    fn persist_key(&self, key: &str, q: &PersistedQueue) -> io::Result<()> {
+        // One-key write — a second process sharing the file keeps
+        // its own keys intact (unlike persist()'s clear+rewrite).
+        let tx = self.db.begin_write().map_err(io::Error::other)?;
+        {
+            let mut t = tx.open_table(TABLE).map_err(io::Error::other)?;
+            let v = serde_json::to_string(q).unwrap_or_default();
+            t.insert(key, v.as_str()).map_err(io::Error::other)?;
+        }
+        tx.commit().map_err(io::Error::other)
+    }
 }

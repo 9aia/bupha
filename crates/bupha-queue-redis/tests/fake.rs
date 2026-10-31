@@ -89,6 +89,34 @@ fn serve() -> String {
                                 }
                             }
                         }
+                        // glob-lite: 'prefix*' prefix match, RESP array out.
+                        "KEYS" => {
+                            let pat = argv[1].strip_suffix('*').unwrap_or(&argv[1]);
+                            let m = map.lock().unwrap();
+                            let mut ks: Vec<&String> =
+                                m.keys().filter(|k| k.starts_with(pat)).collect();
+                            ks.sort();
+                            let mut r = format!("*{}\r\n", ks.len());
+                            for k in ks {
+                                r.push_str(&format!("${}\r\n{k}\r\n", k.len()));
+                            }
+                            r
+                        }
+                        "EXISTS" => {
+                            if map.lock().unwrap().contains_key(&argv[1]) {
+                                ":1\r\n".to_string()
+                            } else {
+                                ":0\r\n".to_string()
+                            }
+                        }
+                        "DEL" => {
+                            let mut m = map.lock().unwrap();
+                            let n = argv[1..]
+                                .iter()
+                                .filter(|k| m.remove(*k).is_some())
+                                .count();
+                            format!(":{n}\r\n")
+                        }
                         _ => "+OK\r\n".to_string(),
                     };
                     if w.write_all(resp.as_bytes()).is_err() {
@@ -119,21 +147,13 @@ fn persist_load_roundtrip() {
 }
 
 #[test]
-fn load_empty_and_bad_json() {
+fn load_empty_and_corrupt_key_skipped() {
     let url = serve();
     let s = RedisQueueStore::open(&url).unwrap();
     assert!(s.load().unwrap().is_empty());
 
-    // Poison the stored blob -> InvalidData error, not a panic.
-    {
-        let m = std::sync::Mutex::new(());
-        let _g = m.lock().unwrap();
-    }
-    let s2 = RedisQueueStore::open(&url).unwrap();
-    // Persist then corrupt via a second store? Instead write garbage
-    // directly through the fake's SET by issuing persist of normal
-    // data, then overwrite — simplest: another persist of garbage
-    // isn't possible via the API, so reach in through a raw socket.
+    // Write a corrupt per-key entry via a raw socket — load must
+    // skip it (a corrupt key loses ITS queue, not everyone's).
     use std::net::TcpStream;
     let port = url
         .trim_start_matches("redis://")
@@ -143,7 +163,7 @@ fn load_empty_and_bad_json() {
     let blob = "not json";
     write!(
         raw,
-        "*3\r\n$3\r\nSET\r\n$11\r\nbupha:queue\r\n${}\r\n{blob}\r\n",
+        "*3\r\n$3\r\nSET\r\n$15\r\nbupha:queue:o/r\r\n${}\r\n{blob}\r\n",
         blob.len()
     )
     .unwrap();
@@ -151,8 +171,50 @@ fn load_empty_and_bad_json() {
     let mut line = String::new();
     r.read_line(&mut line).unwrap();
     assert!(line.starts_with("+OK"));
-    let e = s2.load().unwrap_err();
-    assert_eq!(e.kind(), std::io::ErrorKind::InvalidData);
+    // And a good sibling key — survives alongside the corrupt one.
+    s.persist_key(
+        "o/ok",
+        &PersistedQueue {
+            pending: VecDeque::from(["aaa".to_string()]),
+            running: None,
+        },
+    )
+    .unwrap();
+    let m = s.load().unwrap();
+    assert_eq!(m.len(), 1);
+    assert!(m.contains_key("o/ok"));
+}
+
+#[test]
+fn persist_key_scopes_and_persist_replaces() {
+    let s = RedisQueueStore::open(&serve()).unwrap();
+    let q = |shas: &[&str]| PersistedQueue {
+        pending: shas.iter().map(|s| s.to_string()).collect::<VecDeque<_>>(),
+        running: None,
+    };
+    s.persist_key("a/x", &q(&["1"])).unwrap();
+    s.persist_key("a/y", &q(&["2"])).unwrap();
+    // Scoped write updates only its own key.
+    s.persist_key("a/x", &q(&["3"])).unwrap();
+    let m = s.load().unwrap();
+    assert_eq!(m["a/x"].pending.front().unwrap(), "3");
+    assert_eq!(m["a/y"].pending.front().unwrap(), "2");
+    // Whole-map persist drops keys that aren't in it.
+    let mut one = BTreeMap::new();
+    one.insert("a/z".to_string(), q(&["9"]));
+    s.persist(&one).unwrap();
+    let m = s.load().unwrap();
+    assert_eq!(m.len(), 1);
+    assert!(m.contains_key("a/z"));
+}
+
+#[test]
+fn done_markers() {
+    let s = RedisQueueStore::open(&serve()).unwrap();
+    assert!(!s.is_done("o/r", "sha1").unwrap());
+    s.mark_done("o/r", "sha1").unwrap();
+    assert!(s.is_done("o/r", "sha1").unwrap());
+    assert!(!s.is_done("o/r", "sha2").unwrap());
 }
 
 #[test]

@@ -3,7 +3,7 @@
 //! token + script, distinct infra failure descriptions, kill's
 //! best-effort remote cleanup, and the missing-remote io error.
 
-use bupha_runner::{RunCtx, RunHandle, Runner};
+use bupha_runner::{RunCtx, Runner};
 use bupha_ssh::{SshCfg, SshRunner};
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;

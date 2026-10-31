@@ -20,4 +20,14 @@ pub trait QueueStore: Send + Sync {
     fn load(&self) -> io::Result<BTreeMap<String, PersistedQueue>>;
     /// Must be crash-safe — tmp file + rename, never a torn write.
     fn persist(&self, queues: &BTreeMap<String, PersistedQueue>) -> io::Result<()>;
+    /// Persist ONE repo's queue without touching other keys — a
+    /// watcher only holds its own repos' queues, so a whole-map
+    /// write would clobber a peer watcher's entries in a shared
+    /// store. Default: read-modify-write via load+persist (correct
+    /// for disjoint writers; stores with real per-key ops override).
+    fn persist_key(&self, key: &str, q: &PersistedQueue) -> io::Result<()> {
+        let mut m = self.load()?;
+        m.insert(key.to_string(), q.clone());
+        self.persist(&m)
+    }
 }

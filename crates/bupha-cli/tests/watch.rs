@@ -729,9 +729,37 @@ fn fake_redis() -> (String, Arc<Mutex<HashMap<String, String>>>) {
                         }
                         "EVALSHA" | "EVAL" => match evals.fetch_add(1, Ordering::SeqCst) % 3 {
                             0 => ":1\r\n".to_string(),
-                            1 => ":0\r\n".to_string(),
-                            _ => "-ERR injected\r\n".to_string(),
+                            1 => "-ERR injected\r\n".to_string(),
+                            _ => ":0\r\n".to_string(),
                         },
+                        // glob-lite: 'prefix*' prefix match.
+                        "KEYS" => {
+                            let pat = argv[1].strip_suffix('*').unwrap_or(&argv[1]);
+                            let m = map.lock().unwrap();
+                            let mut ks: Vec<&String> =
+                                m.keys().filter(|k| k.starts_with(pat)).collect();
+                            ks.sort();
+                            let mut r = format!("*{}\r\n", ks.len());
+                            for k in ks {
+                                r.push_str(&format!("${}\r\n{k}\r\n", k.len()));
+                            }
+                            r
+                        }
+                        "EXISTS" => {
+                            if map.lock().unwrap().contains_key(&argv[1]) {
+                                ":1\r\n".to_string()
+                            } else {
+                                ":0\r\n".to_string()
+                            }
+                        }
+                        "DEL" => {
+                            let mut m = map.lock().unwrap();
+                            let n = argv[1..]
+                                .iter()
+                                .filter(|k| m.remove(*k).is_some())
+                                .count();
+                            format!(":{n}\r\n")
+                        }
                         _ => "+OK\r\n".to_string(),
                     };
                     if w.write_all(resp.as_bytes()).is_err() {
@@ -753,18 +781,25 @@ fn redis_queue_claim_renew_and_contention() {
     let port = free_port();
     let shutdown = t.join("down");
     let (rurl, rmap) = fake_redis();
+    let (api, rec) = serve_rec();
 
-    // Seed: sha0 restored into o/r's pending via the store blob, and
+    // Seed per-key queue entries: sha0 restored into o/r's pending,
     // its claim key pre-held by "someone-else" -> the worker's
     // try_claim sees contention and skips (claim `_ => None` arm).
-    // o/r2 (watched, empty) hits the `n == 0` restore arm; "ghost"
-    // (unwatched) hits the get_mut-miss arm.
+    // o/r2 (watched, empty) hits the empty-restore arm; "ghost"
+    // (unwatched) hits the get_mut-miss arm AND must survive every
+    // persist — per-key writes must not clobber peers' entries.
     rmap.lock().unwrap().insert(
-        "bupha:queue".into(),
-        format!(
-            r#"{{"o/r":{{"pending":["{}"],"running":null}},"o/r2":{{"pending":[],"running":null}},"ghost":{{"pending":[],"running":null}}}}"#,
-            shas[0]
-        ),
+        "bupha:queue:o/r".into(),
+        format!(r#"{{"pending":["{}"],"running":null}}"#, shas[0]),
+    );
+    rmap.lock().unwrap().insert(
+        "bupha:queue:o/r2".into(),
+        r#"{"pending":[],"running":null}"#.into(),
+    );
+    rmap.lock().unwrap().insert(
+        "bupha:queue:ghost".into(),
+        r#"{"pending":[],"running":null}"#.into(),
     );
     rmap.lock().unwrap().insert(
         format!("bupha:claim:o/r:{}", shas[0]),
@@ -777,11 +812,13 @@ fn redis_queue_claim_renew_and_contention() {
 kind = "github"
 listen = "127.0.0.1:{port}"
 secret_env = "E2E_SECRET"
+api_base = "{api}"
 [runner]
 kind = "script"
 cmd = "sleep 4"
 [status]
-kind = "log"
+kind = "github"
+context = "ci/test"
 [tunnel]
 provider = "none"
 [queue]
@@ -814,7 +851,8 @@ dir = "{repo}"
     wait_listen(port);
 
     // o/r's restored sha is claimed elsewhere: it must never run.
-    // o/r2 gets a real run long enough to exercise all renew arms.
+    // o/r2's run renews through all arms — ok -> err -> LOST, at
+    // which point the run is killed and reports "ci claim lost".
     let (c, m) = good(port, "s3cr3t", &push_body("o/r2", &shas[1], "alice"));
     assert_eq!((c, m.as_str()), (202, "queued"));
     wait_for(
@@ -823,11 +861,167 @@ dir = "{repo}"
                 .map(|s| s.contains(&shas[1]))
                 .unwrap_or(false)
         },
-        "redis-backed run to finish",
+        "claim-lost history record",
     );
     let hist = std::fs::read_to_string(t.join("history.jsonl")).unwrap();
+    assert!(
+        hist.contains(&format!(
+            "\"sha\":\"{}\",\"repo\":\"o/r2\",\"status\":\"claim-lost\"",
+            shas[1]
+        )),
+        "{hist}"
+    );
+    // The killed run reported its honest terminal status to the forge.
+    wait_for(
+        || {
+            rec.lock().unwrap().iter().any(|(req, b)| {
+                req.contains(&format!("/statuses/{}", shas[1])) && b.contains("claim lost")
+            })
+        },
+        "claim-lost status",
+    );
     assert!(!hist.contains(&shas[0]), "contended sha must not run");
 
+    stop(svc, &shutdown);
+
+    // Per-key persists: the unwatched ghost entry survived every
+    // write — a whole-map persist would have clobbered it.
+    let m = rmap.lock().unwrap();
+    assert_eq!(
+        m.get("bupha:queue:ghost").map(String::as_str),
+        Some(r#"{"pending":[],"running":null}"#),
+        "peer queue entries must not be clobbered"
+    );
+}
+
+#[test]
+fn redis_done_marker_drops_completed_sha() {
+    // A sha a peer already ran carries bupha:done:{key}:{sha} — a
+    // watcher holding a redundant copy must drop it, not re-run it.
+    let t = tmp("done");
+    let repo_dir = t.join("repo");
+    std::fs::create_dir_all(&repo_dir).unwrap();
+    let shas = repo(&repo_dir, 2);
+    let port = free_port();
+    let shutdown = t.join("down");
+    let (rurl, rmap) = fake_redis();
+    let (api, rec) = serve_rec();
+
+    rmap.lock().unwrap().insert(
+        format!("bupha:done:o/r:{}", shas[0]),
+        "1".into(),
+    );
+
+    let cfg = format!(
+        r#"
+[trigger]
+kind = "github"
+listen = "127.0.0.1:{port}"
+secret_env = "E2E_SECRET"
+api_base = "{api}"
+[runner]
+kind = "script"
+cmd = "true"
+[status]
+kind = "github"
+context = "ci/test"
+[tunnel]
+provider = "none"
+[queue]
+kind = "redis"
+url = "{rurl}"
+[worktree]
+base = "{base}"
+[[repo]]
+name = "o/r"
+dir = "{repo}"
+"#,
+        base = t.display(),
+        repo = repo_dir.display()
+    );
+    let cfg_path = t.join("bupha.toml");
+    std::fs::write(&cfg_path, cfg).unwrap();
+
+    let svc = spawn_watch(
+        &cfg_path,
+        &shutdown,
+        &[("E2E_SECRET", "s3cr3t"), ("BUPHA_TOKEN", "")],
+    );
+    wait_listen(port);
+
+    // sha0 is done on a peer — accepted (202) then dropped, never run.
+    let (c, m) = good(port, "s3cr3t", &push_body("o/r", &shas[0], "alice"));
+    assert_eq!((c, m.as_str()), (202, "queued"));
+    // sha1 is fresh — it runs and leaves its own done marker.
+    let (c, m) = good(port, "s3cr3t", &push_body("o/r", &shas[1], "alice"));
+    assert_eq!((c, m.as_str()), (202, "queued"));
+    wait_for(
+        || {
+            rmap.lock()
+                .unwrap()
+                .contains_key(&format!("bupha:done:o/r:{}", shas[1]))
+        },
+        "sha1 done marker",
+    );
+
+    // sha0 got no status posts at all — dropped before running.
+    let s0: Vec<String> = rec
+        .lock()
+        .unwrap()
+        .iter()
+        .filter(|(req, _)| req.contains(&format!("/statuses/{}", shas[0])))
+        .map(|(_, b)| b.clone())
+        .collect();
+    assert!(s0.is_empty(), "done sha must never run: {s0:?}");
+
+    stop(svc, &shutdown);
+}
+
+#[test]
+fn restored_running_sha_requeues_at_front() {
+    // A watcher killed mid-run persisted {running: sha0, pending:
+    // [sha1]} — on restart sha0 must run AGAIN (front), then sha1:
+    // a restored `running` sha is not a zombie.
+    let t = tmp("rest");
+    let repo_dir = t.join("repo");
+    std::fs::create_dir_all(&repo_dir).unwrap();
+    let shas = repo(&repo_dir, 2);
+    let port = free_port();
+    let shutdown = t.join("down");
+    let (api, _hits) = serve(|_, _| (201, "{}".into()));
+
+    let store = RedbQueueStore::open(t.join("queue.redb")).unwrap();
+    let mut m = BTreeMap::new();
+    m.insert(
+        "o/r".to_string(),
+        PersistedQueue {
+            pending: VecDeque::from([shas[1].clone()]),
+            running: Some(shas[0].clone()),
+        },
+    );
+    store.persist(&m).unwrap();
+    drop(store);
+
+    let cfg = cfg_text(port, &api, &t, &repo_dir, "");
+    let cfg_path = t.join("bupha.toml");
+    std::fs::write(&cfg_path, cfg).unwrap();
+    let svc = spawn_watch(
+        &cfg_path,
+        &shutdown,
+        &[("E2E_SECRET", "s3cr3t"), ("BUPHA_TOKEN", "tok")],
+    );
+    wait_listen(port);
+    wait_for(
+        || {
+            std::fs::read_to_string(t.join("history.jsonl"))
+                .map(|s| s.lines().count() >= 2)
+                .unwrap_or(false)
+        },
+        "both restored shas to run",
+    );
+    let hist = std::fs::read_to_string(t.join("history.jsonl")).unwrap();
+    let l0 = hist.lines().next().unwrap();
+    assert!(l0.contains(&shas[0]), "restored running sha runs first: {hist}");
     stop(svc, &shutdown);
 }
 

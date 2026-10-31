@@ -345,6 +345,15 @@ fn renew_ticks() -> u32 {
         .unwrap_or(240)
 }
 
+/// How a run ended — the caller needs to know whether THIS worker
+/// may mark the sha done (a lost claim means a peer owns it now).
+enum JobEnd {
+    /// Run completed locally; `false` = failed.
+    Finished(bool),
+    /// Lease lost mid-run — a peer owns the sha; don't mark done.
+    ClaimLost,
+}
+
 fn run_job(
     cfg: &Config,
     repo: &bupha_core::WatchedRepo,
@@ -353,7 +362,7 @@ fn run_job(
     shared: &Mutex<Shared>,
     worker: &Worker<'_>,
     sha: &str,
-) -> bool {
+) -> JobEnd {
     // Implicit jobs keep <base>-<repo>-<sha12>; named jobs insert
     // the job — sha stays last so `explain`'s ends_with(sha) and
     // `destroy worktrees`' prefix match still work.
@@ -382,7 +391,7 @@ fn run_job(
     if !vcs.worktree_add(&repo.dir, &wt, sha) {
         eprintln!("worktree add failed for {sha}");
         sink.post(sha, "error", "ci infra: worktree failed");
-        return false;
+        return JobEnd::Finished(false);
     }
     sink.post(sha, "pending", "ci running");
     println!("ci start {} {sha:.12} runner={}", repo.key, runner.name());
@@ -400,7 +409,7 @@ fn run_job(
         Running,
         WaitErr(std::io::Error),
     }
-    let (ok, fail_desc) = match runner.spawn(&ctx) {
+    let (end, fail_desc) = match runner.spawn(&ctx) {
         Ok(ch) => {
             *worker.child.lock().unwrap() = Some(ch);
             let mut ticks = 0u32;
@@ -422,7 +431,7 @@ fn run_job(
                     }
                 };
                 match poll {
-                    Poll::Done(s, fd) => break (s.success(), fd),
+                    Poll::Done(s, fd) => break (JobEnd::Finished(s.success()), fd),
                     Poll::Running => {
                         // Renew the fleet claim every ~2 min — the
                         // 5-min lease must out-live long builds.
@@ -430,7 +439,20 @@ fn run_job(
                         if ticks.is_multiple_of(renew_ticks()) {
                             match worker.claim.renew(&repo.key, sha, worker.id) {
                                 Ok(true) => {}
-                                Ok(false) => eprintln!("claim lost for {sha:.12} — run contested"),
+                                Ok(false) => {
+                                    // A peer owns the sha now —
+                                    // kill the local run; the peer
+                                    // reports the real result.
+                                    eprintln!(
+                                        "claim lost for {sha:.12} — killing run"
+                                    );
+                                    if let Some(h) =
+                                        worker.child.lock().unwrap().as_mut()
+                                    {
+                                        let _ = h.kill();
+                                    }
+                                    break (JobEnd::ClaimLost, None);
+                                }
                                 Err(e) => eprintln!("claim renew failed: {e}"),
                             }
                         }
@@ -438,14 +460,17 @@ fn run_job(
                     }
                     Poll::WaitErr(e) => {
                         eprintln!("runner wait failed: {e}");
-                        break (false, None);
+                        break (JobEnd::Finished(false), None);
                     }
                 }
             }
         }
         Err(e) => {
             eprintln!("runner spawn failed: {e}");
-            (false, Some("ci infra: spawn failed".to_string()))
+            (
+                JobEnd::Finished(false),
+                Some("ci infra: spawn failed".to_string()),
+            )
         }
     };
     *worker.child.lock().unwrap() = None;
@@ -457,17 +482,21 @@ fn run_job(
         .get(&repo.key)
         .map(|q| q.cancelled)
         .unwrap_or(false);
-    let (state, desc) = if ok {
-        ("success", "ci passed".to_string())
-    } else if cancelled {
-        ("error", "ci cancelled (superseded)".to_string())
-    } else {
-        ("failure", fail_desc.unwrap_or_else(|| "ci failed".into()))
+    let (state, desc) = match &end {
+        JobEnd::ClaimLost => ("error", "ci claim lost".to_string()),
+        JobEnd::Finished(true) => ("success", "ci passed".to_string()),
+        JobEnd::Finished(false) if cancelled => {
+            ("error", "ci cancelled (superseded)".to_string())
+        }
+        JobEnd::Finished(false) => (
+            "failure",
+            fail_desc.unwrap_or_else(|| "ci failed".into()),
+        ),
     };
     sink.post(sha, state, &desc);
     println!("ci {desc} {sha:.12}");
     vcs.worktree_remove(&repo.dir, &wt);
-    ok
+    end
 }
 
 /// All watched repos share one worker (no overlapping builds on one
@@ -479,21 +508,20 @@ struct Shared {
     seen: bupha_core::Seen,
 }
 
-fn persist_queue(g: &Shared, store: &dyn QueueStore) {
-    let map: std::collections::BTreeMap<String, PersistedQueue> = g
-        .queues
-        .iter()
-        .map(|(n, q)| {
-            (
-                n.clone(),
-                PersistedQueue {
-                    pending: q.pending.clone(),
-                    running: q.running.clone(),
-                },
-            )
-        })
-        .collect();
-    let _ = store.persist(&map);
+/// Persist ONE repo's queue. A whole-map write here would clobber a
+/// peer watcher's entries in a shared store — this watcher only
+/// holds its own repos' queues, so persists stay scoped to the key
+/// that actually changed.
+fn persist_queue(g: &Shared, store: &dyn QueueStore, key: &str) {
+    if let Some(q) = g.queues.get(key) {
+        let _ = store.persist_key(
+            key,
+            &PersistedQueue {
+                pending: q.pending.clone(),
+                running: q.running.clone(),
+            },
+        );
+    }
 }
 
 fn cmd_watch(cfg: Arc<Config>) {
@@ -644,7 +672,7 @@ fn cmd_watch(cfg: Arc<Config>) {
             .queues
             .insert(r.key.clone(), Queue::with_policy(r.policy));
     }
-    let mut claim: Arc<dyn TryClaim> = Arc::new(LocalClaim);
+    let mut claim: Arc<dyn TryClaim> = Arc::new(LocalClaim::default());
     let store: Arc<dyn QueueStore> = match cfg.queue.kind.as_str() {
         "redb" | "" => Arc::new(
             RedbQueueStore::open(qfile.with_extension("redb"))
@@ -668,15 +696,20 @@ fn cmd_watch(cfg: Arc<Config>) {
         }
     };
     // A load failure means "no saved work" — same as an empty map.
-    for (name, pq) in store.load().unwrap_or_default() {
+    for (name, mut pq) in store.load().unwrap_or_default() {
         let Some(q) = shared.queues.get_mut(&name) else {
             continue; // saved entry for a repo we no longer watch
         };
-        let n = pq.pending.len();
-        q.pending = pq.pending;
-        q.running = pq.running;
-        if n > 0 {
-            println!("restored {n} pending sha(s) for {name}");
+        // A run interrupted mid-flight re-queues at the FRONT of
+        // pending — it never finished, so it gets another shot (the
+        // PersistedQueue doc's promise). A peer that completed it in
+        // the meantime is caught by the done-marker drop at dequeue.
+        if let Some(r) = pq.running.take() {
+            q.pending.push_front(r);
+        }
+        q.pending.extend(pq.pending);
+        if !q.pending.is_empty() {
+            println!("restored {} pending sha(s) for {name}", q.pending.len());
         }
     }
 
@@ -707,24 +740,36 @@ fn cmd_watch(cfg: Arc<Config>) {
                     loop {
                         // Peek the front pending sha per repo; claim it
                         // in the shared store before dequeuing so a
-                        // second watcher can't double-run it.
+                        // second watcher can't double-run it. A sha a
+                        // peer already finished drops off the front —
+                        // otherwise it would sit there until its lease
+                        // expired, then re-run pointlessly.
                         let hit = g.queues.iter_mut().find_map(|(n, q)| {
                             let front = q.pending.front()?.clone();
+                            if claim.is_done(n, &front).unwrap_or(false) {
+                                q.dequeue();
+                                return Some((n.clone(), front, false));
+                            }
                             match claim.try_claim(n, &front, &worker_id) {
                                 Ok(Some(_)) => {
                                     let s = q.dequeue().unwrap();
                                     q.running = Some(s.clone());
                                     q.cancelled = false;
-                                    Some((n.clone(), s))
+                                    Some((n.clone(), s, true))
                                 }
                                 _ => None, // claimed elsewhere or store down
                             }
                         });
-                        if let Some(x) = hit {
-                            persist_queue(&g, &*store);
-                            break x;
+                        match hit {
+                            // Dropped a peer-completed sha — persist
+                            // and scan again.
+                            Some((n, _, false)) => persist_queue(&g, &*store, &n),
+                            Some((n, s, true)) => {
+                                persist_queue(&g, &*store, &n);
+                                break (n, s);
+                            }
+                            None => g = cv.wait(g).unwrap(),
                         }
-                        g = cv.wait(g).unwrap();
                     }
                 };
                 let repo = watched.iter().find(|r| r.key == repo_name).unwrap();
@@ -735,7 +780,7 @@ fn cmd_watch(cfg: Arc<Config>) {
                     sha: sha.clone(),
                 });
                 let t0 = std::time::Instant::now();
-                let ok = run_job(
+                let end = run_job(
                     &cfg,
                     repo,
                     sink,
@@ -749,7 +794,11 @@ fn cmd_watch(cfg: Arc<Config>) {
                     &sha,
                 );
                 let wall = t0.elapsed();
-                let status = if ok { "success" } else { "failure" };
+                let status = match &end {
+                    JobEnd::Finished(true) => "success",
+                    JobEnd::Finished(false) => "failure",
+                    JobEnd::ClaimLost => "claim-lost",
+                };
                 telemetry.event(&RunEvent::Finished {
                     repo: repo_name.clone(),
                     sha: sha.clone(),
@@ -762,7 +811,13 @@ fn cmd_watch(cfg: Arc<Config>) {
                 {
                     let mut g = shared.lock().unwrap();
                     let _ = g.queues.get_mut(&repo_name).map(|q| q.running = None);
-                    persist_queue(&g, &*store);
+                    persist_queue(&g, &*store, &repo_name);
+                }
+                // Completion marker: peers holding a redundant copy of
+                // this sha drop it instead of re-running. A lost claim
+                // means a peer owns the sha — IT marks done.
+                if !matches!(end, JobEnd::ClaimLost) {
+                    let _ = claim.mark_done(&repo_name, &sha);
                 }
                 // Observability write-paths — failures never break the run.
                 let _ = bupha_history::record(
@@ -940,7 +995,9 @@ fn cmd_watch(cfg: Arc<Config>) {
                                                 }
                                             }
                                         }
-                                        persist_queue(&g, &*store);
+                                        for w in &matched {
+                                            persist_queue(&g, &*store, &w.key);
+                                        }
                                     }
                                     for (key, old) in olds {
                                         telemetry.event(&RunEvent::Superseded {
