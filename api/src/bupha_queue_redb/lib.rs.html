@@ -56,5 +56,17 @@
 <a href=#56 id=56 data-nosnippet>56</a>        }
 <a href=#57 id=57 data-nosnippet>57</a>        tx.commit().map_err(io::Error::other)
 <a href=#58 id=58 data-nosnippet>58</a>    }
-<a href=#59 id=59 data-nosnippet>59</a>}
+<a href=#59 id=59 data-nosnippet>59</a>
+<a href=#60 id=60 data-nosnippet>60</a>    <span class="kw">fn </span>persist_key(<span class="kw-2">&amp;</span><span class="self">self</span>, key: <span class="kw-2">&amp;</span>str, q: <span class="kw-2">&amp;</span>PersistedQueue) -&gt; io::Result&lt;()&gt; {
+<a href=#61 id=61 data-nosnippet>61</a>        <span class="comment">// One-key write — a second process sharing the file keeps
+<a href=#62 id=62 data-nosnippet>62</a>        // its own keys intact (unlike persist()'s clear+rewrite).
+<a href=#63 id=63 data-nosnippet>63</a>        </span><span class="kw">let </span>tx = <span class="self">self</span>.db.begin_write().map_err(io::Error::other)<span class="question-mark">?</span>;
+<a href=#64 id=64 data-nosnippet>64</a>        {
+<a href=#65 id=65 data-nosnippet>65</a>            <span class="kw">let </span><span class="kw-2">mut </span>t = tx.open_table(TABLE).map_err(io::Error::other)<span class="question-mark">?</span>;
+<a href=#66 id=66 data-nosnippet>66</a>            <span class="kw">let </span>v = serde_json::to_string(q).unwrap_or_default();
+<a href=#67 id=67 data-nosnippet>67</a>            t.insert(key, v.as_str()).map_err(io::Error::other)<span class="question-mark">?</span>;
+<a href=#68 id=68 data-nosnippet>68</a>        }
+<a href=#69 id=69 data-nosnippet>69</a>        tx.commit().map_err(io::Error::other)
+<a href=#70 id=70 data-nosnippet>70</a>    }
+<a href=#71 id=71 data-nosnippet>71</a>}
 </code></pre></div></section></main></body></html>

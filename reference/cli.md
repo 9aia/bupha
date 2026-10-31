@@ -9,6 +9,8 @@ This document contains the help content for the `bupha` command-line program.
 
 * [`bupha`↴](#bupha)
 * [`bupha watch`↴](#bupha-watch)
+* [`bupha worker`↴](#bupha-worker)
+* [`bupha agent`↴](#bupha-agent)
 * [`bupha init`↴](#bupha-init)
 * [`bupha doctor`↴](#bupha-doctor)
 * [`bupha run`↴](#bupha-run)
@@ -41,6 +43,8 @@ the oxpecker on your repo's back — headless CI
 ###### **Subcommands:**
 
 * `watch` — Serve the webhook → queue → runner loop
+* `worker` — Fleet puller — claim shared-queue jobs and run them. No listener/tunnel/trigger; needs only \[queue] (redis), \[\[repo]] dirs, \[runner], \[status], \[worktree]
+* `agent` — Serve the remote-run agent — accepts jobs from `kind="http"` runners and executes them with this box's \[runner]
 * `init` — Scaffold dagger CI in a repo (dagger init + pinned module + delegate). For the script runner, a ci.sh is enough
 * `doctor` — Check what the loaded config actually needs on this box
 * `run` — Run the pipeline locally — in the watched repo's `dir`, not cwd
@@ -60,6 +64,18 @@ the oxpecker on your repo's back — headless CI
 Serve the webhook → queue → runner loop
 
 **Usage:** `bupha watch`
+
+## `bupha worker`
+
+Fleet puller — claim shared-queue jobs and run them. No listener/tunnel/trigger; needs only \[queue] (redis), \[\[repo]] dirs, \[runner], \[status], \[worktree]
+
+**Usage:** `bupha worker`
+
+## `bupha agent`
+
+Serve the remote-run agent — accepts jobs from `kind="http"` runners and executes them with this box's \[runner]
+
+**Usage:** `bupha agent`
 
 ## `bupha init`
 
@@ -112,6 +128,7 @@ Write + enable the systemd user unit (needs enable-linger for boot persistence)
 ###### **Options:**
 
 * `--no-start` — Skip enable --now (write the file only)
+* `--worker` — Manage a worker unit (bupha-worker.service) instead of the watcher unit
 
 ## `bupha deploy webhook`
 
@@ -157,7 +174,11 @@ Teardown counterparts of `deploy`
 
 Disable + remove the systemd user unit
 
-**Usage:** `bupha destroy service`
+**Usage:** `bupha destroy service [OPTIONS]`
+
+###### **Options:**
+
+* `--worker` — Remove bupha-worker.service instead of bupha-watch
 
 ## `bupha destroy webhook`
 
@@ -175,7 +196,7 @@ Remove detached worktrees and the persisted queue file
 
 Toggle the watcher unit without removing it — free the box when CI isn't needed, `enable` brings it back
 
-**Usage:** `bupha service <COMMAND>`
+**Usage:** `bupha service [OPTIONS] <COMMAND>`
 
 ###### **Subcommands:**
 
@@ -184,6 +205,10 @@ Toggle the watcher unit without removing it — free the box when CI isn't neede
 * `status` — Whether the watcher unit is enabled and running
 * `restart` — Restart the watcher unit
 * `logs` — Print (or follow, -f) the watcher unit log
+
+###### **Options:**
+
+* `--worker` — Operate on bupha-worker.service instead of bupha-watch
 
 ## `bupha service enable`
 

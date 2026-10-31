@@ -63,6 +63,40 @@ dir = "/srv/checkouts/web" # default latest-wins (and the global
 #   cmd = "./release.sh"
 ```
 
+## Multiple pipelines on one repo — `[[repo.jobs]]`
+
+A repo that needs more than one pipeline (a main gate plus a
+docs-branch deploy, a debounced release next to the CI gate)
+declares jobs instead of a second `[[repo]]` — duplicate `name`
+entries are rejected at load. Each job gets its own `branch`,
+`queue`, `runner` and status context; branch/queue/runner fall back
+job → repo → global. Jobs share the repo's webhook, `secret_env`
+and clone — one push to a ref feeds every job watching it.
+
+```toml
+[[repo]]
+name = "org/app"
+dir = "/srv/checkouts/app"
+
+[[repo.jobs]]
+name = "gate"                    # worktrees: <base>-org-app-gate-<sha12>
+branch = "refs/heads/main"       # statuses: ci/bupha/gate
+[repo.jobs.runner]
+kind = "shell"
+cmd = "bash scripts/ci.sh"
+
+[[repo.jobs]]
+name = "docs"
+branch = "refs/heads/docs"
+context = "ci/docs-deploy"       # status context override
+[repo.jobs.runner]
+kind = "shell"
+cmd = "bash scripts/deploy-docs.sh"
+```
+
+`bupha runs org/app` lists `org/app:gate` and `org/app:docs`
+records; `bupha runs org/app:gate` filters to the one job.
+
 `secret_env` names an env var (resolved like `trigger.secret_env` —
 env → keyring → `~/.config/bupha/env`), never the value. Each repo's
 hook can then be managed and rotated independently: the watcher
@@ -153,6 +187,8 @@ This document contains the help content for the `bupha` command-line program.
 
 * [`bupha`↴](#bupha)
 * [`bupha watch`↴](#bupha-watch)
+* [`bupha worker`↴](#bupha-worker)
+* [`bupha agent`↴](#bupha-agent)
 * [`bupha init`↴](#bupha-init)
 * [`bupha doctor`↴](#bupha-doctor)
 * [`bupha run`↴](#bupha-run)
@@ -185,6 +221,8 @@ the oxpecker on your repo's back — headless CI
 ###### **Subcommands:**
 
 * `watch` — Serve the webhook → queue → runner loop
+* `worker` — Fleet puller — claim shared-queue jobs and run them. No listener/tunnel/trigger; needs only \[queue] (redis), \[\[repo]] dirs, \[runner], \[status], \[worktree]
+* `agent` — Serve the remote-run agent — accepts jobs from `kind="http"` runners and executes them with this box's \[runner]
 * `init` — Scaffold dagger CI in a repo (dagger init + pinned module + delegate). For the script runner, a ci.sh is enough
 * `doctor` — Check what the loaded config actually needs on this box
 * `run` — Run the pipeline locally — in the watched repo's `dir`, not cwd
@@ -204,6 +242,18 @@ the oxpecker on your repo's back — headless CI
 Serve the webhook → queue → runner loop
 
 **Usage:** `bupha watch`
+
+## `bupha worker`
+
+Fleet puller — claim shared-queue jobs and run them. No listener/tunnel/trigger; needs only \[queue] (redis), \[\[repo]] dirs, \[runner], \[status], \[worktree]
+
+**Usage:** `bupha worker`
+
+## `bupha agent`
+
+Serve the remote-run agent — accepts jobs from `kind="http"` runners and executes them with this box's \[runner]
+
+**Usage:** `bupha agent`
 
 ## `bupha init`
 
@@ -256,6 +306,7 @@ Write + enable the systemd user unit (needs enable-linger for boot persistence)
 ###### **Options:**
 
 * `--no-start` — Skip enable --now (write the file only)
+* `--worker` — Manage a worker unit (bupha-worker.service) instead of the watcher unit
 
 ## `bupha deploy webhook`
 
@@ -301,7 +352,11 @@ Teardown counterparts of `deploy`
 
 Disable + remove the systemd user unit
 
-**Usage:** `bupha destroy service`
+**Usage:** `bupha destroy service [OPTIONS]`
+
+###### **Options:**
+
+* `--worker` — Remove bupha-worker.service instead of bupha-watch
 
 ## `bupha destroy webhook`
 
@@ -319,7 +374,7 @@ Remove detached worktrees and the persisted queue file
 
 Toggle the watcher unit without removing it — free the box when CI isn't needed, `enable` brings it back
 
-**Usage:** `bupha service <COMMAND>`
+**Usage:** `bupha service [OPTIONS] <COMMAND>`
 
 ###### **Subcommands:**
 
@@ -328,6 +383,10 @@ Toggle the watcher unit without removing it — free the box when CI isn't neede
 * `status` — Whether the watcher unit is enabled and running
 * `restart` — Restart the watcher unit
 * `logs` — Print (or follow, -f) the watcher unit log
+
+###### **Options:**
+
+* `--worker` — Operate on bupha-worker.service instead of bupha-watch
 
 ## `bupha service enable`
 
@@ -409,13 +468,16 @@ url: /bupha/reference/config.md
 
 | field | type | required | notes |
 |---|---|---|---|
-| `repos` | `Vec<RepoEntry>` | required | Watched repos — one pending slot each, one global worker. TOML-conventional singular; `repos` kept as alias for existing configs. |
+| `repos` | `Vec<RepoEntry>` | required | Watched repos — each expands to one pending slot per job (one implicit job when `[[repo.jobs]]` is absent), all fed by one global worker. TOML-conventional singular; `repos` kept as alias for existing configs. |
+| `trigger` | `TriggerCfg` | optional | Optional — `bupha worker` boxes never listen. |
 | `tunnel` | `TunnelCfg` | optional | How the listener is exposed publicly (cloudflared, direct, none). |
 | `cache` | `CacheCfg` | optional | Artifact cache backend (`[cache]`); `runner.sccache_conf` is accepted for older configs — `[cache]` wins. |
 | `access` | `AccessCfg` | optional | Who may trigger (`[access]`). Absent = open. |
 | `telemetry` | `TelemetryCfg` | optional | Pipeline observability (`[telemetry]`). Absent = none. |
 | `attest` | `AttestCfg` | optional | Run provenance (`[attest]`). Absent = none. |
 | `queue` | `QueueCfg` | optional | Queue persistence backend (`[queue]`). Absent = redb. |
+| `worker` | `WorkerCfg` | optional | Fleet worker labels (`[worker]`). Absent = no labels. |
+| `agent` | `AgentCfg` | optional | Remote-run agent (`[agent]`). Absent = no agent listener. |
 | `worktree` | `WorktreeCfg` | optional | Where detached git worktrees for runs are created. |
 
 ## `[[repo]]`
@@ -429,13 +491,15 @@ url: /bupha/reference/config.md
 | `runner` | `RunnerCfg` | optional | Per-repo runner override — a full \[repo.runner] table replaces the global `[runner]` for this repo. |
 | `queue` | `"latest" | "all"` | optional | Queue policy — `latest` (default) or `all` (run every push). |
 | `secret_env` | `string` | optional | Per-repo webhook-secret env var — a NAME resolved like `trigger.secret_env` (its fallback). Lets each repo's hook be managed and rotated independently of the other watched repos. |
+| `runs_on` | `list` | optional | Fleet routing: labels a claiming worker must carry (e.g. \["arch=arm64"]). Empty = any worker. Per-repo arch pinning — same-push multi-arch matrix is future work. |
+| `jobs` | `Vec<JobEntry>` | optional | Pipelines within this repo (`[[repo.jobs]]`). Each job gets its own branch filter, queue policy, runner and status context — one webhook feeds them all. Empty = the repo itself is its single implicit pipeline. |
 
 ## `[trigger]`
 
 | field | type | required | notes |
 |---|---|---|---|
 | `api_base` | `string` | optional | Forge API base — GHES ("https://ghe.acme/api/v3") or default github.com. Used by the trigger, status, and forge-admin impls. |
-| `kind` | `string` | required | "github" today; other forges = new impl crates. |
+| `kind` | `string` | optional | "github" today; other forges = new impl crates. |
 | `listen` | `string` | optional | Webhook listener bind address ("127.0.0.1:29173"). |
 | `secret_env` | `string` | optional | Env var holding the webhook secret — the default for every watched repo; `[[repo]] secret_env` overrides it per repo. |
 
@@ -478,6 +542,17 @@ url: /bupha/reference/config.md
 |---|---|---|---|
 | `base` | `string` | optional | Worktree parent dir — runs land at `&lt;base&gt;-&lt;repo&gt;-&lt;sha12&gt;`. |
 
+## `[[repo.jobs]]`
+
+| field | type | required | notes |
+|---|---|---|---|
+| `name` | `string` | required | Job name — path-safe `[A-Za-z0-9._-]+`, non-empty. Lands in worktree paths (`&lt;base&gt;-&lt;repo&gt;-&lt;job&gt;-&lt;sha12&gt;`), redis claim keys and the default status context (`&lt;context&gt;/&lt;job&gt;`). |
+| `branch` | `string` | optional | The ref this job watches (default: the repo's `branch`). |
+| `runner` | `RunnerCfg` | optional | Per-job runner override — replaces the repo/global runner for this job only. |
+| `queue` | `"latest" | "all"` | optional | Queue policy for this job — `latest` (default) or `all`. Falls back to the repo's `queue`. |
+| `context` | `string` | optional | Status context override (default: `"&lt;status.context&gt;/&lt;job name&gt;"`). |
+| `runs_on` | `list` | optional | Label requirements — overrides the repo's `runs_on` for this job only (job -> repo -> \[] inheritance, like runner/queue). |
+
 ## `[runner]` — kind `dagger`
 
 | field | type | required | notes |
@@ -502,8 +577,8 @@ url: /bupha/reference/config.md
 | field | type | required | notes |
 |---|---|---|---|
 | `remote` | `string` | optional | Remote host ("user@host"; ssh config resolves auth). |
-| `remote_dir` | `string` | optional | Remote workdir the worktree syncs into. |
-| `cmd` | `string` | optional | Command run remotely (`bash -c`). |
+| `remote_dir` | `string` | optional | Remote parent dir — each run syncs into its own `&lt;remote_dir&gt;/&lt;key&gt;-&lt;sha12&gt;` subdir. |
+| `cmd` | `string` | optional | Command run remotely (fed to `bash -s`). |
 
 ## `[runner]` — kind `container`
 
@@ -560,6 +635,7 @@ documented at source (doc comments).
 * [bupha-git](/bupha/api/bupha_git/index.html) — adapter
 * [bupha-github](/bupha/api/bupha_github/index.html) — adapter
 * [bupha-history](/bupha/api/bupha_history/index.html) — adapter
+* [bupha-http](/bupha/api/bupha_http/index.html) — adapter
 * [bupha-keyring](/bupha/api/bupha_keyring/index.html) — adapter
 * [bupha-queue-redb](/bupha/api/bupha_queue_redb/index.html) — adapter
 * [bupha-queue-redis](/bupha/api/bupha_queue_redis/index.html) — adapter
@@ -615,6 +691,7 @@ impls to ports.
 | `bupha-git` | adapter | Vcs impl: git via the git CLI |
 | `bupha-github` | adapter | GitHub impl: push-webhook trigger + commit-status sink |
 | `bupha-history` | adapter | Run-history adapter: JSONL records per finished run |
+| `bupha-http` | adapter | Runner impl: remote execution via HTTP agent (tar worktree + poll) |
 | `bupha-keyring` | adapter | Secret impl: OS keyring via secret-tool (libsecret) |
 | `bupha-queue-redb` | adapter | QueueStore impl: redb embedded store (single file, ACID) |
 | `bupha-queue-redis` | adapter | QueueStore adapter: redis (multi-worker; SET NX claim + INCR fence) |
@@ -642,18 +719,27 @@ POST /hook
   → 5. dedup delivery id (bounded 10k ring; github impl uses
        X-GitHub-Delivery)
   → 6. parse — skip deletes/zero-sha; revision must be path-safe
-  → 7. route — git_ref must equal repo.branch; forge-attested
-       sender checked against the access policy
-  → 8. enqueue — per-repo queue; persist via QueueStore (redb,
-       ACID)
+  → 7. route — git_ref selects every job of the repo watching it
+       ([[repo.jobs]] entries, or the repo's implicit pipeline);
+       forge-attested sender checked against the access policy
+  → 8. enqueue — one queue per job; a push fan-outs into every
+       matched queue; persist via QueueStore (redb, ACID)
   → 9. one global worker — Vcs fetch, detached worktree
-       at <base>-<repo>-<sha12>
+       at <base>-<repo>[-<job>]-<sha12>
   → 10. spawn run handle (token via env:// name, never argv)
   → 11. status — pending → success/error; superseded and
         cancelled shas get honest error statuses
 ```
 
 ## Queue semantics
+
+Queues are per *job*: a `[[repo]]` is one implicit pipeline unless
+it declares `[[repo.jobs]]`, in which case each job gets an
+independent queue (`name:job` keys), branch filter, runner and
+status context. One push fan-outs into every job queue whose
+`branch` matches the ref — same-repo jobs are independent of each
+other (latest-wins on one never touches another's pending slot, and
+`cancel_running` only kills its own job's in-flight run).
 
 | policy             | pending           | on new push                                                                                           | use for  |
 | ------------------ | ----------------- | ----------------------------------------------------------------------------------------------------- | -------- |
@@ -790,6 +876,111 @@ YAML.
   smaller; those are full pipeline platforms.
 * **self-hosted GHA runner** — bupha is lighter (no runner service,
   no org config) but has no matrix or marketplace.
+
+---
+
+---
+url: /bupha/how-to/distributed-runners.md
+---
+# Distributed runners
+
+One `bupha watch` runs CI on one box. The fleet model adds three
+pieces — all optional, and single-box behavior is unchanged when
+they're absent:
+
+* a **shared pull queue** (`[queue] kind = "redis"`) that N watchers
+  enqueue into and M `bupha worker` boxes claim from;
+* **`bupha worker`** — a puller that runs jobs without listening for
+  webhooks;
+* **`bupha agent`** + `kind = "http"` runner — a remote executor for
+  boxes that can't pull (or that you drive explicitly).
+
+## Shared queue + workers
+
+```toml
+# on every watcher AND worker box
+[queue]
+kind = "redis"
+url = "redis://queue-box:6379/"
+```
+
+`bupha worker` needs only `[queue]`, `[[repo]]` dirs, `[runner]`,
+`[status]`, `[worktree]` — no `[trigger]`, webhook secrets or tunnel:
+
+```toml
+[queue]
+kind = "redis"
+url = "redis://queue-box:6379/"
+[runner]
+kind = "script"
+cmd = "bash ci.sh"
+[status]
+kind = "log"
+[worktree]
+base = "/var/lib/bupha"
+[[repo]]
+name = "org/api"
+dir = "/srv/repos/api"
+```
+
+Jobs are leased per `(key, sha)` (`bupha:claim:*`, 5-min TTL renewed
+during the run) — a dead worker's job is claimable again when the
+lease expires. `bupha:done:{key}:{sha}` markers stop redundant
+re-runs; `latest` queues prune superseded entries on claim.
+
+## Label routing (multi-arch)
+
+Pin a repo to an architecture; workers carry matching labels:
+
+```toml
+# watcher
+[[repo]]
+name = "org/firmware"
+dir = "/srv/repos/firmware"
+runs_on = ["arch=arm64"]
+
+# worker on the ARM box
+[worker]
+labels = ["arch=arm64"]
+```
+
+A watcher never enqueues locally what its own `[worker] labels`
+can't satisfy — the job lands only in the pull queue. Unlabeled
+jobs are claimable by anyone. This is per-repo arch pinning; a
+same-push multi-arch *matrix* (one sha -> N parallel arch runs) is
+future work.
+
+```bash
+bupha deploy service --worker   # writes bupha-worker.service
+bupha service --worker enable
+```
+
+## Remote agent + http runner
+
+For a box you drive explicitly (it doesn't pull):
+
+```toml
+# on the CI box
+[runner]
+kind = "http"
+agent_url = "http://arm-box:29174"
+secret_env = "BUPHA_AGENT_SECRET"   # env NAME — value never in config
+
+# on the remote box
+[agent]
+listen = "0.0.0.0:29174"
+token_env = "BUPHA_AGENT_SECRET"
+[runner]
+kind = "script"
+cmd = "bash ci.sh"
+```
+
+The runner POSTs `{key, sha, cmd, env names}` to `/jobs`, PUTs the
+tarred worktree to `/jobs/{id}/worktree`, polls `GET /jobs/{id}`,
+and `DELETE`s to kill. Every request carries
+`X-Bupha-Auth: sha256=<hmac(body)>` verified against the shared
+secret. Caveats mirror the ssh runner: remote kills are best-effort
+and tarred `.git` pointer files are broken on the agent.
 
 ---
 

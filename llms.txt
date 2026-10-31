@@ -30,5 +30,6 @@ headless CI — push in, status out, on a Linux box with Git
 
 ### Other
 
+- [Distributed runners](/bupha/how-to/distributed-runners.md)
 - [Getting started](/bupha/getting-started.md)
 - [Untitled](/bupha/public/api/static.files/SourceSerif4-LICENSE-a2cfd9d5.md)
