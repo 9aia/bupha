@@ -323,17 +323,7 @@ fn workq_latest_claim_supersede_complete() {
         let mut raw = TcpStream::connect(port).unwrap();
         let d1 = serde_json::to_string(&j("done1", &[])).unwrap();
         let push = |v: &str| {
-            let mut m = format!("*4
-$5
-RPUSH
-$13
-bupha:work:o/r
-${}
-", v.len());
-            m.push_str(v);
-            m.push_str("
-");
-            m
+            format!("*3\r\n$5\r\nRPUSH\r\n$14\r\nbupha:work:o/r\r\n${}\r\n{}\r\n", v.len(), v)
         };
         raw.write_all(push(&d1).as_bytes()).unwrap();
         raw.write_all(push("broken").as_bytes()).unwrap();
@@ -384,7 +374,17 @@ fn workq_pruned_and_all_policy() {
         sha: sha.into(),
         runs_on: vec![],
     };
-    // latest list [old, new]; `new` leased by a peer -> old pruned.
+    // latest list [broken, old, new]; `new` leased by a peer -> old
+    // pruned, and the broken older entry takes the parse-skip arm.
+    {
+        use std::net::TcpStream;
+        let port = s_url.trim_start_matches("redis://").trim_end_matches('/').to_string();
+        let mut raw = TcpStream::connect(port).unwrap();
+        raw.write_all(b"*3\r\n$5\r\nRPUSH\r\n$14\r\nbupha:work:o/r\r\n$6\r\nbroken\r\n").unwrap();
+        let mut r = BufReader::new(raw);
+        let mut l = String::new();
+        r.read_line(&mut l).unwrap();
+    }
     s.enqueue(&j("o/r", "old")).unwrap();
     s.enqueue(&j("o/r", "new")).unwrap();
     s.try_claim("o/r", "new", "peer").unwrap();
@@ -408,7 +408,7 @@ fn workq_pruned_and_all_policy() {
         use std::net::TcpStream;
         let port = s_url.trim_start_matches("redis://").trim_end_matches('/').to_string();
         let mut raw = TcpStream::connect(port).unwrap();
-        let put = |v: &str| format!("*4\r\n$5\r\nRPUSH\r\n$15\r\nbupha:work:o/fifo\r\n${}\r\n{}\r\n", v.len(), v);
+        let put = |v: &str| format!("*3\r\n$5\r\nRPUSH\r\n$17\r\nbupha:work:o/fifo\r\n${}\r\n{}\r\n", v.len(), v);
         raw.write_all(put("broken").as_bytes()).unwrap();
         raw.write_all(put(&serde_json::to_string(&j("o/fifo", "done1")).unwrap()).as_bytes()).unwrap();
         let mut r = BufReader::new(raw);

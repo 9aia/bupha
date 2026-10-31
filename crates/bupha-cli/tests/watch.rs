@@ -1979,6 +1979,35 @@ base = "{base}"
     assert_eq!(out.status.code(), Some(1));
     drop(hold);
 
+    // kind="http" parses but the secret is missing -> panic (101).
+    let cfg3 = format!(
+        r#"
+[agent]
+listen = "127.0.0.1:{port}"
+[runner]
+kind = "http"
+agent_url = "http://127.0.0.1:1"
+secret_env = "BUPHA_MISSING_SECRET"
+[status]
+kind = "log"
+[worktree]
+base = "{base}"
+"#,
+        port = free_port(),
+        base = t.display()
+    );
+    let p3 = t.join("c.toml");
+    std::fs::write(&p3, cfg3).unwrap();
+    // Agent secret resolves, then the http runner build panics on
+    // its own missing secret_env -> exit 101.
+    let out = Command::new(env!("CARGO_BIN_EXE_bupha"))
+        .args(["agent", "--config"])
+        .arg(&p3)
+        .env("BUPHA_AGENT_SECRET", "s3cr3t")
+        .output()
+        .unwrap();
+    assert_eq!(out.status.code(), Some(101));
+
     // Malformed http runner fields -> config error, exit 2.
     let cfg2 = format!(
         r#"

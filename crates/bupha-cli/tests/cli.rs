@@ -1651,10 +1651,8 @@ fn worker_requires_shared_queue() {
     );
     assert_eq!(o.status.code(), Some(2));
     assert!(out_ok(&o).contains("url"), "{}", out_ok(&o));
-    // A repo entry that fails watched() -> config error, exit 2.
-    let repo_dir2 = t.join("repo2");
-    repo(&repo_dir2);
-    let cfgp3 = cfg_repo(&t, &repo_dir2, "[[repo.jobs]]\nname = \"x\"\ncmd = \"c\"\nqueue = \"bogus\"\n");
+    // watched() rejects the config (no [[repo]] entries) -> "config:" + exit 2.
+    let cfgp3 = cfg(&t, "[queue]\nkind = \"redis\"\nurl = \"redis://127.0.0.1:1/\"\n");
     let o = bupha(
         &["worker", "--config", cfgp3.to_str().unwrap()],
         &[("HOME", t.join("h3").display().to_string())],

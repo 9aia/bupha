@@ -243,3 +243,156 @@ fn handle_error_arms() {
     assert!(h.try_wait().is_err());
     assert!(h.kill().is_err());
 }
+
+#[test]
+fn verify_reject_arms_and_handle_edges() {
+    use hmac::{Hmac, Mac};
+    use sha2::Sha256;
+    fn sign(s: &str, b: &[u8]) -> String {
+        let mut m = <Hmac<Sha256> as Mac>::new_from_slice(s.as_bytes()).unwrap();
+        m.update(b);
+        format!("sha256={}", hex::encode(m.finalize().into_bytes()))
+    }
+    let (url, stop, jh) = serve_agent(Arc::new(StubRunner("sleep 1")));
+    // Missing auth header / no sha256= prefix / non-hex sig -> 401.
+    let r = ureq::post(format!("{url}/jobs")).send(b"x");
+    assert!(matches!(r, Err(ureq::Error::StatusCode(401))));
+    for bad in ["sha1=deadbeef", "sha256=zz"] {
+        let r = ureq::post(format!("{url}/jobs"))
+            .header("X-Bupha-Auth", bad)
+            .send(b"x");
+        assert!(matches!(r, Err(ureq::Error::StatusCode(401))), "{bad}");
+    }
+    // wait() while the job still runs exercises the poll sleep.
+    let t = tmp("waitsleep");
+    std::fs::create_dir_all(t.join("wt")).unwrap();
+    let r = runner_for(&url, "s3cr3t");
+    let mut h = r.spawn(&ctx(&t.join("wt"), "aaaaaa1111111111")).unwrap();
+    assert!(h.wait().unwrap().success());
+    // GET while still running -> Ok(None) reap arm.
+    let r2 = ureq::post(format!("{url}/jobs"))
+        .header("X-Bupha-Auth", sign("s3cr3t", br#"{"key":"o/r","sha":"abcdef1234567890","env_names":["T","U"]}"#))
+        .send(br#"{"key":"o/r","sha":"abcdef1234567890","env_names":["T","U"]}"#)
+        .unwrap();
+    let _ : serde_json::Value = r2.into_body().read_json().unwrap();
+    stop.store(true, Ordering::SeqCst);
+    let _ = jh.join();
+}
+
+/// A runner whose handle has a failure_desc + one whose try_wait
+/// errors — covers the GET-reap desc and error arms.
+#[test]
+fn agent_reap_desc_and_err_arms() {
+    struct DescRunner;
+    impl Runner for DescRunner {
+        fn name(&self) -> &'static str { "desc" }
+        fn spawn(&self, _: &RunCtx) -> io::Result<Box<dyn RunHandle>> {
+            struct H(std::process::ExitStatus);
+            impl RunHandle for H {
+                fn try_wait(&mut self) -> io::Result<Option<std::process::ExitStatus>> {
+                    Ok(Some(self.0))
+                }
+                fn wait(&mut self) -> io::Result<std::process::ExitStatus> { Ok(self.0) }
+                fn kill(&mut self) -> io::Result<()> { Ok(()) }
+                fn failure_desc(&mut self) -> Option<String> { Some("ci infra: blew up".into()) }
+            }
+            use std::os::unix::process::ExitStatusExt;
+            Ok(Box::new(H(std::process::ExitStatus::from_raw(1 << 8))))
+        }
+    }
+    struct ErrRunner;
+    impl Runner for ErrRunner {
+        fn name(&self) -> &'static str { "err" }
+        fn spawn(&self, _: &RunCtx) -> io::Result<Box<dyn RunHandle>> {
+            struct H;
+            impl RunHandle for H {
+                fn try_wait(&mut self) -> io::Result<Option<std::process::ExitStatus>> {
+                    Err(io::Error::other("poll exploded"))
+                }
+                fn wait(&mut self) -> io::Result<std::process::ExitStatus> {
+                    Err(io::Error::other("wait exploded"))
+                }
+                fn kill(&mut self) -> io::Result<()> { Ok(()) }
+            }
+            Ok(Box::new(H))
+        }
+    }
+    let t = tmp("desc");
+    std::fs::create_dir_all(t.join("wt")).unwrap();
+
+    // DescRunner: job fails fast; GET reaps failure + surfaces desc.
+    let (url, stop, jh) = serve_agent(Arc::new(DescRunner));
+    let r = runner_for(&url, "s3cr3t");
+    let mut h = r.spawn(&ctx(&t.join("wt"), "1111112222222222")).unwrap();
+    let st = h.wait().unwrap();
+    assert!(!st.success());
+    assert_eq!(h.failure_desc().as_deref(), Some("ci infra: blew up"));
+    stop.store(true, Ordering::SeqCst);
+    let _ = jh.join();
+
+    // ErrRunner: try_wait errors -> agent GET reports "ci infra: ...".
+    let (url, stop, jh) = serve_agent(Arc::new(ErrRunner));
+    let r = runner_for(&url, "s3cr3t");
+    let mut h = r.spawn(&ctx(&t.join("wt"), "3333334444444444")).unwrap();
+    let st = h.wait().unwrap();
+    assert!(!st.success());
+    stop.store(true, Ordering::SeqCst);
+    let _ = jh.join();
+}
+
+/// Bad worktree upload -> tar extract fails -> 500 + failure status.
+#[test]
+fn agent_bad_tar_500() {
+    use hmac::{Hmac, Mac};
+    use sha2::Sha256;
+    fn sign(s: &str, b: &[u8]) -> String {
+        let mut m = <Hmac<Sha256> as Mac>::new_from_slice(s.as_bytes()).unwrap();
+        m.update(b);
+        format!("sha256={}", hex::encode(m.finalize().into_bytes()))
+    }
+    let (url, stop, jh) = serve_agent(Arc::new(StubRunner("true")));
+    let spec = br#"{"key":"o/r","sha":"9999998888888888"}"#;
+    let r = ureq::post(format!("{url}/jobs"))
+        .header("X-Bupha-Auth", sign("s3cr3t", spec))
+        .send(spec)
+        .unwrap();
+    let id: serde_json::Value = r.into_body().read_json().unwrap();
+    let id = id["id"].as_str().unwrap().to_string();
+    // Garbage bytes are not a tar -> extract fails -> 500.
+    let r = ureq::put(format!("{url}/jobs/{id}/worktree"))
+        .header("X-Bupha-Auth", sign("s3cr3t", b"garbage"))
+        .send(b"garbage");
+    assert!(matches!(r, Err(ureq::Error::StatusCode(500))), "{r:?}");
+    let r = ureq::get(format!("{url}/jobs/{id}"))
+        .header("X-Bupha-Auth", sign("s3cr3t", b""))
+        .call()
+        .unwrap();
+    let st: serde_json::Value = r.into_body().read_json().unwrap();
+    assert_eq!(st["status"], "failure");
+    stop.store(true, Ordering::SeqCst);
+    let _ = jh.join();
+}
+
+/// Local tar failure + cfg serde defaults + missing-secret panic path.
+#[test]
+fn spawn_tar_fail_and_cfg_defaults() {
+    // Dead agent -> create-stage error before tar runs.
+    let r = runner_for("http://127.0.0.1:1", "s");
+    let t = tmp("tarfail");
+    std::fs::create_dir_all(t.join("wt")).unwrap();
+    assert!(r.spawn(&ctx(&t.join("wt"), "aaaaaaaaaaaaaaaa")).is_err());
+    // Live agent + missing workdir -> `tar -cf` exits non-zero.
+    let (url, stop, jh) = serve_agent(Arc::new(StubRunner("true")));
+    let r = runner_for(&url, "s3cr3t");
+    let e = r
+        .spawn(&ctx(&t.join("nope"), "aaaaaaaaaaaaaaaa"))
+        .err()
+        .unwrap_or_else(|| panic!("tar failure should error"));
+    assert!(e.to_string().contains("tar"), "{e}");
+    stop.store(true, Ordering::SeqCst);
+    let _ = jh.join();
+    // serde default: omitting secret_env yields the standard name.
+    let hc: HttpCfg =
+        serde_json::from_str(r#"{"agent_url":"http://x"}"#).unwrap();
+    assert_eq!(hc.secret_env, "BUPHA_AGENT_SECRET");
+}
