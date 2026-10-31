@@ -107,6 +107,7 @@ dependencies = [
  "bupha-git",
  "bupha-github",
  "bupha-history",
+ "bupha-http",
  "bupha-keyring",
  "bupha-queue",
  "bupha-queue-lease",
@@ -268,6 +269,20 @@ dependencies = [
 [[package]]
 name = "bupha-history"
 version = "0.1.0"
+
+[[package]]
+name = "bupha-http"
+version = "0.1.0"
+dependencies = [
+ "bupha-runner",
+ "hex",
+ "hmac",
+ "serde",
+ "serde_json",
+ "sha2",
+ "tiny_http",
+ "ureq",
+]
 
 [[package]]
 name = "bupha-keyring"

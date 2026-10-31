@@ -37,6 +37,7 @@ members = [
     "crates/bupha-shell",
     "crates/bupha-tunnel",
     "crates/bupha-cloudflared",
+    "crates/bupha-http",
 ]
 
 [workspace.package]
@@ -79,6 +80,7 @@ bupha-config-toml = { path = "crates/bupha-config-toml", version = "0.1.0" }
 bupha-cache = { path = "crates/bupha-cache", version = "0.1.0" }
 bupha-cache-sccache = { path = "crates/bupha-cache-sccache", version = "0.1.0" }
 bupha-ssh = { path = "crates/bupha-ssh", version = "0.1.0" }
+bupha-http = { path = "crates/bupha-http", version = "0.1.0" }
 serde_json = "1"
 bupha-status = { path = "crates/bupha-status", version = "0.1.0" }
 bupha-runner = { path = "crates/bupha-runner", version = "0.1.0" }

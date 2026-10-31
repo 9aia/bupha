@@ -96,3 +96,29 @@ provider = "none"                 # none | cloudflared | direct
 
 [worktree]
 base = "/tmp/bupha"               # worktrees land at <base>-<repo>-<sha12>
+
+# --- Distributed runners (T-005) -----------------------------------
+#
+# [queue] kind = "redis"  # shared pull queue for fleet workers
+# [queue] url = "redis://queue-box:6379/"
+#
+# [worker]                # this box's claim labels
+# labels = ["arch=arm64"]
+#
+# [[repo]]
+# name = "org/firmware"
+# dir = "/srv/repos/firmware"
+# runs_on = ["arch=arm64"]   # only arm64-labeled workers claim it
+#
+# Remote execution: runner kind "http" posts the spec to a
+# `bupha agent` and ships the tarred worktree. secret_env names the
+# shared HMAC secret — the value resolves via env/keyring/env file.
+#
+# [runner]
+# kind = "http"
+# agent_url = "http://arm-box:29174"
+# secret_env = "BUPHA_AGENT_SECRET"
+#
+# [agent]                 # on the remote box: `bupha agent`
+# listen = "0.0.0.0:29174"
+# token_env = "BUPHA_AGENT_SECRET"

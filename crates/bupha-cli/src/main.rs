@@ -66,6 +66,9 @@ enum Cmd {
     /// listener/tunnel/trigger; needs only [queue] (redis), [[repo]]
     /// dirs, [runner], [status], [worktree].
     Worker,
+    /// Serve the remote-run agent — accepts jobs from `kind="http"`
+    /// runners and executes them with this box's [runner].
+    Agent,
     /// Scaffold dagger CI in a repo (dagger init + pinned module
     /// + delegate). For the script runner, a ci.sh is enough.
     Init {
@@ -231,6 +234,16 @@ fn build_runner(rc: &bupha_core::RunnerCfg, cache: &bupha_core::CacheCfg) -> Arc
                 std::process::exit(2)
             });
             Arc::new(ContainerRunner::new(cc))
+        }
+        "http" => {
+            let hc: bupha_http::HttpCfg = table.clone().try_into().unwrap_or_else(|e| {
+                eprintln!("runner config (http): {e}");
+                std::process::exit(2)
+            });
+            let s = secret(&hc.secret_env).unwrap_or_else(|| {
+                panic!("{} required (env, keyring or env file)", hc.secret_env)
+            });
+            Arc::new(bupha_http::HttpRunner::new(hc, s))
         }
 
         // Coverage builds only: a runner whose handle fails `try_wait`
@@ -1263,6 +1276,35 @@ fn cmd_worker(cfg: Arc<Config>) {
     }
 }
 
+/// `bupha agent` — the remote-run side of kind="http": accepts
+/// tarred worktrees + specs, runs them with this box's runner and
+/// exposes job status. HMAC-verified against the shared secret.
+fn cmd_agent(cfg: Arc<Config>) {
+    let secret = secret(&cfg.agent.token_env).unwrap_or_else(|| {
+        panic!(
+            "{} required (env, keyring or env file)",
+            cfg.agent.token_env
+        )
+    });
+    let runner = build_runner(&cfg.runner, &cfg.cache);
+    println!("bupha agent listening on {}", cfg.agent.listen);
+    let _ = std::fs::create_dir_all(&cfg.worktree.base);
+    if let Err(e) = bupha_http::agent::serve(
+        &cfg.agent.listen,
+        &secret,
+        Path::new(&cfg.worktree.base),
+        runner,
+        || {
+            std::env::var("BUPHA_WATCH_SHUTDOWN_FILE")
+                .ok()
+                .is_some_and(|f| Path::new(&f).exists())
+        },
+    ) {
+        eprintln!("agent: {e}");
+        std::process::exit(1);
+    }
+}
+
 fn cmd_init(dir: &Path) {
     let ci = dir.join("ci.sh");
     if !ci.exists() {
@@ -1649,6 +1691,7 @@ fn dispatch_cmd(cfg: &Arc<Config>, cmd: &Cmd, cli_config: Option<String>) {
     match cmd {
         Cmd::Watch => cmd_watch(Arc::clone(cfg)),
         Cmd::Worker => cmd_worker(Arc::clone(cfg)),
+        Cmd::Agent => cmd_agent(Arc::clone(cfg)),
         Cmd::Doctor => cmd_doctor(cfg),
         Cmd::Run { function } => cmd_run(cfg, function.clone()),
         Cmd::Deploy { sub } => cmd_deploy(cfg, sub, cli_config),

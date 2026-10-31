@@ -1868,3 +1868,140 @@ runs_on = ["arch=arm64"]
     assert!(w[0].contains("\"arch=arm64\""));
     stop(svc, &shutdown);
 }
+
+/// `bupha agent` serves the http-runner surface; needs the secret.
+#[test]
+fn agent_serves_and_http_runner_arm() {
+    let t = tmp("agent");
+    let repo_dir = t.join("repo");
+    std::fs::create_dir_all(&repo_dir).unwrap();
+    repo(&repo_dir, 1);
+    let shutdown = t.join("down");
+    let base = t.join("wt");
+    let cfg = format!(
+        r#"
+[agent]
+listen = "127.0.0.1:{port}"
+[runner]
+kind = "script"
+cmd = "true"
+[status]
+kind = "log"
+[worktree]
+base = "{base}"
+"#,
+        port = free_port(),
+        base = base.display()
+    );
+    let cfg_path = t.join("bupha.toml");
+    std::fs::write(&cfg_path, cfg).unwrap();
+
+    // Missing secret -> panic before serving.
+    let out = Command::new(env!("CARGO_BIN_EXE_bupha"))
+        .args(["agent", "--config"])
+        .arg(&cfg_path)
+        .env("HOME", t.join("noh"))
+        .output()
+        .unwrap();
+    assert!(!out.status.success());
+
+    // With the secret it binds + serves (stop via the same hook).
+    let svc = Command::new(env!("CARGO_BIN_EXE_bupha"))
+        .args(["agent", "--config"])
+        .arg(&cfg_path)
+        .env("BUPHA_AGENT_SECRET", "s3cr3t")
+        .env("BUPHA_WATCH_SHUTDOWN_FILE", &shutdown)
+        .spawn()
+        .unwrap();
+    std::thread::sleep(std::time::Duration::from_millis(400));
+    stop(svc, &shutdown);
+
+    // kind="http" runner arm: cfg parses, secret resolves, builds.
+    let shutdown2 = t.join("down2");
+    let cfg2 = format!(
+        r#"
+[agent]
+listen = "127.0.0.1:{port}"
+[runner]
+kind = "http"
+agent_url = "http://127.0.0.1:1"
+secret_env = "BUPHA_AGENT_SECRET"
+[status]
+kind = "log"
+[worktree]
+base = "{base}"
+"#,
+        port = free_port(),
+        base = t.join("wt2").display()
+    );
+    let cfg2_path = t.join("bupha-http.toml");
+    std::fs::write(&cfg2_path, cfg2).unwrap();
+    let svc = Command::new(env!("CARGO_BIN_EXE_bupha"))
+        .args(["agent", "--config"])
+        .arg(&cfg2_path)
+        .env("BUPHA_AGENT_SECRET", "s3cr3t")
+        .env("BUPHA_WATCH_SHUTDOWN_FILE", &shutdown2)
+        .spawn()
+        .unwrap();
+    std::thread::sleep(std::time::Duration::from_millis(400));
+    stop(svc, &shutdown2);
+}
+
+/// `bupha agent` exits 1 when its listen port is taken, and the
+/// http-runner arm reports malformed fields as config errors.
+#[test]
+fn agent_error_exits() {
+    let t = tmp("agerr");
+    let port = free_port();
+    let hold = std::net::TcpListener::bind(("127.0.0.1", port)).unwrap();
+    let cfg = format!(
+        r#"
+[agent]
+listen = "127.0.0.1:{port}"
+[runner]
+kind = "script"
+cmd = "true"
+[status]
+kind = "log"
+[worktree]
+base = "{base}"
+"#,
+        base = t.display()
+    );
+    let p = t.join("a.toml");
+    std::fs::write(&p, cfg).unwrap();
+    let out = Command::new(env!("CARGO_BIN_EXE_bupha"))
+        .args(["agent", "--config"])
+        .arg(&p)
+        .env("BUPHA_AGENT_SECRET", "s")
+        .output()
+        .unwrap();
+    assert_eq!(out.status.code(), Some(1));
+    drop(hold);
+
+    // Malformed http runner fields -> config error, exit 2.
+    let cfg2 = format!(
+        r#"
+[agent]
+listen = "127.0.0.1:{port}"
+[runner]
+kind = "http"
+agent_url = 42
+[status]
+kind = "log"
+[worktree]
+base = "{base}"
+"#,
+        port = free_port(),
+        base = t.display()
+    );
+    let p2 = t.join("b.toml");
+    std::fs::write(&p2, cfg2).unwrap();
+    let out = Command::new(env!("CARGO_BIN_EXE_bupha"))
+        .args(["agent", "--config"])
+        .arg(&p2)
+        .env("BUPHA_AGENT_SECRET", "s")
+        .output()
+        .unwrap();
+    assert_eq!(out.status.code(), Some(2));
+}

@@ -269,6 +269,36 @@ pub struct WorkerCfg {
     pub labels: Vec<String>,
 }
 
+/// Remote-run listener (`[agent]`) — `bupha agent` serves the http
+/// runner's wire surface and executes accepted jobs with `[runner]`.
+#[derive(Debug, Deserialize, Clone)]
+#[serde(deny_unknown_fields)]
+pub struct AgentCfg {
+    /// Bind address — loopback by default; expose deliberately.
+    #[serde(default = "default_agent_listen")]
+    pub listen: String,
+    /// Env var NAME holding the shared HMAC secret (never the value).
+    #[serde(default = "default_agent_secret_env")]
+    pub token_env: String,
+}
+
+fn default_agent_listen() -> String {
+    "127.0.0.1:29174".into()
+}
+
+fn default_agent_secret_env() -> String {
+    "BUPHA_AGENT_SECRET".into()
+}
+
+impl Default for AgentCfg {
+    fn default() -> Self {
+        Self {
+            listen: default_agent_listen(),
+            token_env: default_agent_secret_env(),
+        }
+    }
+}
+
 #[derive(Debug, Deserialize, Clone)]
 #[serde(deny_unknown_fields)]
 pub struct Config {
@@ -306,6 +336,9 @@ pub struct Config {
     /// Fleet worker labels (`[worker]`). Absent = no labels.
     #[serde(default)]
     pub worker: WorkerCfg,
+    /// Remote-run agent (`[agent]`). Absent = no agent listener.
+    #[serde(default)]
+    pub agent: AgentCfg,
     /// Where detached git worktrees for runs are created.
     #[serde(default)]
     pub worktree: WorktreeCfg,
