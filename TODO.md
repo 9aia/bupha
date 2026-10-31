@@ -10,4 +10,3 @@
 - [ ] T-026 bupha doctor --json — machine-readable check output (ADR-0002 support surface) · created:2026-10-31
 - [ ] T-027 status signature/attestation link in commit-status body (ADR-0002 compliance) · created:2026-10-31
 - [ ] T-028 fix release.sh: 'tags: unbound variable' + crates.io version conflict · pri:high · created:2026-10-31
-- [ ] T-029 audit first CI runs across ~175 newly-gated repos; fix failing ci.sh/env issues · created:2026-10-31
