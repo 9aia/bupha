@@ -1,13 +1,13 @@
 +++
 id = "ADR-0001"
 title = "ADR-0001: GitHub Actions compatibility for easy migration"
-status = "open"
+status = "done"
 priority = "medium"
 +++
 
 # ADR-0001: GitHub Actions compatibility for easy migration
 
-Status: proposed
+Status: accepted
 
 ## Context
 

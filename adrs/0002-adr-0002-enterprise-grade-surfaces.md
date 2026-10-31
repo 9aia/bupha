@@ -1,13 +1,13 @@
 +++
 id = "ADR-0002"
 title = "ADR-0002: Enterprise-grade surfaces"
-status = "open"
+status = "done"
 priority = "medium"
 +++
 
 # ADR-0002: Enterprise-grade surfaces
 
-Status: partially landed (0.1.x) — access+telemetry+isolation wired; attest/lease/history-read pending — designs for fleet, access, SLA, isolation, compliance, support-surface.
+Status: accepted — partially landed (0.1.x) — access+telemetry+isolation wired; attest/lease/history-read pending — designs for fleet, access, SLA, isolation, compliance, support-surface.
 
 Each proposal names the port it hangs off. The architecture already pays
 for this — all six are *new ports or new impls*, not rewrites.

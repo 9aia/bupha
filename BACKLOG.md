@@ -25,4 +25,4 @@
 
 - T-019 bupha-access-forge — live test exists ( --ignored ); needs GH\_TOKEN + FORGE\_TEST\_REPO envs to run against a real repo.
 - T-020 bupha-attest-sigstore — landed (cosign sign-blob); needs a box with cosign + a key to verify end-to-end.
-- T-021 Fleet is wired — \[queue\] kind = "redis" + worker claims via SET NX + INCR fence. Remaining: lease renewal mid-run (long builds can out-live the 5-min claim TTL).
+- T-021 Fleet is wired — \[queue\] kind = "redis" + worker claims via SET NX + INCR fence. Renewal landed (worker.claim.renew). Remaining: live multi-worker verification + shared pull queue (see T-005 phases).
