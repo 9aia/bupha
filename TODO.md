@@ -5,6 +5,7 @@
 - [ ] T-001 MODULE\_SHA — bump pinned dagger install to the release tag.
 - [ ] T-002 CHANGELOG.md — 0.1.0 entry (manual now, generated later).
 - [ ] T-003 README badges — crates.io + license (resolve green once live).
+- [ ] T-024 \[\[repo]] retry field — failed runs retry with backoff (ADR-0002 SLA surface, untracked) · created:2026-10-31
 
 ## Queue / jobs
 
