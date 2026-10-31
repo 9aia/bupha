@@ -170,6 +170,37 @@ impl Default for AccessCfg {
     }
 }
 
+/// Audit log (`[audit]`). Access decisions and run outcomes appended
+/// as JSONL — the compliance surface from ADR-0002 §2. Absent
+/// section = no audit log.
+#[derive(Debug, Deserialize, Clone)]
+#[serde(deny_unknown_fields)]
+pub struct AuditCfg {
+    /// Sink kind: "file" appends to `path` (default
+    /// `<worktree.base>/audit.log`). Anything else is rejected at
+    /// wiring time.
+    #[serde(default = "default_audit_kind")]
+    pub kind: String,
+    /// Log file path — empty = `<worktree.base>/audit.log`.
+    #[serde(default)]
+    pub path: String,
+}
+
+fn default_audit_kind() -> String {
+    "file".into()
+}
+
+impl Default for AuditCfg {
+    /// Absent `[audit]` section = no audit (`kind: ""`). A present
+    /// section without `kind` still defaults to "file" via serde.
+    fn default() -> Self {
+        Self {
+            kind: String::new(),
+            path: String::new(),
+        }
+    }
+}
+
 /// Observability (`[telemetry]`). Fire-and-forget domain events —
 /// never blocks the pipeline. Absent section = no telemetry.
 #[derive(Debug, Deserialize, Clone)]
@@ -324,6 +355,9 @@ pub struct Config {
     /// Who may trigger (`[access]`). Absent = open.
     #[serde(default)]
     pub access: AccessCfg,
+    /// Decision/outcome audit log (`[audit]`). Absent = none.
+    #[serde(default)]
+    pub audit: AuditCfg,
     /// Pipeline observability (`[telemetry]`). Absent = none.
     #[serde(default)]
     pub telemetry: TelemetryCfg,

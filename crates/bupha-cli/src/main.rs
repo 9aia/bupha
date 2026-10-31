@@ -7,6 +7,7 @@
 use bupha_access::{Access, AllowAll};
 use bupha_access_file::FileAccess;
 use bupha_access_forge::ForgeAccess;
+use bupha_audit_file::{AuditLog, AuditSink};
 use bupha_attest::{Attest, RunAttestation};
 use bupha_attest_file::FileAttest;
 use bupha_attest_sigstore::SigstoreAttest;
@@ -607,14 +608,31 @@ fn build_attest(cfg: &Config) -> Option<Arc<dyn Attest>> {
     }
 }
 
+/// [audit] — JSONL decision/outcome log (ADR-0002 §2). Absent = none.
+fn build_audit(cfg: &Config) -> Option<Arc<AuditLog>> {
+    match cfg.audit.kind.as_str() {
+        "" | "none" => None,
+        "file" => Some(AuditLog::new(if cfg.audit.path.is_empty() {
+            Path::new(&cfg.worktree.base).join("audit.log")
+        } else {
+            PathBuf::from(&cfg.audit.path)
+        })),
+        other => {
+            eprintln!("unknown audit kind '{other}' (file)");
+            std::process::exit(2);
+        }
+    }
+}
+
 fn build_sinks(
     cfg: &Config,
     watched: &[bupha_core::WatchedRepo],
     token: &str,
+    audit: Option<&Arc<AuditLog>>,
 ) -> std::collections::HashMap<String, Arc<dyn StatusSink>> {
     let mut sinks = std::collections::HashMap::new();
     for r in watched.iter() {
-        let s: Arc<dyn StatusSink> = match cfg.status.kind.as_str() {
+        let mut s: Arc<dyn StatusSink> = match cfg.status.kind.as_str() {
             "github" => Arc::new(GitHubStatus {
                 token: token.to_string(),
                 repo: r.status_repo.clone(),
@@ -625,6 +643,9 @@ fn build_sinks(
                 context: r.context.clone(),
             }),
         };
+        if let Some(log) = audit {
+            s = Arc::new(AuditSink::wrap(s, r.name.clone(), Arc::clone(log)));
+        }
         sinks.insert(r.key.clone(), s);
     }
     sinks
@@ -740,7 +761,8 @@ fn cmd_watch(cfg: Arc<Config>) {
 
     let telemetry = build_telemetry(&cfg);
     let attest = build_attest(&cfg);
-    let sinks = build_sinks(&cfg, &watched, &token);
+    let audit = build_audit(&cfg);
+    let sinks = build_sinks(&cfg, &watched, &token, audit.as_ref());
     // Runner per job (cli-sibling detection is repo-relative).
     let runners = build_runners(&cfg, &watched);
 
@@ -992,6 +1014,7 @@ fn cmd_watch(cfg: Arc<Config>) {
         let secrets = Arc::clone(&secrets);
         let wh_secret = wh_secret.clone();
         let access = access.clone();
+        let audit = audit.clone();
         let telemetry = telemetry.clone();
         let workq = workq.clone();
         let cfg = Arc::clone(&cfg);
@@ -1067,6 +1090,15 @@ fn cmd_watch(cfg: Arc<Config>) {
                                     (200, "ignored: not the watched branch")
                                 } else if !access.allow(&sender, &repo_name) {
                                     println!("denied: {sender} may not trigger {repo_name}");
+                                    if let Some(log) = &audit {
+                                        log.entry(
+                                            &sha,
+                                            &repo_name,
+                                            &sender,
+                                            "denied",
+                                            "sender not allowed",
+                                        );
+                                    }
                                     (403, "sender not allowed")
                                 } else {
                                     // Lock: mutate queues + decide, then drop.
@@ -1205,7 +1237,8 @@ fn cmd_worker(cfg: Arc<Config>) {
                 std::process::exit(2);
             }
         };
-    let sinks = build_sinks(&cfg, &watched, &token);
+    let audit = build_audit(&cfg);
+    let sinks = build_sinks(&cfg, &watched, &token, audit.as_ref());
     let runners = build_runners(&cfg, &watched);
     let telemetry = build_telemetry(&cfg);
     let attest = build_attest(&cfg);

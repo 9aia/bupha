@@ -1,0 +1,13 @@
+[package]
+name = "bupha-audit-file"
+description = "Audit adapter: append access/outcome decisions to a JSONL file"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+keywords = ["ci", "bupha"]
+categories = ["development-tools"]
+
+[dependencies]
+bupha-status.workspace = true
+serde_json.workspace = true

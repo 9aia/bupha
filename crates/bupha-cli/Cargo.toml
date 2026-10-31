@@ -49,6 +49,7 @@ toml = "0.8"
 bupha-access.workspace = true
 bupha-access-file.workspace = true
 bupha-access-forge.workspace = true
+bupha-audit-file.workspace = true
 bupha-telemetry.workspace = true
 bupha-telemetry-otel.workspace = true
 bupha-container.workspace = true

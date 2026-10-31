@@ -13,6 +13,7 @@ members = [
     "crates/bupha-access-forge",
     "crates/bupha-access-file",
     "crates/bupha-access",
+    "crates/bupha-audit-file",
     "crates/bupha-cli",
     "crates/bupha-systemd",
     "crates/bupha-core",
@@ -58,6 +59,7 @@ bupha-queue-redis = { path = "crates/bupha-queue-redis", version = "0.1.0" }
 bupha-attest-file = { path = "crates/bupha-attest-file", version = "0.1.0" }
 bupha-access = { path = "crates/bupha-access", version = "0.1.0" }
 bupha-access-file = { path = "crates/bupha-access-file", version = "0.1.0" }
+bupha-audit-file = { path = "crates/bupha-audit-file", version = "0.1.0" }
 bupha-access-forge = { path = "crates/bupha-access-forge", version = "0.1.0" }
 bupha-telemetry = { path = "crates/bupha-telemetry", version = "0.1.0" }
 bupha-telemetry-otel = { path = "crates/bupha-telemetry-otel", version = "0.1.0" }
