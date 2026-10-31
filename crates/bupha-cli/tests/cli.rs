@@ -506,11 +506,14 @@ fn service_subcommands() {
     ];
 
     for (args, want) in [
-        (vec!["service", "enable"], "bupha-watch enabled"),
-        (vec!["service", "disable"], "bupha-watch disabled"),
+        (vec!["service", "enable"], "bupha-watch.service enabled"),
+        (vec!["service", "disable"], "bupha-watch.service disabled"),
         (vec!["service", "status"], "enabled=enabled active=inactive"),
-        (vec!["service", "restart"], "bupha-watch restarted"),
+        (vec!["service", "restart"], "bupha-watch.service restarted"),
         (vec!["service", "logs"], "journal-line"),
+        (vec!["service", "--worker", "enable"], "bupha-worker.service enabled"),
+        (vec!["service", "--worker", "disable"], "bupha-worker.service disabled"),
+        (vec!["service", "--worker", "restart"], "bupha-worker.service restarted"),
     ] {
         let o = bupha(&args, &env);
         assert!(o.status.success(), "{args:?}: {}", out_ok(&o));
@@ -663,6 +666,24 @@ fn deploy_service_variants() {
     let unit = home.join(".config/systemd/user/bupha-watch.service");
     assert!(unit.exists());
     assert!(std::fs::read_to_string(&unit).unwrap().contains("watch"));
+
+    // --worker writes bupha-worker.service with the worker verb
+    let homew = t.join("hw");
+    let o = bupha(
+        &[
+            "deploy", "service", "--worker", "--no-start", "--config",
+            cfgp.to_str().unwrap(),
+        ],
+        &[
+            ("HOME", homew.display().to_string()),
+            ("PATH", stubbed_path(&bin)),
+        ],
+    );
+    assert!(o.status.success(), "{}", out_ok(&o));
+    let wunit = homew.join(".config/systemd/user/bupha-worker.service");
+    let u = std::fs::read_to_string(&wunit).unwrap();
+    assert!(u.contains(" worker --config") || u.contains(" worker
+") || u.contains("worker"), "{u}");
 
     // default: write + enable --now
     let home2 = t.join("h2");
@@ -1192,6 +1213,21 @@ fn destroy_variants() {
     assert!(out_ok(&o).contains("removed"));
     assert!(!unit_dir.join("bupha-watch.service").exists());
 
+    // --worker removes the worker unit
+    let hw = t.join("hw");
+    let wdir = hw.join(".config/systemd/user");
+    std::fs::create_dir_all(&wdir).unwrap();
+    std::fs::write(wdir.join("bupha-worker.service"), "x").unwrap();
+    let o = bupha(
+        &["destroy", "service", "--worker", "--config", cfgp.to_str().unwrap()],
+        &[
+            ("HOME", hw.display().to_string()),
+            ("PATH", stubbed_path(&bin)),
+        ],
+    );
+    assert!(o.status.success(), "{}", out_ok(&o));
+    assert!(!wdir.join("bupha-worker.service").exists());
+
     // daemon-reload failure -> exit 1
     stub(&bin, "systemctl", "exit 1");
     let o = bupha(
@@ -1592,4 +1628,37 @@ fn init_variants() {
     std::fs::write(d7.join("dagger"), "not-a-dir").unwrap();
     let o = bupha(&["init", d7.to_str().unwrap()], &env);
     assert!(out_ok(&o).contains("template:"), "{}", out_ok(&o));
+}
+
+#[test]
+fn worker_requires_shared_queue() {
+    let t = tmp("wkq");
+    let repo_dir = t.join("repo");
+    repo(&repo_dir);
+    let cfgp = cfg_repo(&t, &repo_dir, "");
+    // kind=redb (default) -> exit 2: no pull queue to claim from.
+    let o = bupha(
+        &["worker", "--config", cfgp.to_str().unwrap()],
+        &[("HOME", t.join("h").display().to_string())],
+    );
+    assert_eq!(o.status.code(), Some(2));
+    assert!(out_ok(&o).contains("redis"), "{}", out_ok(&o));
+    // kind=redis without url -> exit 2 as well.
+    let cfgp2 = cfg_repo(&t, &repo_dir, "[queue]\nkind = \"redis\"\n");
+    let o = bupha(
+        &["worker", "--config", cfgp2.to_str().unwrap()],
+        &[("HOME", t.join("h2").display().to_string())],
+    );
+    assert_eq!(o.status.code(), Some(2));
+    assert!(out_ok(&o).contains("url"), "{}", out_ok(&o));
+    // A repo entry that fails watched() -> config error, exit 2.
+    let repo_dir2 = t.join("repo2");
+    repo(&repo_dir2);
+    let cfgp3 = cfg_repo(&t, &repo_dir2, "[[repo.jobs]]\nname = \"x\"\ncmd = \"c\"\nqueue = \"bogus\"\n");
+    let o = bupha(
+        &["worker", "--config", cfgp3.to_str().unwrap()],
+        &[("HOME", t.join("h3").display().to_string())],
+    );
+    assert_eq!(o.status.code(), Some(2));
+    assert!(out_ok(&o).contains("config:"), "{}", out_ok(&o));
 }

@@ -23,7 +23,7 @@ use bupha_git::GitVcs;
 use bupha_github::{GitHubAdmin, GitHubStatus, GitHubTrigger, LogStatus};
 use bupha_history::RunRecord;
 use bupha_keyring::KeyringSecrets;
-use bupha_queue::{PersistedQueue, QueueStore};
+use bupha_queue::{Claim, Job, KeyPolicy, PersistedQueue, QueueStore, WorkQueue};
 use bupha_queue_lease::{LocalClaim, TryClaim};
 use bupha_queue_redb::RedbQueueStore;
 use bupha_runner::{RunCtx, RunHandle, Runner};
@@ -62,6 +62,10 @@ struct Cli {
 enum Cmd {
     /// Serve the webhook → queue → runner loop.
     Watch,
+    /// Fleet puller — claim shared-queue jobs and run them. No
+    /// listener/tunnel/trigger; needs only [queue] (redis), [[repo]]
+    /// dirs, [runner], [status], [worktree].
+    Worker,
     /// Scaffold dagger CI in a repo (dagger init + pinned module
     /// + delegate). For the script runner, a ci.sh is enough.
     Init {
@@ -90,6 +94,9 @@ enum Cmd {
     /// Toggle the watcher unit without removing it — free the box
     /// when CI isn't needed, `enable` brings it back.
     Service {
+        /// Operate on bupha-worker.service instead of bupha-watch.
+        #[arg(long, global = true)]
+        worker: bool,
         #[command(subcommand)]
         sub: ServiceSub,
     },
@@ -122,6 +129,10 @@ enum DeploySub {
         /// Skip enable --now (write the file only).
         #[arg(long)]
         no_start: bool,
+        /// Manage a worker unit (bupha-worker.service) instead of
+        /// the watcher unit.
+        #[arg(long)]
+        worker: bool,
     },
     /// Register/update the repo's push webhook via the REST API
     /// (token from env/keyring/env file — no `gh` dependency).
@@ -142,7 +153,11 @@ enum DeploySub {
 #[derive(Subcommand)]
 enum DestroySub {
     /// Disable + remove the systemd user unit.
-    Service,
+    Service {
+        /// Remove bupha-worker.service instead of bupha-watch.
+        #[arg(long)]
+        worker: bool,
+    },
     /// Delete the repo's webhook whose URL matches tunnel.public_url.
     Webhook,
     /// Remove detached worktrees and the persisted queue file.
@@ -217,6 +232,7 @@ fn build_runner(rc: &bupha_core::RunnerCfg, cache: &bupha_core::CacheCfg) -> Arc
             });
             Arc::new(ContainerRunner::new(cc))
         }
+
         // Coverage builds only: a runner whose handle fails `try_wait`
         // — the only way e2e tests can reach run_job's wait-error arm
         // (a real `Child::try_wait` can't fail once the spawn worked).
@@ -524,6 +540,140 @@ fn persist_queue(g: &Shared, store: &dyn QueueStore, key: &str) {
     }
 }
 
+/// Shared builders — `bupha watch` (listener + worker) and `bupha
+/// worker` (pull-only) wire the same adapters.
+fn build_telemetry(cfg: &Config) -> Arc<dyn Telemetry> {
+    match cfg.telemetry.kind.as_str() {
+        "none" | "" => Arc::new(NoopTelemetry),
+        "otel" => {
+            let path = cfg
+                .telemetry
+                .path
+                .clone()
+                .map(PathBuf::from)
+                .unwrap_or_else(|| PathBuf::from(&cfg.worktree.base).join("bupha.prom"));
+            Arc::new(OtelTelemetry::new(path))
+        }
+        other => {
+            eprintln!("unknown telemetry kind '{other}' (none|otel)");
+            std::process::exit(2);
+        }
+    }
+}
+
+fn build_attest(cfg: &Config) -> Option<Arc<dyn Attest>> {
+    match cfg.attest.kind.as_str() {
+        "none" | "" => None,
+        "file" => {
+            let dir = cfg
+                .attest
+                .dir
+                .clone()
+                .map(PathBuf::from)
+                .unwrap_or(PathBuf::from(&cfg.worktree.base).join("attest"));
+            Some(Arc::new(FileAttest { dir }))
+        }
+        "sigstore" => {
+            let dir = cfg
+                .attest
+                .dir
+                .clone()
+                .map(PathBuf::from)
+                .unwrap_or(PathBuf::from(&cfg.worktree.base).join("attest"));
+            let key = secret(&cfg.attest.key_env).unwrap_or_default();
+            Some(Arc::new(SigstoreAttest { dir, key }))
+        }
+        other => {
+            eprintln!("unknown attest kind '{other}' (none|file|sigstore)");
+            std::process::exit(2);
+        }
+    }
+}
+
+fn build_sinks(
+    cfg: &Config,
+    watched: &[bupha_core::WatchedRepo],
+    token: &str,
+) -> std::collections::HashMap<String, Arc<dyn StatusSink>> {
+    let mut sinks = std::collections::HashMap::new();
+    for r in watched.iter() {
+        let s: Arc<dyn StatusSink> = match cfg.status.kind.as_str() {
+            "github" => Arc::new(GitHubStatus {
+                token: token.to_string(),
+                repo: r.status_repo.clone(),
+                context: r.context.clone(),
+                api_base: cfg.trigger.api_base.clone(),
+            }),
+            _ => Arc::new(LogStatus {
+                context: r.context.clone(),
+            }),
+        };
+        sinks.insert(r.key.clone(), s);
+    }
+    sinks
+}
+
+fn build_runners(
+    cfg: &Config,
+    watched: &[bupha_core::WatchedRepo],
+) -> std::collections::HashMap<String, Arc<dyn Runner>> {
+    watched
+        .iter()
+        .map(|r| (r.key.clone(), build_runner(&r.runner, &cfg.cache)))
+        .collect()
+}
+
+fn worker_id() -> String {
+    format!(
+        "{}:{}",
+        std::env::var("HOSTNAME").unwrap_or_else(|_| "bupha".into()),
+        std::process::id()
+    )
+}
+
+/// Post-run bookkeeping shared by the watch worker and the fleet
+/// puller: telemetry, history, attestation.
+fn settle_run(
+    cfg: &Config,
+    telemetry: &dyn Telemetry,
+    attest: &Option<Arc<dyn Attest>>,
+    runner_name: &str,
+    key: &str,
+    sha: &str,
+    end: &JobEnd,
+    wall: std::time::Duration,
+) {
+    let status = match end {
+        JobEnd::Finished(true) => "success",
+        JobEnd::Finished(false) => "failure",
+        JobEnd::ClaimLost => "claim-lost",
+    };
+    telemetry.event(&RunEvent::Finished {
+        repo: key.to_string(),
+        sha: sha.to_string(),
+        status,
+        wall,
+    });
+    let _ = bupha_history::record(
+        &PathBuf::from(&cfg.worktree.base).join("history.jsonl"),
+        &RunRecord {
+            sha: sha.to_string(),
+            repo: key.to_string(),
+            status: status.into(),
+            wall_secs: wall.as_secs(),
+        },
+    );
+    if let Some(att) = attest {
+        let _ = att.attest(&RunAttestation {
+            sha: sha.to_string(),
+            repo: key.to_string(),
+            runner: runner_name.into(),
+            status: status.into(),
+            wall_secs: wall.as_secs(),
+        });
+    }
+}
+
 fn cmd_watch(cfg: Arc<Config>) {
     let wh_secret = secret(&cfg.trigger.secret_env).unwrap_or_else(|| {
         panic!(
@@ -571,73 +721,11 @@ fn cmd_watch(cfg: Arc<Config>) {
         }
     };
 
-    let telemetry: Arc<dyn Telemetry> = match cfg.telemetry.kind.as_str() {
-        "none" | "" => Arc::new(NoopTelemetry),
-        "otel" => {
-            let path = cfg
-                .telemetry
-                .path
-                .clone()
-                .map(PathBuf::from)
-                .unwrap_or_else(|| PathBuf::from(&cfg.worktree.base).join("bupha.prom"));
-            Arc::new(OtelTelemetry::new(path))
-        }
-        other => {
-            eprintln!("unknown telemetry kind '{other}' (none|otel)");
-            std::process::exit(2);
-        }
-    };
-
-    let attest: Option<Arc<dyn Attest>> = match cfg.attest.kind.as_str() {
-        "none" | "" => None,
-        "file" => {
-            let dir = cfg
-                .attest
-                .dir
-                .clone()
-                .map(PathBuf::from)
-                .unwrap_or(PathBuf::from(&cfg.worktree.base).join("attest"));
-            Some(Arc::new(FileAttest { dir }))
-        }
-        "sigstore" => {
-            let dir = cfg
-                .attest
-                .dir
-                .clone()
-                .map(PathBuf::from)
-                .unwrap_or(PathBuf::from(&cfg.worktree.base).join("attest"));
-            let key = secret(&cfg.attest.key_env).unwrap_or_default();
-            Some(Arc::new(SigstoreAttest { dir, key }))
-        }
-        other => {
-            eprintln!("unknown attest kind '{other}' (none|file|sigstore)");
-            std::process::exit(2);
-        }
-    };
-
-    let mut sinks: std::collections::HashMap<String, Arc<dyn StatusSink>> =
-        std::collections::HashMap::new();
-    for r in watched.iter() {
-        let s: Arc<dyn StatusSink> = match cfg.status.kind.as_str() {
-            "github" => Arc::new(GitHubStatus {
-                token: token.clone(),
-                repo: r.status_repo.clone(),
-                context: r.context.clone(),
-                api_base: cfg.trigger.api_base.clone(),
-            }),
-            _ => Arc::new(LogStatus {
-                context: r.context.clone(),
-            }),
-        };
-        sinks.insert(r.key.clone(), s);
-    }
-
+    let telemetry = build_telemetry(&cfg);
+    let attest = build_attest(&cfg);
+    let sinks = build_sinks(&cfg, &watched, &token);
     // Runner per job (cli-sibling detection is repo-relative).
-    let mut runners: std::collections::HashMap<String, Arc<dyn Runner>> =
-        std::collections::HashMap::new();
-    for r in watched.iter() {
-        runners.insert(r.key.clone(), build_runner(&r.runner, &cfg.cache));
-    }
+    let runners = build_runners(&cfg, &watched);
 
     // Optional tunnel — the watcher stays decoupled from ingress.
     let tunnel: Option<Box<dyn Tunnel>> = match cfg.tunnel.provider.as_str() {
@@ -673,6 +761,9 @@ fn cmd_watch(cfg: Arc<Config>) {
             .insert(r.key.clone(), Queue::with_policy(r.policy));
     }
     let mut claim: Arc<dyn TryClaim> = Arc::new(LocalClaim::default());
+    // The fleet pull queue — only the shared store feeds it; remote
+    // `bupha worker` processes claim what lands here.
+    let mut workq: Option<Arc<dyn WorkQueue>> = None;
     let store: Arc<dyn QueueStore> = match cfg.queue.kind.as_str() {
         "redb" | "" => Arc::new(
             RedbQueueStore::open(qfile.with_extension("redb"))
@@ -688,6 +779,7 @@ fn cmd_watch(cfg: Arc<Config>) {
                     .unwrap_or_else(|e| panic!("redis: {e}")),
             );
             claim = redis.clone();
+            workq = Some(redis.clone());
             redis
         }
         other => {
@@ -726,11 +818,7 @@ fn cmd_watch(cfg: Arc<Config>) {
         let sinks = Arc::clone(&sinks);
         let telemetry = telemetry.clone();
         let attest = attest.clone();
-        let worker_id = format!(
-            "{}:{}",
-            std::env::var("HOSTNAME").unwrap_or_else(|_| "bupha".into()),
-            std::process::id()
-        );
+        let worker_id = worker_id();
         std::thread::spawn({
             let store = store.clone();
             let claim = claim.clone();
@@ -888,6 +976,8 @@ fn cmd_watch(cfg: Arc<Config>) {
         let wh_secret = wh_secret.clone();
         let access = access.clone();
         let telemetry = telemetry.clone();
+        let workq = workq.clone();
+        let cfg = Arc::clone(&cfg);
         std::thread::spawn(move || {
             let mut req = req;
             let headers: Vec<(String, String)> = req
@@ -970,6 +1060,18 @@ fn cmd_watch(cfg: Arc<Config>) {
                                     {
                                         let mut g = shared.lock().unwrap();
                                         for w in &matched {
+                                            // The local queue only
+                                            // holds jobs THIS box can
+                                            // run — a job wanting
+                                            // labels we lack belongs
+                                            // to the fleet pull queue.
+                                            if !w
+                                                .runs_on
+                                                .iter()
+                                                .all(|l| cfg.worker.labels.contains(l))
+                                            {
+                                                continue;
+                                            }
                                             let q = g.queues.get_mut(&w.key).unwrap();
                                             // Snapshot before enqueue:
                                             // only THIS job's in-flight
@@ -997,6 +1099,25 @@ fn cmd_watch(cfg: Arc<Config>) {
                                         }
                                         for w in &matched {
                                             persist_queue(&g, &*store, &w.key);
+                                        }
+                                    }
+                                    // Fleet visibility: the shared
+                                    // pull queue gets every matched
+                                    // job regardless of local labels.
+                                    if let Some(wq) = &workq {
+                                        for w in &matched {
+                                            let j = Job {
+                                                key: w.key.clone(),
+                                                sha: sha.clone(),
+                                                runs_on: w.runs_on.clone(),
+                                            };
+                                            if wq.enqueue(&j).unwrap_or(false) {
+                                                telemetry.event(&RunEvent::Queued {
+                                                    repo: j.key.clone(),
+                                                    sha: sha.clone(),
+                                                });
+                                                queued = true;
+                                            }
                                         }
                                     }
                                     for (key, old) in olds {
@@ -1032,6 +1153,113 @@ fn cmd_watch(cfg: Arc<Config>) {
             };
             let _ = req.respond(tiny_http::Response::from_string(msg).with_status_code(code));
         });
+    }
+}
+
+/// `bupha worker` — the fleet puller: claims jobs from the shared
+/// pull queue ([queue] kind = "redis") and runs them locally. No
+/// listener, tunnel, webhook secrets or trigger — a worker box only
+/// needs [[repo]] dirs, [runner], [status], [worktree], [worker].
+fn cmd_worker(cfg: Arc<Config>) {
+    let watched: Vec<bupha_core::WatchedRepo> = cfg.watched().unwrap_or_else(|e| {
+        eprintln!("config: {e}");
+        std::process::exit(2);
+    });
+    let watched = Arc::new(watched);
+    let token = secret(&cfg.runner.token_env).unwrap_or_default();
+    let (workq, claim): (Arc<dyn WorkQueue>, Arc<dyn TryClaim>) =
+        match cfg.queue.kind.as_str() {
+            "redis" => {
+                let url = cfg.queue.url.clone().unwrap_or_else(|| {
+                    eprintln!("[queue] kind=redis needs `url`");
+                    std::process::exit(2);
+                });
+                let r = Arc::new(
+                    bupha_queue_redis::RedisQueueStore::open(&url)
+                        .unwrap_or_else(|e| panic!("redis: {e}")),
+                );
+                (r.clone(), r)
+            }
+            other => {
+                eprintln!(
+                    "`bupha worker` needs a shared pull queue — [queue] kind = \
+                     \"redis\", got '{other}'"
+                );
+                std::process::exit(2);
+            }
+        };
+    let sinks = build_sinks(&cfg, &watched, &token);
+    let runners = build_runners(&cfg, &watched);
+    let telemetry = build_telemetry(&cfg);
+    let attest = build_attest(&cfg);
+    let id = worker_id();
+    let keys: Vec<KeyPolicy> = watched
+        .iter()
+        .map(|w| KeyPolicy {
+            key: w.key.clone(),
+            latest: w.policy == bupha_core::QueuePolicy::Latest,
+        })
+        .collect();
+    let shared = Mutex::new(Shared::default());
+    let child: ChildSlot = Arc::new(Mutex::new(None));
+    let _ = std::fs::create_dir_all(&cfg.worktree.base);
+    let poll_ms: u64 = std::env::var("BUPHA_WORKER_POLL_MS")
+        .ok()
+        .and_then(|v| v.parse().ok())
+        .unwrap_or(1000);
+    println!("bupha worker claiming jobs ({id})");
+    loop {
+        // Same e2e hook as watch — spawned test binaries stop cleanly.
+        if std::env::var("BUPHA_WATCH_SHUTDOWN_FILE")
+            .ok()
+            .is_some_and(|f| Path::new(&f).exists())
+        {
+            break;
+        }
+        match workq.claim_next(&id, &cfg.worker.labels, &keys) {
+            Ok(Some(Claim::Won { job, superseded })) => {
+                for j in &superseded {
+                    sinks[&j.key].post(&j.sha, "error", "superseded by newer push");
+                }
+                let repo = watched.iter().find(|r| r.key == job.key).unwrap();
+                let sink = &sinks[&job.key];
+                let runner = &runners[&job.key];
+                telemetry.event(&RunEvent::Started {
+                    repo: job.key.clone(),
+                    sha: job.sha.clone(),
+                });
+                let t0 = std::time::Instant::now();
+                let end = run_job(
+                    &cfg,
+                    repo,
+                    &**sink,
+                    &**runner,
+                    &shared,
+                    &Worker {
+                        child: &child,
+                        claim: &*claim,
+                        id: &id,
+                    },
+                    &job.sha,
+                );
+                let wall = t0.elapsed();
+                // A lost claim means a peer owns the job — IT settles.
+                if !matches!(end, JobEnd::ClaimLost) {
+                    let _ = workq.complete(&job, &id);
+                }
+                settle_run(&cfg, &*telemetry, &attest, runner.name(), &job.key, &job.sha, &end, wall);
+            }
+            Ok(Some(Claim::Pruned(sup))) => {
+                for j in &sup {
+                    if let Some(s) = sinks.get(&j.key) {
+                        s.post(&j.sha, "error", "superseded by newer push");
+                    }
+                }
+            }
+            Ok(None) => {}
+            Err(e) => eprintln!("claim scan: {e}"),
+        }
+        std::thread::sleep(std::time::Duration::from_millis(poll_ms));
     }
 }
 
@@ -1391,7 +1619,7 @@ fn main() {
             sub: DeploySub::Release { dry_run },
         } => cmd_deploy_release(*dry_run),
         // Toggling the unit needs no bupha.toml either.
-        Cmd::Service { sub } => cmd_service(sub),
+        Cmd::Service { worker, sub } => cmd_service(*worker, sub),
         _ => {
             let cfg = Arc::new(
                 TomlSource {
@@ -1420,6 +1648,7 @@ fn main() {
 fn dispatch_cmd(cfg: &Arc<Config>, cmd: &Cmd, cli_config: Option<String>) {
     match cmd {
         Cmd::Watch => cmd_watch(Arc::clone(cfg)),
+        Cmd::Worker => cmd_worker(Arc::clone(cfg)),
         Cmd::Doctor => cmd_doctor(cfg),
         Cmd::Run { function } => cmd_run(cfg, function.clone()),
         Cmd::Deploy { sub } => cmd_deploy(cfg, sub, cli_config),
@@ -1438,7 +1667,7 @@ fn dispatch_cmd(cfg: &Arc<Config>, cmd: &Cmd, cli_config: Option<String>) {
 /// `bupha service enable|disable|status` — toggle the watcher unit
 /// without touching its files. The install path stays `deploy
 /// service`; `destroy service` still removes the unit entirely.
-fn cmd_service(sub: &ServiceSub) {
+fn cmd_service(worker_unit: bool, sub: &ServiceSub) {
     #[cfg(not(target_os = "linux"))]
     {
         eprintln!(
@@ -1448,19 +1677,23 @@ fn cmd_service(sub: &ServiceSub) {
         );
         std::process::exit(1);
     }
-    let unit = "bupha-watch.service";
+    let unit = if worker_unit {
+        "bupha-worker.service"
+    } else {
+        "bupha-watch.service"
+    };
     let r = match sub {
         ServiceSub::Enable => deploy::enable_service(unit).map(|_| {
-            println!("bupha-watch enabled — running now and at login");
+            println!("{unit} enabled — running now and at login");
         }),
         ServiceSub::Disable => deploy::stop_service(unit).map(|_| {
-            println!("bupha-watch disabled — stopped, will not restart at login");
+            println!("{unit} disabled — stopped, will not restart at login");
         }),
         ServiceSub::Status => deploy::unit_status(unit).map(|s| {
             println!("{s}");
         }),
         ServiceSub::Restart => deploy::restart_service(unit).map(|_| {
-            println!("bupha-watch restarted");
+            println!("{unit} restarted");
         }),
         ServiceSub::Logs { follow } => match deploy::service_logs(unit, *follow) {
             Ok(0) => Ok(()),
@@ -1510,7 +1743,7 @@ fn cmd_deploy(cfg: &Config, sub: &DeploySub, cli_config: Option<String>) {
                 }
             }
         }
-        DeploySub::Service { no_start } => {
+        DeploySub::Service { no_start, worker } => {
             #[cfg(not(target_os = "linux"))]
             {
                 eprintln!(
@@ -1522,11 +1755,17 @@ fn cmd_deploy(cfg: &Config, sub: &DeploySub, cli_config: Option<String>) {
             }
             let bin = std::env::current_exe().unwrap_or(PathBuf::from("bupha"));
             let cfg_path = cli_config.clone().map(PathBuf::from);
+            let (unit, verb) = if *worker {
+                ("bupha-worker.service", "worker")
+            } else {
+                ("bupha-watch.service", "watch")
+            };
             let svc = deploy::SystemdService {
-                unit: "bupha-watch.service".into(),
+                unit: unit.into(),
                 bin: bin.clone(),
                 env: cfg_dir.join("env"),
                 config: cfg_path.clone(),
+                verb: verb.into(),
             };
             match svc.write() {
                 Ok(p) => println!("unit: {}", p.display()),
@@ -1536,12 +1775,12 @@ fn cmd_deploy(cfg: &Config, sub: &DeploySub, cli_config: Option<String>) {
                 }
             }
             if !no_start {
-                if let Err(e) = deploy::enable_service("bupha-watch.service") {
+                if let Err(e) = deploy::enable_service(unit) {
                     eprintln!("enable: {e}");
                     std::process::exit(1);
                 }
                 println!(
-                    "bupha-watch enabled — run 'loginctl enable-linger' once for boot persistence"
+                    "{unit} enabled — run 'loginctl enable-linger' once for boot persistence"
                 );
             }
         }
@@ -1721,12 +1960,17 @@ fn cmd_deploy_release(dry_run: bool) {
 
 fn cmd_destroy(cfg: &Config, sub: &DestroySub) {
     match sub {
-        DestroySub::Service => {
+        DestroySub::Service { worker } => {
             let svc = deploy::SystemdService {
-                unit: "bupha-watch.service".into(),
+                unit: if *worker {
+                    "bupha-worker.service".into()
+                } else {
+                    "bupha-watch.service".into()
+                },
                 bin: PathBuf::new(),
                 env: cfg_dir().join("env"),
                 config: None,
+                verb: "watch".into(),
             };
             match svc.disable() {
                 Ok(p) => println!("removed {}", p.display()),

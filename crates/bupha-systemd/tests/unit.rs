@@ -13,6 +13,7 @@ fn write_produces_unit() {
         bin: PathBuf::from("/usr/bin/bupha"),
         env: PathBuf::from("/cfg/env"),
         config: Some(PathBuf::from("/cfg/bupha.toml")),
+        verb: "watch".into(),
     };
     let p = s.write().unwrap();
     assert!(p.exists());

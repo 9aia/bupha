@@ -257,6 +257,18 @@ impl Default for TelemetryCfg {
     }
 }
 
+/// Fleet worker identity (`[worker]`). Labels filter which shared-queue
+/// jobs THIS box may claim — the multi-arch routing surface.
+#[derive(Debug, Deserialize, Clone, Default)]
+#[serde(deny_unknown_fields)]
+pub struct WorkerCfg {
+    /// Labels this box carries (e.g. ["arch=arm64"]). A job whose
+    /// `runs_on` requirements are all satisfied here is claimable;
+    /// unlabeled jobs are claimable by anyone.
+    #[serde(default)]
+    pub labels: Vec<String>,
+}
+
 #[derive(Debug, Deserialize, Clone)]
 #[serde(deny_unknown_fields)]
 pub struct Config {
@@ -266,6 +278,8 @@ pub struct Config {
     /// kept as alias for existing configs.
     #[serde(rename = "repo", alias = "repos", default)]
     pub repos: Vec<RepoEntry>,
+    /// Optional — `bupha worker` boxes never listen.
+    #[serde(default)]
     pub trigger: TriggerCfg,
     pub runner: RunnerCfg,
     pub status: StatusCfg,
@@ -289,6 +303,9 @@ pub struct Config {
     /// Queue persistence backend (`[queue]`). Absent = redb.
     #[serde(default)]
     pub queue: QueueCfg,
+    /// Fleet worker labels (`[worker]`). Absent = no labels.
+    #[serde(default)]
+    pub worker: WorkerCfg,
     /// Where detached git worktrees for runs are created.
     #[serde(default)]
     pub worktree: WorktreeCfg,
@@ -321,6 +338,11 @@ pub struct RepoEntry {
     /// managed and rotated independently of the other watched repos.
     #[serde(default)]
     pub secret_env: Option<String>,
+    /// Fleet routing: labels a claiming worker must carry (e.g.
+    /// ["arch=arm64"]). Empty = any worker. Per-repo arch pinning —
+    /// same-push multi-arch matrix is future work.
+    #[serde(default)]
+    pub runs_on: Vec<String>,
     /// Pipelines within this repo (`[[repo.jobs]]`). Each job gets
     /// its own branch filter, queue policy, runner and status
     /// context — one webhook feeds them all. Empty = the repo
@@ -354,6 +376,10 @@ pub struct JobEntry {
     /// `"<status.context>/<job name>"`).
     #[serde(default)]
     pub context: Option<String>,
+    /// Label requirements — overrides the repo's `runs_on` for this
+    /// job only (job -> repo -> [] inheritance, like runner/queue).
+    #[serde(default)]
+    pub runs_on: Option<Vec<String>>,
 }
 
 /// Job names are path-safe — they land in worktree paths, claim
@@ -397,6 +423,9 @@ pub struct WatchedRepo {
     /// Resolved `secret_env` override — repo-level, shared by all
     /// jobs; None verifies with the trigger's global secret.
     pub secret_env: Option<String>,
+    /// Resolved label requirements — the job's `runs_on`, else the
+    /// repo's, else [].
+    pub runs_on: Vec<String>,
 }
 
 impl Config {
@@ -488,6 +517,9 @@ impl Config {
             runner,
             policy,
             secret_env: r.secret_env.clone(),
+            runs_on: job
+                .and_then(|j| j.runs_on.clone())
+                .unwrap_or_else(|| r.runs_on.clone()),
         })
     }
 }
@@ -500,6 +532,7 @@ pub struct TriggerCfg {
     #[serde(default = "default_api_base")]
     pub api_base: String,
     /// "github" today; other forges = new impl crates.
+    #[serde(default)]
     pub kind: String,
     /// Webhook listener bind address ("127.0.0.1:29173").
     #[serde(default = "default_listen")]
@@ -508,6 +541,18 @@ pub struct TriggerCfg {
     /// watched repo; `[[repo]] secret_env` overrides it per repo.
     #[serde(default = "default_secret_env")]
     pub secret_env: String,
+}
+
+/// Workers don't listen — their configs omit `[trigger]` entirely.
+impl Default for TriggerCfg {
+    fn default() -> Self {
+        Self {
+            api_base: default_api_base(),
+            kind: String::new(),
+            listen: default_listen(),
+            secret_env: default_secret_env(),
+        }
+    }
 }
 
 #[derive(Debug, Deserialize, Clone, Default)]

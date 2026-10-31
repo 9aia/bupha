@@ -147,3 +147,132 @@ impl RedisQueueStore {
         Ok(n == 1)
     }
 }
+
+/// Shared pull-queue keys — `bupha:work:{key}` lists of Job JSON.
+/// Entries stay in the list while leased so a dead worker's job is
+/// claimable again once its `bupha:claim` lease expires.
+fn wkey(key: &str) -> String {
+    format!("bupha:work:{key}")
+}
+
+impl bupha_queue::WorkQueue for RedisQueueStore {
+    fn enqueue(&self, job: &bupha_queue::Job) -> io::Result<bool> {
+        let mut c = self.conn.lock().unwrap();
+        let items: Vec<String> = c.lrange(wkey(&job.key), 0, -1).map_err(err)?;
+        let dup = items.iter().any(|i| {
+            serde_json::from_str::<bupha_queue::Job>(i)
+                .map(|j| j.sha == job.sha)
+                .unwrap_or(false)
+        });
+        if dup {
+            return Ok(false);
+        }
+        let s = serde_json::to_string(job).expect("Job serialization cannot fail");
+        let _: u32 = c.rpush(wkey(&job.key), s).map_err(err)?;
+        Ok(true)
+    }
+
+    fn claim_next(
+        &self,
+        worker: &str,
+        worker_labels: &[String],
+        keys: &[bupha_queue::KeyPolicy],
+    ) -> io::Result<Option<bupha_queue::Claim>> {
+        for kp in keys {
+            let items: Vec<String> = {
+                let mut c = self.conn.lock().unwrap();
+                c.lrange(wkey(&kp.key), 0, -1).map_err(err)?
+            };
+            let entry = |i: &String| serde_json::from_str::<bupha_queue::Job>(i).ok();
+            let lrem = |i: &String| -> io::Result<()> {
+                let mut c = self.conn.lock().unwrap();
+                let _: u32 = c.lrem(wkey(&kp.key), 1, i).map_err(err)?;
+                Ok(())
+            };
+            if kp.latest {
+                // Newest live entry is the only candidate; everything
+                // older is superseded (pruned + reported).
+                for it in items.iter().rev() {
+                    let Some(j) = entry(it) else { continue };
+                    if self.is_done(&j.key, &j.sha)? {
+                        lrem(it)?;
+                        continue;
+                    }
+                    if !j.runs_on.iter().all(|r| worker_labels.contains(r)) {
+                        break; // this key wants labels we lack
+                    }
+                    match self.try_claim(&j.key, &j.sha, worker)? {
+                        Some(_) => {
+                            let mut sup = vec![];
+                            for old in &items[..items.len() - 1] {
+                                if let Some(o) = entry(old) {
+                                    if !self.is_done(&o.key, &o.sha)? {
+                                        sup.push(o);
+                                    }
+                                    lrem(old)?;
+                                }
+                            }
+                            return Ok(Some(bupha_queue::Claim::Won {
+                                job: j,
+                                superseded: sup,
+                            }));
+                        }
+                        None => {
+                            // Newest is leased — older entries are dead.
+                            let mut sup = vec![];
+                            for old in &items[..items.len() - 1] {
+                                if let Some(o) = entry(old) {
+                                    sup.push(o);
+                                    lrem(old)?;
+                                }
+                            }
+                            if sup.is_empty() {
+                                break;
+                            }
+                            return Ok(Some(bupha_queue::Claim::Pruned(sup)));
+                        }
+                    }
+                }
+            } else {
+                // `all`: oldest claimable entry wins; done entries
+                // prune silently as we scan.
+                for it in &items {
+                    let Some(j) = entry(it) else { continue };
+                    if self.is_done(&j.key, &j.sha)? {
+                        lrem(it)?;
+                        continue;
+                    }
+                    if !j.runs_on.iter().all(|r| worker_labels.contains(r)) {
+                        continue;
+                    }
+                    if self.try_claim(&j.key, &j.sha, worker)?.is_some() {
+                        return Ok(Some(bupha_queue::Claim::Won {
+                            job: j,
+                            superseded: vec![],
+                        }));
+                    }
+                }
+            }
+        }
+        Ok(None)
+    }
+
+    fn complete(&self, job: &bupha_queue::Job, worker: &str) -> io::Result<()> {
+        let mut c = self.conn.lock().unwrap();
+        // Only the lease holder settles — a stale completer mustn't
+        // mark a peer's re-claimed job done.
+        let held: Option<String> = c
+            .get(format!("bupha:claim:{}:{}", job.key, job.sha))
+            .map_err(err)?;
+        if held.as_deref() != Some(worker) {
+            return Ok(());
+        }
+        let s = serde_json::to_string(job).expect("Job serialization cannot fail");
+        let _: u32 = c.lrem(wkey(&job.key), 1, s).map_err(err)?;
+        let _: () = c
+            .del(format!("bupha:claim:{}:{}", job.key, job.sha))
+            .map_err(err)?;
+        c.set::<_, _, ()>(done_key(&job.key, &job.sha), "1")
+            .map_err(err)
+    }
+}

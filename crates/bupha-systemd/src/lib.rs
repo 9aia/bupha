@@ -14,26 +14,29 @@ fn home() -> PathBuf {
 }
 
 /// Render the user unit. `unit` is a systemd user service running
-/// `bupha watch`; the watcher spawns the configured tunnel itself.
+/// `bupha {verb}` ("watch" for the listener, "worker" for a fleet
+/// puller); the watcher spawns the configured tunnel itself.
 pub fn write_service_unit(
+    unit: &str,
     bin: &Path,
     env_file: &Path,
+    verb: &str,
     config: Option<&Path>,
 ) -> io::Result<PathBuf> {
     let dir = home().join(".config/systemd/user");
     std::fs::create_dir_all(&dir)?;
-    let path = dir.join("bupha-watch.service");
+    let path = dir.join(unit);
     std::fs::write(
         &path,
         format!(
             "[Unit]
-Description=bupha — headless CI watcher (webhook -> queue -> runner)
+Description=bupha — headless CI {verb} (webhook -> queue -> runner)
 After=network-online.target
 Wants=network-online.target
 
 [Service]
 EnvironmentFile={}
-ExecStart={} watch{}
+ExecStart={} {}{}
 Restart=always
 RestartSec=5
 
@@ -42,6 +45,7 @@ WantedBy=default.target
 ",
             env_file.display(),
             bin.display(),
+            verb,
             config
                 .map(|c| format!(" --config {}", c.display()))
                 .unwrap_or_default()
@@ -163,11 +167,19 @@ pub struct SystemdService {
     pub env: PathBuf,
     /// Optional --config arg.
     pub config: Option<PathBuf>,
+    /// Subcommand the unit runs — "watch" or "worker".
+    pub verb: String,
 }
 
 impl bupha_service::Service for SystemdService {
     fn write(&self) -> io::Result<PathBuf> {
-        write_service_unit(&self.bin, &self.env, self.config.as_deref())
+        write_service_unit(
+            &self.unit,
+            &self.bin,
+            &self.env,
+            &self.verb,
+            self.config.as_deref(),
+        )
     }
     fn enable(&self) -> io::Result<()> {
         enable_service(&self.unit)

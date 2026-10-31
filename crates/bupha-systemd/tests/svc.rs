@@ -155,6 +155,7 @@ fn disable_removes_unit_and_env_skeleton() {
         bin: PathBuf::from("/usr/bin/bupha"),
         env: cfg.join("env"),
         config: Some(PathBuf::from("/cfg/bupha.toml")),
+        verb: "watch".into(),
     };
     let p = svc.write().unwrap();
     assert!(std::fs::read_to_string(&p)
@@ -195,7 +196,7 @@ fn write_unit_and_skeleton_write_errors() {
     let unit_dir = home.join(".config/systemd/user");
     std::fs::create_dir_all(&unit_dir).unwrap();
     std::fs::create_dir_all(unit_dir.join("bupha-watch.service")).unwrap();
-    assert!(deploy::write_service_unit(Path::new("/x/bupha"), Path::new("/x/env"), None).is_err());
+    assert!(deploy::write_service_unit("bupha-watch.service", Path::new("/x/bupha"), Path::new("/x/env"), "watch", None).is_err());
 
     // env path is a dangling symlink: `!exists()` is true so the write
     // is attempted — and fails (target's parent missing).
