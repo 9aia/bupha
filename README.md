@@ -1,5 +1,8 @@
 # bupha
 
+[![crates.io](https://img.shields.io/crates/v/bupha)](https://crates.io/crates/bupha)
+[![license: MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
+
 *The oxpecker on your repo's back.*
 
 Headless CI, built for agent-driven setups. A single binary that
