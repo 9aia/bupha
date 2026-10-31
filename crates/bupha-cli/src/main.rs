@@ -77,7 +77,11 @@ enum Cmd {
         dir: PathBuf,
     },
     /// Check what the loaded config actually needs on this box.
-    Doctor,
+    Doctor {
+        /// Machine-readable JSON output — `{"ok", "failures", "checks"}`.
+        #[arg(long)]
+        json: bool,
+    },
     /// Run the pipeline locally — in the watched repo's `dir`,
     /// not cwd.
     Run {
@@ -1421,17 +1425,33 @@ class Ci:
             patch_host="PATCH_HOST")
 "##;
 
-fn check(name: &str, ok: bool, detail: &str, failures: &mut usize) {
-    let mark = if ok { "ok " } else { "FAIL" };
-    if !ok {
-        *failures += 1;
-    }
-    println!("  [{mark}] {name}: {detail}");
+struct DocOut {
+    failures: usize,
+    items: Vec<(String, bool, String)>,
+    json: bool,
 }
 
-fn cmd_doctor(cfg: &Config) {
-    let mut failures = 0usize;
-    println!("bupha doctor");
+fn check(name: &str, ok: bool, detail: &str, out: &mut DocOut) {
+    if !ok {
+        out.failures += 1;
+    }
+    if out.json {
+        out.items.push((name.to_string(), ok, detail.to_string()));
+    } else {
+        let mark = if ok { "ok " } else { "FAIL" };
+        println!("  [{mark}] {name}: {detail}");
+    }
+}
+
+fn cmd_doctor(cfg: &Config, json: bool) {
+    let mut out = DocOut {
+        failures: 0,
+        items: Vec::new(),
+        json,
+    };
+    if !json {
+        println!("bupha doctor");
+    }
 
     check(
         "git",
@@ -1441,7 +1461,7 @@ fn cmd_doctor(cfg: &Config) {
             .map(|o| o.status.success())
             .unwrap_or(false),
         "on PATH",
-        &mut failures,
+        &mut out,
     );
     match cfg.watched() {
         Ok(ws) => {
@@ -1452,11 +1472,11 @@ fn cmd_doctor(cfg: &Config) {
                     &format!("repo {}", r.name),
                     r.dir.is_dir(),
                     &r.dir.display().to_string(),
-                    &mut failures,
+                    &mut out,
                 );
             }
         }
-        Err(e) => check("repos", false, &e, &mut failures),
+        Err(e) => check("repos", false, &e, &mut out),
     }
 
     match cfg.runner.kind.as_str() {
@@ -1467,7 +1487,7 @@ fn cmd_doctor(cfg: &Config) {
                 v.as_ref().map(|o| o.status.success()).unwrap_or(false),
                 &v.map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())
                     .unwrap_or_default(),
-                &mut failures,
+                &mut out,
             );
             check(
                 "docker",
@@ -1477,7 +1497,7 @@ fn cmd_doctor(cfg: &Config) {
                     .map(|o| o.status.success())
                     .unwrap_or(false),
                 "daemon reachable (dagger runner needs it)",
-                &mut failures,
+                &mut out,
             );
         }
         "shell" | "script" => {
@@ -1487,7 +1507,7 @@ fn cmd_doctor(cfg: &Config) {
                 .get("cmd")
                 .and_then(|v| v.as_str())
                 .unwrap_or("./ci.sh");
-            check("run cmd", true, cmd, &mut failures);
+            check("run cmd", true, cmd, &mut out);
             check(
                 "bash",
                 Command::new("bash")
@@ -1496,7 +1516,7 @@ fn cmd_doctor(cfg: &Config) {
                     .map(|o| o.status.success())
                     .unwrap_or(false),
                 "shell runner needs bash",
-                &mut failures,
+                &mut out,
             );
         }
         "ssh" => {
@@ -1509,7 +1529,7 @@ fn cmd_doctor(cfg: &Config) {
                         .map(|o| o.status.success())
                         .unwrap_or(false),
                     "ssh runner needs rsync + ssh",
-                    &mut failures,
+                    &mut out,
                 );
             }
         }
@@ -1517,7 +1537,7 @@ fn cmd_doctor(cfg: &Config) {
             "runner kind",
             false,
             &format!("unknown '{other}'"),
-            &mut failures,
+            &mut out,
         ),
     }
 
@@ -1533,13 +1553,13 @@ fn cmd_doctor(cfg: &Config) {
     // Global secret plus every per-repo override — each name must
     // resolve (env, keyring, or the env file).
     for name in webhook_secret_names(cfg) {
-        check("webhook secret", has(name), name, &mut failures);
+        check("webhook secret", has(name), name, &mut out);
     }
     check(
         "token",
         has(&cfg.runner.token_env),
         &cfg.runner.token_env,
-        &mut failures,
+        &mut out,
     );
 
     if cfg.status.kind == "github" && cfg.status.repo.is_empty() && cfg.repos.is_empty() {
@@ -1547,7 +1567,7 @@ fn cmd_doctor(cfg: &Config) {
             "status.repo",
             false,
             "no [[repo]] entries configured",
-            &mut failures,
+            &mut out,
         );
     }
     let scc = cfg.cache.conf.as_deref().or_else(|| {
@@ -1561,7 +1581,7 @@ fn cmd_doctor(cfg: &Config) {
             "sccache conf",
             Path::new(conf).exists(),
             conf,
-            &mut failures,
+            &mut out,
         );
     }
     match cfg.tunnel.provider.as_str() {
@@ -1573,25 +1593,25 @@ fn cmd_doctor(cfg: &Config) {
                 .map(|o| o.status.success())
                 .unwrap_or(false),
             "on PATH",
-            &mut failures,
+            &mut out,
         ),
         "none" | "direct" => check(
             "tunnel",
             true,
             &format!("provider '{}'", cfg.tunnel.provider),
-            &mut failures,
+            &mut out,
         ),
         other => check(
             "tunnel",
             false,
             &format!("unknown provider '{other}'"),
-            &mut failures,
+            &mut out,
         ),
     }
 
     if let Ok(o) = Command::new("df").args(["-m", &cfg.worktree.base]).output() {
-        let out = String::from_utf8_lossy(&o.stdout);
-        if let Some(free) = out
+        let df_out = String::from_utf8_lossy(&o.stdout);
+        if let Some(free) = df_out
             .lines()
             .nth(1)
             .and_then(|l| l.split_whitespace().nth(3))
@@ -1601,15 +1621,33 @@ fn cmd_doctor(cfg: &Config) {
                 "disk",
                 free > 10_000,
                 &format!("{free} MB free under {}", cfg.worktree.base),
-                &mut failures,
+                &mut out,
             );
         }
     }
 
-    if failures == 0 {
+    if out.json {
+        let checks: Vec<_> = out
+            .items
+            .iter()
+            .map(|(n, ok, d)| {
+                serde_json::json!({"name": n, "ok": ok, "detail": d})
+            })
+            .collect();
+        println!(
+            "{}",
+            serde_json::json!({
+                "ok": out.failures == 0,
+                "failures": out.failures,
+                "checks": checks,
+            })
+        );
+    } else if out.failures == 0 {
         println!("all green");
     } else {
-        println!("{failures} failure(s)");
+        println!("{} failure(s)", out.failures);
+    }
+    if out.failures > 0 {
         std::process::exit(1);
     }
 }
@@ -1692,7 +1730,7 @@ fn dispatch_cmd(cfg: &Arc<Config>, cmd: &Cmd, cli_config: Option<String>) {
         Cmd::Watch => cmd_watch(Arc::clone(cfg)),
         Cmd::Worker => cmd_worker(Arc::clone(cfg)),
         Cmd::Agent => cmd_agent(Arc::clone(cfg)),
-        Cmd::Doctor => cmd_doctor(cfg),
+        Cmd::Doctor { json } => cmd_doctor(cfg, *json),
         Cmd::Run { function } => cmd_run(cfg, function.clone()),
         Cmd::Deploy { sub } => cmd_deploy(cfg, sub, cli_config),
         Cmd::Destroy { sub } => cmd_destroy(cfg, sub),
@@ -2094,7 +2132,11 @@ fn cmd_destroy(cfg: &Config, sub: &DestroySub) {
 }
 
 fn deploy_check(cfg: &Config) {
-    let mut fails = 0usize;
+    let mut out = DocOut {
+        failures: 0,
+        items: Vec::new(),
+        json: false,
+    };
     let home = std::env::var("HOME")
         .map(PathBuf::from)
         .unwrap_or(".".into());
@@ -2103,10 +2145,10 @@ fn deploy_check(cfg: &Config) {
         home.join(".config/systemd/user/bupha-watch.service")
             .exists(),
         "bupha-watch.service",
-        &mut fails,
+        &mut out,
     );
     let env_ok = home.join(".config/bupha/env").exists();
-    check("env file", env_ok, "~/.config/bupha/env", &mut fails);
+    check("env file", env_ok, "~/.config/bupha/env", &mut out);
     let env_file = std::fs::read_to_string(home.join(".config/bupha/env")).unwrap_or_default();
     for name in webhook_secret_names(cfg) {
         let secret_ok = secret(name).is_some()
@@ -2117,7 +2159,7 @@ fn deploy_check(cfg: &Config) {
             "webhook secret set",
             secret_ok,
             &format!("{name} (env or env file)"),
-            &mut fails,
+            &mut out,
         );
     }
     let token_ok = secret(&cfg.runner.token_env).is_some()
@@ -2129,7 +2171,7 @@ fn deploy_check(cfg: &Config) {
         "token set",
         token_ok,
         &format!("{} (env or env file)", cfg.runner.token_env),
-        &mut fails,
+        &mut out,
     );
     // public_url is only required to run `deploy webhook`; its absence
     // is a note, not a failure.
@@ -2138,7 +2180,7 @@ fn deploy_check(cfg: &Config) {
             "tunnel.public_url",
             true,
             "unset (needed only for webhook registration)",
-            &mut fails,
+            &mut out,
         );
     } else {
         let code = ureq_probe(&cfg.tunnel.public_url);
@@ -2146,7 +2188,7 @@ fn deploy_check(cfg: &Config) {
             "endpoint reachable",
             code.is_some(),
             &format!("{} -> {:?}", cfg.tunnel.public_url, code),
-            &mut fails,
+            &mut out,
         );
         if cfg.tunnel.public_url.contains(".trycloudflare.com") {
             println!(
@@ -2155,10 +2197,10 @@ fn deploy_check(cfg: &Config) {
             );
         }
     }
-    if fails == 0 {
+    if out.failures == 0 {
         println!("deploy check: all green");
     } else {
-        println!("{fails} problem(s)");
+        println!("{} problem(s)", out.failures);
         std::process::exit(1);
     }
 }
