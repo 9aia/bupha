@@ -13,3 +13,4 @@
   - [ ] T-022 release.sh's "other arches" dist step.
 - [ ] T-028 fix release.sh: 'tags: unbound variable' + crates.io version conflict · pri:high · created:2026-10-31
 - [ ] T-029 audit first CI runs across ~175 newly-gated repos; fix failing ci.sh/env issues · created:2026-10-31
+- [ ] T-030 sweep uncommitted Cargo.lock churn across ~30 checkouts (patch-resolution drift) · created:2026-10-31
