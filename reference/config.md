@@ -6,7 +6,7 @@
 
 | field | type | required | notes |
 |---|---|---|---|
-| `repos` | `Vec<RepoEntry>` | required | Watched repos — one pending slot each, one global worker. TOML-conventional singular; `repos` kept as alias for existing configs. |
+| `repos` | `Vec<RepoEntry>` | required | Watched repos — each expands to one pending slot per job (one implicit job when `[[repo.jobs]]` is absent), all fed by one global worker. TOML-conventional singular; `repos` kept as alias for existing configs. |
 | `tunnel` | `TunnelCfg` | optional | How the listener is exposed publicly (cloudflared, direct, none). |
 | `cache` | `CacheCfg` | optional | Artifact cache backend (`[cache]`); `runner.sccache_conf` is accepted for older configs — `[cache]` wins. |
 | `access` | `AccessCfg` | optional | Who may trigger (`[access]`). Absent = open. |
@@ -25,6 +25,8 @@
 | `status_repo` | `string` | optional | Status repo override (defaults to `name`). |
 | `runner` | `RunnerCfg` | optional | Per-repo runner override — a full [repo.runner] table replaces the global `[runner]` for this repo. |
 | `queue` | `"latest" | "all"` | optional | Queue policy — `latest` (default) or `all` (run every push). |
+| `secret_env` | `string` | optional | Per-repo webhook-secret env var — a NAME resolved like `trigger.secret_env` (its fallback). Lets each repo's hook be managed and rotated independently of the other watched repos. |
+| `jobs` | `Vec<JobEntry>` | optional | Pipelines within this repo (`[[repo.jobs]]`). Each job gets its own branch filter, queue policy, runner and status context — one webhook feeds them all. Empty = the repo itself is its single implicit pipeline. |
 
 ## `[trigger]`
 
@@ -32,8 +34,8 @@
 |---|---|---|---|
 | `api_base` | `string` | optional | Forge API base — GHES ("https://ghe.acme/api/v3") or default github.com. Used by the trigger, status, and forge-admin impls. |
 | `kind` | `string` | required | "github" today; other forges = new impl crates. |
-| `listen` | `string` | optional | Webhook listener bind address ("127.0.0.1:9000"). |
-| `secret_env` | `string` | optional | Env var holding the webhook secret. |
+| `listen` | `string` | optional | Webhook listener bind address ("127.0.0.1:29173"). |
+| `secret_env` | `string` | optional | Env var holding the webhook secret — the default for every watched repo; `[[repo]] secret_env` overrides it per repo. |
 
 ## `[runner]`
 
@@ -73,6 +75,16 @@
 | field | type | required | notes |
 |---|---|---|---|
 | `base` | `string` | optional | Worktree parent dir — runs land at `&lt;base&gt;-&lt;repo&gt;-&lt;sha12&gt;`. |
+
+## `[[repo.jobs]]`
+
+| field | type | required | notes |
+|---|---|---|---|
+| `name` | `string` | required | Job name — path-safe `[A-Za-z0-9._-]+`, non-empty. Lands in worktree paths (`&lt;base&gt;-&lt;repo&gt;-&lt;job&gt;-&lt;sha12&gt;`), redis claim keys and the default status context (`&lt;context&gt;/&lt;job&gt;`). |
+| `branch` | `string` | optional | The ref this job watches (default: the repo's `branch`). |
+| `runner` | `RunnerCfg` | optional | Per-job runner override — replaces the repo/global runner for this job only. |
+| `queue` | `"latest" | "all"` | optional | Queue policy for this job — `latest` (default) or `all`. Falls back to the repo's `queue`. |
+| `context` | `string` | optional | Status context override (default: `"&lt;status.context&gt;/&lt;job name&gt;"`). |
 
 ## `[runner]` — kind `dagger`
 
