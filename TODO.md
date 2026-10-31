@@ -9,7 +9,6 @@
 - [ ] T-025 bupha-audit-file sink — access-decision audit log (ADR-0002, untracked) · created:2026-10-31
 - [ ] T-026 bupha doctor --json — machine-readable check output (ADR-0002 support surface) · created:2026-10-31
 - [ ] T-027 status signature/attestation link in commit-status body (ADR-0002 compliance) · created:2026-10-31
-- [ ] T-006 e2e for cancel/supersede path (second signed push in flight). · status:in-progress
 
 ## Queue / jobs
 
