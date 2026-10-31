@@ -5,7 +5,7 @@
 - [ ] T-001 MODULE\_SHA — bump pinned dagger install to the release tag.
 - [ ] T-002 CHANGELOG.md — 0.1.0 entry (manual now, generated later).
 - [ ] T-003 README badges — crates.io + license (resolve green once live).
-- [ ] T-023 Per-repo webhook secrets — \[\[repo\]\] secret\_env fallback to trigger.secret\_env; verify resolves repo before HMAC so hook admins can't cross-forge · created:2026-10-31
+- [ ] T-023 Per-repo webhook secrets — \[\[repo\]\] secret\_env fallback to trigger.secret\_env; verify resolves repo before HMAC so hook admins can't cross-forge · status:in-progress · created:2026-10-31
 
 ## Queue / jobs
 
