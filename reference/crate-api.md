@@ -31,6 +31,7 @@ documented at source (doc comments).
 - [bupha-git](/bupha/api/bupha_git/index.html) — adapter
 - [bupha-github](/bupha/api/bupha_github/index.html) — adapter
 - [bupha-history](/bupha/api/bupha_history/index.html) — adapter
+- [bupha-http](/bupha/api/bupha_http/index.html) — adapter
 - [bupha-keyring](/bupha/api/bupha_keyring/index.html) — adapter
 - [bupha-queue-redb](/bupha/api/bupha_queue_redb/index.html) — adapter
 - [bupha-queue-redis](/bupha/api/bupha_queue_redis/index.html) — adapter

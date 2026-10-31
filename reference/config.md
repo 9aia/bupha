@@ -7,12 +7,15 @@
 | field | type | required | notes |
 |---|---|---|---|
 | `repos` | `Vec<RepoEntry>` | required | Watched repos — each expands to one pending slot per job (one implicit job when `[[repo.jobs]]` is absent), all fed by one global worker. TOML-conventional singular; `repos` kept as alias for existing configs. |
+| `trigger` | `TriggerCfg` | optional | Optional — `bupha worker` boxes never listen. |
 | `tunnel` | `TunnelCfg` | optional | How the listener is exposed publicly (cloudflared, direct, none). |
 | `cache` | `CacheCfg` | optional | Artifact cache backend (`[cache]`); `runner.sccache_conf` is accepted for older configs — `[cache]` wins. |
 | `access` | `AccessCfg` | optional | Who may trigger (`[access]`). Absent = open. |
 | `telemetry` | `TelemetryCfg` | optional | Pipeline observability (`[telemetry]`). Absent = none. |
 | `attest` | `AttestCfg` | optional | Run provenance (`[attest]`). Absent = none. |
 | `queue` | `QueueCfg` | optional | Queue persistence backend (`[queue]`). Absent = redb. |
+| `worker` | `WorkerCfg` | optional | Fleet worker labels (`[worker]`). Absent = no labels. |
+| `agent` | `AgentCfg` | optional | Remote-run agent (`[agent]`). Absent = no agent listener. |
 | `worktree` | `WorktreeCfg` | optional | Where detached git worktrees for runs are created. |
 
 ## `[[repo]]`
@@ -26,6 +29,7 @@
 | `runner` | `RunnerCfg` | optional | Per-repo runner override — a full [repo.runner] table replaces the global `[runner]` for this repo. |
 | `queue` | `"latest" | "all"` | optional | Queue policy — `latest` (default) or `all` (run every push). |
 | `secret_env` | `string` | optional | Per-repo webhook-secret env var — a NAME resolved like `trigger.secret_env` (its fallback). Lets each repo's hook be managed and rotated independently of the other watched repos. |
+| `runs_on` | `list` | optional | Fleet routing: labels a claiming worker must carry (e.g. ["arch=arm64"]). Empty = any worker. Per-repo arch pinning — same-push multi-arch matrix is future work. |
 | `jobs` | `Vec<JobEntry>` | optional | Pipelines within this repo (`[[repo.jobs]]`). Each job gets its own branch filter, queue policy, runner and status context — one webhook feeds them all. Empty = the repo itself is its single implicit pipeline. |
 
 ## `[trigger]`
@@ -33,7 +37,7 @@
 | field | type | required | notes |
 |---|---|---|---|
 | `api_base` | `string` | optional | Forge API base — GHES ("https://ghe.acme/api/v3") or default github.com. Used by the trigger, status, and forge-admin impls. |
-| `kind` | `string` | required | "github" today; other forges = new impl crates. |
+| `kind` | `string` | optional | "github" today; other forges = new impl crates. |
 | `listen` | `string` | optional | Webhook listener bind address ("127.0.0.1:29173"). |
 | `secret_env` | `string` | optional | Env var holding the webhook secret — the default for every watched repo; `[[repo]] secret_env` overrides it per repo. |
 
@@ -85,6 +89,7 @@
 | `runner` | `RunnerCfg` | optional | Per-job runner override — replaces the repo/global runner for this job only. |
 | `queue` | `"latest" | "all"` | optional | Queue policy for this job — `latest` (default) or `all`. Falls back to the repo's `queue`. |
 | `context` | `string` | optional | Status context override (default: `"&lt;status.context&gt;/&lt;job name&gt;"`). |
+| `runs_on` | `list` | optional | Label requirements — overrides the repo's `runs_on` for this job only (job -&gt; repo -&gt; [] inheritance, like runner/queue). |
 
 ## `[runner]` — kind `dagger`
 
@@ -110,8 +115,8 @@
 | field | type | required | notes |
 |---|---|---|---|
 | `remote` | `string` | optional | Remote host ("user@host"; ssh config resolves auth). |
-| `remote_dir` | `string` | optional | Remote workdir the worktree syncs into. |
-| `cmd` | `string` | optional | Command run remotely (`bash -c`). |
+| `remote_dir` | `string` | optional | Remote parent dir — each run syncs into its own `&lt;remote_dir&gt;/&lt;key&gt;-&lt;sha12&gt;` subdir. |
+| `cmd` | `string` | optional | Command run remotely (fed to `bash -s`). |
 
 ## `[runner]` — kind `container`
 

@@ -41,6 +41,7 @@ impls to ports.
 | `bupha-git` | adapter | Vcs impl: git via the git CLI |
 | `bupha-github` | adapter | GitHub impl: push-webhook trigger + commit-status sink |
 | `bupha-history` | adapter | Run-history adapter: JSONL records per finished run |
+| `bupha-http` | adapter | Runner impl: remote execution via HTTP agent (tar worktree + poll) |
 | `bupha-keyring` | adapter | Secret impl: OS keyring via secret-tool (libsecret) |
 | `bupha-queue-redb` | adapter | QueueStore impl: redb embedded store (single file, ACID) |
 | `bupha-queue-redis` | adapter | QueueStore adapter: redis (multi-worker; SET NX claim + INCR fence) |
