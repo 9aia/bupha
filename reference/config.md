@@ -26,6 +26,7 @@ url: /bupha/reference/config.md
 | `status_repo` | `string` | optional | Status repo override (defaults to `name`). |
 | `runner` | `RunnerCfg` | optional | Per-repo runner override — a full \[repo.runner] table replaces the global `[runner]` for this repo. |
 | `queue` | `"latest" | "all"` | optional | Queue policy — `latest` (default) or `all` (run every push). |
+| `secret_env` | `string` | optional | Per-repo webhook-secret env var — a NAME resolved like `trigger.secret_env` (its fallback). Lets each repo's hook be managed and rotated independently of the other watched repos. |
 
 ## `[trigger]`
 
@@ -33,8 +34,8 @@ url: /bupha/reference/config.md
 |---|---|---|---|
 | `api_base` | `string` | optional | Forge API base — GHES ("https://ghe.acme/api/v3") or default github.com. Used by the trigger, status, and forge-admin impls. |
 | `kind` | `string` | required | "github" today; other forges = new impl crates. |
-| `listen` | `string` | optional | Webhook listener bind address ("127.0.0.1:9000"). |
-| `secret_env` | `string` | optional | Env var holding the webhook secret. |
+| `listen` | `string` | optional | Webhook listener bind address ("127.0.0.1:29173"). |
+| `secret_env` | `string` | optional | Env var holding the webhook secret — the default for every watched repo; `[[repo]] secret_env` overrides it per repo. |
 
 ## `[runner]`
 

@@ -60,19 +60,23 @@ impls to ports.
 POST /hook
   → 1. path check (404 otherwise)
   → 2. read body (≤ 2 MiB)
-  → 3. signature verify (Trigger port — github impl: HMAC
-       sha256, constant-time)
-  → 4. dedup delivery id (bounded 10k ring; github impl uses
+  → 3. repo hint — untrusted peek at repository.full_name,
+       selects the watched [[repo]] and its secret; an
+       unwatched repo 404s (it can never verify)
+  → 4. signature verify (Trigger port — github impl: HMAC
+       sha256, constant-time; key = repo's secret_env,
+       falling back to trigger.secret_env)
+  → 5. dedup delivery id (bounded 10k ring; github impl uses
        X-GitHub-Delivery)
-  → 5. parse — skip deletes/zero-sha; revision must be path-safe
-  → 6. route — repository.full_name → watched [[repo]] entry;
-       git_ref must equal repo.branch
-  → 7. enqueue — per-repo queue; persist via QueueStore (redb,
+  → 6. parse — skip deletes/zero-sha; revision must be path-safe
+  → 7. route — git_ref must equal repo.branch; forge-attested
+       sender checked against the access policy
+  → 8. enqueue — per-repo queue; persist via QueueStore (redb,
        ACID)
-  → 8. one global worker — Vcs fetch, detached worktree
+  → 9. one global worker — Vcs fetch, detached worktree
        at <base>-<repo>-<sha12>
-  → 9. spawn run handle (token via env:// name, never argv)
-  → 10. status — pending → success/error; superseded and
+  → 10. spawn run handle (token via env:// name, never argv)
+  → 11. status — pending → success/error; superseded and
         cancelled shas get honest error statuses
 ```
 
@@ -96,6 +100,9 @@ the queue moving.
 
 * mandatory HMAC (constant-time compare) — unauthenticated payloads
   never reach the queue
+* per-repo webhook secrets (`[[repo]] secret_env`, falling back to
+  `trigger.secret_env`) — the repo is resolved before verify, so a
+  hook admin on one repo can't forge signed pushes for another
 * body cap, delivery-id replay dedup, hex-sha validation before the
   value touches paths or status URLs
 * webhook takeover is exact-URL only; hook API calls are timed out

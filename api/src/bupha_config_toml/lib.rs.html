@@ -21,7 +21,7 @@
 <a href=#21 id=21 data-nosnippet>21</a>                PathBuf::from(<span class="string">"bupha.toml"</span>),
 <a href=#22 id=22 data-nosnippet>22</a>                std::env::var(<span class="string">"HOME"</span>)
 <a href=#23 id=23 data-nosnippet>23</a>                    .map(PathBuf::from)
-<a href=#24 id=24 data-nosnippet>24</a>                    .unwrap_or_else(|<span class="kw">_</span>| <span class="string">"."</span>.into())
+<a href=#24 id=24 data-nosnippet>24</a>                    .unwrap_or(<span class="string">"."</span>.into())
 <a href=#25 id=25 data-nosnippet>25</a>                    .join(<span class="string">".config/bupha/bupha.toml"</span>),
 <a href=#26 id=26 data-nosnippet>26</a>            ],
 <a href=#27 id=27 data-nosnippet>27</a>        };
