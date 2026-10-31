@@ -16,6 +16,24 @@ branch = "refs/heads/main"
 #   kind = "shell"             #   (full replacement of [runner])
 #   cmd = "./scripts/release.sh"
 
+# Remote runner — ships the worktree to another box and runs there.
+# This is the multi-arch path: point one [[repo]]/job at an arm64
+# (or other-arch) host while the rest run locally. Each run lands in
+# its own <remote_dir>/<key>-<sha12>, so several watchers can share
+# one remote without clobbering each other's trees.
+# [[repo]]
+# name = "owner/arm-repo"
+# dir = "/path/to/clone"
+# [repo.runner]
+#   kind = "ssh"
+#   remote = "ci@arm64-box"      # ssh config resolves auth (agent/keys)
+#   remote_dir = "~/bupha"       # remote parent dir (default: ~/bupha)
+#   cmd = "./ci.sh"              # run via remote `bash -s`; token_env
+#                                # is exported remotely via ssh stdin
+# Caveats: the rsynced worktree's .git pointer file is meaningless
+# remotely (pipelines needing git must clone themselves), and a
+# killed run's remote process can linger (best-effort pkill + rm).
+
 # Multiple pipelines for one repo — each [[repo.jobs]] gets its own
 # branch, queue, runner and status context ("ci/bupha/<job>" by
 # default); they share the repo's webhook, secret and clone. When

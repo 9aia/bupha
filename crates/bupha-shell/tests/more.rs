@@ -15,6 +15,8 @@ fn name_and_default_cmd() {
         .spawn(&RunCtx {
             workdir: &d,
             token_env: "T",
+            key: "o/r",
+            sha: "abc1234567890def",
         })
         .unwrap();
     assert_eq!(c.wait().unwrap().code(), Some(127));
@@ -33,6 +35,8 @@ fn spawn_fails_without_bash() {
         .spawn(&RunCtx {
             workdir: &d,
             token_env: "T",
+            key: "o/r",
+            sha: "abc1234567890def",
         })
         .is_err());
 }

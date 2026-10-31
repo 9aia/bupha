@@ -10,6 +10,8 @@ fn runs_cmd_in_worktree() {
         .spawn(&RunCtx {
             workdir: "/tmp".as_ref(),
             token_env: "BUPHA_TOKEN",
+            key: "o/r",
+            sha: "abc1234567890def",
         })
         .unwrap();
     c.wait().map(|s| assert!(s.success())).unwrap();
@@ -24,6 +26,8 @@ fn failure_propagates() {
         .spawn(&RunCtx {
             workdir: "/tmp".as_ref(),
             token_env: "BUPHA_TOKEN",
+            key: "o/r",
+            sha: "abc1234567890def",
         })
         .unwrap();
     c.wait().map(|s| assert!(!s.success())).unwrap();

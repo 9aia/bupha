@@ -45,6 +45,8 @@ fn ctx<'a>(wd: &'a Path) -> RunCtx<'a> {
     RunCtx {
         workdir: wd,
         token_env: "BUPHA_TOKEN",
+        key: "o/r",
+        sha: "abc1234567890def",
     }
 }
 

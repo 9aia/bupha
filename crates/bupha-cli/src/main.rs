@@ -390,16 +390,40 @@ fn run_job(
     let ctx = RunCtx {
         workdir: &wt,
         token_env: &repo.runner.token_env,
+        key: &repo.key,
+        sha,
     };
-    let ok = match runner.spawn(&ctx) {
+    /// One poll of the run handle — kept scoped so the child lock
+    /// isn't held across the claim renew or the sleep.
+    enum Poll {
+        Done(std::process::ExitStatus, Option<String>),
+        Running,
+        WaitErr(std::io::Error),
+    }
+    let (ok, fail_desc) = match runner.spawn(&ctx) {
         Ok(ch) => {
             *worker.child.lock().unwrap() = Some(ch);
             let mut ticks = 0u32;
             loop {
-                let done = worker.child.lock().unwrap().as_mut().unwrap().try_wait();
-                match done {
-                    Ok(Some(s)) => break s.success(),
-                    Ok(None) => {
+                let poll = {
+                    let mut slot = worker.child.lock().unwrap();
+                    let h = slot.as_mut().unwrap();
+                    match h.try_wait() {
+                        Ok(Some(s)) => Poll::Done(
+                            s,
+                            if s.success() {
+                                None
+                            } else {
+                                h.failure_desc()
+                            },
+                        ),
+                        Ok(None) => Poll::Running,
+                        Err(e) => Poll::WaitErr(e),
+                    }
+                };
+                match poll {
+                    Poll::Done(s, fd) => break (s.success(), fd),
+                    Poll::Running => {
                         // Renew the fleet claim every ~2 min — the
                         // 5-min lease must out-live long builds.
                         ticks += 1;
@@ -412,16 +436,16 @@ fn run_job(
                         }
                         std::thread::sleep(std::time::Duration::from_millis(500));
                     }
-                    Err(e) => {
+                    Poll::WaitErr(e) => {
                         eprintln!("runner wait failed: {e}");
-                        break false;
+                        break (false, None);
                     }
                 }
             }
         }
         Err(e) => {
             eprintln!("runner spawn failed: {e}");
-            false
+            (false, Some("ci infra: spawn failed".to_string()))
         }
     };
     *worker.child.lock().unwrap() = None;
@@ -434,13 +458,13 @@ fn run_job(
         .map(|q| q.cancelled)
         .unwrap_or(false);
     let (state, desc) = if ok {
-        ("success", "ci passed")
+        ("success", "ci passed".to_string())
     } else if cancelled {
-        ("error", "ci cancelled (superseded)")
+        ("error", "ci cancelled (superseded)".to_string())
     } else {
-        ("failure", "ci failed")
+        ("failure", fail_desc.unwrap_or_else(|| "ci failed".into()))
     };
-    sink.post(sha, state, desc);
+    sink.post(sha, state, &desc);
     println!("ci {desc} {sha:.12}");
     vcs.worktree_remove(&repo.dir, &wt);
     ok
@@ -1281,6 +1305,8 @@ fn cmd_run(cfg: &Config, function: Option<String>) {
     let ctx = RunCtx {
         workdir: &repo.dir,
         token_env: &repo.runner.token_env,
+        key: &repo.key,
+        sha: "local",
     };
     match runner.spawn(&ctx).and_then(|mut c| c.wait()) {
         Ok(s) if s.success() => println!("run passed"),

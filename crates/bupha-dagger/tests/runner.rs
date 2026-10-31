@@ -61,6 +61,8 @@ fn all_args_emitted() {
         .spawn(&RunCtx {
             workdir: &d,
             token_env: "BUPHA_TOKEN",
+            key: "o/r",
+            sha: "abc1234567890def",
         })
         .unwrap();
     assert!(c.wait().unwrap().success());
@@ -101,6 +103,8 @@ fn minimal_args() {
         .spawn(&RunCtx {
             workdir: &d,
             token_env: "BUPHA_TOKEN",
+            key: "o/r",
+            sha: "abc1234567890def",
         })
         .unwrap();
     let _ = c.wait();
@@ -118,6 +122,8 @@ fn spawn_fails_without_dagger() {
         .spawn(&RunCtx {
             workdir: &d,
             token_env: "T",
+            key: "o/r",
+            sha: "abc1234567890def",
         })
         .is_err());
 }
@@ -131,6 +137,8 @@ fn failing_run_propagates_status() {
         .spawn(&RunCtx {
             workdir: &d,
             token_env: "T",
+            key: "o/r",
+            sha: "abc1234567890def",
         })
         .unwrap();
     assert!(!c.wait().unwrap().success());
