@@ -11,3 +11,4 @@
 - [ ] T-027 status signature/attestation link in commit-status body (ADR-0002 compliance) · created:2026-10-31
 - [ ] T-005 Distributed runners — bupha-ssh lands first; remote trigger impl (bupha-http?) for cross-box fan-out; unblocks multi-arch · status:in-progress
   - [ ] T-022 release.sh's "other arches" dist step.
+- [ ] T-028 fix release.sh: 'tags: unbound variable' + crates.io version conflict · pri:high · created:2026-10-31
