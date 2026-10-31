@@ -113,6 +113,15 @@ impl Queue {
     pub fn dequeue(&mut self) -> Option<String> {
         self.pending.pop_front()
     }
+
+    /// Re-append a sha that just failed — the retry path (ADR-0002).
+    /// Unlike `enqueue` it never supersedes the front: the retry goes
+    /// behind already-queued work under both policies.
+    pub fn requeue(&mut self, sha: &str) {
+        if !self.pending.iter().any(|s| s == sha) {
+            self.pending.push_back(sha.to_string());
+        }
+    }
 }
 
 pub enum EnqueueResult {
@@ -410,6 +419,11 @@ pub struct RepoEntry {
     /// same-push multi-arch matrix is future work.
     #[serde(default)]
     pub runs_on: Vec<String>,
+    /// Failed runs re-enqueue at the back this many times (0..3,
+    /// ADR-0002 §3). 0 = today's behavior. A *failed* sha may retry —
+    /// a superseded or claim-lost one may not.
+    #[serde(default)]
+    pub retry: u32,
     /// Pipelines within this repo (`[[repo.jobs]]`). Each job gets
     /// its own branch filter, queue policy, runner and status
     /// context — one webhook feeds them all. Empty = the repo
@@ -447,6 +461,9 @@ pub struct JobEntry {
     /// job only (job -> repo -> [] inheritance, like runner/queue).
     #[serde(default)]
     pub runs_on: Option<Vec<String>>,
+    /// Retry count override — job -> repo -> 0 inheritance.
+    #[serde(default)]
+    pub retry: Option<u32>,
 }
 
 /// Job names are path-safe — they land in worktree paths, claim
@@ -493,6 +510,8 @@ pub struct WatchedRepo {
     /// Resolved label requirements — the job's `runs_on`, else the
     /// repo's, else [].
     pub runs_on: Vec<String>,
+    /// Resolved failed-run retry count (job → repo → 0).
+    pub retry: u32,
 }
 
 impl Config {
@@ -587,6 +606,13 @@ impl Config {
             runs_on: job
                 .and_then(|j| j.runs_on.clone())
                 .unwrap_or_else(|| r.runs_on.clone()),
+            retry: {
+                let n = job.and_then(|j| j.retry).unwrap_or(r.retry);
+                if n > 3 {
+                    return Err(format!("repo {}: retry = {n} — max 3 (ADR-0002)", r.name));
+                }
+                n
+            },
         })
     }
 }

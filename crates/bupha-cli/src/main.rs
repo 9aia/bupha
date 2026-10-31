@@ -7,10 +7,10 @@
 use bupha_access::{Access, AllowAll};
 use bupha_access_file::FileAccess;
 use bupha_access_forge::ForgeAccess;
-use bupha_audit_file::{AuditLog, AuditSink};
 use bupha_attest::{Attest, RunAttestation};
 use bupha_attest_file::FileAttest;
 use bupha_attest_sigstore::SigstoreAttest;
+use bupha_audit_file::{AuditLog, AuditSink};
 use bupha_cache::Cache;
 use bupha_cache_sccache::SccacheConf;
 use bupha_cloudflared::CloudflaredTunnel;
@@ -245,9 +245,8 @@ fn build_runner(rc: &bupha_core::RunnerCfg, cache: &bupha_core::CacheCfg) -> Arc
                 eprintln!("runner config (http): {e}");
                 std::process::exit(2)
             });
-            let s = secret(&hc.secret_env).unwrap_or_else(|| {
-                panic!("{} required (env, keyring or env file)", hc.secret_env)
-            });
+            let s = secret(&hc.secret_env)
+                .unwrap_or_else(|| panic!("{} required (env, keyring or env file)", hc.secret_env));
             Arc::new(bupha_http::HttpRunner::new(hc, s))
         }
 
@@ -452,14 +451,9 @@ fn run_job(
                     let mut slot = worker.child.lock().unwrap();
                     let h = slot.as_mut().unwrap();
                     match h.try_wait() {
-                        Ok(Some(s)) => Poll::Done(
-                            s,
-                            if s.success() {
-                                None
-                            } else {
-                                h.failure_desc()
-                            },
-                        ),
+                        Ok(Some(s)) => {
+                            Poll::Done(s, if s.success() { None } else { h.failure_desc() })
+                        }
                         Ok(None) => Poll::Running,
                         Err(e) => Poll::WaitErr(e),
                     }
@@ -477,12 +471,8 @@ fn run_job(
                                     // A peer owns the sha now —
                                     // kill the local run; the peer
                                     // reports the real result.
-                                    eprintln!(
-                                        "claim lost for {sha:.12} — killing run"
-                                    );
-                                    if let Some(h) =
-                                        worker.child.lock().unwrap().as_mut()
-                                    {
+                                    eprintln!("claim lost for {sha:.12} — killing run");
+                                    if let Some(h) = worker.child.lock().unwrap().as_mut() {
                                         let _ = h.kill();
                                     }
                                     break (JobEnd::ClaimLost, None);
@@ -519,13 +509,8 @@ fn run_job(
     let (state, desc) = match &end {
         JobEnd::ClaimLost => ("error", "ci claim lost".to_string()),
         JobEnd::Finished(true) => ("success", "ci passed".to_string()),
-        JobEnd::Finished(false) if cancelled => {
-            ("error", "ci cancelled (superseded)".to_string())
-        }
-        JobEnd::Finished(false) => (
-            "failure",
-            fail_desc.unwrap_or_else(|| "ci failed".into()),
-        ),
+        JobEnd::Finished(false) if cancelled => ("error", "ci cancelled (superseded)".to_string()),
+        JobEnd::Finished(false) => ("failure", fail_desc.unwrap_or_else(|| "ci failed".into())),
     };
     sink.post(sha, state, &desc);
     println!("ci {desc} {sha:.12}");
@@ -538,6 +523,10 @@ fn run_job(
 #[derive(Default)]
 struct Shared {
     queues: std::collections::HashMap<String, Queue>,
+    /// Failed-run retry counters — (job key, sha) → attempts used.
+    /// Cleared on terminal outcome; ephemeral (a restart forfeits
+    /// the count, never the queue).
+    attempts: std::collections::HashMap<(String, String), u32>,
     /// dedup for replayed webhook deliveries (X-GitHub-Delivery)
     seen: bupha_core::Seen,
 }
@@ -935,15 +924,52 @@ fn cmd_watch(cfg: Arc<Config>) {
                 // Settle the queue BEFORE the observability writes —
                 // anything watching history.jsonl then also sees the
                 // persisted queue drained.
-                {
+                let retry_n = {
                     let mut g = shared.lock().unwrap();
-                    let _ = g.queues.get_mut(&repo_name).map(|q| q.running = None);
+                    let cancelled = if let Some(q) = g.queues.get_mut(&repo_name) {
+                        q.running = None;
+                        q.cancelled
+                    } else {
+                        false
+                    };
+                    // A *failed* sha may retry — a superseded or
+                    // claim-lost one may not (ADR-0002 §3).
+                    let mut retry_n = None;
+                    if matches!(end, JobEnd::Finished(false)) && !cancelled {
+                        let n = g
+                            .attempts
+                            .entry((repo_name.clone(), sha.clone()))
+                            .or_insert(0);
+                        if *n < repo.retry {
+                            *n += 1;
+                            retry_n = Some(*n);
+                        }
+                    }
+                    if let Some(q) = g.queues.get_mut(&repo_name) {
+                        if retry_n.is_some() {
+                            q.requeue(&sha);
+                        }
+                    }
+                    if retry_n.is_none() {
+                        g.attempts.remove(&(repo_name.clone(), sha.clone()));
+                    }
                     persist_queue(&g, &*store, &repo_name);
+                    retry_n
+                };
+                if let Some(n) = retry_n {
+                    sink.post(
+                        &sha,
+                        "failure",
+                        &format!("ci failed — retrying ({n}/{})", repo.retry),
+                    );
+                    cv.notify_all();
                 }
                 // Completion marker: peers holding a redundant copy of
                 // this sha drop it instead of re-running. A lost claim
-                // means a peer owns the sha — IT marks done.
-                if !matches!(end, JobEnd::ClaimLost) {
+                // means a peer owns the sha — IT marks done. A retry
+                // keeps the sha queued — done must NOT be marked or
+                // the dequeue scan drops it as peer-completed.
+                if !matches!(end, JobEnd::ClaimLost) && retry_n.is_none() {
                     let _ = claim.mark_done(&repo_name, &sha);
                 }
                 // Observability write-paths — failures never break the run.
@@ -1216,27 +1242,26 @@ fn cmd_worker(cfg: Arc<Config>) {
     });
     let watched = Arc::new(watched);
     let token = secret(&cfg.runner.token_env).unwrap_or_default();
-    let (workq, claim): (Arc<dyn WorkQueue>, Arc<dyn TryClaim>) =
-        match cfg.queue.kind.as_str() {
-            "redis" => {
-                let url = cfg.queue.url.clone().unwrap_or_else(|| {
-                    eprintln!("[queue] kind=redis needs `url`");
-                    std::process::exit(2);
-                });
-                let r = Arc::new(
-                    bupha_queue_redis::RedisQueueStore::open(&url)
-                        .unwrap_or_else(|e| panic!("redis: {e}")),
-                );
-                (r.clone(), r)
-            }
-            other => {
-                eprintln!(
-                    "`bupha worker` needs a shared pull queue — [queue] kind = \
-                     \"redis\", got '{other}'"
-                );
+    let (workq, claim): (Arc<dyn WorkQueue>, Arc<dyn TryClaim>) = match cfg.queue.kind.as_str() {
+        "redis" => {
+            let url = cfg.queue.url.clone().unwrap_or_else(|| {
+                eprintln!("[queue] kind=redis needs `url`");
                 std::process::exit(2);
-            }
-        };
+            });
+            let r = Arc::new(
+                bupha_queue_redis::RedisQueueStore::open(&url)
+                    .unwrap_or_else(|e| panic!("redis: {e}")),
+            );
+            (r.clone(), r)
+        }
+        other => {
+            eprintln!(
+                "`bupha worker` needs a shared pull queue — [queue] kind = \
+                     \"redis\", got '{other}'"
+            );
+            std::process::exit(2);
+        }
+    };
     let audit = build_audit(&cfg);
     let sinks = build_sinks(&cfg, &watched, &token, audit.as_ref());
     let runners = build_runners(&cfg, &watched);
@@ -1297,7 +1322,16 @@ fn cmd_worker(cfg: Arc<Config>) {
                 if !matches!(end, JobEnd::ClaimLost) {
                     let _ = workq.complete(&job, &id);
                 }
-                settle_run(&cfg, &*telemetry, &attest, runner.name(), &job.key, &job.sha, &end, wall);
+                settle_run(
+                    &cfg,
+                    &*telemetry,
+                    &attest,
+                    runner.name(),
+                    &job.key,
+                    &job.sha,
+                    &end,
+                    wall,
+                );
             }
             Ok(Some(Claim::Pruned(sup))) => {
                 for j in &sup {
@@ -1610,12 +1644,7 @@ fn cmd_doctor(cfg: &Config, json: bool) {
             .and_then(|v| v.as_str())
     });
     if let Some(conf) = scc {
-        check(
-            "sccache conf",
-            Path::new(conf).exists(),
-            conf,
-            &mut out,
-        );
+        check("sccache conf", Path::new(conf).exists(), conf, &mut out);
     }
     match cfg.tunnel.provider.as_str() {
         "cloudflared" => check(
@@ -1663,9 +1692,7 @@ fn cmd_doctor(cfg: &Config, json: bool) {
         let checks: Vec<_> = out
             .items
             .iter()
-            .map(|(n, ok, d)| {
-                serde_json::json!({"name": n, "ok": ok, "detail": d})
-            })
+            .map(|(n, ok, d)| serde_json::json!({"name": n, "ok": ok, "detail": d}))
             .collect();
         println!(
             "{}",
@@ -1893,9 +1920,7 @@ fn cmd_deploy(cfg: &Config, sub: &DeploySub, cli_config: Option<String>) {
                     eprintln!("enable: {e}");
                     std::process::exit(1);
                 }
-                println!(
-                    "{unit} enabled — run 'loginctl enable-linger' once for boot persistence"
-                );
+                println!("{unit} enabled — run 'loginctl enable-linger' once for boot persistence");
             }
         }
         DeploySub::Check => deploy_check(cfg),
