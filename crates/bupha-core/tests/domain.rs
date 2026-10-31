@@ -99,6 +99,11 @@ kind = "ssh"
     .unwrap();
     let w = cfg.watched().unwrap();
     assert_eq!(w.len(), 2);
+    // implicit job: job "" / key = name / context = status.context
+    assert_eq!(w[0].job, "");
+    assert_eq!(w[0].key, "o/r");
+    assert_eq!(w[0].context, "ci/bupha");
+    assert_eq!(w[1].key, "o/r2");
     assert_eq!(w[0].runner.kind, "shell");
     assert_eq!(w[0].runner.token_env, "MYTOK");
     assert_eq!(w[0].status_repo, "o/r"); // defaults to name
@@ -111,6 +116,130 @@ kind = "ssh"
     assert_eq!(w[1].secret_env.as_deref(), Some("R2_SECRET"));
     // non-canonicalizable dir comes back as given
     assert_eq!(w[1].dir.to_string_lossy(), "/nonexistent-for-canon");
+}
+
+#[test]
+fn watched_jobs_expand_and_inherit() {
+    // Job→repo→global inheritance matrix: gate overrides everything
+    // at job level, docs inherits repo/global, x (on a bare repo)
+    // inherits the defaults.
+    let cfg: Config = toml::from_str(
+        r#"
+[trigger]
+kind = "github"
+[runner]
+kind = "shell"
+cmd = "true"
+token_env = "MYTOK"
+[status]
+kind = "log"
+context = "ci/base"
+[[repo]]
+name = "o/r"
+dir = "/tmp"
+branch = "refs/heads/main"
+queue = "all"
+[repo.runner]
+kind = "ssh"
+[[repo.jobs]]
+name = "gate"
+branch = "refs/heads/gate"
+queue = "latest"
+context = "ci/gate"
+[repo.jobs.runner]
+kind = "dagger"
+[[repo.jobs]]
+name = "docs"
+[[repo]]
+name = "o/s"
+dir = "/tmp"
+[[repo.jobs]]
+name = "x"
+"#,
+    )
+    .unwrap();
+    let w = cfg.watched().unwrap();
+    assert_eq!(w.len(), 3);
+
+    // gate: everything job-level
+    assert_eq!(w[0].name, "o/r");
+    assert_eq!(w[0].job, "gate");
+    assert_eq!(w[0].key, "o/r:gate");
+    assert_eq!(w[0].branch, "refs/heads/gate");
+    assert_eq!(w[0].policy, QueuePolicy::Latest);
+    assert_eq!(w[0].runner.kind, "dagger");
+    assert_eq!(w[0].context, "ci/gate");
+    assert_eq!(w[0].status_repo, "o/r");
+
+    // docs: inherits repo branch/queue/runner, derived context
+    assert_eq!(w[1].job, "docs");
+    assert_eq!(w[1].key, "o/r:docs");
+    assert_eq!(w[1].branch, "refs/heads/main");
+    assert_eq!(w[1].policy, QueuePolicy::All); // repo.queue
+    assert_eq!(w[1].runner.kind, "ssh"); // [repo.runner]
+    assert_eq!(w[1].context, "ci/base/docs");
+
+    // x: repo defaults + global runner
+    assert_eq!(w[2].key, "o/s:x");
+    assert_eq!(w[2].branch, "refs/heads/main");
+    assert_eq!(w[2].policy, QueuePolicy::Latest);
+    assert_eq!(w[2].runner.kind, "shell");
+    assert_eq!(w[2].runner.token_env, "MYTOK");
+    assert_eq!(w[2].context, "ci/base/x");
+}
+
+#[test]
+fn watched_jobs_error_arms() {
+    let base =
+        "[trigger]\nkind = \"github\"\n[runner]\nkind = \"shell\"\n[status]\nkind = \"log\"\n";
+
+    // job name must be path-safe ([A-Za-z0-9._-]+)
+    for bad in ["bad/name", "", "has space", "a:b"] {
+        let cfg: Config = toml::from_str(&format!(
+            "{base}[[repo]]\nname = \"o/r\"\ndir = \"/tmp\"\n[[repo.jobs]]\nname = \"{bad}\"\n"
+        ))
+        .unwrap();
+        let e = cfg.watched().unwrap_err();
+        assert!(e.contains("invalid job name"), "{bad}: {e}");
+    }
+
+    // duplicate job name within one repo
+    let cfg: Config = toml::from_str(&format!(
+        "{base}[[repo]]\nname = \"o/r\"\ndir = \"/tmp\"\n[[repo.jobs]]\nname = \"a\"\n[[repo.jobs]]\nname = \"a\"\n"
+    ))
+    .unwrap();
+    assert!(cfg.watched().unwrap_err().contains("duplicate job name"));
+
+    // duplicate repo name across [[repo]] entries — previously a
+    // silent shadow; now an error pointing at [[repo.jobs]]
+    let cfg: Config = toml::from_str(&format!(
+        "{base}[[repo]]\nname = \"o/r\"\ndir = \"/tmp\"\n[[repo]]\nname = \"o/r\"\ndir = \"/tmp\"\n"
+    ))
+    .unwrap();
+    let e = cfg.watched().unwrap_err();
+    assert!(
+        e.contains("more than once") && e.contains("[[repo.jobs]]"),
+        "{e}"
+    );
+
+    // queue=all × cancel_running evaluated per resolved job: gate
+    // (latest) is fine, docs inherits repo's `all` -> conflict names
+    // the job.
+    let cfg: Config = toml::from_str(
+        "[trigger]\nkind = \"github\"\n[runner]\nkind = \"shell\"\ncancel_running = true\n[status]\nkind = \"log\"\n[[repo]]\nname = \"o/r\"\ndir = \"/tmp\"\nqueue = \"all\"\n[[repo.jobs]]\nname = \"gate\"\nqueue = \"latest\"\n[[repo.jobs]]\nname = \"docs\"\n"
+    )
+    .unwrap();
+    let e = cfg.watched().unwrap_err();
+    assert!(e.contains("cancel_running") && e.contains("docs"), "{e}");
+
+    // job-level runner cancels + job queue = all -> same conflict,
+    // resolved entirely inside the job.
+    let cfg: Config = toml::from_str(&format!(
+        "{base}[[repo]]\nname = \"o/r\"\ndir = \"/tmp\"\n[[repo.jobs]]\nname = \"rel\"\nqueue = \"all\"\n[repo.jobs.runner]\nkind = \"shell\"\ncancel_running = true\n"
+    ))
+    .unwrap();
+    let e = cfg.watched().unwrap_err();
+    assert!(e.contains("cancel_running") && e.contains("rel"), "{e}");
 }
 
 #[test]

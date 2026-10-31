@@ -829,6 +829,44 @@ fn deploy_webhook_variants() {
 }
 
 #[test]
+fn deploy_webhook_dedups_multi_job_repo() {
+    // A [[repo]] with [[repo.jobs]] registers its hook ONCE — jobs
+    // share the webhook, the secret and the clone.
+    let t = tmp("dwhj");
+    let repo_dir = t.join("repo");
+    repo(&repo_dir);
+    let posts = std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0));
+    let p = posts.clone();
+    let api = serve(move |req, _| {
+        if req.starts_with("GET") {
+            (200, "[]".into())
+        } else {
+            p.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+            (201, "{}".into())
+        }
+    });
+    let cfgp = t.join("jobs.toml");
+    std::fs::write(&cfgp, format!(
+        "[trigger]\nkind = \"github\"\napi_base = \"{api}\"\n[runner]\nkind = \"shell\"\n[status]\nkind = \"log\"\n[tunnel]\nprovider = \"direct\"\npublic_url = \"http://ci.example\"\n[[repo]]\nname = \"o/r\"\ndir = \"{d}\"\n[[repo.jobs]]\nname = \"gate\"\n[[repo.jobs]]\nname = \"docs\"\n",
+        d = repo_dir.display()
+    )).unwrap();
+    let o = bupha(
+        &["deploy", "webhook", "--config", cfgp.to_str().unwrap()],
+        &[
+            ("HOME", t.join("h").display().to_string()),
+            ("BUPHA_WEBHOOK_SECRET", "wh".into()),
+            ("BUPHA_TOKEN", "tok".into()),
+        ],
+    );
+    assert!(o.status.success(), "{}", out_ok(&o));
+    assert_eq!(
+        posts.load(std::sync::atomic::Ordering::SeqCst),
+        1,
+        "one hook per repo, not per job"
+    );
+}
+
+#[test]
 fn deploy_check_variants() {
     let t = tmp("dchk");
     let cfgp = cfg(&t, "");
@@ -1397,6 +1435,43 @@ fn runs_log_explain() {
         &env,
     );
     assert!(out_ok(&o).contains("never seen"), "{}", out_ok(&o));
+}
+
+#[test]
+fn runs_filter_matches_job_keys() {
+    // Job runs record repo as "name:job"; a bare repo filter must
+    // catch them, a job filter stays exact.
+    let t = tmp("rjob");
+    let repo_dir = t.join("repo");
+    let sha = repo(&repo_dir);
+    let base = t.join("wt");
+    std::fs::create_dir_all(&base).unwrap();
+    let cfgp = cfg_repo(&t, &repo_dir, "");
+    let env: Vec<(&str, String)> = vec![("HOME", t.join("h").display().to_string())];
+    std::fs::write(
+        base.join("history.jsonl"),
+        format!(
+            "{{\"sha\":\"{sha}\",\"repo\":\"o/r:gate\",\"status\":\"success\",\"wall_secs\":1}}\n{{\"sha\":\"{}\",\"repo\":\"o/r:docs\",\"status\":\"failure\",\"wall_secs\":2}}\n{{\"sha\":\"{}\",\"repo\":\"o/other\",\"status\":\"success\",\"wall_secs\":3}}\n",
+            "a".repeat(40),
+            "b".repeat(40)
+        ),
+    )
+    .unwrap();
+    let o = bupha(&["runs", "o/r", "--config", cfgp.to_str().unwrap()], &env);
+    let s = out_ok(&o);
+    assert!(
+        s.contains("o/r:gate") && s.contains("o/r:docs") && !s.contains("o/other"),
+        "repo filter catches job keys: {s}"
+    );
+    let o = bupha(
+        &["runs", "o/r:gate", "--config", cfgp.to_str().unwrap()],
+        &env,
+    );
+    let s = out_ok(&o);
+    assert!(
+        s.contains("o/r:gate") && !s.contains("o/r:docs"),
+        "job filter stays exact: {s}"
+    );
 }
 
 #[test]

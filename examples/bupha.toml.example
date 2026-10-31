@@ -16,6 +16,27 @@ branch = "refs/heads/main"
 #   kind = "shell"             #   (full replacement of [runner])
 #   cmd = "./scripts/release.sh"
 
+# Multiple pipelines for one repo — each [[repo.jobs]] gets its own
+# branch, queue, runner and status context ("ci/bupha/<job>" by
+# default); they share the repo's webhook, secret and clone. When
+# [[repo.jobs]] is present the repo-level branch/queue/runner only
+# act as the jobs' defaults.
+# [[repo.jobs]]
+# name = "gate"                  # path-safe [A-Za-z0-9._-]+; lands in
+#                                # worktree names + status contexts
+# branch = "refs/heads/main"
+# queue = "latest"
+# [repo.jobs.runner]
+#   kind = "shell"
+#   cmd = "bash scripts/ci.sh"
+# [[repo.jobs]]
+# name = "docs"
+# branch = "refs/heads/docs"
+# context = "ci/docs"            # status context override
+# [repo.jobs.runner]
+#   kind = "shell"
+#   cmd = "bash scripts/deploy-docs.sh"
+
 [trigger]
 kind = "github"                   # impl: bupha-github
 listen = "127.0.0.1:29173"

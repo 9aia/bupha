@@ -260,9 +260,10 @@ impl Default for TelemetryCfg {
 #[derive(Debug, Deserialize, Clone)]
 #[serde(deny_unknown_fields)]
 pub struct Config {
-    /// Watched repos — one pending slot each, one global worker.
-    /// TOML-conventional singular; `repos` kept as alias for
-    /// existing configs.
+    /// Watched repos — each expands to one pending slot per job
+    /// (one implicit job when `[[repo.jobs]]` is absent), all fed
+    /// by one global worker. TOML-conventional singular; `repos`
+    /// kept as alias for existing configs.
     #[serde(rename = "repo", alias = "repos", default)]
     pub repos: Vec<RepoEntry>,
     pub trigger: TriggerCfg,
@@ -320,6 +321,48 @@ pub struct RepoEntry {
     /// managed and rotated independently of the other watched repos.
     #[serde(default)]
     pub secret_env: Option<String>,
+    /// Pipelines within this repo (`[[repo.jobs]]`). Each job gets
+    /// its own branch filter, queue policy, runner and status
+    /// context — one webhook feeds them all. Empty = the repo
+    /// itself is its single implicit pipeline.
+    #[serde(default)]
+    pub jobs: Vec<JobEntry>,
+}
+
+/// One pipeline inside a `[[repo]]` — `[[repo.jobs]]`. A repo
+/// needing e.g. a main-branch gate AND a docs-branch deploy declares
+/// two jobs instead of two repos (which would collide on `name`).
+#[derive(Debug, Deserialize, Clone)]
+#[serde(deny_unknown_fields)]
+pub struct JobEntry {
+    /// Job name — path-safe `[A-Za-z0-9._-]+`, non-empty. Lands in
+    /// worktree paths (`<base>-<repo>-<job>-<sha12>`), redis claim
+    /// keys and the default status context (`<context>/<job>`).
+    pub name: String,
+    /// The ref this job watches (default: the repo's `branch`).
+    #[serde(default)]
+    pub branch: Option<String>,
+    /// Per-job runner override — replaces the repo/global runner
+    /// for this job only.
+    #[serde(default)]
+    pub runner: Option<RunnerCfg>,
+    /// Queue policy for this job — `latest` (default) or `all`.
+    /// Falls back to the repo's `queue`.
+    #[serde(default)]
+    pub queue: Option<QueuePolicy>,
+    /// Status context override (default:
+    /// `"<status.context>/<job name>"`).
+    #[serde(default)]
+    pub context: Option<String>,
+}
+
+/// Job names are path-safe — they land in worktree paths, claim
+/// keys and status contexts, so the alphabet matches `is_valid_sha`
+/// minus the length bound.
+fn is_valid_job_name(s: &str) -> bool {
+    !s.is_empty()
+        && s.bytes()
+            .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'-' | b'_' | b'.'))
 }
 
 impl RepoEntry {
@@ -329,52 +372,123 @@ impl RepoEntry {
 }
 
 /// Resolved view used by the watcher — always a list, even for the
-/// legacy single-repo form.
+/// legacy single-repo form. One entry per *job*: a repo with
+/// `[[repo.jobs]]` expands to one WatchedRepo each.
 #[derive(Debug, Clone)]
 pub struct WatchedRepo {
+    /// repository.full_name — shared by every job of the repo.
     pub name: String,
+    /// Job name — "" for the implicit single-pipeline form.
+    pub job: String,
+    /// THE map key — `name` for implicit, `"name:job"` for jobs.
+    /// Queues, sinks, runners, claim keys and history all key on it.
+    pub key: String,
     pub dir: PathBuf,
+    /// The ref this job watches.
     pub branch: String,
     pub status_repo: String,
-    /// Global `[runner]` or the repo's `[repo.runner]` override.
+    /// Status context this job's sink posts under — `status.context`
+    /// for the implicit form, `<context>/<job>` or the job's own
+    /// `context` override for named jobs.
+    pub context: String,
+    /// Resolved runner: job → repo → global.
     pub runner: RunnerCfg,
     pub policy: QueuePolicy,
-    /// Resolved `secret_env` override — None verifies with the
-    /// trigger's global secret.
+    /// Resolved `secret_env` override — repo-level, shared by all
+    /// jobs; None verifies with the trigger's global secret.
     pub secret_env: Option<String>,
 }
 
 impl Config {
+    /// Expand `[[repo]]` entries into one WatchedRepo per job —
+    /// a repo without `[[repo.jobs]]` yields its single implicit
+    /// pipeline (job = "", key = name).
     pub fn watched(&self) -> Result<Vec<WatchedRepo>, String> {
         let canon = |p: &str| std::fs::canonicalize(p).unwrap_or_else(|_| p.into());
-        if !self.repos.is_empty() {
-            return self
-                .repos
-                .iter()
-                .map(|r| {
-                    let runner = r.runner.clone().unwrap_or_else(|| self.runner.clone());
-                    // `all` keeps every push — killing the in-flight run
-                    // would drop a commit that was never superseded.
-                    if r.queue == QueuePolicy::All && runner.cancel_running {
-                        return Err(format!(
-                            "repo {}: queue = \"all\" conflicts with \
-                         runner.cancel_running",
-                            r.name
-                        ));
-                    }
-                    Ok(WatchedRepo {
-                        name: r.name.clone(),
-                        dir: canon(&r.dir.to_string_lossy()),
-                        branch: r.branch.clone(),
-                        status_repo: r.status_repo().to_string(),
-                        runner,
-                        policy: r.queue,
-                        secret_env: r.secret_env.clone(),
-                    })
-                })
-                .collect();
+        if self.repos.is_empty() {
+            return Err("no [[repo]] entries configured".into());
         }
-        Err("no [[repo]] entries configured".into())
+        // Two [[repo]] tables with the same `name` used to shadow
+        // silently in the name-keyed maps — that shape is what
+        // [[repo.jobs]] is for, so reject it loudly now.
+        for (i, r) in self.repos.iter().enumerate() {
+            if self.repos[..i].iter().any(|o| o.name == r.name) {
+                return Err(format!(
+                    "repo {}: declared more than once — merge \
+                     pipelines into one [[repo]] with [[repo.jobs]] \
+                     entries",
+                    r.name
+                ));
+            }
+        }
+        let mut out = Vec::new();
+        for r in &self.repos {
+            if r.jobs.is_empty() {
+                out.push(self.watch_one(r, None, &canon)?);
+                continue;
+            }
+            let mut seen: std::collections::HashSet<&str> = Default::default();
+            for j in &r.jobs {
+                if !is_valid_job_name(&j.name) {
+                    return Err(format!(
+                        "repo {}: invalid job name {:?} — use \
+                         [A-Za-z0-9._-]+ (lands in paths, claim keys \
+                         and status contexts)",
+                        r.name, j.name
+                    ));
+                }
+                if !seen.insert(j.name.as_str()) {
+                    return Err(format!("repo {}: duplicate job name {:?}", r.name, j.name));
+                }
+                out.push(self.watch_one(r, Some(j), &canon)?);
+            }
+        }
+        Ok(out)
+    }
+
+    /// Resolve one repo(+job) pair — every field inherits
+    /// job → repo → global.
+    fn watch_one(
+        &self,
+        r: &RepoEntry,
+        job: Option<&JobEntry>,
+        canon: &dyn Fn(&str) -> PathBuf,
+    ) -> Result<WatchedRepo, String> {
+        let runner = job
+            .and_then(|j| j.runner.clone())
+            .or_else(|| r.runner.clone())
+            .unwrap_or_else(|| self.runner.clone());
+        let policy = job.and_then(|j| j.queue).unwrap_or(r.queue);
+        // `all` keeps every push — killing the in-flight run
+        // would drop a commit that was never superseded.
+        if policy == QueuePolicy::All && runner.cancel_running {
+            return Err(format!(
+                "repo {}: queue = \"all\" conflicts with \
+                 runner.cancel_running{}",
+                r.name,
+                job.map(|j| format!(" (job {:?})", j.name))
+                    .unwrap_or_default()
+            ));
+        }
+        Ok(WatchedRepo {
+            name: r.name.clone(),
+            job: job.map(|j| j.name.clone()).unwrap_or_default(),
+            key: job
+                .map(|j| format!("{}:{}", r.name, j.name))
+                .unwrap_or_else(|| r.name.clone()),
+            dir: canon(&r.dir.to_string_lossy()),
+            branch: job
+                .and_then(|j| j.branch.clone())
+                .unwrap_or_else(|| r.branch.clone()),
+            status_repo: r.status_repo().to_string(),
+            context: job
+                .and_then(|j| j.context.clone())
+                .or_else(|| job.map(|j| format!("{}/{}", self.status.context, j.name)))
+                .unwrap_or_else(|| self.status.context.clone()),
+            runner,
+            policy,
+            secret_env: r.secret_env.clone(),
+        })
     }
 }
 

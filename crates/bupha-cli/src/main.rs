@@ -354,12 +354,24 @@ fn run_job(
     worker: &Worker<'_>,
     sha: &str,
 ) -> bool {
-    let wt = PathBuf::from(format!(
-        "{}-{}-{}",
-        cfg.worktree.base,
-        repo.name.replace('/', "-"),
-        &sha[..12.min(sha.len())]
-    ));
+    // Implicit jobs keep <base>-<repo>-<sha12>; named jobs insert
+    // the job — sha stays last so `explain`'s ends_with(sha) and
+    // `destroy worktrees`' prefix match still work.
+    let wt = PathBuf::from(match repo.job.is_empty() {
+        true => format!(
+            "{}-{}-{}",
+            cfg.worktree.base,
+            repo.name.replace('/', "-"),
+            &sha[..12.min(sha.len())]
+        ),
+        false => format!(
+            "{}-{}-{}-{}",
+            cfg.worktree.base,
+            repo.name.replace('/', "-"),
+            repo.job,
+            &sha[..12.min(sha.len())]
+        ),
+    });
     let _ = std::fs::remove_dir_all(&wt);
     let vcs = GitVcs;
     vcs.worktree_prune(&repo.dir);
@@ -373,7 +385,7 @@ fn run_job(
         return false;
     }
     sink.post(sha, "pending", "ci running");
-    println!("ci start {} {sha:.12} runner={}", repo.name, runner.name());
+    println!("ci start {} {sha:.12} runner={}", repo.key, runner.name());
 
     let ctx = RunCtx {
         workdir: &wt,
@@ -392,7 +404,7 @@ fn run_job(
                         // 5-min lease must out-live long builds.
                         ticks += 1;
                         if ticks.is_multiple_of(renew_ticks()) {
-                            match worker.claim.renew(&repo.name, sha, worker.id) {
+                            match worker.claim.renew(&repo.key, sha, worker.id) {
                                 Ok(true) => {}
                                 Ok(false) => eprintln!("claim lost for {sha:.12} — run contested"),
                                 Err(e) => eprintln!("claim renew failed: {e}"),
@@ -418,7 +430,7 @@ fn run_job(
         .lock()
         .unwrap()
         .queues
-        .get(&repo.name)
+        .get(&repo.key)
         .map(|q| q.cancelled)
         .unwrap_or(false);
     let (state, desc) = if ok {
@@ -558,21 +570,21 @@ fn cmd_watch(cfg: Arc<Config>) {
             "github" => Arc::new(GitHubStatus {
                 token: token.clone(),
                 repo: r.status_repo.clone(),
-                context: cfg.status.context.clone(),
+                context: r.context.clone(),
                 api_base: cfg.trigger.api_base.clone(),
             }),
             _ => Arc::new(LogStatus {
-                context: cfg.status.context.clone(),
+                context: r.context.clone(),
             }),
         };
-        sinks.insert(r.name.clone(), s);
+        sinks.insert(r.key.clone(), s);
     }
 
-    // Runner per repo dir (cli-sibling detection is repo-relative).
+    // Runner per job (cli-sibling detection is repo-relative).
     let mut runners: std::collections::HashMap<String, Arc<dyn Runner>> =
         std::collections::HashMap::new();
     for r in watched.iter() {
-        runners.insert(r.name.clone(), build_runner(&r.runner, &cfg.cache));
+        runners.insert(r.key.clone(), build_runner(&r.runner, &cfg.cache));
     }
 
     // Optional tunnel — the watcher stays decoupled from ingress.
@@ -606,7 +618,7 @@ fn cmd_watch(cfg: Arc<Config>) {
     for r in watched.iter() {
         shared
             .queues
-            .insert(r.name.clone(), Queue::with_policy(r.policy));
+            .insert(r.key.clone(), Queue::with_policy(r.policy));
     }
     let mut claim: Arc<dyn TryClaim> = Arc::new(LocalClaim);
     let store: Arc<dyn QueueStore> = match cfg.queue.kind.as_str() {
@@ -691,7 +703,7 @@ fn cmd_watch(cfg: Arc<Config>) {
                         g = cv.wait(g).unwrap();
                     }
                 };
-                let repo = watched.iter().find(|r| r.name == repo_name).unwrap();
+                let repo = watched.iter().find(|r| r.key == repo_name).unwrap();
                 let sink = &*sinks[&repo_name];
                 let runner = &*runners[&repo_name];
                 telemetry.event(&RunEvent::Started {
@@ -720,6 +732,14 @@ fn cmd_watch(cfg: Arc<Config>) {
                     status,
                     wall,
                 });
+                // Settle the queue BEFORE the observability writes —
+                // anything watching history.jsonl then also sees the
+                // persisted queue drained.
+                {
+                    let mut g = shared.lock().unwrap();
+                    let _ = g.queues.get_mut(&repo_name).map(|q| q.running = None);
+                    persist_queue(&g, &*store);
+                }
                 // Observability write-paths — failures never break the run.
                 let _ = bupha_history::record(
                     &PathBuf::from(&cfg.worktree.base).join("history.jsonl"),
@@ -739,9 +759,6 @@ fn cmd_watch(cfg: Arc<Config>) {
                         wall_secs: wall.as_secs(),
                     });
                 }
-                let mut g = shared.lock().unwrap();
-                let _ = g.queues.get_mut(&repo_name).map(|q| q.running = None);
-                persist_queue(&g, &*store);
             }
         });
     }
@@ -844,7 +861,7 @@ fn cmd_watch(cfg: Arc<Config>) {
                         // replayed signed payload: same delivery id
                         (200, "duplicate delivery")
                     }
-                    Some(r) => {
+                    Some(_) => {
                         match trigger.parse_push(&body) {
                             Some(PushOutcome::Skip) => (200, "ignored: no-op event"),
                             Some(PushOutcome::Push {
@@ -853,53 +870,65 @@ fn cmd_watch(cfg: Arc<Config>) {
                                 sha,
                                 sender,
                             }) => {
-                                if git_ref != r.branch {
+                                // Every job of the repo watching this
+                                // ref gets the push — each keeps its
+                                // own queue, policy and runner.
+                                let matched: Vec<&bupha_core::WatchedRepo> = watched
+                                    .iter()
+                                    .filter(|w| w.name == repo_name && w.branch == git_ref)
+                                    .collect();
+                                if matched.is_empty() {
                                     (200, "ignored: not the watched branch")
                                 } else if !access.allow(&sender, &repo_name) {
                                     println!("denied: {sender} may not trigger {repo_name}");
                                     (403, "sender not allowed")
                                 } else {
-                                    // Lock: mutate queue + decide, then drop.
+                                    // Lock: mutate queues + decide, then drop.
                                     // HTTP posts and process kills happen after.
-                                    let mut old = None;
+                                    let mut olds: Vec<(String, String)> = vec![];
+                                    let mut queued = false;
                                     let mut kill = false;
-                                    let (code, msg) = {
+                                    {
                                         let mut g = shared.lock().unwrap();
-                                        let (res, running) = {
-                                            let q = g.queues.get_mut(&repo_name).unwrap();
-                                            (q.enqueue(sha.clone()), q.running.is_some())
-                                        };
-                                        persist_queue(&g, &*store);
-                                        match res {
-                                            EnqueueResult::Duplicate => (200, "already queued"),
-                                            EnqueueResult::Queued { superseded } => {
-                                                old = superseded;
-                                                telemetry.event(&RunEvent::Queued {
-                                                    repo: repo_name.clone(),
-                                                    sha: sha.clone(),
-                                                });
-                                                kill = r.runner.cancel_running && running;
-                                                if kill {
-                                                    g.queues
-                                                        .get_mut(&repo_name)
-                                                        .unwrap()
-                                                        .cancelled = true;
+                                        for w in &matched {
+                                            let q = g.queues.get_mut(&w.key).unwrap();
+                                            // Snapshot before enqueue:
+                                            // only THIS job's in-flight
+                                            // run is killable — another
+                                            // job's running entry must
+                                            // not be touched.
+                                            let running = q.running.is_some();
+                                            match q.enqueue(sha.clone()) {
+                                                EnqueueResult::Duplicate => {}
+                                                EnqueueResult::Queued { superseded } => {
+                                                    queued = true;
+                                                    telemetry.event(&RunEvent::Queued {
+                                                        repo: w.key.clone(),
+                                                        sha: sha.clone(),
+                                                    });
+                                                    if let Some(old) = superseded {
+                                                        olds.push((w.key.clone(), old));
+                                                    }
+                                                    if w.runner.cancel_running && running {
+                                                        q.cancelled = true;
+                                                        kill = true;
+                                                    }
                                                 }
-                                                (202, "queued")
                                             }
                                         }
-                                    };
-                                    if let Some(old) = old {
+                                        persist_queue(&g, &*store);
+                                    }
+                                    for (key, old) in olds {
                                         telemetry.event(&RunEvent::Superseded {
-                                            repo: repo_name.clone(),
+                                            repo: key.clone(),
                                             sha: old.clone(),
                                         });
-                                        sinks[&repo_name].post(
+                                        sinks[&key].post(
                                             &old,
                                             "error",
                                             &format!("superseded by {}", &sha[..12.min(sha.len())]),
                                         );
-                                        println!("superseded {repo_name} {old:.12} -> {:.12}", sha);
+                                        println!("superseded {key} {old:.12} -> {:.12}", sha);
                                     }
                                     if kill {
                                         let _ = child.lock().unwrap().as_mut().map(|c| {
@@ -907,10 +936,12 @@ fn cmd_watch(cfg: Arc<Config>) {
                                             println!("cancelled in-flight run");
                                         });
                                     }
-                                    if code == 202 {
+                                    if queued {
                                         cv.notify_one();
+                                        (202, "queued")
+                                    } else {
+                                        (200, "already queued")
                                     }
-                                    (code, msg)
                                 }
                             }
                             None => (400, "unparseable payload"),
@@ -1063,7 +1094,9 @@ fn cmd_doctor(cfg: &Config) {
     );
     match cfg.watched() {
         Ok(ws) => {
-            for r in &ws {
+            // One check per repo — a multi-job repo shares one dir.
+            let mut seen: std::collections::HashSet<&str> = Default::default();
+            for r in ws.iter().filter(|r| seen.insert(r.name.as_str())) {
                 check(
                     &format!("repo {}", r.name),
                     r.dir.is_dir(),
@@ -1441,25 +1474,31 @@ fn cmd_deploy(cfg: &Config, sub: &DeploySub, cli_config: Option<String>) {
                 std::process::exit(1);
             });
             let token = secret(&cfg.runner.token_env).unwrap_or_default();
-            watched.iter().for_each(|r| {
-                // Each hook registers with its own secret — the
-                // repo's secret_env when set, else the global.
-                let env = r.secret_env.as_deref().unwrap_or(&cfg.trigger.secret_env);
-                let wh_secret = secret(env).unwrap_or_else(|| {
-                    eprintln!("{env} required (env, keyring or env file)");
-                    std::process::exit(1);
+            // One hook per repo — a multi-job repo's jobs all feed
+            // from the same webhook.
+            let mut seen: std::collections::HashSet<&str> = Default::default();
+            watched
+                .iter()
+                .filter(|r| seen.insert(r.name.as_str()))
+                .for_each(|r| {
+                    // Each hook registers with its own secret — the
+                    // repo's secret_env when set, else the global.
+                    let env = r.secret_env.as_deref().unwrap_or(&cfg.trigger.secret_env);
+                    let wh_secret = secret(env).unwrap_or_else(|| {
+                        eprintln!("{env} required (env, keyring or env file)");
+                        std::process::exit(1);
+                    });
+                    let msg = (GitHubAdmin {
+                        repo: r.name.clone(),
+                        api_base: cfg.trigger.api_base.clone(),
+                    })
+                    .register_hook(&url, &wh_secret, &token)
+                    .unwrap_or_else(|e| {
+                        eprintln!("webhook {}: {e}", r.name);
+                        std::process::exit(1);
+                    });
+                    println!("{msg}");
                 });
-                let msg = (GitHubAdmin {
-                    repo: r.name.clone(),
-                    api_base: cfg.trigger.api_base.clone(),
-                })
-                .register_hook(&url, &wh_secret, &token)
-                .unwrap_or_else(|e| {
-                    eprintln!("webhook {}: {e}", r.name);
-                    std::process::exit(1);
-                });
-                println!("{msg}");
-            });
         }
         DeploySub::Release { .. } => {
             // Handled in main() before config is loaded.
@@ -1627,21 +1666,27 @@ fn cmd_destroy(cfg: &Config, sub: &DestroySub) {
                 std::process::exit(1);
             });
             let token = secret(&cfg.runner.token_env).unwrap_or_default();
-            watched.iter().for_each(|r| {
-                let msg = (GitHubAdmin {
-                    repo: r.name.clone(),
-                    api_base: cfg.trigger.api_base.clone(),
-                })
-                .remove_hook(&cfg.tunnel.public_url, &token)
-                .unwrap_or_else(|e| {
-                    eprintln!("webhook {}: {e}", r.name);
-                    std::process::exit(1);
+            // One hook per repo — jobs share it.
+            let mut seen: std::collections::HashSet<&str> = Default::default();
+            watched
+                .iter()
+                .filter(|r| seen.insert(r.name.as_str()))
+                .for_each(|r| {
+                    let msg = (GitHubAdmin {
+                        repo: r.name.clone(),
+                        api_base: cfg.trigger.api_base.clone(),
+                    })
+                    .remove_hook(&cfg.tunnel.public_url, &token)
+                    .unwrap_or_else(|e| {
+                        eprintln!("webhook {}: {e}", r.name);
+                        std::process::exit(1);
+                    });
+                    println!("{msg}");
                 });
-                println!("{msg}");
-            });
         }
         DestroySub::Worktrees => {
-            // worktrees land at <base>-<repo>-<sha12>; queue.json in base
+            // worktrees land at <base>-<repo>[-<job>]-<sha12>;
+            // queue.json in base
             let base = PathBuf::from(&cfg.worktree.base);
             let prefix = base
                 .file_name()
@@ -1668,7 +1713,9 @@ fn cmd_destroy(cfg: &Config, sub: &DestroySub) {
                 println!("removed {}", q.display());
             }
             if let Ok(ws) = cfg.watched() {
-                for r in &ws {
+                // One prune per repo — jobs share the clone.
+                let mut seen: std::collections::HashSet<&str> = Default::default();
+                for r in ws.iter().filter(|r| seen.insert(r.name.as_str())) {
                     GitVcs.worktree_prune(&r.dir);
                 }
             }
@@ -1780,7 +1827,9 @@ fn cmd_runs(cfg: &Config, repo: Option<&str>) {
             continue;
         };
         let r = v["repo"].as_str().unwrap_or_default();
-        if repo.is_some_and(|w| w != r) {
+        // A bare repo filter also matches its job keys — `runs o/r`
+        // catches `o/r:gate`; `runs o/r:gate` stays exact.
+        if repo.is_some_and(|w| w != r && !r.starts_with(&format!("{w}:"))) {
             continue;
         }
         println!(

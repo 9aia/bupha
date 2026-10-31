@@ -156,10 +156,29 @@ fn serve(f: impl Fn(&str, &[u8]) -> (u16, String) + Send + 'static) -> (String, 
     (format!("http://127.0.0.1:{port}"), hits)
 }
 
-fn push_body(repo_name: &str, sha: &str, sender: &str) -> String {
+/// serve() variant that records (reqline, body) per request — for
+/// asserting which statuses actually landed on the forge.
+fn serve_rec() -> (String, Arc<Mutex<Vec<(String, String)>>>) {
+    let rec = Arc::new(Mutex::new(Vec::<(String, String)>::new()));
+    let r = rec.clone();
+    let (url, _hits) = serve(move |req, body| {
+        r.lock().unwrap().push((
+            req.trim().to_string(),
+            String::from_utf8_lossy(body).to_string(),
+        ));
+        (201, "{}".into())
+    });
+    (url, rec)
+}
+
+fn push_body_ref(repo_name: &str, git_ref: &str, sha: &str, sender: &str) -> String {
     format!(
-        r#"{{"ref":"refs/heads/main","repository":{{"full_name":"{repo_name}"}},"after":"{sha}","sender":{{"login":"{sender}"}}}}"#
+        r#"{{"ref":"{git_ref}","repository":{{"full_name":"{repo_name}"}},"after":"{sha}","sender":{{"login":"{sender}"}}}}"#
     )
+}
+
+fn push_body(repo_name: &str, sha: &str, sender: &str) -> String {
+    push_body_ref(repo_name, "refs/heads/main", sha, sender)
 }
 
 fn stop(mut c: Child, shutdown: &Path) {
@@ -328,6 +347,305 @@ dir = "{repo}"
         .flatten()
         .collect();
     assert!(!att.is_empty(), "file attestations written");
+
+    stop(svc, &shutdown);
+}
+
+#[test]
+fn cancel_supersede_honest_statuses() {
+    // Same mechanics as full_pipeline_run_supersede_cancel, but the
+    // fake forge RECORDS every status post — assert the honest ones
+    // ("cancelled", "superseded by") actually land, and that the
+    // superseded sha never got a "pending".
+    let t = tmp("honest");
+    let repo_dir = t.join("repo");
+    std::fs::create_dir_all(&repo_dir).unwrap();
+    let shas = repo(&repo_dir, 3);
+    let port = free_port();
+    let shutdown = t.join("down");
+    let (api, rec) = serve_rec();
+
+    let cfg = format!(
+        r#"
+[trigger]
+kind = "github"
+listen = "127.0.0.1:{port}"
+secret_env = "E2E_SECRET"
+api_base = "{api}"
+[runner]
+kind = "script"
+cmd = "sleep 5"
+cancel_running = true
+[status]
+kind = "github"
+context = "ci/test"
+[tunnel]
+provider = "none"
+[worktree]
+base = "{base}"
+[[repo]]
+name = "o/r"
+dir = "{repo}"
+"#,
+        base = t.display(),
+        repo = repo_dir.display()
+    );
+    let cfg_path = t.join("bupha.toml");
+    std::fs::write(&cfg_path, cfg).unwrap();
+
+    let svc = spawn_watch(
+        &cfg_path,
+        &shutdown,
+        &[("E2E_SECRET", "s3cr3t"), ("BUPHA_TOKEN", "tok")],
+    );
+    wait_listen(port);
+
+    let status_for = |sha: &str| {
+        rec.lock()
+            .unwrap()
+            .iter()
+            .filter(|(req, _)| req.contains(&format!("/statuses/{sha}")))
+            .map(|(_, b)| b.clone())
+            .collect::<Vec<_>>()
+    };
+
+    // sha0 in flight — its pending post proves the run started.
+    let (c, m) = good(port, "s3cr3t", &push_body("o/r", &shas[0], "alice"));
+    assert_eq!((c, m.as_str()), (202, "queued"));
+    wait_for(
+        || status_for(&shas[0]).iter().any(|b| b.contains("pending")),
+        "sha0 pending status",
+    );
+
+    // sha1 kills sha0's run; sha2 supersedes sha1 while it is still
+    // pending — the superseded post is made synchronously inside the
+    // push handler, so the 202 implies it already landed. sha2's
+    // push arrives well inside the kill->dequeue window (the worker
+    // polls try_wait every 500ms and still owes a status post +
+    // worktree teardown before it can pick sha1 up).
+    let (c, m) = good(port, "s3cr3t", &push_body("o/r", &shas[1], "alice"));
+    assert_eq!((c, m.as_str()), (202, "queued"));
+    let (c, m) = good(port, "s3cr3t", &push_body("o/r", &shas[2], "alice"));
+    assert_eq!((c, m.as_str()), (202, "queued"));
+
+    // sha1: superseded while pending — an honest error, never a run.
+    let s1 = status_for(&shas[1]);
+    assert!(
+        s1.iter()
+            .any(|b| b.contains("\"error\"") && b.contains("superseded by")),
+        "sha1 superseded status missing: {s1:?}"
+    );
+    assert!(
+        !s1.iter().any(|b| b.contains("pending")),
+        "sha1 must never have run: {s1:?}"
+    );
+
+    // sha0: killed mid-flight — reported cancelled, not failed.
+    wait_for(
+        || {
+            status_for(&shas[0])
+                .iter()
+                .any(|b| b.contains("\"error\"") && b.contains("ci cancelled"))
+        },
+        "sha0 cancelled status",
+    );
+
+    // sha2: the surviving push runs to a real success.
+    wait_for(
+        || {
+            status_for(&shas[2])
+                .iter()
+                .any(|b| b.contains("\"success\""))
+        },
+        "sha2 success status",
+    );
+    wait_for(
+        || {
+            std::fs::read_to_string(t.join("history.jsonl"))
+                .map(|s| s.contains(&shas[2]))
+                .unwrap_or(false)
+        },
+        "sha2 history record",
+    );
+    let hist = std::fs::read_to_string(t.join("history.jsonl")).unwrap();
+    assert!(
+        hist.contains(&format!(
+            "\"sha\":\"{}\",\"repo\":\"o/r\",\"status\":\"failure\"",
+            shas[0]
+        )),
+        "sha0 failure record: {hist}"
+    );
+    assert!(
+        hist.contains(&format!(
+            "\"sha\":\"{}\",\"repo\":\"o/r\",\"status\":\"success\"",
+            shas[2]
+        )),
+        "sha2 success record: {hist}"
+    );
+    assert!(
+        !hist.contains(&shas[1]),
+        "superseded sha1 has no run record: {hist}"
+    );
+
+    stop(svc, &shutdown);
+
+    // Nothing survives a clean stop: queue drains to empty.
+    let store = RedbQueueStore::open(t.join("queue.redb")).unwrap();
+    let map = store.load().unwrap();
+    let q = &map["o/r"];
+    assert!(q.pending.is_empty() && q.running.is_none(), "{q:?}");
+}
+
+#[test]
+fn multi_job_routing_and_queue_independence() {
+    // One [[repo]] with three [[repo.jobs]]: gate + extra share
+    // refs/heads/main (one push feeds both queues), docs watches
+    // refs/heads/docs. A docs push while gate is in flight must NOT
+    // kill gate's run — cancel_running is evaluated per job queue.
+    let t = tmp("jobs");
+    let repo_dir = t.join("repo");
+    std::fs::create_dir_all(&repo_dir).unwrap();
+    let shas = repo(&repo_dir, 3);
+    let port = free_port();
+    let shutdown = t.join("down");
+    let (api, rec) = serve_rec();
+
+    let cfg = format!(
+        r#"
+[trigger]
+kind = "github"
+listen = "127.0.0.1:{port}"
+secret_env = "E2E_SECRET"
+api_base = "{api}"
+[runner]
+kind = "script"
+cmd = "sleep 4"
+cancel_running = true
+[status]
+kind = "github"
+context = "ci/test"
+[tunnel]
+provider = "none"
+[worktree]
+base = "{base}"
+[[repo]]
+name = "o/r"
+dir = "{repo}"
+[[repo.jobs]]
+name = "gate"
+[[repo.jobs]]
+name = "docs"
+branch = "refs/heads/docs"
+context = "docs-ci"
+[[repo.jobs]]
+name = "extra"
+"#,
+        base = t.display(),
+        repo = repo_dir.display()
+    );
+    let cfg_path = t.join("bupha.toml");
+    std::fs::write(&cfg_path, cfg).unwrap();
+
+    let svc = spawn_watch(
+        &cfg_path,
+        &shutdown,
+        &[("E2E_SECRET", "s3cr3t"), ("BUPHA_TOKEN", "tok")],
+    );
+    wait_listen(port);
+
+    let status_for = |sha: &str| {
+        rec.lock()
+            .unwrap()
+            .iter()
+            .filter(|(req, _)| req.contains(&format!("/statuses/{sha}")))
+            .map(|(_, b)| b.clone())
+            .collect::<Vec<_>>()
+    };
+
+    // gate picks up sha0 on main — wait for its pending post so the
+    // run is provably in flight when the docs push arrives.
+    let (c, m) = good(port, "s3cr3t", &push_body("o/r", &shas[0], "alice"));
+    assert_eq!((c, m.as_str()), (202, "queued"));
+    wait_for(
+        || status_for(&shas[0]).iter().any(|b| b.contains("pending")),
+        "gate pending status",
+    );
+
+    // A push to the docs ref matches ONLY the docs job: queued there,
+    // and gate's in-flight run is not its business — it completes.
+    let (c, m) = good(
+        port,
+        "s3cr3t",
+        &push_body_ref("o/r", "refs/heads/docs", &shas[1], "alice"),
+    );
+    assert_eq!((c, m.as_str()), (202, "queued"));
+
+    // No job watches this ref — exact legacy response.
+    let (c, m) = good(
+        port,
+        "s3cr3t",
+        &push_body_ref("o/r", "refs/heads/other", &shas[2], "alice"),
+    );
+    assert_eq!((c, m.as_str()), (200, "ignored: not the watched branch"));
+
+    // gate's sha0 run survives the docs push (cancel is per-job):
+    // both same-branch jobs eventually run sha0, none cancelled.
+    wait_for(
+        || {
+            let s = status_for(&shas[0]);
+            s.iter()
+                .any(|b| b.contains("\"success\"") && b.contains("ci/test/gate"))
+                && s.iter()
+                    .any(|b| b.contains("\"success\"") && b.contains("ci/test/extra"))
+        },
+        "sha0 success under both job contexts",
+    );
+
+    // docs runs sha1 under its explicit context override.
+    wait_for(
+        || {
+            status_for(&shas[1])
+                .iter()
+                .any(|b| b.contains("\"success\""))
+        },
+        "docs success status",
+    );
+
+    // Another main push queues into both same-branch jobs again;
+    // the immediate replay finds it already pending/running in BOTH
+    // queues -> the all-Duplicate response.
+    let (c, m) = good(port, "s3cr3t", &push_body("o/r", &shas[2], "alice"));
+    assert_eq!((c, m.as_str()), (202, "queued"));
+    let (c, m) = good(port, "s3cr3t", &push_body("o/r", &shas[2], "alice"));
+    assert_eq!((c, m.as_str()), (200, "already queued"));
+
+    wait_for(
+        || {
+            std::fs::read_to_string(t.join("history.jsonl"))
+                .map(|s| {
+                    s.contains(&format!("\"sha\":\"{}\",\"repo\":\"o/r:gate\"", shas[2]))
+                        && s.contains(&format!("\"sha\":\"{}\",\"repo\":\"o/r:extra\"", shas[2]))
+                })
+                .unwrap_or(false)
+        },
+        "both job runs for one push",
+    );
+
+    // Everything settled — now assert on the recorded statuses:
+    // gate never saw a cancel, docs carried its own context, extra
+    // posted under the derived <context>/<job> context.
+    let s0 = status_for(&shas[0]);
+    assert!(
+        !s0.iter().any(|b| b.contains("cancelled")),
+        "docs push must not cancel gate/extra: {s0:?}"
+    );
+    let s1 = status_for(&shas[1]);
+    assert!(
+        s1.iter().all(|b| b.contains("docs-ci")),
+        "job context override: {s1:?}"
+    );
+    let s2 = status_for(&shas[2]);
+    assert!(s2.iter().any(|b| b.contains("ci/test/extra")), "{s2:?}");
 
     stop(svc, &shutdown);
 }

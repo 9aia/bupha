@@ -1588,3 +1588,47 @@ name = "zmij"
 version = "1.0.23"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "29666d0abbfad1e3dc4dcf6144730dd3a3ab225bbbdac83319345b1b44ccfc1b"
+
+[[patch.unused]]
+name = "sepia-acp"
+version = "0.0.0"
+
+[[patch.unused]]
+name = "sepia-convert"
+version = "0.0.0"
+
+[[patch.unused]]
+name = "sepia-core"
+version = "0.0.0"
+
+[[patch.unused]]
+name = "sepia-driver"
+version = "0.0.0"
+
+[[patch.unused]]
+name = "sepia-driver-cline"
+version = "0.0.0"
+
+[[patch.unused]]
+name = "sepia-driver-devin"
+version = "0.0.0"
+
+[[patch.unused]]
+name = "sepia-host"
+version = "0.0.0"
+
+[[patch.unused]]
+name = "sepia-meta"
+version = "0.0.0"
+
+[[patch.unused]]
+name = "sepia-proto"
+version = "0.0.0"
+
+[[patch.unused]]
+name = "sepia-session"
+version = "0.0.0"
+
+[[patch.unused]]
+name = "sepia-testkit"
+version = "0.0.0"
