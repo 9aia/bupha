@@ -767,10 +767,7 @@ fn fake_redis() -> (String, Arc<Mutex<HashMap<String, String>>>) {
                         }
                         "DEL" => {
                             let mut m = map.lock().unwrap();
-                            let n = argv[1..]
-                                .iter()
-                                .filter(|k| m.remove(*k).is_some())
-                                .count();
+                            let n = argv[1..].iter().filter(|k| m.remove(*k).is_some()).count();
                             format!(":{n}\r\n")
                         }
                         // WorkQueue lists live as JSON-array strings.
@@ -970,10 +967,9 @@ fn redis_done_marker_drops_completed_sha() {
     let (rurl, rmap) = fake_redis();
     let (api, rec) = serve_rec();
 
-    rmap.lock().unwrap().insert(
-        format!("bupha:done:o/r:{}", shas[0]),
-        "1".into(),
-    );
+    rmap.lock()
+        .unwrap()
+        .insert(format!("bupha:done:o/r:{}", shas[0]), "1".into());
 
     let cfg = format!(
         r#"
@@ -1084,7 +1080,10 @@ fn restored_running_sha_requeues_at_front() {
     );
     let hist = std::fs::read_to_string(t.join("history.jsonl")).unwrap();
     let l0 = hist.lines().next().unwrap();
-    assert!(l0.contains(&shas[0]), "restored running sha runs first: {hist}");
+    assert!(
+        l0.contains(&shas[0]),
+        "restored running sha runs first: {hist}"
+    );
     stop(svc, &shutdown);
 }
 
@@ -1683,16 +1682,30 @@ fn worker_claims_runs_and_completes() {
     // o/r (latest): old superseded by new; new runs to success.
     m.insert(
         "bupha:work:o/r".into(),
-        format!("[{},{}]", j("o/r", &shas[0], "[]"), j("o/r", &shas[1], "[]")),
+        format!(
+            "[{},{}]",
+            j("o/r", &shas[0], "[]"),
+            j("o/r", &shas[1], "[]")
+        ),
     );
     // o/r2: runs to failure (cmd=false).
-    m.insert("bupha:work:o/r2".into(), format!("[{}]", j("o/r2", &shas[0], "[]")));
+    m.insert(
+        "bupha:work:o/r2".into(),
+        format!("[{}]", j("o/r2", &shas[0], "[]")),
+    );
     // o/ren: long run -> renew walks ok -> err -> LOST -> kill.
-    m.insert("bupha:work:o/ren".into(), format!("[{}]", j("o/ren", &shas[0], "[]")));
+    m.insert(
+        "bupha:work:o/ren".into(),
+        format!("[{}]", j("o/ren", &shas[0], "[]")),
+    );
     // o/rp: newest is a peer's lease -> old pruned as superseded.
     m.insert(
         "bupha:work:o/rp".into(),
-        format!("[{},{}]", j("o/rp", &shas[0], "[]"), j("o/rp", &shas[1], "[]")),
+        format!(
+            "[{},{}]",
+            j("o/rp", &shas[0], "[]"),
+            j("o/rp", &shas[1], "[]")
+        ),
     );
     m.insert(format!("bupha:claim:o/rp:{}", shas[1]), "peer".into());
     // Unwatched + label-gated keys: other workers' jobs, never scanned.
@@ -1763,8 +1776,14 @@ runner = {{ kind = "script", cmd = "sleep 4" }}
         )),
         "{hist}"
     );
-    assert!(hist.contains("\"repo\":\"o/r2\",\"status\":\"failure\""), "{hist}");
-    assert!(hist.contains("\"repo\":\"o/ren\",\"status\":\"claim-lost\""), "{hist}");
+    assert!(
+        hist.contains("\"repo\":\"o/r2\",\"status\":\"failure\""),
+        "{hist}"
+    );
+    assert!(
+        hist.contains("\"repo\":\"o/ren\",\"status\":\"claim-lost\""),
+        "{hist}"
+    );
     // o/r's superseded older sha never ran; o/rp's job was pruned to
     // a peer's lease — no run, no history line at all.
     assert!(
@@ -1791,7 +1810,9 @@ runner = {{ kind = "script", cmd = "sleep 4" }}
     );
 
     // Poisoned scans hit the error arm without killing the loop.
-    rmap.lock().unwrap().insert("bupha:poison".into(), "1".into());
+    rmap.lock()
+        .unwrap()
+        .insert("bupha:poison".into(), "1".into());
     std::thread::sleep(std::time::Duration::from_millis(300));
     stop(svc, &shutdown);
 }
@@ -1859,11 +1880,11 @@ runs_on = ["arch=arm64"]
         .get("bupha:queue:o/r")
         .cloned()
         .unwrap_or_default();
-    assert!(lq.contains("\"pending\":[]"), "label-gated job skipped local queue: {lq}");
-    let w: Vec<String> = serde_json::from_str(
-        &rmap.lock().unwrap()["bupha:work:o/r"],
-    )
-    .unwrap();
+    assert!(
+        lq.contains("\"pending\":[]"),
+        "label-gated job skipped local queue: {lq}"
+    );
+    let w: Vec<String> = serde_json::from_str(&rmap.lock().unwrap()["bupha:work:o/r"]).unwrap();
     assert_eq!(w.len(), 1);
     assert!(w[0].contains("\"arch=arm64\""));
     stop(svc, &shutdown);

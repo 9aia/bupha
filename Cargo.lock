@@ -95,6 +95,7 @@ dependencies = [
  "bupha-attest",
  "bupha-attest-file",
  "bupha-attest-sigstore",
+ "bupha-audit-file",
  "bupha-cache",
  "bupha-cache-sccache",
  "bupha-cloudflared",
@@ -174,6 +175,14 @@ version = "0.1.0"
 dependencies = [
  "bupha-attest",
  "bupha-attest-file",
+]
+
+[[package]]
+name = "bupha-audit-file"
+version = "0.1.0"
+dependencies = [
+ "bupha-status",
+ "serde_json",
 ]
 
 [[package]]

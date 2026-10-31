@@ -511,9 +511,18 @@ fn service_subcommands() {
         (vec!["service", "status"], "enabled=enabled active=inactive"),
         (vec!["service", "restart"], "bupha-watch.service restarted"),
         (vec!["service", "logs"], "journal-line"),
-        (vec!["service", "--worker", "enable"], "bupha-worker.service enabled"),
-        (vec!["service", "--worker", "disable"], "bupha-worker.service disabled"),
-        (vec!["service", "--worker", "restart"], "bupha-worker.service restarted"),
+        (
+            vec!["service", "--worker", "enable"],
+            "bupha-worker.service enabled",
+        ),
+        (
+            vec!["service", "--worker", "disable"],
+            "bupha-worker.service disabled",
+        ),
+        (
+            vec!["service", "--worker", "restart"],
+            "bupha-worker.service restarted",
+        ),
     ] {
         let o = bupha(&args, &env);
         assert!(o.status.success(), "{args:?}: {}", out_ok(&o));
@@ -671,7 +680,11 @@ fn deploy_service_variants() {
     let homew = t.join("hw");
     let o = bupha(
         &[
-            "deploy", "service", "--worker", "--no-start", "--config",
+            "deploy",
+            "service",
+            "--worker",
+            "--no-start",
+            "--config",
             cfgp.to_str().unwrap(),
         ],
         &[
@@ -682,8 +695,15 @@ fn deploy_service_variants() {
     assert!(o.status.success(), "{}", out_ok(&o));
     let wunit = homew.join(".config/systemd/user/bupha-worker.service");
     let u = std::fs::read_to_string(&wunit).unwrap();
-    assert!(u.contains(" worker --config") || u.contains(" worker
-") || u.contains("worker"), "{u}");
+    assert!(
+        u.contains(" worker --config")
+            || u.contains(
+                " worker
+"
+            )
+            || u.contains("worker"),
+        "{u}"
+    );
 
     // default: write + enable --now
     let home2 = t.join("h2");
@@ -1219,7 +1239,13 @@ fn destroy_variants() {
     std::fs::create_dir_all(&wdir).unwrap();
     std::fs::write(wdir.join("bupha-worker.service"), "x").unwrap();
     let o = bupha(
-        &["destroy", "service", "--worker", "--config", cfgp.to_str().unwrap()],
+        &[
+            "destroy",
+            "service",
+            "--worker",
+            "--config",
+            cfgp.to_str().unwrap(),
+        ],
         &[
             ("HOME", hw.display().to_string()),
             ("PATH", stubbed_path(&bin)),
@@ -1652,7 +1678,10 @@ fn worker_requires_shared_queue() {
     assert_eq!(o.status.code(), Some(2));
     assert!(out_ok(&o).contains("url"), "{}", out_ok(&o));
     // watched() rejects the config (no [[repo]] entries) -> "config:" + exit 2.
-    let cfgp3 = cfg(&t, "[queue]\nkind = \"redis\"\nurl = \"redis://127.0.0.1:1/\"\n");
+    let cfgp3 = cfg(
+        &t,
+        "[queue]\nkind = \"redis\"\nurl = \"redis://127.0.0.1:1/\"\n",
+    );
     let o = bupha(
         &["worker", "--config", cfgp3.to_str().unwrap()],
         &[("HOME", t.join("h3").display().to_string())],

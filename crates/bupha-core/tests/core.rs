@@ -8,10 +8,10 @@ fn sha_validation() {
     assert!(is_valid_sha("main.feature-2_x"));
     assert!(!is_valid_sha("short"));
     assert!(!is_valid_sha(&"a".repeat(65)));
-    assert!(!is_valid_sha("a/../b"));   // traversal
-    assert!(!is_valid_sha("a/b"));      // path separator
-    assert!(!is_valid_sha("a b"));      // whitespace
-    assert!(!is_valid_sha("$(id)"));    // shell metachars
+    assert!(!is_valid_sha("a/../b")); // traversal
+    assert!(!is_valid_sha("a/b")); // path separator
+    assert!(!is_valid_sha("a b")); // whitespace
+    assert!(!is_valid_sha("$(id)")); // shell metachars
 }
 
 #[test]
@@ -19,15 +19,18 @@ fn seen_dedupes_and_evicts() {
     let mut s = Seen::new(2);
     assert!(s.insert("a".into()));
     assert!(s.insert("b".into()));
-    assert!(!s.insert("a".into()));   // replay → false
-    assert!(s.insert("c".into()));    // evicts "a"
-    assert!(s.insert("a".into()));    // "a" is fresh again
+    assert!(!s.insert("a".into())); // replay → false
+    assert!(s.insert("c".into())); // evicts "a"
+    assert!(s.insert("a".into())); // "a" is fresh again
 }
 
 #[test]
 fn queue_latest_supersedes() {
     let mut q = Queue::with_policy(QueuePolicy::Latest);
-    assert!(matches!(q.enqueue("a".into()), EnqueueResult::Queued { superseded: None }));
+    assert!(matches!(
+        q.enqueue("a".into()),
+        EnqueueResult::Queued { superseded: None }
+    ));
     match q.enqueue("b".into()) {
         EnqueueResult::Queued { superseded } => assert_eq!(superseded.as_deref(), Some("a")),
         _ => panic!("expected queued"),

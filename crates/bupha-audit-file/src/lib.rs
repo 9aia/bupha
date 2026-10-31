@@ -51,7 +51,11 @@ impl AuditLog {
         // Audit must never break the pipeline — a write error is a
         // stderr note, not a failure.
         let _g = self.lock.lock().unwrap();
-        match OpenOptions::new().create(true).append(true).open(&self.path) {
+        match OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(&self.path)
+        {
             Ok(mut f) => {
                 if let Err(e) = writeln!(f, "{line}") {
                     eprintln!("audit: write {}: {e}", self.path.display());
