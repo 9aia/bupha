@@ -23,6 +23,7 @@ export default defineConfig({
           { text: "llms-full.txt", link: "https://9aia.com/bupha/llms-full.txt", target: "_blank" },
         ],
       },
+      { text: "9aia", link: "https://9aia.com" },
     ],
     sidebar: [
       {
