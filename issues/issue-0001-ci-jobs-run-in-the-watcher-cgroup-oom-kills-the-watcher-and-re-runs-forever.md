@@ -1,7 +1,7 @@
 +++
 id = "I-001"
 title = "CI jobs run in the watcher cgroup — OOM kills the watcher and re-runs forever"
-status = "open"
+status = "done"
 created = "2026-11-02"
 owner = "devin"
 priority = "high"
