@@ -2,7 +2,7 @@ name = "bupha"
 
 [next]
 t = 32
-i = 1
+i = 2
 p = 2
 adr = 5
 pl = 1
