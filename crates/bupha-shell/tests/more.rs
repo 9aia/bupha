@@ -6,7 +6,7 @@ use bupha_shell::{ShellCfg, ShellRunner};
 
 #[test]
 fn name_and_default_cmd() {
-    let r = ShellRunner::new(ShellCfg { cmd: None });
+    let r = ShellRunner::new(ShellCfg { cmd: None, isolate: None, memory_max: None });
     assert_eq!(r.name(), "script");
     // workdir without ci.sh -> bash -c ./ci.sh still spawns; exits 127
     let d = std::env::temp_dir().join(format!("bupha-sh-{}", std::process::id()));
@@ -30,6 +30,8 @@ fn spawn_fails_without_bash() {
     std::env::set_var("PATH", &d);
     let r = ShellRunner::new(ShellCfg {
         cmd: Some("true".into()),
+        isolate: None,
+        memory_max: None,
     });
     assert!(r
         .spawn(&RunCtx {

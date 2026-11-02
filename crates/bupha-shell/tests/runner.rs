@@ -5,6 +5,8 @@ use bupha_shell::{ShellCfg, ShellRunner};
 fn runs_cmd_in_worktree() {
     let r = ShellRunner::new(ShellCfg {
         cmd: Some("pwd".into()),
+        isolate: None,
+        memory_max: None,
     });
     let mut c = r
         .spawn(&RunCtx {
@@ -21,6 +23,8 @@ fn runs_cmd_in_worktree() {
 fn failure_propagates() {
     let r = ShellRunner::new(ShellCfg {
         cmd: Some("exit 3".into()),
+        isolate: None,
+        memory_max: None,
     });
     let mut c = r
         .spawn(&RunCtx {
