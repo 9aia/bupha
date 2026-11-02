@@ -6,9 +6,11 @@ a secret). Without it, sccache uses a local cache volume.
 
 ## Local S3 (garage)
 
+    DATA=${XDG_DATA_HOME:-$HOME/.local/share}/bupha
+
     docker run -d --name garage --restart always \
-      -v $HOME/bupha-data/garage:/data \
-      -v $HOME/bupha-data/garage.toml:/etc/garage.toml \
+      -v $DATA/garage:/data \
+      -v $DATA/garage.toml:/etc/garage.toml \
       -p 9100:9100 dxflrs/garage:v1.x.x
 
 Then in the garage CLI: `bucket create bupha-ci` → `key create sccache`
