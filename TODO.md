@@ -10,3 +10,4 @@
 - [ ] T-038 SEC: ssh runner input allowlists — remote/tag/env-name (I-007) · created:2026-11-03
 - [ ] T-039 SEC: doctor/deploy-check perms on env + sccache conf; chmod local files (I-008) · created:2026-11-03
 - [ ] T-040 SEC: webhook request-thread cap + POST-only /hook (I-009) · created:2026-11-03
+- [ ] T-041 SEC: forge-access URL-encode + no negative cache (I-010) · created:2026-11-03
