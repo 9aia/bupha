@@ -3,7 +3,7 @@
 [![crates.io](https://img.shields.io/crates/v/bupha)](https://crates.io/crates/bupha)
 [![license: MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
-*The oxpecker on your repo's back.*
+*Queue engine for event-driven jobs — shipped as CI.*
 
 Headless CI, built for agent-driven setups. A single binary —
 a queue engine: pluggable **sources** land pushes on the queue

@@ -1,6 +1,6 @@
 [package]
 name = "bupha"
-description = "bupha — the oxpecker on your repo's back: headless CI CLI"
+description = "bupha — queue engine for event-driven jobs: shipped as CI"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
