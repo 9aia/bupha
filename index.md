@@ -4,7 +4,7 @@ layout: home
 hero:
   name: bupha
   text: the oxpecker on your repo's back
-  tagline: headless CI — push in, status out, on a Linux box with Git
+  tagline: Queue engine for event-driven jobs — shipped as CI
   actions:
     - theme: brand
       text: Getting Started
