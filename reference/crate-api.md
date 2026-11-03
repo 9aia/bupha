@@ -22,6 +22,7 @@ documented at source (doc comments).
 - [bupha-access-forge](/bupha/api/bupha_access_forge/index.html) — adapter
 - [bupha-attest-file](/bupha/api/bupha_attest_file/index.html) — adapter
 - [bupha-attest-sigstore](/bupha/api/bupha_attest_sigstore/index.html) — adapter
+- [bupha-audit-file](/bupha/api/bupha_audit_file/index.html) — adapter
 - [bupha-cache-sccache](/bupha/api/bupha_cache_sccache/index.html) — adapter
 - [bupha-cloudflared](/bupha/api/bupha_cloudflared/index.html) — adapter
 - [bupha-config-toml](/bupha/api/bupha_config_toml/index.html) — adapter
@@ -37,6 +38,8 @@ documented at source (doc comments).
 - [bupha-queue-redis](/bupha/api/bupha_queue_redis/index.html) — adapter
 - [bupha-shell](/bupha/api/bupha_shell/index.html) — adapter
 - [bupha-ssh](/bupha/api/bupha_ssh/index.html) — adapter
+- [bupha-sturn](/bupha/api/bupha_sturn/index.html) — adapter
 - [bupha-systemd](/bupha/api/bupha_systemd/index.html) — adapter
 - [bupha-telemetry-otel](/bupha/api/bupha_telemetry_otel/index.html) — adapter
+- [bupha-webhook](/bupha/api/bupha_webhook/index.html) — adapter
 - [bupha](/bupha/api/bupha/index.html) — binary

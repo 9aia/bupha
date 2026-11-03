@@ -39,7 +39,7 @@ the oxpecker on your repo's back — headless CI
 
 ###### **Subcommands:**
 
-* `watch` — Serve the webhook → queue → runner loop
+* `watch` — Serve the source → queue → runner loop (forge webhook, sturn WAL poller — every configured source)
 * `worker` — Fleet puller — claim shared-queue jobs and run them. No listener/tunnel/trigger; needs only [queue] (redis), [[repo]] dirs, [runner], [status], [worktree]
 * `agent` — Serve the remote-run agent — accepts jobs from `kind="http"` runners and executes them with this box's [runner]
 * `init` — Scaffold dagger CI in a repo (dagger init + pinned module + delegate). For the script runner, a ci.sh is enough
@@ -60,7 +60,7 @@ the oxpecker on your repo's back — headless CI
 
 ## `bupha watch`
 
-Serve the webhook → queue → runner loop
+Serve the source → queue → runner loop (forge webhook, sturn WAL poller — every configured source)
 
 **Usage:** `bupha watch`
 
@@ -100,7 +100,11 @@ Scaffold dagger CI in a repo (dagger init + pinned module + delegate). For the s
 
 Check what the loaded config actually needs on this box
 
-**Usage:** `bupha doctor`
+**Usage:** `bupha doctor [OPTIONS]`
+
+###### **Options:**
+
+* `--json` — Machine-readable JSON output — `{"ok", "failures", "checks"}`
 
 
 
