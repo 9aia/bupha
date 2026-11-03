@@ -12,3 +12,4 @@
 - [ ] T-040 SEC: webhook request-thread cap + POST-only /hook (I-009) · created:2026-11-03
 - [ ] T-041 SEC: forge-access URL-encode + no negative cache (I-010) · created:2026-11-03
 - [ ] T-042 SEC: worker skips unknown fleet job keys (I-011) · created:2026-11-03
+- [ ] T-043 SEC: sanitize patch\_host in init template (I-012) · created:2026-11-03
