@@ -88,6 +88,33 @@ struct SshHandle {
     done: Option<ExitStatus>,
 }
 
+/// A remote-dir/tag/job-name component — `[A-Za-z0-9._-]` only,
+/// everything else maps to `-`. These values land inside remote
+/// shell command strings (pkill patterns, rm -rf targets) where a
+/// stray quote or metachar would inject.
+fn safe_component(s: &str) -> String {
+    s.chars()
+        .map(|c| {
+            if c.is_ascii_alphanumeric() || matches!(c, '_' | '.' | '-') {
+                c
+            } else {
+                '-'
+            }
+        })
+        .collect()
+}
+
+/// An ssh destination ("user@host", "[user@]host:port" forms). Must
+/// never start with `-` (argv option injection on ssh AND rsync) and
+/// never carry characters a shell or ssh config could re-interpret.
+fn is_valid_remote(s: &str) -> bool {
+    !s.is_empty()
+        && !s.starts_with('-')
+        && s.bytes().all(|b| {
+            b.is_ascii_alphanumeric() || matches!(b, b'@' | b'.' | b'-' | b'_' | b':' | b'[' | b']')
+        })
+}
+
 /// `'…'` with embedded quotes escaped — for the remote script's
 /// single-quoted literals.
 fn sh_escape(s: &str) -> String {
@@ -186,9 +213,9 @@ impl RunHandle for SshHandle {
     fn kill(&mut self) -> io::Result<()> {
         let res = self.child.kill();
         let _ = self.child.wait(); // reap the dead stage
-        // Best-effort remote cleanup: kill the tagged run shell and
-        // drop the run dir. The bracket keeps pkill's pattern from
-        // matching the cleanup command's own argv.
+                                   // Best-effort remote cleanup: kill the tagged run shell and
+                                   // drop the run dir. The bracket keeps pkill's pattern from
+                                   // matching the cleanup command's own argv.
         if let Ok(mut c) = Command::new("ssh")
             .arg("-o")
             .arg("ConnectTimeout=5")
@@ -246,14 +273,33 @@ impl Runner for SshRunner {
                 "runner kind=ssh needs `remote` (user@host)",
             )
         })?;
+        if !is_valid_remote(remote) {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                format!("runner remote {remote:?} is not a valid user@host"),
+            ));
+        }
+        if !bupha_core::is_valid_env_name(ctx.token_env) {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                format!("token_env {:?} is not a valid env-var name", ctx.token_env),
+            ));
+        }
         let base_dir = self.cfg.remote_dir.as_deref().unwrap_or("~/bupha");
+        if base_dir.bytes().any(|b| b < 0x20) {
+            // Control chars (esp. newline) would break out of the
+            // quoted path inside the remote script.
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                "runner remote_dir contains control characters",
+            ));
+        }
         let cmd = self.cfg.cmd.as_deref().unwrap_or("./ci.sh");
         let sha12 = &ctx.sha[..12.min(ctx.sha.len())];
-        let leaf = format!(
-            "{}-{}",
-            ctx.key.replace('/', "-").replace(':', "-"),
-            sha12
-        );
+        // key+sha name the remote dir and the pkill tag — both ride
+        // inside remote shell command strings, so force them through
+        // the same allowlist the systemd-unit name uses.
+        let leaf = format!("{}-{}", safe_component(ctx.key), safe_component(sha12));
         let rdir = format!("{}/{}", base_dir.trim_end_matches('/'), leaf);
         let tag = format!("bupha-run-{leaf}");
 
@@ -287,5 +333,28 @@ impl Runner for SshRunner {
             sync_failed: false,
             done: None,
         }))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn remote_rejects_option_injection() {
+        assert!(is_valid_remote("ci@arm64-box"));
+        assert!(is_valid_remote("host:2222"));
+        assert!(!is_valid_remote("-oProxyCommand=evil"));
+        assert!(!is_valid_remote("--upload-pack=x"));
+        assert!(!is_valid_remote("h;touch /tmp/x"));
+        assert!(!is_valid_remote("h`id`"));
+        assert!(!is_valid_remote(""));
+    }
+
+    #[test]
+    fn leaf_components_are_shell_safe() {
+        assert_eq!(safe_component("owner/name:gate"), "owner-name-gate");
+        assert_eq!(safe_component("a'; rm -rf /;'"), "a---rm--rf----");
+        assert_eq!(safe_component("$(id)"), "--id--");
     }
 }

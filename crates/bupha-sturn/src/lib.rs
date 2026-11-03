@@ -9,7 +9,17 @@
 //! is a commit whose tree holds `event.json`) and moves
 //! `refs/sturn/ws/<ws>` to the snap commit. The poller diffs WAL
 //! heads, walks new event commits, and turns Snapshot markers into
-//! (branch ref, sha, actor) pushes for the shared queue.
+//! (branch ref, sha, sender) pushes for the shared queue.
+//!
+//! Sender attestation: `actor` in an event is self-asserted. When a
+//! signer policy exists (the repo's `sturn.toml [signing]
+//! allowed_signers`, else `~/.config/sturn/allowed_signers`) each
+//! event's SSH signature is verified (`ssh-keygen -Y verify`,
+//! namespace `sturn-event`) — a signed event emits its actor, an
+//! unsigned or bad-sig event emits an empty sender (which `[access]`
+//! policies will deny). With no signer policy anywhere the sender is
+//! the bare actor claim — `[access] kind = "all"` compatible, but
+//! not an identity an allowlist should trust.
 
 use bupha_trigger::{Emit, Push, Source, Stop, Verdict};
 use serde::Deserialize;
@@ -52,6 +62,8 @@ pub struct Meta {
     pub branch: String,
     /// WAL ref prefix — one ref per workspace beneath it.
     pub wal_prefix: String,
+    /// `[signing] allowed_signers` path verbatim (may contain `~`).
+    pub allowed_signers: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -60,6 +72,8 @@ struct SturnToml {
     repo: RepoSec,
     #[serde(default)]
     wal: WalSec,
+    #[serde(default)]
+    signing: SigningSec,
 }
 
 #[derive(Deserialize, Default)]
@@ -70,6 +84,13 @@ struct RepoSec {
 #[derive(Deserialize, Default)]
 struct WalSec {
     ref_prefix: Option<String>,
+}
+
+#[derive(Deserialize, Default)]
+struct SigningSec {
+    /// allowed_signers path for `ssh-keygen -Y verify` — same field
+    /// sturn.toml's `[signing]` carries.
+    allowed_signers: Option<String>,
 }
 
 /// Read `<dir>/sturn.toml` — absent/unparseable = sturn defaults.
@@ -86,7 +107,36 @@ pub fn meta(dir: &Path) -> Meta {
             .as_ref()
             .and_then(|c| c.wal.ref_prefix.clone())
             .unwrap_or_else(|| "refs/sturn/wal".into()),
+        allowed_signers: cfg.and_then(|c| c.signing.allowed_signers.clone()),
     }
+}
+
+/// Resolve the allowed_signers file for a repo — the sturn.toml
+/// `[signing]` path (with `~` expanded) or sturn's own default
+/// `~/.config/sturn/allowed_signers`, whichever exists first.
+/// `None` = no signer policy anywhere → actor names are
+/// self-asserted, never attested.
+fn signers_for(meta: &Meta) -> Option<PathBuf> {
+    let expand = |p: &str| -> PathBuf {
+        match p.strip_prefix("~/") {
+            Some(rest) => std::env::var("HOME")
+                .map(PathBuf::from)
+                .unwrap_or_else(|_| ".".into())
+                .join(rest),
+            _ => PathBuf::from(p),
+        }
+    };
+    if let Some(p) = meta.allowed_signers.as_deref().filter(|s| !s.is_empty()) {
+        let path = expand(p);
+        if path.exists() {
+            return Some(path);
+        }
+    }
+    let fallback = std::env::var("HOME")
+        .map(PathBuf::from)
+        .unwrap_or_else(|_| ".".into())
+        .join(".config/sturn/allowed_signers");
+    fallback.exists().then_some(fallback)
 }
 
 /// The branch ref a snap commit targets — what watched jobs' `branch`
@@ -146,22 +196,89 @@ pub struct Event {
     /// Event id — the event blob's content address; falls back to
     /// the WAL commit sha for events written before id assignment.
     pub id: String,
+    /// Self-asserted actor name — attested only when `sig` verifies
+    /// against the repo's allowed_signers (see [`verified_actor`]).
     pub actor: String,
     pub snapshot: bool,
+    /// SSH signature (PEM) over the canonical event — present only
+    /// when the WAL writer signed (`[signing] key` in sturn.toml).
+    sig: Option<String>,
+    /// Canonical signing payload: the event with `id` and `sig`
+    /// cleared — exactly what `ssh-keygen -Y sign` covered.
+    signing_bytes: Vec<u8>,
 }
 
+impl Event {
+    /// `actor` iff the signature verifies against `signers` —
+    /// `ssh-keygen -Y verify`, namespace `sturn-event` (sturn's own
+    /// scheme). `None` = unsigned or failed → the source must emit
+    /// an unattested (empty) sender instead of trusting the name.
+    pub fn verified_actor(&self, signers: &Path) -> Option<String> {
+        let sig = self.sig.as_deref()?;
+        let tmp = std::env::temp_dir();
+        let tag = format!("bupha-vfy-{}", std::process::id());
+        let (data, sigf) = (tmp.join(&tag), tmp.join(format!("{tag}.sig")));
+        std::fs::write(&data, &self.signing_bytes).ok()?;
+        std::fs::write(&sigf, sig).ok()?;
+        let st = Command::new("ssh-keygen")
+            .args(["-Y", "verify", "-f"])
+            .arg(signers)
+            .args(["-I", &self.actor, "-n", "sturn-event", "-s"])
+            .arg(&sigf)
+            .stdin(Stdio::from(std::fs::File::open(&data).ok()?))
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .status();
+        let _ = std::fs::remove_file(&data);
+        let _ = std::fs::remove_file(&sigf);
+        st.ok().filter(|s| s.success()).map(|_| self.actor.clone())
+    }
+}
+
+/// The event.json payload — `op` kept raw so the signing bytes can be
+/// rebuilt verbatim (signature covers the serialized form, not a
+/// re-serialization that might reorder fields).
 #[derive(Deserialize)]
 struct RawEvent {
     #[serde(default)]
     id: String,
     #[serde(default)]
+    ws: String,
+    #[serde(default)]
     actor: String,
-    op: OpTag,
+    #[serde(default)]
+    ts: u64,
+    #[serde(default)]
+    sig: Option<String>,
+    op: Box<serde_json::value::RawValue>,
 }
 
 #[derive(Deserialize)]
 struct OpTag {
     op: String,
+}
+
+/// The canonical form `ssh-keygen` signed — sturn-core's
+/// `Event::signing_bytes`: `{"id":"","ws":…,"actor":…,"ts":…,"op":…}`
+/// in field order, `sig` dropped.
+fn signing_bytes(ev: &RawEvent) -> Vec<u8> {
+    use serde::Serialize;
+    #[derive(Serialize)]
+    struct View<'a> {
+        id: &'a str,
+        ws: &'a str,
+        actor: &'a str,
+        ts: u64,
+        op: &'a serde_json::value::RawValue,
+    }
+    serde_json::to_vec(&View {
+        id: "",
+        ws: &ev.ws,
+        actor: &ev.actor,
+        ts: ev.ts,
+        op: &ev.op,
+    })
+    .unwrap_or_default()
 }
 
 /// Events appended to `wal_ref` after `from` (None = the whole log),
@@ -185,12 +302,17 @@ pub fn events_since(repo: &Path, wal_ref: &str, from: Option<&str>) -> io::Resul
         let id = if ev.id.is_empty() {
             git(repo, &["rev-parse", &format!("{c}:event.json")]).unwrap_or_else(|_| c.to_string())
         } else {
-            ev.id
+            ev.id.clone()
         };
+        let snapshot = serde_json::from_str::<OpTag>(ev.op.get())
+            .map(|t| t.op == "snapshot")
+            .unwrap_or(false);
         out.push(Event {
             id,
-            actor: ev.actor,
-            snapshot: ev.op.op == "snapshot",
+            actor: ev.actor.clone(),
+            snapshot,
+            sig: ev.sig.clone(),
+            signing_bytes: signing_bytes(&ev),
         });
     }
     Ok(out)
@@ -286,6 +408,9 @@ impl Source for SturnSource {
             }
             for (name, dir) in &self.repos {
                 let meta = meta(dir);
+                // Signer policy resolved per tick — sturn.toml may
+                // gain [signing] between polls.
+                let signers = signers_for(&meta);
                 if !fetch(dir, &self.remote) {
                     eprintln!("sturn fetch {name}: failed — retrying next tick");
                     continue;
@@ -312,12 +437,29 @@ impl Source for SturnSource {
                         let Some(sha) = ws_tip(dir, &ws) else {
                             continue;
                         };
+                        // `actor` is self-asserted in the WAL — it only
+                        // becomes an attested sender when the event's
+                        // SSH signature verifies against the repo's
+                        // allowed_signers. Without a signer policy the
+                        // sender stays a claim; with one, an unsigned
+                        // or bad-sig event goes out unattested ("").
+                        let sender = match &signers {
+                            Some(p) => ev.verified_actor(p).unwrap_or_else(|| {
+                                eprintln!(
+                                    "sturn event {}: unsigned/bad sig — \
+                                     unattested sender",
+                                    ev.id
+                                );
+                                String::new()
+                            }),
+                            None => ev.actor.clone(),
+                        };
                         let git_ref = branch_ref(&meta);
                         match emit(&Push {
                             repo: name.clone(),
                             git_ref: git_ref.clone(),
                             sha: sha.clone(),
-                            sender: ev.actor,
+                            sender,
                         }) {
                             Verdict::Queued => {
                                 println!("sturn snap {name} ws={ws} → {:.12} queued", sha)
@@ -334,5 +476,36 @@ impl Source for SturnSource {
             let _ = save_heads(&self.heads_path, &heads);
             std::thread::sleep(Duration::from_millis(self.poll_ms));
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn signing_bytes_match_sturn_canonical_form() {
+        // sturn-core signs {id:"",ws,actor,ts,op} — sig stripped, id
+        // cleared, compact JSON in field order. The op object must
+        // ride through verbatim (RawValue), not re-serialized.
+        let ev: RawEvent = serde_json::from_str(
+            r#"{"id":"abc","ws":"w1","actor":"alice","ts":42,"op":{"op":"snapshot","message":"m"},"sig":"SIG"}"#,
+        )
+        .unwrap();
+        let bytes = signing_bytes(&ev);
+        assert_eq!(
+            String::from_utf8(bytes).unwrap(),
+            r#"{"id":"","ws":"w1","actor":"alice","ts":42,"op":{"op":"snapshot","message":"m"}}"#
+        );
+    }
+
+    #[test]
+    fn raw_event_reads_sig_and_op() {
+        let ev: RawEvent = serde_json::from_str(
+            r#"{"id":"i","ws":"w","actor":"a","ts":1,"op":{"op":"snapshot","message":"x"},"sig":"s"}"#,
+        )
+        .unwrap();
+        assert_eq!(ev.sig.as_deref(), Some("s"));
+        assert_eq!(ev.op.get(), r#"{"op":"snapshot","message":"x"}"#);
     }
 }

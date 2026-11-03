@@ -2,21 +2,6 @@ name: bupha-container
 path: crates/bupha-container/Cargo.toml
 purpose: 'Runner adapter: unprivileged container (podman/docker), network-off'
 api:
-- name: bupha-container
-  kind: module
-  file: crates/bupha-container/Cargo.toml
-  line: 1
-  module: bupha-container
-- name: default_engine
-  kind: function
-  file: crates/bupha-container/src/lib.rs
-  line: 10
-  module: bupha-container
-- name: default_network
-  kind: function
-  file: crates/bupha-container/src/lib.rs
-  line: 13
-  module: bupha-container
 - name: ContainerCfg
   kind: type
   file: crates/bupha-container/src/lib.rs
@@ -27,55 +12,95 @@ api:
   file: crates/bupha-container/src/lib.rs
   line: 34
   module: bupha-container
-- name: new
+- name: bupha-container
+  kind: module
+  file: crates/bupha-container/Cargo.toml
+  line: 1
+  module: bupha-container
+- name: ctx
+  kind: function
+  file: crates/bupha-container/tests/run.rs
+  line: 44
+  module: bupha-container
+- name: default_engine
   kind: function
   file: crates/bupha-container/src/lib.rs
-  line: 39
+  line: 10
+  module: bupha-container
+- name: default_engine
+  kind: function
+  file: crates/bupha-container/tests/run.rs
+  line: 106
+  module: bupha-container
+- name: default_network
+  kind: function
+  file: crates/bupha-container/src/lib.rs
+  line: 13
+  module: bupha-container
+- name: dir
+  kind: function
+  file: crates/bupha-container/tests/run.rs
+  line: 9
+  module: bupha-container
+- name: docker_engine_and_default_cmd
+  kind: function
+  file: crates/bupha-container/tests/run.rs
+  line: 75
   module: bupha-container
 - name: name
   kind: function
   file: crates/bupha-container/src/lib.rs
   line: 45
   module: bupha-container
+- name: new
+  kind: function
+  file: crates/bupha-container/src/lib.rs
+  line: 39
+  module: bupha-container
+- name: path_with
+  kind: function
+  file: crates/bupha-container/tests/run.rs
+  line: 33
+  module: bupha-container
+- name: podman_run_args
+  kind: function
+  file: crates/bupha-container/tests/run.rs
+  line: 54
+  module: bupha-container
 - name: spawn
   kind: function
   file: crates/bupha-container/src/lib.rs
   line: 49
   module: bupha-container
+- name: spawn_fails_without_engine
+  kind: function
+  file: crates/bupha-container/tests/run.rs
+  line: 93
+  module: bupha-container
+- name: stub
+  kind: function
+  file: crates/bupha-container/tests/run.rs
+  line: 16
+  module: bupha-container
 deps:
 - bupha-runner
 - serde
-- bupha_runner
+- bupha-runner
 - serde
 notes: ''
 verify:
 - crates/bupha-container/Cargo.toml
 - crates/bupha-container/src/lib.rs
-- crates/bupha-container/src/lib.rs
-- crates/bupha-container/src/lib.rs
-- crates/bupha-container/src/lib.rs
-- crates/bupha-container/src/lib.rs
-- crates/bupha-container/src/lib.rs
-- crates/bupha-container/src/lib.rs
+- crates/bupha-container/tests/run.rs
 provenance:
   files:
   - crates/bupha-container/Cargo.toml
   - crates/bupha-container/src/lib.rs
-  - crates/bupha-container/src/lib.rs
-  - crates/bupha-container/src/lib.rs
-  - crates/bupha-container/src/lib.rs
-  - crates/bupha-container/src/lib.rs
-  - crates/bupha-container/src/lib.rs
-  - crates/bupha-container/src/lib.rs
+  - crates/bupha-container/tests/run.rs
   hashes:
   - ed119b77d73632bed5f8699fe776993139cce885
   - 3c7c0737799d9cc2061e27c9d35573bc55bb2828
-  - 3c7c0737799d9cc2061e27c9d35573bc55bb2828
-  - 3c7c0737799d9cc2061e27c9d35573bc55bb2828
-  - 3c7c0737799d9cc2061e27c9d35573bc55bb2828
-  - 3c7c0737799d9cc2061e27c9d35573bc55bb2828
-  - 3c7c0737799d9cc2061e27c9d35573bc55bb2828
-  - 3c7c0737799d9cc2061e27c9d35573bc55bb2828
-  commit_sha: d5af451be3b898586fa2578542de0e87e0f5bcba
-  generated_at: '1792310968'
-  generator: kuda-template/0.1.0
+  - 84326c7968d451b380241e80fde18f028eeffd4a
+  commit_sha: 2a6dcebac3778d8c539075212ef7514729e6a60a
+  generated_at: '1793687787'
+  generator: kuda-template/0.1.2

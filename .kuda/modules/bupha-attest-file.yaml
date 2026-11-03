@@ -2,11 +2,6 @@ name: bupha-attest-file
 path: crates/bupha-attest-file/Cargo.toml
 purpose: 'Attest adapter: SLSA-shape predicate JSON per run (unsigned v1)'
 api:
-- name: bupha-attest-file
-  kind: module
-  file: crates/bupha-attest-file/Cargo.toml
-  line: 1
-  module: bupha-attest-file
 - name: FileAttest
   kind: type
   file: crates/bupha-attest-file/src/lib.rs
@@ -17,39 +12,35 @@ api:
   file: crates/bupha-attest-file/src/lib.rs
   line: 17
   module: bupha-attest-file
-- name: tests
+- name: bupha-attest-file
   kind: module
-  file: crates/bupha-attest-file/src/lib.rs
-  line: 41
+  file: crates/bupha-attest-file/Cargo.toml
+  line: 1
   module: bupha-attest-file
 - name: predicate_written
   kind: function
   file: crates/bupha-attest-file/src/lib.rs
   line: 45
   module: bupha-attest-file
+- name: tests
+  kind: module
+  file: crates/bupha-attest-file/src/lib.rs
+  line: 41
+  module: bupha-attest-file
 deps:
 - bupha-attest
-- bupha_attest
+- bupha-attest
 notes: ''
 verify:
 - crates/bupha-attest-file/Cargo.toml
-- crates/bupha-attest-file/src/lib.rs
-- crates/bupha-attest-file/src/lib.rs
-- crates/bupha-attest-file/src/lib.rs
 - crates/bupha-attest-file/src/lib.rs
 provenance:
   files:
   - crates/bupha-attest-file/Cargo.toml
   - crates/bupha-attest-file/src/lib.rs
-  - crates/bupha-attest-file/src/lib.rs
-  - crates/bupha-attest-file/src/lib.rs
-  - crates/bupha-attest-file/src/lib.rs
   hashes:
   - e88afab850e37b231dadc0bc5a6b916c3af3ef24
   - 47990ea3a65827fe5ebb6a159feddc8999f4da39
-  - 47990ea3a65827fe5ebb6a159feddc8999f4da39
-  - 47990ea3a65827fe5ebb6a159feddc8999f4da39
-  - 47990ea3a65827fe5ebb6a159feddc8999f4da39
-  commit_sha: d5af451be3b898586fa2578542de0e87e0f5bcba
-  generated_at: '1792310968'
-  generator: kuda-template/0.1.0
+  commit_sha: 2a6dcebac3778d8c539075212ef7514729e6a60a
+  generated_at: '1793687787'
+  generator: kuda-template/0.1.2

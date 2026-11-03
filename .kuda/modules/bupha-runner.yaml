@@ -2,68 +2,76 @@ name: bupha-runner
 path: crates/bupha-runner/Cargo.toml
 purpose: 'Runner port: how a job becomes a spawned process'
 api:
-- name: bupha-runner
-  kind: module
-  file: crates/bupha-runner/Cargo.toml
-  line: 1
+- name: RunCtx
+  kind: type
+  file: crates/bupha-runner/src/lib.rs
+  line: 42
   module: bupha-runner
 - name: RunHandle
   kind: trait
   file: crates/bupha-runner/src/lib.rs
   line: 13
   module: bupha-runner
-- name: try_wait
+- name: Runner
+  kind: trait
+  file: crates/bupha-runner/src/lib.rs
+  line: 56
+  module: bupha-runner
+- name: boxed
+  kind: function
+  file: crates/bupha-runner/tests/handle.rs
+  line: 7
+  module: bupha-runner
+- name: bupha-runner
+  kind: module
+  file: crates/bupha-runner/Cargo.toml
+  line: 1
+  module: bupha-runner
+- name: failure_desc
   kind: function
   file: crates/bupha-runner/src/lib.rs
   line: 24
   module: bupha-runner
-- name: wait
+- name: kill
   kind: function
   file: crates/bupha-runner/src/lib.rs
-  line: 27
+  line: 36
   module: bupha-runner
-- name: kill
+- name: kill_terminates
+  kind: function
+  file: crates/bupha-runner/tests/handle.rs
+  line: 22
+  module: bupha-runner
+- name: try_wait
   kind: function
   file: crates/bupha-runner/src/lib.rs
   line: 30
   module: bupha-runner
-- name: RunCtx
-  kind: type
-  file: crates/bupha-runner/src/lib.rs
-  line: 36
+- name: try_wait_none_while_running_then_wait
+  kind: function
+  file: crates/bupha-runner/tests/handle.rs
+  line: 12
   module: bupha-runner
-- name: Runner
-  kind: trait
+- name: wait
+  kind: function
   file: crates/bupha-runner/src/lib.rs
-  line: 45
+  line: 33
   module: bupha-runner
 deps: []
 notes: ''
 verify:
 - crates/bupha-runner/Cargo.toml
 - crates/bupha-runner/src/lib.rs
-- crates/bupha-runner/src/lib.rs
-- crates/bupha-runner/src/lib.rs
-- crates/bupha-runner/src/lib.rs
-- crates/bupha-runner/src/lib.rs
-- crates/bupha-runner/src/lib.rs
+- crates/bupha-runner/tests/handle.rs
 provenance:
   files:
   - crates/bupha-runner/Cargo.toml
   - crates/bupha-runner/src/lib.rs
-  - crates/bupha-runner/src/lib.rs
-  - crates/bupha-runner/src/lib.rs
-  - crates/bupha-runner/src/lib.rs
-  - crates/bupha-runner/src/lib.rs
-  - crates/bupha-runner/src/lib.rs
+  - crates/bupha-runner/tests/handle.rs
   hashes:
   - 4fefe465ba6004fda1b42f7c3358502f9fdbbc1f
-  - a1a83000991d20e56b8d036a8cc160f447fcf0d8
-  - a1a83000991d20e56b8d036a8cc160f447fcf0d8
-  - a1a83000991d20e56b8d036a8cc160f447fcf0d8
-  - a1a83000991d20e56b8d036a8cc160f447fcf0d8
-  - a1a83000991d20e56b8d036a8cc160f447fcf0d8
-  - a1a83000991d20e56b8d036a8cc160f447fcf0d8
-  commit_sha: d5af451be3b898586fa2578542de0e87e0f5bcba
-  generated_at: '1792310968'
-  generator: kuda-template/0.1.0
+  - 430315840079070d4981ec81e18344910ada41eb
+  - 6f4d91cea8eb9dd1ff7f87143733b64e80682936
+  commit_sha: 2a6dcebac3778d8c539075212ef7514729e6a60a
+  generated_at: '1793687787'
+  generator: kuda-template/0.1.2

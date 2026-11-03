@@ -75,16 +75,14 @@ impl QueueStore for RedisQueueStore {
             let _: () = c.del(&k).map_err(err)?;
         }
         for (n, q) in queues {
-            let s = serde_json::to_string(q)
-                .expect("PersistedQueue serialization cannot fail");
+            let s = serde_json::to_string(q).expect("PersistedQueue serialization cannot fail");
             c.set::<_, _, ()>(qkey(n), s).map_err(err)?;
         }
         Ok(())
     }
 
     fn persist_key(&self, key: &str, q: &PersistedQueue) -> io::Result<()> {
-        let s =
-            serde_json::to_string(q).expect("PersistedQueue serialization cannot fail");
+        let s = serde_json::to_string(q).expect("PersistedQueue serialization cannot fail");
         let mut c = self.conn.lock().unwrap();
         c.set::<_, _, ()>(qkey(key), s).map_err(err)
     }
@@ -157,6 +155,14 @@ fn wkey(key: &str) -> String {
 
 impl bupha_queue::WorkQueue for RedisQueueStore {
     fn enqueue(&self, job: &bupha_queue::Job) -> io::Result<bool> {
+        // The sha names worktree dirs and reaches git argv — refuse
+        // hostile values at the store boundary, not just at ingest.
+        if !bupha_core::is_valid_sha(&job.sha) {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                format!("unsafe sha {:?}", job.sha),
+            ));
+        }
         let mut c = self.conn.lock().unwrap();
         let items: Vec<String> = c.lrange(wkey(&job.key), 0, -1).map_err(err)?;
         let dup = items.iter().any(|i| {
@@ -194,6 +200,12 @@ impl bupha_queue::WorkQueue for RedisQueueStore {
                 // older is superseded (pruned + reported).
                 for it in items.iter().rev() {
                     let Some(j) = entry(it) else { continue };
+                    // Hostile entries (direct redis writes) get pruned
+                    // on sight — they must never become runs.
+                    if !bupha_core::is_valid_sha(&j.sha) {
+                        lrem(it)?;
+                        continue;
+                    }
                     if self.is_done(&j.key, &j.sha)? {
                         lrem(it)?;
                         continue;
@@ -238,6 +250,10 @@ impl bupha_queue::WorkQueue for RedisQueueStore {
                 // prune silently as we scan.
                 for it in &items {
                     let Some(j) = entry(it) else { continue };
+                    if !bupha_core::is_valid_sha(&j.sha) {
+                        lrem(it)?;
+                        continue;
+                    }
                     if self.is_done(&j.key, &j.sha)? {
                         lrem(it)?;
                         continue;

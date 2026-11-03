@@ -1,7 +1,142 @@
 name: bupha
 path: Cargo.toml
-purpose: '*The oxpecker on your repo''s back.*'
+purpose: '*Queue engine for event-driven jobs — shipped as CI.*'
 api:
+- name: Bupha
+  kind: type
+  file: modules/dagger/dagger/src/bupha/main.py
+  line: 102
+  module: bupha
+- name: ChildSlot
+  kind: type
+  file: crates/bupha-cli/src/main.rs
+  line: 364
+  module: bupha
+- name: Cli
+  kind: type
+  file: crates/bupha-cli/src/main.rs
+  line: 56
+  module: bupha
+- name: Cmd
+  kind: type
+  file: crates/bupha-cli/src/main.rs
+  line: 66
+  module: bupha
+- name: DELEGATE_TEMPLATE
+  kind: const
+  file: crates/bupha-cli/src/main.rs
+  line: 1542
+  module: bupha
+- name: DeploySub
+  kind: type
+  file: crates/bupha-cli/src/main.rs
+  line: 137
+  module: bupha
+- name: DestroySub
+  kind: type
+  file: crates/bupha-cli/src/main.rs
+  line: 166
+  module: bupha
+- name: DocOut
+  kind: type
+  file: crates/bupha-cli/src/main.rs
+  line: 1568
+  module: bupha
+- name: FailWait
+  kind: type
+  file: crates/bupha-cli/src/main.rs
+  line: 272
+  module: bupha
+- name: FailWaitRunner
+  kind: type
+  file: crates/bupha-cli/src/main.rs
+  line: 270
+  module: bupha
+- name: Ingest
+  kind: type
+  file: crates/bupha-cli/src/main.rs
+  line: 565
+  module: bupha
+- name: JobEnd
+  kind: type
+  file: crates/bupha-cli/src/main.rs
+  line: 387
+  module: bupha
+- name: MODULE_REF
+  kind: const
+  file: crates/bupha-cli/src/main.rs
+  line: 1540
+  module: bupha
+- name: N
+  kind: const
+  file: crates/bupha-cli/tests/watch.rs
+  line: 1092
+  module: bupha
+- name: Poll
+  kind: type
+  file: crates/bupha-cli/src/main.rs
+  line: 453
+  module: bupha
+- name: ServiceSub
+  kind: type
+  file: crates/bupha-cli/src/main.rs
+  line: 180
+  module: bupha
+- name: Shared
+  kind: type
+  file: crates/bupha-cli/src/main.rs
+  line: 537
+  module: bupha
+- name: Svc
+  kind: type
+  file: crates/bupha-cli/tests/e2e.rs
+  line: 15
+  module: bupha
+- name: Worker
+  kind: type
+  file: crates/bupha-cli/src/main.rs
+  line: 367
+  module: bupha
+- name: agent_error_exits
+  kind: function
+  file: crates/bupha-cli/tests/watch.rs
+  line: 1974
+  module: bupha
+- name: agent_serves_and_http_runner_arm
+  kind: function
+  file: crates/bupha-cli/tests/watch.rs
+  line: 1895
+  module: bupha
+- name: build_attest
+  kind: function
+  file: crates/bupha-cli/src/main.rs
+  line: 719
+  module: bupha
+- name: build_audit
+  kind: function
+  file: crates/bupha-cli/src/main.rs
+  line: 749
+  module: bupha
+- name: build_runner
+  kind: function
+  file: crates/bupha-cli/src/main.rs
+  line: 198
+  module: bupha
+- name: build_runners
+  kind: function
+  file: crates/bupha-cli/src/main.rs
+  line: 791
+  module: bupha
+- name: build_sinks
+  kind: function
+  file: crates/bupha-cli/src/main.rs
+  line: 764
+  module: bupha
+- name: build_telemetry
+  kind: function
+  file: crates/bupha-cli/src/main.rs
+  line: 700
+  module: bupha
 - name: bupha
   kind: module
   file: Cargo.toml
@@ -12,13 +147,123 @@ api:
   file: crates/bupha-cli/Cargo.toml
   line: 1
   module: bupha
+- name: bupha
+  kind: function
+  file: crates/bupha-cli/tests/cli.rs
+  line: 31
+  module: bupha
+- name: bupha
+  kind: module
+  file: modules/dagger/dagger/pyproject.toml
+  line: 1
+  module: bupha
+- name: bupha_in
+  kind: function
+  file: crates/bupha-cli/tests/cli.rs
+  line: 40
+  module: bupha
+- name: cancel_supersede_honest_statuses
+  kind: function
+  file: crates/bupha-cli/tests/watch.rs
+  line: 368
+  module: bupha
+- name: cfg
+  kind: function
+  file: crates/bupha-cli/tests/cli.rs
+  line: 126
+  module: bupha
+- name: cfg_dir
+  kind: function
+  file: crates/bupha-cli/src/main.rs
+  line: 306
+  module: bupha
+- name: cfg_repo
+  kind: function
+  file: crates/bupha-cli/tests/cli.rs
+  line: 139
+  module: bupha
+- name: cfg_text
+  kind: function
+  file: crates/bupha-cli/tests/watch.rs
+  line: 203
+  module: bupha
+- name: check
+  kind: function
+  file: crates/bupha-cli/src/main.rs
+  line: 1574
+  module: bupha
+- name: cmd_agent
+  kind: function
+  file: crates/bupha-cli/src/main.rs
+  line: 1402
+  module: bupha
+- name: cmd_deploy
+  kind: function
+  file: crates/bupha-cli/src/main.rs
+  line: 1957
+  module: bupha
+api_omitted: 124
 deps:
+- dagger-io
 - bupha-access
 - bupha-access-file
 - bupha-access-forge
 - bupha-attest
 - bupha-attest-file
 - bupha-attest-sigstore
+- bupha-audit-file
+- bupha-cache
+- bupha-cache-sccache
+- bupha-cloudflared
+- bupha-config
+- bupha-config-toml
+- bupha-container
+- bupha-core
+- bupha-dagger
+- bupha-dotenv
+- bupha-git
+- bupha-github
+- bupha-history
+- bupha-http
+- bupha-keyring
+- bupha-queue
+- bupha-queue-lease
+- bupha-queue-redb
+- bupha-queue-redis
+- bupha-runner
+- bupha-secret
+- bupha-service
+- bupha-shell
+- bupha-ssh
+- bupha-status
+- bupha-sturn
+- bupha-systemd
+- bupha-telemetry
+- bupha-telemetry-otel
+- bupha-trigger
+- bupha-tunnel
+- bupha-vcs
+- bupha-webhook
+- clap
+- clap-markdown
+- dirs
+- serde_json
+- toml
+- ureq
+- hex
+- hmac
+- sha2
+- bupha-queue
+- bupha-queue-redb
+- hmac
+- sha2
+- bupha-access
+- bupha-access-file
+- bupha-access-forge
+- bupha-attest
+- bupha-attest-file
+- bupha-attest-sigstore
+- bupha-audit-file
 - bupha-cache
 - bupha-cache-sccache
 - bupha-cloudflared
@@ -32,44 +277,59 @@ deps:
 - bupha-github
 - bupha-history
 - bupha-keyring
-- bupha-queue
 - bupha-queue-lease
-- bupha-queue-redb
-- bupha-queue-redis
 - bupha-runner
 - bupha-secret
 - bupha-service
 - bupha-shell
-- bupha-ssh
 - bupha-status
-- bupha-systemd
 - bupha-telemetry
 - bupha-telemetry-otel
 - bupha-trigger
 - bupha-tunnel
 - bupha-vcs
+- bupha-webhook
 - clap
-- clap-markdown
-- dirs
-- serde_json
-- tiny_http
-- toml
-- ureq
-- hex
-- hmac
-- sha2
-- ureq
+- asyncio
+- typing
+- dagger
 notes: ''
 verify:
 - Cargo.toml
 - crates/bupha-cli/Cargo.toml
+- crates/bupha-cli/src/main.rs
+- modules/dagger/dagger/pyproject.toml
+- modules/dagger/dagger/src/bupha/__init__.py
+- crates/bupha-cli/tests/cli.rs
+- crates/bupha-cli/tests/e2e.rs
+- crates/bupha-cli/tests/sturn.rs
+- crates/bupha-cli/tests/watch.rs
+- modules/dagger/dagger/src/bupha/main.py
 provenance:
   files:
   - Cargo.toml
   - crates/bupha-cli/Cargo.toml
+  - crates/bupha-cli/src/main.rs
+  - crates/bupha-cli/tests/cli.rs
+  - crates/bupha-cli/tests/e2e.rs
+  - crates/bupha-cli/tests/sturn.rs
+  - crates/bupha-cli/tests/watch.rs
+  - modules/dagger/dagger/pyproject.toml
+  - modules/dagger/dagger/src/bupha/__init__.py
+  - modules/dagger/dagger/src/bupha/main.py
+  - modules/dagger/tests/test_self_patch.py
   hashes:
-  - c16785bc9063ec0f023885535674c8a2aef6c967
-  - 68a69760a57b0aaa7d7d1a6e27e98386ab4a354e
-  commit_sha: d5af451be3b898586fa2578542de0e87e0f5bcba
-  generated_at: '1792310968'
-  generator: kuda-template/0.1.0
+  - 2a75193e9317861f9bc846bfbb84cd17b660c47d
+  - 665626298391c47b86ca67db004e4052d979e447
+  - 2432183a26f85899de2a3485400b45bb902bad6f
+  - 41b9ccc52c8b9c16b9264c2c1245637e7e64545a
+  - e6680112289b06ae1e8d8d6659c60f2333c8ca23
+  - 16a66bca9a602549e108d45e9d1233dbe2e7e34b
+  - 983c5e6918f0ae5b06d4954e56e0c57b0217c59b
+  - a787b6af9e98fd8cae6ece92467308d34e49bbce
+  - 297de02314bb3e68d56e2e8a33bcad4ba6c92465
+  - b266b7f034f3d194f5cba16fd2bf6a51886ccf46
+  - 509a3147960f3aa59978a55730803da3c2ff0850
+  commit_sha: 2a6dcebac3778d8c539075212ef7514729e6a60a
+  generated_at: '1793687787'
+  generator: kuda-template/0.1.2

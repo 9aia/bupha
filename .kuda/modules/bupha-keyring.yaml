@@ -2,54 +2,73 @@ name: bupha-keyring
 path: crates/bupha-keyring/Cargo.toml
 purpose: 'Secret impl: OS keyring via secret-tool (libsecret)'
 api:
-- name: bupha-keyring
-  kind: module
-  file: crates/bupha-keyring/Cargo.toml
-  line: 1
-  module: bupha-keyring
 - name: KeyringSecrets
   kind: type
   file: crates/bupha-keyring/src/lib.rs
   line: 9
+  module: bupha-keyring
+- name: bupha-keyring
+  kind: module
+  file: crates/bupha-keyring/Cargo.toml
+  line: 1
   module: bupha-keyring
 - name: default
   kind: function
   file: crates/bupha-keyring/src/lib.rs
   line: 15
   module: bupha-keyring
+- name: dir
+  kind: function
+  file: crates/bupha-keyring/tests/secrets.rs
+  line: 8
+  module: bupha-keyring
 - name: get
   kind: function
   file: crates/bupha-keyring/src/lib.rs
   line: 23
+  module: bupha-keyring
+- name: lookup_hit_miss_and_empty
+  kind: function
+  file: crates/bupha-keyring/tests/secrets.rs
+  line: 43
+  module: bupha-keyring
+- name: missing_binary_is_a_miss_and_set_errors
+  kind: function
+  file: crates/bupha-keyring/tests/secrets.rs
+  line: 66
   module: bupha-keyring
 - name: set
   kind: function
   file: crates/bupha-keyring/src/lib.rs
   line: 33
   module: bupha-keyring
+- name: store_writes_stdin_and_failure_errors
+  kind: function
+  file: crates/bupha-keyring/tests/secrets.rs
+  line: 77
+  module: bupha-keyring
+- name: stub_secret_tool
+  kind: function
+  file: crates/bupha-keyring/tests/secrets.rs
+  line: 17
+  module: bupha-keyring
 deps:
 - bupha-secret
-- bupha_secret
+- bupha-secret
 notes: ''
 verify:
 - crates/bupha-keyring/Cargo.toml
 - crates/bupha-keyring/src/lib.rs
-- crates/bupha-keyring/src/lib.rs
-- crates/bupha-keyring/src/lib.rs
-- crates/bupha-keyring/src/lib.rs
+- crates/bupha-keyring/tests/secrets.rs
 provenance:
   files:
   - crates/bupha-keyring/Cargo.toml
   - crates/bupha-keyring/src/lib.rs
-  - crates/bupha-keyring/src/lib.rs
-  - crates/bupha-keyring/src/lib.rs
-  - crates/bupha-keyring/src/lib.rs
+  - crates/bupha-keyring/tests/secrets.rs
   hashes:
   - 295c5fb2896a8e7a89dfabd77f0d1e85f22377b3
-  - 79bec75f88f1ac20cdf900652e2381a2eb705413
-  - 79bec75f88f1ac20cdf900652e2381a2eb705413
-  - 79bec75f88f1ac20cdf900652e2381a2eb705413
-  - 79bec75f88f1ac20cdf900652e2381a2eb705413
-  commit_sha: d5af451be3b898586fa2578542de0e87e0f5bcba
-  generated_at: '1792310968'
-  generator: kuda-template/0.1.0
+  - 452536b62db04879d4827361d15a6f011be6dc57
+  - 5884221b3f97eeb44009d8726593b0bcd233261e
+  commit_sha: 2a6dcebac3778d8c539075212ef7514729e6a60a
+  generated_at: '1793687787'
+  generator: kuda-template/0.1.2

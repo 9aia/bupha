@@ -113,6 +113,12 @@ impl StatusSink for GitHubStatus {
     }
 
     fn post(&self, sha: &str, state: &str, desc: &str) {
+        // The sha is a URL path segment — refuse values that could
+        // traverse or reshape the request path.
+        if !is_valid_sha(sha) {
+            eprintln!("status post skipped — invalid sha {sha:?}");
+            return;
+        }
         let body = serde_json::json!({
             "state": state,
             "context": self.context,

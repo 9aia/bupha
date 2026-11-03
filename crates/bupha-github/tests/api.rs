@@ -197,7 +197,7 @@ fn status_post_ok_and_transport_error() {
     let got = std::sync::Arc::new(std::sync::Mutex::new(String::new()));
     let g = got.clone();
     let base = serve(move |req, body| {
-        assert!(req.starts_with("POST") && req.contains("/repos/o/r/statuses/abc"));
+        assert!(req.starts_with("POST") && req.contains("/repos/o/r/statuses/abc1234"));
         *g.lock().unwrap() = String::from_utf8_lossy(body).into_owned();
         (201, "{}".into())
     });
@@ -208,7 +208,7 @@ fn status_post_ok_and_transport_error() {
         api_base: base,
     };
     assert_eq!(s.context(), "ci/bupha");
-    s.post("abc", "success", "ci passed");
+    s.post("abc1234", "success", "ci passed");
     let v: serde_json::Value = serde_json::from_str(&got.lock().unwrap()).unwrap();
     assert_eq!(v["state"], "success");
 
@@ -222,7 +222,7 @@ fn status_post_ok_and_transport_error() {
         context: "ci".into(),
         api_base: format!("http://127.0.0.1:{port}"),
     };
-    s2.post("abc", "failure", "ci failed");
+    s2.post("abc1234", "failure", "ci failed");
 }
 
 #[test]

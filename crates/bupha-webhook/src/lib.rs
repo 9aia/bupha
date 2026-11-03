@@ -8,8 +8,26 @@
 use bupha_trigger::{Emit, PushOutcome, Source, Stop, Trigger, Verdict};
 use std::collections::{HashMap, HashSet};
 use std::io::Read;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
+
+/// In-flight request-thread cap — the per-request thread exists so a
+/// stalled client can't block accept, but an unbounded pool is its
+/// own exhaustion vector (one socket per thread). Past the cap new
+/// requests get a fast 503.
+const MAX_INFLIGHT: usize = 64;
+
+/// Decrements the in-flight counter when the request thread exits.
+fn scopeguard(counter: Arc<AtomicUsize>) -> impl Drop {
+    struct G(Arc<AtomicUsize>);
+    impl Drop for G {
+        fn drop(&mut self) {
+            self.0.fetch_sub(1, Ordering::SeqCst);
+        }
+    }
+    G(counter)
+}
 
 /// Per-request state the request threads share — all read-only
 /// except `seen` (the replay-dedup ring).
@@ -64,6 +82,7 @@ impl Source for WebhookSource {
             repos: self.repos.clone(),
             seen: Mutex::new(bupha_core::Seen::default()),
         });
+        let inflight = Arc::new(AtomicUsize::new(0));
 
         // e2e hook: `stop` true → unblock the accept loop so spawned
         // test binaries shut down gracefully (no signal-handling
@@ -84,7 +103,16 @@ impl Source for WebhookSource {
             // inside.
             let inner = Arc::clone(&inner);
             let emit = emit.clone();
+            let inflight = Arc::clone(&inflight);
+            // Admission control before spawning the thread — a busy
+            // listener sheds load instead of growing unboundedly.
+            if inflight.fetch_add(1, Ordering::SeqCst) >= MAX_INFLIGHT {
+                inflight.fetch_sub(1, Ordering::SeqCst);
+                let _ = req.respond(tiny_http::Response::from_string("busy").with_status_code(503));
+                continue;
+            }
             std::thread::spawn(move || {
+                let _guard = scopeguard(inflight);
                 let mut req = req;
                 let headers: Vec<(String, String)> = req
                     .headers()
@@ -95,6 +123,15 @@ impl Source for WebhookSource {
                 if req.url().split('?').next() != Some("/hook") {
                     let _ = req.respond(
                         tiny_http::Response::from_string("not found").with_status_code(404),
+                    );
+                    return;
+                }
+                // Deliveries are POSTs — reject anything else before
+                // touching the body.
+                if req.method() != &tiny_http::Method::Post {
+                    let _ = req.respond(
+                        tiny_http::Response::from_string("method not allowed")
+                            .with_status_code(405),
                     );
                     return;
                 }
@@ -141,6 +178,7 @@ impl Source for WebhookSource {
                             Some(PushOutcome::Skip) => (200, "ignored: no-op event"),
                             Some(PushOutcome::Push(p)) => match emit(&p) {
                                 Verdict::NoMatch => (200, "ignored: not the watched branch"),
+                                Verdict::Rejected => (400, "rejected: unsafe push"),
                                 Verdict::Denied => (403, "sender not allowed"),
                                 Verdict::Queued => (202, "queued"),
                                 Verdict::Duplicate => (200, "already queued"),

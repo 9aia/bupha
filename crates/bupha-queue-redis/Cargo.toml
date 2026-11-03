@@ -9,6 +9,7 @@ keywords = ["ci", "bupha"]
 categories = ["development-tools"]
 
 [dependencies]
+bupha-core.workspace = true
 bupha-queue.workspace = true
 bupha-queue-lease.workspace = true
 redis = "0.32"

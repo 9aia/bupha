@@ -284,6 +284,7 @@ version = "0.1.0"
 name = "bupha-http"
 version = "0.1.0"
 dependencies = [
+ "bupha-core",
  "bupha-runner",
  "hex",
  "hmac",
@@ -305,6 +306,7 @@ dependencies = [
 name = "bupha-queue"
 version = "0.1.0"
 dependencies = [
+ "bupha-core",
  "serde",
 ]
 
@@ -326,6 +328,7 @@ dependencies = [
 name = "bupha-queue-redis"
 version = "0.1.0"
 dependencies = [
+ "bupha-core",
  "bupha-queue",
  "bupha-queue-lease",
  "redis",

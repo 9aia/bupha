@@ -1,0 +1,236 @@
+name: bupha-http
+path: crates/bupha-http/Cargo.toml
+purpose: 'Runner impl: remote execution via HTTP agent (tar worktree + poll)'
+api:
+- name: DescRunner
+  kind: type
+  file: crates/bupha-http/tests/http.rs
+  line: 316
+  module: bupha-http
+- name: ErrRunner
+  kind: type
+  file: crates/bupha-http/tests/http.rs
+  line: 341
+  module: bupha-http
+- name: H
+  kind: type
+  file: crates/bupha-http/tests/http.rs
+  line: 322
+  module: bupha-http
+- name: H
+  kind: type
+  file: crates/bupha-http/tests/http.rs
+  line: 347
+  module: bupha-http
+- name: HttpCfg
+  kind: type
+  file: crates/bupha-http/src/lib.rs
+  line: 30
+  module: bupha-http
+- name: HttpHandle
+  kind: type
+  file: crates/bupha-http/src/lib.rs
+  line: 172
+  module: bupha-http
+- name: HttpRunner
+  kind: type
+  file: crates/bupha-http/src/lib.rs
+  line: 64
+  module: bupha-http
+- name: JobCreated
+  kind: type
+  file: crates/bupha-http/src/lib.rs
+  line: 89
+  module: bupha-http
+- name: JobSpec
+  kind: type
+  file: crates/bupha-http/src/lib.rs
+  line: 81
+  module: bupha-http
+- name: JobStatus
+  kind: type
+  file: crates/bupha-http/src/lib.rs
+  line: 94
+  module: bupha-http
+- name: RemoteJob
+  kind: type
+  file: crates/bupha-http/src/lib.rs
+  line: 232
+  module: bupha-http
+- name: Spec
+  kind: type
+  file: crates/bupha-http/src/lib.rs
+  line: 327
+  module: bupha-http
+- name: StubHandle
+  kind: type
+  file: crates/bupha-http/tests/http.rs
+  line: 15
+  module: bupha-http
+- name: StubRunner
+  kind: type
+  file: crates/bupha-http/tests/http.rs
+  line: 14
+  module: bupha-http
+- name: agent
+  kind: module
+  file: crates/bupha-http/src/lib.rs
+  line: 227
+  module: bupha-http
+- name: agent_bad_tar_500
+  kind: function
+  file: crates/bupha-http/tests/http.rs
+  line: 387
+  module: bupha-http
+- name: agent_edge_arms
+  kind: function
+  file: crates/bupha-http/tests/http.rs
+  line: 161
+  module: bupha-http
+- name: agent_reap_desc_and_err_arms
+  kind: function
+  file: crates/bupha-http/tests/http.rs
+  line: 315
+  module: bupha-http
+- name: bad_hmac_rejected_and_unreachable_errors
+  kind: function
+  file: crates/bupha-http/tests/http.rs
+  line: 139
+  module: bupha-http
+- name: bupha-http
+  kind: module
+  file: crates/bupha-http/Cargo.toml
+  line: 1
+  module: bupha-http
+- name: ctx
+  kind: function
+  file: crates/bupha-http/tests/http.rs
+  line: 50
+  module: bupha-http
+- name: default_secret_env
+  kind: function
+  file: crates/bupha-http/src/lib.rs
+  line: 43
+  module: bupha-http
+- name: end_to_end_run_success_and_failure
+  kind: function
+  file: crates/bupha-http/tests/http.rs
+  line: 93
+  module: bupha-http
+- name: exit_status
+  kind: function
+  file: crates/bupha-http/src/lib.rs
+  line: 106
+  module: bupha-http
+- name: failure_desc
+  kind: function
+  file: crates/bupha-http/src/lib.rs
+  line: 218
+  module: bupha-http
+- name: failure_desc
+  kind: function
+  file: crates/bupha-http/tests/http.rs
+  line: 333
+  module: bupha-http
+- name: handle_error_arms
+  kind: function
+  file: crates/bupha-http/tests/http.rs
+  line: 247
+  module: bupha-http
+- name: json
+  kind: function
+  file: crates/bupha-http/src/lib.rs
+  line: 272
+  module: bupha-http
+- name: kill
+  kind: function
+  file: crates/bupha-http/src/lib.rs
+  line: 209
+  module: bupha-http
+- name: kill
+  kind: function
+  file: crates/bupha-http/tests/http.rs
+  line: 37
+  module: bupha-http
+- name: kill
+  kind: function
+  file: crates/bupha-http/tests/http.rs
+  line: 330
+  module: bupha-http
+- name: kill
+  kind: function
+  file: crates/bupha-http/tests/http.rs
+  line: 355
+  module: bupha-http
+- name: kill_terminates_remote_run
+  kind: function
+  file: crates/bupha-http/tests/http.rs
+  line: 123
+  module: bupha-http
+- name: name
+  kind: function
+  file: crates/bupha-http/src/lib.rs
+  line: 112
+  module: bupha-http
+- name: name
+  kind: function
+  file: crates/bupha-http/tests/http.rs
+  line: 18
+  module: bupha-http
+- name: name
+  kind: function
+  file: crates/bupha-http/tests/http.rs
+  line: 318
+  module: bupha-http
+- name: name
+  kind: function
+  file: crates/bupha-http/tests/http.rs
+  line: 343
+  module: bupha-http
+- name: new
+  kind: function
+  file: crates/bupha-http/src/lib.rs
+  line: 71
+  module: bupha-http
+- name: runner_for
+  kind: function
+  file: crates/bupha-http/tests/http.rs
+  line: 81
+  module: bupha-http
+- name: serve
+  kind: function
+  file: crates/bupha-http/src/lib.rs
+  line: 284
+  module: bupha-http
+api_omitted: 24
+deps:
+- bupha-core
+- bupha-runner
+- hex
+- hmac
+- serde
+- serde_json
+- sha2
+- tiny_http
+- ureq
+- bupha-runner
+- hmac
+- sha2
+- serde
+notes: ''
+verify:
+- crates/bupha-http/Cargo.toml
+- crates/bupha-http/src/lib.rs
+- crates/bupha-http/tests/http.rs
+provenance:
+  files:
+  - crates/bupha-http/Cargo.toml
+  - crates/bupha-http/src/lib.rs
+  - crates/bupha-http/tests/http.rs
+  hashes:
+  - 324f2f1667132e7b9ede9def54a162c77381e0ca
+  - 7796ed75c22d9f2a64419264384a2e186dc520b5
+  - 5086a0c47a2566922fc779b73e68f4f9a93670c7
+  commit_sha: 2a6dcebac3778d8c539075212ef7514729e6a60a
+  generated_at: '1793687787'
+  generator: kuda-template/0.1.2

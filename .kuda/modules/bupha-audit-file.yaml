@@ -1,0 +1,97 @@
+name: bupha-audit-file
+path: crates/bupha-audit-file/Cargo.toml
+purpose: 'Audit adapter: append access/outcome decisions to a JSONL file'
+api:
+- name: AuditLog
+  kind: type
+  file: crates/bupha-audit-file/src/lib.rs
+  line: 16
+  module: bupha-audit-file
+- name: AuditSink
+  kind: type
+  file: crates/bupha-audit-file/src/lib.rs
+  line: 73
+  module: bupha-audit-file
+- name: Spy
+  kind: type
+  file: crates/bupha-audit-file/src/lib.rs
+  line: 104
+  module: bupha-audit-file
+- name: bupha-audit-file
+  kind: module
+  file: crates/bupha-audit-file/Cargo.toml
+  line: 1
+  module: bupha-audit-file
+- name: context
+  kind: function
+  file: crates/bupha-audit-file/src/lib.rs
+  line: 90
+  module: bupha-audit-file
+- name: context
+  kind: function
+  file: crates/bupha-audit-file/src/lib.rs
+  line: 106
+  module: bupha-audit-file
+- name: entry
+  kind: function
+  file: crates/bupha-audit-file/src/lib.rs
+  line: 37
+  module: bupha-audit-file
+- name: entry_writes_jsonl
+  kind: function
+  file: crates/bupha-audit-file/src/lib.rs
+  line: 118
+  module: bupha-audit-file
+- name: new
+  kind: function
+  file: crates/bupha-audit-file/src/lib.rs
+  line: 24
+  module: bupha-audit-file
+- name: path
+  kind: function
+  file: crates/bupha-audit-file/src/lib.rs
+  line: 31
+  module: bupha-audit-file
+- name: post
+  kind: function
+  file: crates/bupha-audit-file/src/lib.rs
+  line: 94
+  module: bupha-audit-file
+- name: post
+  kind: function
+  file: crates/bupha-audit-file/src/lib.rs
+  line: 109
+  module: bupha-audit-file
+- name: sink_records_then_delegates
+  kind: function
+  file: crates/bupha-audit-file/src/lib.rs
+  line: 134
+  module: bupha-audit-file
+- name: tests
+  kind: module
+  file: crates/bupha-audit-file/src/lib.rs
+  line: 101
+  module: bupha-audit-file
+- name: wrap
+  kind: function
+  file: crates/bupha-audit-file/src/lib.rs
+  line: 80
+  module: bupha-audit-file
+deps:
+- bupha-status
+- serde_json
+- bupha-status
+notes: ''
+verify:
+- crates/bupha-audit-file/Cargo.toml
+- crates/bupha-audit-file/src/lib.rs
+provenance:
+  files:
+  - crates/bupha-audit-file/Cargo.toml
+  - crates/bupha-audit-file/src/lib.rs
+  hashes:
+  - d46021a5cc4e28ee9eed1d7ca349dd222a5d8306
+  - c9aa55706f9bfe0b3f9f8480becc5ed81df71310
+  commit_sha: 2a6dcebac3778d8c539075212ef7514729e6a60a
+  generated_at: '1793687787'
+  generator: kuda-template/0.1.2

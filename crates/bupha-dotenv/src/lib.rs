@@ -3,7 +3,7 @@
 //! keyring land here.
 
 use bupha_secret::Secrets;
-use std::io;
+use std::io::{self, Write};
 use std::path::PathBuf;
 
 pub struct DotenvSecrets {
@@ -34,7 +34,16 @@ impl Secrets for DotenvSecrets {
         if let Some(d) = self.path.parent() {
             std::fs::create_dir_all(d)?;
         }
-        std::fs::write(&self.path, lines.join("\n") + "\n")?;
+        // 0600 from the first write — never a world-readable window.
+        let mut opts = std::fs::OpenOptions::new();
+        opts.write(true).create(true).truncate(true);
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::OpenOptionsExt;
+            opts.mode(0o600);
+        }
+        opts.open(&self.path)?
+            .write_all((lines.join("\n") + "\n").as_bytes())?;
         #[cfg(unix)]
         {
             use std::os::unix::fs::PermissionsExt;

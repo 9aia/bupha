@@ -2,36 +2,56 @@ name: bupha-tunnel
 path: crates/bupha-tunnel/Cargo.toml
 purpose: 'Tunnel port: expose the webhook listener publicly'
 api:
-- name: bupha-tunnel
-  kind: module
-  file: crates/bupha-tunnel/Cargo.toml
-  line: 1
+- name: Direct
+  kind: type
+  file: crates/bupha-tunnel/tests/defaults.rs
+  line: 8
   module: bupha-tunnel
 - name: Tunnel
   kind: trait
   file: crates/bupha-tunnel/src/lib.rs
   line: 9
   module: bupha-tunnel
+- name: bupha-tunnel
+  kind: module
+  file: crates/bupha-tunnel/Cargo.toml
+  line: 1
+  module: bupha-tunnel
+- name: default_public_url_is_none
+  kind: function
+  file: crates/bupha-tunnel/tests/defaults.rs
+  line: 20
+  module: bupha-tunnel
+- name: name
+  kind: function
+  file: crates/bupha-tunnel/tests/defaults.rs
+  line: 11
+  module: bupha-tunnel
 - name: public_url
   kind: function
   file: crates/bupha-tunnel/src/lib.rs
   line: 17
+  module: bupha-tunnel
+- name: spawn
+  kind: function
+  file: crates/bupha-tunnel/tests/defaults.rs
+  line: 14
   module: bupha-tunnel
 deps: []
 notes: ''
 verify:
 - crates/bupha-tunnel/Cargo.toml
 - crates/bupha-tunnel/src/lib.rs
-- crates/bupha-tunnel/src/lib.rs
+- crates/bupha-tunnel/tests/defaults.rs
 provenance:
   files:
   - crates/bupha-tunnel/Cargo.toml
   - crates/bupha-tunnel/src/lib.rs
-  - crates/bupha-tunnel/src/lib.rs
+  - crates/bupha-tunnel/tests/defaults.rs
   hashes:
   - 5e76ec1737eaa365ccdeadbb3706a163e1a97792
   - 3c07a1868ddf6091c443f927e285b3c2ad7bc371
-  - 3c07a1868ddf6091c443f927e285b3c2ad7bc371
-  commit_sha: d5af451be3b898586fa2578542de0e87e0f5bcba
-  generated_at: '1792310968'
-  generator: kuda-template/0.1.0
+  - cb26a621bc0e26d51fbb5a733d7c0c630407889c
+  commit_sha: 2a6dcebac3778d8c539075212ef7514729e6a60a
+  generated_at: '1793687787'
+  generator: kuda-template/0.1.2

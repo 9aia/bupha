@@ -161,59 +161,77 @@ fn bad_hmac_rejected_and_unreachable_errors() {
 fn agent_edge_arms() {
     use hmac::{Hmac, Mac};
     use sha2::Sha256;
-    fn sign(s: &str, b: &[u8]) -> String {
-        let mut m = <Hmac<Sha256> as Mac>::new_from_slice(s.as_bytes()).unwrap();
-        m.update(b);
-        format!("sha256={}", hex::encode(m.finalize().into_bytes()))
+    fn sign(s: &str, m: &str, p: &str, b: &[u8]) -> String {
+        let mut mac = <Hmac<Sha256> as Mac>::new_from_slice(s.as_bytes()).unwrap();
+        mac.update(m.as_bytes());
+        mac.update(b" ");
+        mac.update(p.as_bytes());
+        mac.update(b"\n");
+        mac.update(b);
+        format!("sha256={}", hex::encode(mac.finalize().into_bytes()))
     }
     let (url, stop, jh) = serve_agent(Arc::new(StubRunner("true")));
     let s = "s3cr3t";
 
     // Malformed spec JSON -> 400.
     let r = ureq::post(format!("{url}/jobs"))
-        .header("X-Bupha-Auth", sign(s, b"not json"))
+        .header("X-Bupha-Auth", sign(s, "POST", "/jobs", b"not json"))
         .send(b"not json");
     assert!(matches!(r, Err(ureq::Error::StatusCode(400))), "{r:?}");
 
     // Good spec -> id; GET shows pending until the worktree lands.
     let r = ureq::post(format!("{url}/jobs"))
-        .header("X-Bupha-Auth", sign(s, br#"{"key":"o/r","sha":"abcdef1234567890"}"#))
+        .header(
+            "X-Bupha-Auth",
+            sign(
+                s,
+                "POST",
+                "/jobs",
+                br#"{"key":"o/r","sha":"abcdef1234567890"}"#,
+            ),
+        )
         .send(br#"{"key":"o/r","sha":"abcdef1234567890"}"#);
     let id: serde_json::Value = r.unwrap().into_body().read_json().unwrap();
     let id = id["id"].as_str().unwrap().to_string();
     let r = ureq::get(format!("{url}/jobs/{id}"))
-        .header("X-Bupha-Auth", sign(s, b""))
+        .header("X-Bupha-Auth", sign(s, "GET", &format!("/jobs/{id}"), b""))
         .call()
         .unwrap();
     let st: serde_json::Value = r.into_body().read_json().unwrap();
-    assert!(st["status"].as_str().unwrap().starts_with("pending"), "{st}");
+    assert!(
+        st["status"].as_str().unwrap().starts_with("pending"),
+        "{st}"
+    );
 
     // Unknown job GET/DELETE -> 404; unknown route -> 404.
     let r = ureq::get(format!("{url}/jobs/nope"))
-        .header("X-Bupha-Auth", sign(s, b""))
+        .header("X-Bupha-Auth", sign(s, "GET", "/jobs/nope", b""))
         .call();
     assert!(matches!(r, Err(ureq::Error::StatusCode(404))));
     let r = ureq::delete(format!("{url}/jobs/nope"))
-        .header("X-Bupha-Auth", sign(s, b""))
+        .header("X-Bupha-Auth", sign(s, "DELETE", "/jobs/nope", b""))
         .call();
     assert!(matches!(r, Err(ureq::Error::StatusCode(404))));
     let r = ureq::put(format!("{url}/jobs/nope/worktree"))
-        .header("X-Bupha-Auth", sign(s, b"x"))
+        .header("X-Bupha-Auth", sign(s, "PUT", "/jobs/nope/worktree", b"x"))
         .send(b"x");
     assert!(matches!(r, Err(ureq::Error::StatusCode(404))), "{r:?}");
     let r = ureq::get(format!("{url}/elsewhere"))
-        .header("X-Bupha-Auth", sign(s, b""))
+        .header("X-Bupha-Auth", sign(s, "GET", "/elsewhere", b""))
         .call();
     assert!(matches!(r, Err(ureq::Error::StatusCode(404))));
 
     // DELETE on the pending job -> killed + desc surfaces in GET.
     let r = ureq::delete(format!("{url}/jobs/{id}"))
-        .header("X-Bupha-Auth", sign(s, b""))
+        .header(
+            "X-Bupha-Auth",
+            sign(s, "DELETE", &format!("/jobs/{id}"), b""),
+        )
         .call()
         .unwrap();
     let _: serde_json::Value = r.into_body().read_json().unwrap();
     let r = ureq::get(format!("{url}/jobs/{id}"))
-        .header("X-Bupha-Auth", sign(s, b""))
+        .header("X-Bupha-Auth", sign(s, "GET", &format!("/jobs/{id}"), b""))
         .call()
         .unwrap();
     let st: serde_json::Value = r.into_body().read_json().unwrap();
@@ -248,10 +266,14 @@ fn handle_error_arms() {
 fn verify_reject_arms_and_handle_edges() {
     use hmac::{Hmac, Mac};
     use sha2::Sha256;
-    fn sign(s: &str, b: &[u8]) -> String {
-        let mut m = <Hmac<Sha256> as Mac>::new_from_slice(s.as_bytes()).unwrap();
-        m.update(b);
-        format!("sha256={}", hex::encode(m.finalize().into_bytes()))
+    fn sign(s: &str, m: &str, p: &str, b: &[u8]) -> String {
+        let mut mac = <Hmac<Sha256> as Mac>::new_from_slice(s.as_bytes()).unwrap();
+        mac.update(m.as_bytes());
+        mac.update(b" ");
+        mac.update(p.as_bytes());
+        mac.update(b"\n");
+        mac.update(b);
+        format!("sha256={}", hex::encode(mac.finalize().into_bytes()))
     }
     let (url, stop, jh) = serve_agent(Arc::new(StubRunner("sleep 1")));
     // Missing auth header / no sha256= prefix / non-hex sig -> 401.
@@ -271,10 +293,18 @@ fn verify_reject_arms_and_handle_edges() {
     assert!(h.wait().unwrap().success());
     // GET while still running -> Ok(None) reap arm.
     let r2 = ureq::post(format!("{url}/jobs"))
-        .header("X-Bupha-Auth", sign("s3cr3t", br#"{"key":"o/r","sha":"abcdef1234567890","env_names":["T","U"]}"#))
+        .header(
+            "X-Bupha-Auth",
+            sign(
+                "s3cr3t",
+                "POST",
+                "/jobs",
+                br#"{"key":"o/r","sha":"abcdef1234567890","env_names":["T","U"]}"#,
+            ),
+        )
         .send(br#"{"key":"o/r","sha":"abcdef1234567890","env_names":["T","U"]}"#)
         .unwrap();
-    let _ : serde_json::Value = r2.into_body().read_json().unwrap();
+    let _: serde_json::Value = r2.into_body().read_json().unwrap();
     stop.store(true, Ordering::SeqCst);
     let _ = jh.join();
 }
@@ -285,16 +315,24 @@ fn verify_reject_arms_and_handle_edges() {
 fn agent_reap_desc_and_err_arms() {
     struct DescRunner;
     impl Runner for DescRunner {
-        fn name(&self) -> &'static str { "desc" }
+        fn name(&self) -> &'static str {
+            "desc"
+        }
         fn spawn(&self, _: &RunCtx) -> io::Result<Box<dyn RunHandle>> {
             struct H(std::process::ExitStatus);
             impl RunHandle for H {
                 fn try_wait(&mut self) -> io::Result<Option<std::process::ExitStatus>> {
                     Ok(Some(self.0))
                 }
-                fn wait(&mut self) -> io::Result<std::process::ExitStatus> { Ok(self.0) }
-                fn kill(&mut self) -> io::Result<()> { Ok(()) }
-                fn failure_desc(&mut self) -> Option<String> { Some("ci infra: blew up".into()) }
+                fn wait(&mut self) -> io::Result<std::process::ExitStatus> {
+                    Ok(self.0)
+                }
+                fn kill(&mut self) -> io::Result<()> {
+                    Ok(())
+                }
+                fn failure_desc(&mut self) -> Option<String> {
+                    Some("ci infra: blew up".into())
+                }
             }
             use std::os::unix::process::ExitStatusExt;
             Ok(Box::new(H(std::process::ExitStatus::from_raw(1 << 8))))
@@ -302,7 +340,9 @@ fn agent_reap_desc_and_err_arms() {
     }
     struct ErrRunner;
     impl Runner for ErrRunner {
-        fn name(&self) -> &'static str { "err" }
+        fn name(&self) -> &'static str {
+            "err"
+        }
         fn spawn(&self, _: &RunCtx) -> io::Result<Box<dyn RunHandle>> {
             struct H;
             impl RunHandle for H {
@@ -312,7 +352,9 @@ fn agent_reap_desc_and_err_arms() {
                 fn wait(&mut self) -> io::Result<std::process::ExitStatus> {
                     Err(io::Error::other("wait exploded"))
                 }
-                fn kill(&mut self) -> io::Result<()> { Ok(()) }
+                fn kill(&mut self) -> io::Result<()> {
+                    Ok(())
+                }
             }
             Ok(Box::new(H))
         }
@@ -345,26 +387,36 @@ fn agent_reap_desc_and_err_arms() {
 fn agent_bad_tar_500() {
     use hmac::{Hmac, Mac};
     use sha2::Sha256;
-    fn sign(s: &str, b: &[u8]) -> String {
-        let mut m = <Hmac<Sha256> as Mac>::new_from_slice(s.as_bytes()).unwrap();
-        m.update(b);
-        format!("sha256={}", hex::encode(m.finalize().into_bytes()))
+    fn sign(s: &str, m: &str, p: &str, b: &[u8]) -> String {
+        let mut mac = <Hmac<Sha256> as Mac>::new_from_slice(s.as_bytes()).unwrap();
+        mac.update(m.as_bytes());
+        mac.update(b" ");
+        mac.update(p.as_bytes());
+        mac.update(b"\n");
+        mac.update(b);
+        format!("sha256={}", hex::encode(mac.finalize().into_bytes()))
     }
     let (url, stop, jh) = serve_agent(Arc::new(StubRunner("true")));
     let spec = br#"{"key":"o/r","sha":"9999998888888888"}"#;
     let r = ureq::post(format!("{url}/jobs"))
-        .header("X-Bupha-Auth", sign("s3cr3t", spec))
+        .header("X-Bupha-Auth", sign("s3cr3t", "POST", "/jobs", spec))
         .send(spec)
         .unwrap();
     let id: serde_json::Value = r.into_body().read_json().unwrap();
     let id = id["id"].as_str().unwrap().to_string();
     // Garbage bytes are not a tar -> extract fails -> 500.
     let r = ureq::put(format!("{url}/jobs/{id}/worktree"))
-        .header("X-Bupha-Auth", sign("s3cr3t", b"garbage"))
+        .header(
+            "X-Bupha-Auth",
+            sign("s3cr3t", "PUT", &format!("/jobs/{id}/worktree"), b"garbage"),
+        )
         .send(b"garbage");
     assert!(matches!(r, Err(ureq::Error::StatusCode(500))), "{r:?}");
     let r = ureq::get(format!("{url}/jobs/{id}"))
-        .header("X-Bupha-Auth", sign("s3cr3t", b""))
+        .header(
+            "X-Bupha-Auth",
+            sign("s3cr3t", "GET", &format!("/jobs/{id}"), b""),
+        )
         .call()
         .unwrap();
     let st: serde_json::Value = r.into_body().read_json().unwrap();
@@ -392,7 +444,6 @@ fn spawn_tar_fail_and_cfg_defaults() {
     stop.store(true, Ordering::SeqCst);
     let _ = jh.join();
     // serde default: omitting secret_env yields the standard name.
-    let hc: HttpCfg =
-        serde_json::from_str(r#"{"agent_url":"http://x"}"#).unwrap();
+    let hc: HttpCfg = serde_json::from_str(r#"{"agent_url":"http://x"}"#).unwrap();
     assert_eq!(hc.secret_env, "BUPHA_AGENT_SECRET");
 }

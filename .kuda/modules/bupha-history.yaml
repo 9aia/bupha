@@ -2,36 +2,56 @@ name: bupha-history
 path: crates/bupha-history/Cargo.toml
 purpose: 'Run-history adapter: JSONL records per finished run'
 api:
+- name: RunRecord
+  kind: type
+  file: crates/bupha-history/src/lib.rs
+  line: 9
+  module: bupha-history
+- name: appends_jsonl_and_sanitizes
+  kind: function
+  file: crates/bupha-history/tests/record.rs
+  line: 23
+  module: bupha-history
 - name: bupha-history
   kind: module
   file: crates/bupha-history/Cargo.toml
   line: 1
   module: bupha-history
-- name: RunRecord
-  kind: type
-  file: crates/bupha-history/src/lib.rs
-  line: 9
+- name: dir
+  kind: function
+  file: crates/bupha-history/tests/record.rs
+  line: 6
+  module: bupha-history
+- name: rec
+  kind: function
+  file: crates/bupha-history/tests/record.rs
+  line: 13
   module: bupha-history
 - name: record
   kind: function
   file: crates/bupha-history/src/lib.rs
   line: 22
   module: bupha-history
+- name: unwritable_path_errors
+  kind: function
+  file: crates/bupha-history/tests/record.rs
+  line: 39
+  module: bupha-history
 deps: []
 notes: ''
 verify:
 - crates/bupha-history/Cargo.toml
 - crates/bupha-history/src/lib.rs
-- crates/bupha-history/src/lib.rs
+- crates/bupha-history/tests/record.rs
 provenance:
   files:
   - crates/bupha-history/Cargo.toml
   - crates/bupha-history/src/lib.rs
-  - crates/bupha-history/src/lib.rs
+  - crates/bupha-history/tests/record.rs
   hashes:
   - bd3c49c8020bf9cc448326c4af9bd71df1191fb1
   - a4d5f53943247c793bd60d1517db88365b083bf3
-  - a4d5f53943247c793bd60d1517db88365b083bf3
-  commit_sha: d5af451be3b898586fa2578542de0e87e0f5bcba
-  generated_at: '1792310968'
-  generator: kuda-template/0.1.0
+  - 412667e9daafb2cc1189b02fa970d60cb4d30f81
+  commit_sha: 2a6dcebac3778d8c539075212ef7514729e6a60a
+  generated_at: '1793687787'
+  generator: kuda-template/0.1.2

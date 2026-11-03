@@ -2,64 +2,90 @@ name: bupha-cloudflared
 path: crates/bupha-cloudflared/Cargo.toml
 purpose: 'Tunnel impl: cloudflared (named tunnel preferred, quick tunnel fallback)'
 api:
-- name: bupha-cloudflared
-  kind: module
-  file: crates/bupha-cloudflared/Cargo.toml
-  line: 1
-  module: bupha-cloudflared
 - name: CloudflaredTunnel
   kind: type
   file: crates/bupha-cloudflared/src/lib.rs
   line: 13
   module: bupha-cloudflared
-- name: new
+- name: args_of
   kind: function
-  file: crates/bupha-cloudflared/src/lib.rs
-  line: 18
+  file: crates/bupha-cloudflared/tests/tunnel.rs
+  line: 55
+  module: bupha-cloudflared
+- name: bupha-cloudflared
+  kind: module
+  file: crates/bupha-cloudflared/Cargo.toml
+  line: 1
+  module: bupha-cloudflared
+- name: cfg
+  kind: function
+  file: crates/bupha-cloudflared/tests/tunnel.rs
+  line: 44
+  module: bupha-cloudflared
+- name: dir
+  kind: function
+  file: crates/bupha-cloudflared/tests/tunnel.rs
+  line: 10
   module: bupha-cloudflared
 - name: name
   kind: function
   file: crates/bupha-cloudflared/src/lib.rs
   line: 24
   module: bupha-cloudflared
-- name: spawn
+- name: named_tunnel_args_and_public_url
+  kind: function
+  file: crates/bupha-cloudflared/tests/tunnel.rs
+  line: 80
+  module: bupha-cloudflared
+- name: new
   kind: function
   file: crates/bupha-cloudflared/src/lib.rs
-  line: 28
+  line: 18
   module: bupha-cloudflared
 - name: public_url
   kind: function
   file: crates/bupha-cloudflared/src/lib.rs
   line: 39
   module: bupha-cloudflared
+- name: quick_tunnel_args
+  kind: function
+  file: crates/bupha-cloudflared/tests/tunnel.rs
+  line: 66
+  module: bupha-cloudflared
+- name: spawn
+  kind: function
+  file: crates/bupha-cloudflared/src/lib.rs
+  line: 28
+  module: bupha-cloudflared
+- name: spawn_fails_without_binary
+  kind: function
+  file: crates/bupha-cloudflared/tests/tunnel.rs
+  line: 93
+  module: bupha-cloudflared
+- name: stub_cloudflared
+  kind: function
+  file: crates/bupha-cloudflared/tests/tunnel.rs
+  line: 17
+  module: bupha-cloudflared
 deps:
 - bupha-core
 - bupha-tunnel
-- bupha_core
-- bupha_tunnel
+- bupha-core
+- bupha-tunnel
 notes: ''
 verify:
 - crates/bupha-cloudflared/Cargo.toml
 - crates/bupha-cloudflared/src/lib.rs
-- crates/bupha-cloudflared/src/lib.rs
-- crates/bupha-cloudflared/src/lib.rs
-- crates/bupha-cloudflared/src/lib.rs
-- crates/bupha-cloudflared/src/lib.rs
+- crates/bupha-cloudflared/tests/tunnel.rs
 provenance:
   files:
   - crates/bupha-cloudflared/Cargo.toml
   - crates/bupha-cloudflared/src/lib.rs
-  - crates/bupha-cloudflared/src/lib.rs
-  - crates/bupha-cloudflared/src/lib.rs
-  - crates/bupha-cloudflared/src/lib.rs
-  - crates/bupha-cloudflared/src/lib.rs
+  - crates/bupha-cloudflared/tests/tunnel.rs
   hashes:
   - c6468e2b1603699af53234b1fa10040bc21f84b9
   - b0b010efc76a3f5188cb637c2491835bbc7a64ce
-  - b0b010efc76a3f5188cb637c2491835bbc7a64ce
-  - b0b010efc76a3f5188cb637c2491835bbc7a64ce
-  - b0b010efc76a3f5188cb637c2491835bbc7a64ce
-  - b0b010efc76a3f5188cb637c2491835bbc7a64ce
-  commit_sha: d5af451be3b898586fa2578542de0e87e0f5bcba
-  generated_at: '1792310968'
-  generator: kuda-template/0.1.0
+  - 1047a30c9c68ded669402eb6a274e4b0caf25099
+  commit_sha: 2a6dcebac3778d8c539075212ef7514729e6a60a
+  generated_at: '1793687787'
+  generator: kuda-template/0.1.2

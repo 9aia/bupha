@@ -2,66 +2,222 @@ name: bupha-ssh
 path: crates/bupha-ssh/Cargo.toml
 purpose: 'Runner impl: remote execution over ssh (rsync worktree + run)'
 api:
+- name: LOCK
+  kind: const
+  file: crates/bupha-ssh/tests/runner.rs
+  line: 15
+  module: bupha-ssh
+- name: SHA
+  kind: const
+  file: crates/bupha-ssh/tests/runner.rs
+  line: 11
+  module: bupha-ssh
+- name: SshCfg
+  kind: type
+  file: crates/bupha-ssh/src/lib.rs
+  line: 38
+  module: bupha-ssh
+- name: SshHandle
+  kind: type
+  file: crates/bupha-ssh/src/lib.rs
+  line: 72
+  module: bupha-ssh
+- name: SshRunner
+  kind: type
+  file: crates/bupha-ssh/src/lib.rs
+  line: 49
+  module: bupha-ssh
+- name: Stage
+  kind: type
+  file: crates/bupha-ssh/src/lib.rs
+  line: 62
+  module: bupha-ssh
 - name: bupha-ssh
   kind: module
   file: crates/bupha-ssh/Cargo.toml
   line: 1
   module: bupha-ssh
-- name: SshCfg
-  kind: type
-  file: crates/bupha-ssh/src/lib.rs
+- name: cfg
+  kind: function
+  file: crates/bupha-ssh/tests/runner.rs
+  line: 67
+  module: bupha-ssh
+- name: ctx
+  kind: function
+  file: crates/bupha-ssh/tests/runner.rs
+  line: 24
+  module: bupha-ssh
+- name: defaults_and_exit_propagation
+  kind: function
+  file: crates/bupha-ssh/tests/runner.rs
+  line: 123
+  module: bupha-ssh
+- name: dir
+  kind: function
+  file: crates/bupha-ssh/tests/runner.rs
   line: 17
   module: bupha-ssh
-- name: SshRunner
-  kind: type
-  file: crates/bupha-ssh/src/lib.rs
-  line: 27
-  module: bupha-ssh
-- name: new
+- name: dq_escape
   kind: function
   file: crates/bupha-ssh/src/lib.rs
-  line: 32
+  line: 125
+  module: bupha-ssh
+- name: drop
+  kind: function
+  file: crates/bupha-ssh/src/lib.rs
+  line: 255
+  module: bupha-ssh
+- name: drop_orphans_cleanup_like_kill
+  kind: function
+  file: crates/bupha-ssh/tests/runner.rs
+  line: 204
+  module: bupha-ssh
+- name: failure_desc
+  kind: function
+  file: crates/bupha-ssh/src/lib.rs
+  line: 241
+  module: bupha-ssh
+- name: is_valid_remote
+  kind: function
+  file: crates/bupha-ssh/src/lib.rs
+  line: 110
+  module: bupha-ssh
+- name: kill
+  kind: function
+  file: crates/bupha-ssh/src/lib.rs
+  line: 213
+  module: bupha-ssh
+- name: kill_cleans_up_remote_best_effort
+  kind: function
+  file: crates/bupha-ssh/tests/runner.rs
+  line: 179
+  module: bupha-ssh
+- name: leaf_components_are_shell_safe
+  kind: function
+  file: crates/bupha-ssh/src/lib.rs
+  line: 355
+  module: bupha-ssh
+- name: missing_remote_is_an_error_not_a_panic
+  kind: function
+  file: crates/bupha-ssh/tests/runner.rs
+  line: 252
   module: bupha-ssh
 - name: name
   kind: function
   file: crates/bupha-ssh/src/lib.rs
-  line: 38
+  line: 265
+  module: bupha-ssh
+- name: new
+  kind: function
+  file: crates/bupha-ssh/src/lib.rs
+  line: 54
+  module: bupha-ssh
+- name: path_with
+  kind: function
+  file: crates/bupha-ssh/tests/runner.rs
+  line: 56
+  module: bupha-ssh
+- name: remote_rejects_option_injection
+  kind: function
+  file: crates/bupha-ssh/src/lib.rs
+  line: 344
+  module: bupha-ssh
+- name: remote_script
+  kind: function
+  file: crates/bupha-ssh/src/lib.rs
+  line: 149
+  module: bupha-ssh
+- name: safe_component
+  kind: function
+  file: crates/bupha-ssh/src/lib.rs
+  line: 95
+  module: bupha-ssh
+- name: sh_escape
+  kind: function
+  file: crates/bupha-ssh/src/lib.rs
+  line: 120
+  module: bupha-ssh
+- name: shell_dir
+  kind: function
+  file: crates/bupha-ssh/src/lib.rs
+  line: 138
+  module: bupha-ssh
+- name: ships_worktree_and_runs_remotely
+  kind: function
+  file: crates/bupha-ssh/tests/runner.rs
+  line: 76
   module: bupha-ssh
 - name: spawn
   kind: function
   file: crates/bupha-ssh/src/lib.rs
-  line: 42
+  line: 269
+  module: bupha-ssh
+- name: spawn_remote
+  kind: function
+  file: crates/bupha-ssh/src/lib.rs
+  line: 163
+  module: bupha-ssh
+- name: ssh_stage_spawn_failure_surfaces
+  kind: function
+  file: crates/bupha-ssh/tests/runner.rs
+  line: 224
+  module: bupha-ssh
+- name: ssh_transport_failure_reports_unreachable
+  kind: function
+  file: crates/bupha-ssh/tests/runner.rs
+  line: 160
+  module: bupha-ssh
+- name: stub
+  kind: function
+  file: crates/bupha-ssh/tests/runner.rs
+  line: 44
+  module: bupha-ssh
+- name: stub_body
+  kind: function
+  file: crates/bupha-ssh/tests/runner.rs
+  line: 33
+  module: bupha-ssh
+- name: sync_failure_reports_infra
+  kind: function
+  file: crates/bupha-ssh/tests/runner.rs
+  line: 145
+  module: bupha-ssh
+- name: tests
+  kind: module
+  file: crates/bupha-ssh/src/lib.rs
+  line: 340
+  module: bupha-ssh
+- name: try_wait
+  kind: function
+  file: crates/bupha-ssh/src/lib.rs
+  line: 179
+  module: bupha-ssh
+- name: wait
+  kind: function
+  file: crates/bupha-ssh/src/lib.rs
+  line: 204
   module: bupha-ssh
 deps:
 - bupha-core
 - bupha-runner
 - serde
 - toml
-- bupha_runner
+- bupha-runner
 - serde
 notes: ''
 verify:
 - crates/bupha-ssh/Cargo.toml
 - crates/bupha-ssh/src/lib.rs
-- crates/bupha-ssh/src/lib.rs
-- crates/bupha-ssh/src/lib.rs
-- crates/bupha-ssh/src/lib.rs
-- crates/bupha-ssh/src/lib.rs
+- crates/bupha-ssh/tests/runner.rs
 provenance:
   files:
   - crates/bupha-ssh/Cargo.toml
   - crates/bupha-ssh/src/lib.rs
-  - crates/bupha-ssh/src/lib.rs
-  - crates/bupha-ssh/src/lib.rs
-  - crates/bupha-ssh/src/lib.rs
-  - crates/bupha-ssh/src/lib.rs
+  - crates/bupha-ssh/tests/runner.rs
   hashes:
   - 29f876e5787cf84ffefed9baa070cee30bda8972
-  - 769915c2d636c6a3f5ac2c400230bc5e6aec7b29
-  - 769915c2d636c6a3f5ac2c400230bc5e6aec7b29
-  - 769915c2d636c6a3f5ac2c400230bc5e6aec7b29
-  - 769915c2d636c6a3f5ac2c400230bc5e6aec7b29
-  - 769915c2d636c6a3f5ac2c400230bc5e6aec7b29
-  commit_sha: d5af451be3b898586fa2578542de0e87e0f5bcba
-  generated_at: '1792310968'
-  generator: kuda-template/0.1.0
+  - 29cbf8bbfbf3649facc4c145e5ee852bc01d1358
+  - 2c4c511ec253d0164146f89f4c01f9b8c29c5b26
+  commit_sha: 2a6dcebac3778d8c539075212ef7514729e6a60a
+  generated_at: '1793687787'
+  generator: kuda-template/0.1.2

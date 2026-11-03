@@ -19,7 +19,13 @@ fn get_reads_and_misses() {
     assert_eq!(s.get("A").as_deref(), Some("1"));
     assert_eq!(s.get("EMPTY"), None);
     assert_eq!(s.get("MISSING"), None);
-    assert_eq!(DotenvSecrets { path: scratch("nf").join("e") }.get("A"), None);
+    assert_eq!(
+        DotenvSecrets {
+            path: scratch("nf").join("e")
+        }
+        .get("A"),
+        None
+    );
 }
 
 #[test]
@@ -32,6 +38,9 @@ fn set_roundtrips_and_chmods() {
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;
-        assert_eq!(std::fs::metadata(&p).unwrap().permissions().mode() & 0o777, 0o600);
+        assert_eq!(
+            std::fs::metadata(&p).unwrap().permissions().mode() & 0o777,
+            0o600
+        );
     }
 }

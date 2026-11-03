@@ -33,6 +33,9 @@ pub enum Verdict {
     Duplicate,
     /// Well-formed push, but no job watches that (repo, ref).
     NoMatch,
+    /// The push itself failed validation (e.g. sha isn't path/argv
+    /// safe) — never reaches the queue.
+    Rejected,
     /// Access policy refused the sender.
     Denied,
 }

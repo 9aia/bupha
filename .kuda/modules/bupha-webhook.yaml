@@ -1,0 +1,68 @@
+name: bupha-webhook
+path: crates/bupha-webhook/Cargo.toml
+purpose: 'Source impl: forge-webhook listener driving a Trigger port impl'
+api:
+- name: G
+  kind: type
+  file: crates/bupha-webhook/src/lib.rs
+  line: 23
+  module: bupha-webhook
+- name: Inner
+  kind: type
+  file: crates/bupha-webhook/src/lib.rs
+  line: 34
+  module: bupha-webhook
+- name: MAX_INFLIGHT
+  kind: const
+  file: crates/bupha-webhook/src/lib.rs
+  line: 19
+  module: bupha-webhook
+- name: WebhookSource
+  kind: type
+  file: crates/bupha-webhook/src/lib.rs
+  line: 52
+  module: bupha-webhook
+- name: bupha-webhook
+  kind: module
+  file: crates/bupha-webhook/Cargo.toml
+  line: 1
+  module: bupha-webhook
+- name: drop
+  kind: function
+  file: crates/bupha-webhook/src/lib.rs
+  line: 25
+  module: bupha-webhook
+- name: name
+  kind: function
+  file: crates/bupha-webhook/src/lib.rs
+  line: 70
+  module: bupha-webhook
+- name: run
+  kind: function
+  file: crates/bupha-webhook/src/lib.rs
+  line: 74
+  module: bupha-webhook
+- name: scopeguard
+  kind: function
+  file: crates/bupha-webhook/src/lib.rs
+  line: 22
+  module: bupha-webhook
+deps:
+- bupha-core
+- bupha-trigger
+- tiny_http
+- bupha-trigger
+notes: ''
+verify:
+- crates/bupha-webhook/Cargo.toml
+- crates/bupha-webhook/src/lib.rs
+provenance:
+  files:
+  - crates/bupha-webhook/Cargo.toml
+  - crates/bupha-webhook/src/lib.rs
+  hashes:
+  - cd8e10b771c3960ae45a2b6f7705fa9f1cdc6344
+  - ac8edecec513f7c4b7bd1af9b29df8f952e4e0e9
+  commit_sha: 2a6dcebac3778d8c539075212ef7514729e6a60a
+  generated_at: '1793687787'
+  generator: kuda-template/0.1.2

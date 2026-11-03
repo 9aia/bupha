@@ -56,9 +56,18 @@ fn job(key: &str, sha: &str, runs_on: &[&str]) -> Job {
 fn mem_workq_claim_complete_and_labels() {
     let q = MemWorkQueue::default();
     let keys = [
-        KeyPolicy { key: "a/x".into(), latest: true },
-        KeyPolicy { key: "a/y".into(), latest: false },
-        KeyPolicy { key: "a/empty".into(), latest: true },
+        KeyPolicy {
+            key: "a/x".into(),
+            latest: true,
+        },
+        KeyPolicy {
+            key: "a/y".into(),
+            latest: false,
+        },
+        KeyPolicy {
+            key: "a/empty".into(),
+            latest: true,
+        },
     ];
     let none: &[String] = &[];
 
@@ -72,7 +81,13 @@ fn mem_workq_claim_complete_and_labels() {
     match q.claim_next("w1", none, &keys).unwrap() {
         Some(Claim::Won { job: j, superseded }) => {
             assert_eq!(j.sha, "2");
-            assert_eq!(superseded.iter().map(|s| s.sha.as_str()).collect::<Vec<_>>(), vec!["1"]);
+            assert_eq!(
+                superseded
+                    .iter()
+                    .map(|s| s.sha.as_str())
+                    .collect::<Vec<_>>(),
+                vec!["1"]
+            );
         }
         _ => panic!("expected a won claim"),
     }
@@ -98,14 +113,20 @@ fn mem_workq_claim_complete_and_labels() {
     q.enqueue(&job("a/y", "3", &[])).unwrap();
     assert!(matches!(q.claim_next("w1", &arm, &keys).unwrap(), None));
     // Held-but-never-completed a/x:2 stays claimed — nothing left.
-    let keys2 = [KeyPolicy { key: "a/never".into(), latest: false }];
+    let keys2 = [KeyPolicy {
+        key: "a/never".into(),
+        latest: false,
+    }];
     assert!(matches!(q.claim_next("w1", none, &keys2).unwrap(), None));
 }
 
 #[test]
 fn mem_workq_all_policy_fifo() {
     let q = MemWorkQueue::default();
-    let keys = [KeyPolicy { key: "o/r".into(), latest: false }];
+    let keys = [KeyPolicy {
+        key: "o/r".into(),
+        latest: false,
+    }];
     let none: &[String] = &[];
     q.enqueue(&job("o/r", "1", &[])).unwrap();
     q.enqueue(&job("o/r", "2", &[])).unwrap();

@@ -106,7 +106,10 @@ fn ships_worktree_and_runs_remotely() {
         script.contains("cd \"$HOME\"/\"bupha/o-r-abc123456789\""),
         "{script}"
     );
-    assert!(script.contains("export BUPHA_TOKEN='t0k'\\''en'"), "{script}");
+    assert!(
+        script.contains("export BUPHA_TOKEN='t0k'\\''en'"),
+        "{script}"
+    );
     assert!(script.contains("\nmake 'ci'\n"), "{script}");
     assert!(
         script.contains("rm -rf \"$HOME\"/\"bupha/o-r-abc123456789\""),
@@ -166,7 +169,10 @@ fn ssh_transport_failure_reports_unreachable() {
     assert_eq!(c.failure_desc().as_deref(), Some("ci infra: unreachable"));
     // Absolute remote_dir needs no $HOME resolution.
     let script = std::fs::read_to_string(d.join("ssh.stdin")).unwrap();
-    assert!(script.contains("cd \"/srv/ci/o-r-abc123456789\""), "{script}");
+    assert!(
+        script.contains("cd \"/srv/ci/o-r-abc123456789\""),
+        "{script}"
+    );
 }
 
 #[test]

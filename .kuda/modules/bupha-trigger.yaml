@@ -1,53 +1,112 @@
 name: bupha-trigger
 path: crates/bupha-trigger/Cargo.toml
-purpose: 'Trigger port: where pushes come from'
+purpose: 'Source port: where pushes come from — forge webhooks, WAL polls, …'
 api:
+- name: Emit
+  kind: type
+  file: crates/bupha-trigger/src/lib.rs
+  line: 46
+  module: bupha-trigger
+- name: ForgeAdmin
+  kind: trait
+  file: crates/bupha-trigger/src/lib.rs
+  line: 107
+  module: bupha-trigger
+- name: Nop
+  kind: type
+  file: crates/bupha-trigger/tests/defaults.rs
+  line: 6
+  module: bupha-trigger
+- name: Push
+  kind: type
+  file: crates/bupha-trigger/src/lib.rs
+  line: 18
+  module: bupha-trigger
+- name: PushOutcome
+  kind: type
+  file: crates/bupha-trigger/src/lib.rs
+  line: 96
+  module: bupha-trigger
+- name: Source
+  kind: trait
+  file: crates/bupha-trigger/src/lib.rs
+  line: 56
+  module: bupha-trigger
+- name: Stop
+  kind: type
+  file: crates/bupha-trigger/src/lib.rs
+  line: 50
+  module: bupha-trigger
+- name: Trigger
+  kind: trait
+  file: crates/bupha-trigger/src/lib.rs
+  line: 68
+  module: bupha-trigger
+- name: Verdict
+  kind: type
+  file: crates/bupha-trigger/src/lib.rs
+  line: 29
+  module: bupha-trigger
 - name: bupha-trigger
   kind: module
   file: crates/bupha-trigger/Cargo.toml
   line: 1
   module: bupha-trigger
-- name: Trigger
-  kind: trait
-  file: crates/bupha-trigger/src/lib.rs
-  line: 8
+- name: default_delivery_id_is_none
+  kind: function
+  file: crates/bupha-trigger/tests/defaults.rs
+  line: 24
+  module: bupha-trigger
+- name: default_is_ping_is_false
+  kind: function
+  file: crates/bupha-trigger/tests/defaults.rs
+  line: 32
   module: bupha-trigger
 - name: delivery_id
   kind: function
   file: crates/bupha-trigger/src/lib.rs
-  line: 20
+  line: 90
   module: bupha-trigger
-- name: PushOutcome
-  kind: type
-  file: crates/bupha-trigger/src/lib.rs
-  line: 26
+- name: is_event
+  kind: function
+  file: crates/bupha-trigger/tests/defaults.rs
+  line: 9
   module: bupha-trigger
-- name: ForgeAdmin
-  kind: trait
+- name: is_ping
+  kind: function
   file: crates/bupha-trigger/src/lib.rs
-  line: 44
+  line: 74
+  module: bupha-trigger
+- name: parse_push
+  kind: function
+  file: crates/bupha-trigger/tests/defaults.rs
+  line: 18
+  module: bupha-trigger
+- name: repo_hint
+  kind: function
+  file: crates/bupha-trigger/tests/defaults.rs
+  line: 12
+  module: bupha-trigger
+- name: verify
+  kind: function
+  file: crates/bupha-trigger/tests/defaults.rs
+  line: 15
   module: bupha-trigger
 deps: []
 notes: ''
 verify:
 - crates/bupha-trigger/Cargo.toml
 - crates/bupha-trigger/src/lib.rs
-- crates/bupha-trigger/src/lib.rs
-- crates/bupha-trigger/src/lib.rs
-- crates/bupha-trigger/src/lib.rs
+- crates/bupha-trigger/tests/defaults.rs
 provenance:
   files:
   - crates/bupha-trigger/Cargo.toml
   - crates/bupha-trigger/src/lib.rs
-  - crates/bupha-trigger/src/lib.rs
-  - crates/bupha-trigger/src/lib.rs
-  - crates/bupha-trigger/src/lib.rs
+  - crates/bupha-trigger/tests/defaults.rs
   hashes:
-  - 34c4aca4ba6e1251a69392ff17ea20e8c88c57db
-  - c3a8ddd68b44c41af69e02c6996d969c850391f1
-  - c3a8ddd68b44c41af69e02c6996d969c850391f1
-  - c3a8ddd68b44c41af69e02c6996d969c850391f1
-  - c3a8ddd68b44c41af69e02c6996d969c850391f1
-  commit_sha: d5af451be3b898586fa2578542de0e87e0f5bcba
-  generated_at: '1792310968'
-  generator: kuda-template/0.1.0
+  - 5049aec6b8565aa211bac21b52c0f690c0509d63
+  - 8b820cd6370e790ebc890b9a4fafc59b0b5351d8
+  - 418881a42e1f25e722b38f2709847f2aeedb2da8
+  commit_sha: 2a6dcebac3778d8c539075212ef7514729e6a60a
+  generated_at: '1793687787'
+  generator: kuda-template/0.1.2

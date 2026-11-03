@@ -157,10 +157,7 @@ fn serve() -> String {
                         }
                         "DEL" => {
                             let mut m = map.lock().unwrap();
-                            let n = argv[1..]
-                                .iter()
-                                .filter(|k| m.remove(*k).is_some())
-                                .count();
+                            let n = argv[1..].iter().filter(|k| m.remove(*k).is_some()).count();
                             format!(":{n}\r\n")
                         }
                         _ => "+OK\r\n".to_string(),
@@ -304,8 +301,14 @@ fn workq_latest_claim_supersede_complete() {
     let s_url = serve();
     let s = RedisQueueStore::open(&s_url).unwrap();
     let keys = [
-        KeyPolicy { key: "o/r".into(), latest: true },
-        KeyPolicy { key: "o/skip".into(), latest: true },
+        KeyPolicy {
+            key: "o/r".into(),
+            latest: true,
+        },
+        KeyPolicy {
+            key: "o/skip".into(),
+            latest: true,
+        },
     ];
     let none: &[String] = &[];
     let j = |sha: &str, on: &[&str]| Job {
@@ -319,11 +322,18 @@ fn workq_latest_claim_supersede_complete() {
     // broken entry (skipped) seed the list alongside live jobs.
     {
         use std::net::TcpStream;
-        let port = s_url.trim_start_matches("redis://").trim_end_matches('/').to_string();
+        let port = s_url
+            .trim_start_matches("redis://")
+            .trim_end_matches('/')
+            .to_string();
         let mut raw = TcpStream::connect(port).unwrap();
         let d1 = serde_json::to_string(&j("done1", &[])).unwrap();
         let push = |v: &str| {
-            format!("*3\r\n$5\r\nRPUSH\r\n$14\r\nbupha:work:o/r\r\n${}\r\n{}\r\n", v.len(), v)
+            format!(
+                "*3\r\n$5\r\nRPUSH\r\n$14\r\nbupha:work:o/r\r\n${}\r\n{}\r\n",
+                v.len(),
+                v
+            )
         };
         raw.write_all(push(&d1).as_bytes()).unwrap();
         raw.write_all(push("broken").as_bytes()).unwrap();
@@ -378,9 +388,13 @@ fn workq_pruned_and_all_policy() {
     // pruned, and the broken older entry takes the parse-skip arm.
     {
         use std::net::TcpStream;
-        let port = s_url.trim_start_matches("redis://").trim_end_matches('/').to_string();
+        let port = s_url
+            .trim_start_matches("redis://")
+            .trim_end_matches('/')
+            .to_string();
         let mut raw = TcpStream::connect(port).unwrap();
-        raw.write_all(b"*3\r\n$5\r\nRPUSH\r\n$14\r\nbupha:work:o/r\r\n$6\r\nbroken\r\n").unwrap();
+        raw.write_all(b"*3\r\n$5\r\nRPUSH\r\n$14\r\nbupha:work:o/r\r\n$6\r\nbroken\r\n")
+            .unwrap();
         let mut r = BufReader::new(raw);
         let mut l = String::new();
         r.read_line(&mut l).unwrap();
@@ -389,8 +403,14 @@ fn workq_pruned_and_all_policy() {
     s.enqueue(&j("o/r", "new")).unwrap();
     s.try_claim("o/r", "new", "peer").unwrap();
     let keys = [
-        KeyPolicy { key: "o/r".into(), latest: true },
-        KeyPolicy { key: "o/fifo".into(), latest: false },
+        KeyPolicy {
+            key: "o/r".into(),
+            latest: true,
+        },
+        KeyPolicy {
+            key: "o/fifo".into(),
+            latest: false,
+        },
     ];
     match s.claim_next("w1", none, &keys).unwrap() {
         Some(Claim::Pruned(sup)) => {
@@ -406,18 +426,32 @@ fn workq_pruned_and_all_policy() {
     // every skip arm runs during the scan.
     {
         use std::net::TcpStream;
-        let port = s_url.trim_start_matches("redis://").trim_end_matches('/').to_string();
+        let port = s_url
+            .trim_start_matches("redis://")
+            .trim_end_matches('/')
+            .to_string();
         let mut raw = TcpStream::connect(port).unwrap();
-        let put = |v: &str| format!("*3\r\n$5\r\nRPUSH\r\n$17\r\nbupha:work:o/fifo\r\n${}\r\n{}\r\n", v.len(), v);
+        let put = |v: &str| {
+            format!(
+                "*3\r\n$5\r\nRPUSH\r\n$17\r\nbupha:work:o/fifo\r\n${}\r\n{}\r\n",
+                v.len(),
+                v
+            )
+        };
         raw.write_all(put("broken").as_bytes()).unwrap();
-        raw.write_all(put(&serde_json::to_string(&j("o/fifo", "done1")).unwrap()).as_bytes()).unwrap();
+        raw.write_all(put(&serde_json::to_string(&j("o/fifo", "done1")).unwrap()).as_bytes())
+            .unwrap();
         let mut r = BufReader::new(raw);
         let (mut l1, mut l2) = (String::new(), String::new());
         r.read_line(&mut l1).unwrap();
         r.read_line(&mut l2).unwrap();
     }
     s.mark_done("o/fifo", "done1").unwrap();
-    let lab = Job { key: "o/fifo".into(), sha: "lab".into(), runs_on: vec!["arch=x86".into()] };
+    let lab = Job {
+        key: "o/fifo".into(),
+        sha: "lab".into(),
+        runs_on: vec!["arch=x86".into()],
+    };
     s.enqueue(&lab).unwrap();
     s.enqueue(&j("o/fifo", "a")).unwrap();
     s.enqueue(&j("o/fifo", "b")).unwrap();

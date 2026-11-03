@@ -103,6 +103,14 @@ fn labels_fit(job: &Job, worker_labels: &[String]) -> bool {
 
 impl WorkQueue for MemWorkQueue {
     fn enqueue(&self, job: &Job) -> io::Result<bool> {
+        // The sha names worktree dirs and reaches git argv — stores
+        // refuse hostile values at the boundary, not just at ingest.
+        if !bupha_core::is_valid_sha(&job.sha) {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                format!("unsafe sha {:?}", job.sha),
+            ));
+        }
         let mut l = self.lists.lock().unwrap();
         let q = l.entry(job.key.clone()).or_default();
         if q.iter().any(|j| j.sha == job.sha) {
@@ -126,8 +134,11 @@ impl WorkQueue for MemWorkQueue {
             let Some(q) = lists.get_mut(&kp.key) else {
                 continue;
             };
-            // Prune completed entries off the front as we scan.
-            q.retain(|j| !done.contains(&(kp.key.clone(), j.sha.clone())));
+            // Prune completed AND invalid entries off the front as we
+            // scan — a hostile value must never become a run.
+            q.retain(|j| {
+                !done.contains(&(kp.key.clone(), j.sha.clone())) && bupha_core::is_valid_sha(&j.sha)
+            });
             if kp.latest {
                 // Newest live entry is the only candidate; older ones
                 // are superseded by it (or already pruned if it's held).
@@ -179,5 +190,27 @@ impl WorkQueue for MemWorkQueue {
             .unwrap()
             .insert((job.key.clone(), job.sha.clone()));
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn mem_enqueue_rejects_unsafe_sha() {
+        let q = MemWorkQueue::default();
+        let bad = Job {
+            key: "o/r".into(),
+            sha: "../../x".into(),
+            runs_on: vec![],
+        };
+        assert!(q.enqueue(&bad).is_err());
+        let good = Job {
+            key: "o/r".into(),
+            sha: "0123456789abcdef".into(),
+            runs_on: vec![],
+        };
+        assert!(q.enqueue(&good).unwrap());
     }
 }

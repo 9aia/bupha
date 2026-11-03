@@ -2,112 +2,157 @@ name: bupha-systemd
 path: crates/bupha-systemd/Cargo.toml
 purpose: 'Service impl: systemd user units'
 api:
+- name: SystemdService
+  kind: type
+  file: crates/bupha-systemd/src/lib.rs
+  line: 172
+  module: bupha-systemd
 - name: bupha-systemd
   kind: module
   file: crates/bupha-systemd/Cargo.toml
   line: 1
   module: bupha-systemd
-- name: write_produces_unit
+- name: dir
   kind: function
-  file: crates/bupha-systemd/tests/unit.rs
-  line: 6
+  file: crates/bupha-systemd/tests/svc.rs
+  line: 9
+  module: bupha-systemd
+- name: disable
+  kind: function
+  file: crates/bupha-systemd/src/lib.rs
+  line: 198
+  module: bupha-systemd
+- name: disable_removes_unit_and_env_skeleton
+  kind: function
+  file: crates/bupha-systemd/tests/svc.rs
+  line: 120
+  module: bupha-systemd
+- name: disable_service
+  kind: function
+  file: crates/bupha-systemd/src/lib.rs
+  line: 152
+  module: bupha-systemd
+- name: enable
+  kind: function
+  file: crates/bupha-systemd/src/lib.rs
+  line: 195
+  module: bupha-systemd
+- name: enable_service
+  kind: function
+  file: crates/bupha-systemd/src/lib.rs
+  line: 59
+  module: bupha-systemd
+- name: enable_stop_restart_status_logs
+  kind: function
+  file: crates/bupha-systemd/tests/svc.rs
+  line: 47
+  module: bupha-systemd
+- name: env_with
+  kind: function
+  file: crates/bupha-systemd/tests/svc.rs
+  line: 26
+  module: bupha-systemd
+- name: failures_propagate
+  kind: function
+  file: crates/bupha-systemd/tests/svc.rs
+  line: 88
   module: bupha-systemd
 - name: home
   kind: function
   file: crates/bupha-systemd/src/lib.rs
   line: 10
   module: bupha-systemd
-- name: write_service_unit
+- name: missing_tools_report_unknown_and_err
   kind: function
-  file: crates/bupha-systemd/src/lib.rs
-  line: 18
+  file: crates/bupha-systemd/tests/svc.rs
+  line: 104
   module: bupha-systemd
-- name: enable_service
+- name: ok_systemctl
   kind: function
-  file: crates/bupha-systemd/src/lib.rs
-  line: 55
+  file: crates/bupha-systemd/tests/svc.rs
+  line: 38
   module: bupha-systemd
-- name: write_env_skeleton
+- name: restart_service
   kind: function
   file: crates/bupha-systemd/src/lib.rs
-  line: 62
-  module: bupha-systemd
-- name: disable_service
-  kind: function
-  file: crates/bupha-systemd/src/lib.rs
-  line: 83
+  line: 126
   module: bupha-systemd
 - name: run
   kind: function
   file: crates/bupha-systemd/src/lib.rs
-  line: 93
+  line: 162
   module: bupha-systemd
-- name: SystemdService
-  kind: type
+- name: service_logs
+  kind: function
   file: crates/bupha-systemd/src/lib.rs
-  line: 103
+  line: 133
+  module: bupha-systemd
+- name: skeleton_error_and_disable_error
+  kind: function
+  file: crates/bupha-systemd/tests/svc.rs
+  line: 169
+  module: bupha-systemd
+- name: stop_service
+  kind: function
+  file: crates/bupha-systemd/src/lib.rs
+  line: 102
+  module: bupha-systemd
+- name: stub
+  kind: function
+  file: crates/bupha-systemd/tests/svc.rs
+  line: 16
+  module: bupha-systemd
+- name: unit_status
+  kind: function
+  file: crates/bupha-systemd/src/lib.rs
+  line: 109
   module: bupha-systemd
 - name: write
   kind: function
   file: crates/bupha-systemd/src/lib.rs
-  line: 115
+  line: 186
   module: bupha-systemd
-- name: enable
+- name: write_env_skeleton
   kind: function
   file: crates/bupha-systemd/src/lib.rs
-  line: 118
+  line: 67
   module: bupha-systemd
-- name: disable
+- name: write_produces_unit
+  kind: function
+  file: crates/bupha-systemd/tests/unit.rs
+  line: 6
+  module: bupha-systemd
+- name: write_service_unit
   kind: function
   file: crates/bupha-systemd/src/lib.rs
-  line: 121
+  line: 19
+  module: bupha-systemd
+- name: write_unit_and_skeleton_write_errors
+  kind: function
+  file: crates/bupha-systemd/tests/svc.rs
+  line: 190
   module: bupha-systemd
 deps:
 - bupha-core
 - bupha-service
-- bupha_service
-- bupha_systemd
+- bupha-service
 notes: ''
 verify:
 - crates/bupha-systemd/Cargo.toml
+- crates/bupha-systemd/src/lib.rs
+- crates/bupha-systemd/tests/svc.rs
 - crates/bupha-systemd/tests/unit.rs
-- crates/bupha-systemd/src/lib.rs
-- crates/bupha-systemd/src/lib.rs
-- crates/bupha-systemd/src/lib.rs
-- crates/bupha-systemd/src/lib.rs
-- crates/bupha-systemd/src/lib.rs
-- crates/bupha-systemd/src/lib.rs
-- crates/bupha-systemd/src/lib.rs
-- crates/bupha-systemd/src/lib.rs
-- crates/bupha-systemd/src/lib.rs
-- crates/bupha-systemd/src/lib.rs
 provenance:
   files:
   - crates/bupha-systemd/Cargo.toml
+  - crates/bupha-systemd/src/lib.rs
+  - crates/bupha-systemd/tests/svc.rs
   - crates/bupha-systemd/tests/unit.rs
-  - crates/bupha-systemd/src/lib.rs
-  - crates/bupha-systemd/src/lib.rs
-  - crates/bupha-systemd/src/lib.rs
-  - crates/bupha-systemd/src/lib.rs
-  - crates/bupha-systemd/src/lib.rs
-  - crates/bupha-systemd/src/lib.rs
-  - crates/bupha-systemd/src/lib.rs
-  - crates/bupha-systemd/src/lib.rs
-  - crates/bupha-systemd/src/lib.rs
-  - crates/bupha-systemd/src/lib.rs
   hashes:
   - 90afffb3e13a350613d0fa7bada6420d14581028
-  - 7704b2b4de462d3744681eb2aba48f6cb6a4e009
-  - cd2aa189389cd5b401959d8584c69c7964498c94
-  - cd2aa189389cd5b401959d8584c69c7964498c94
-  - cd2aa189389cd5b401959d8584c69c7964498c94
-  - cd2aa189389cd5b401959d8584c69c7964498c94
-  - cd2aa189389cd5b401959d8584c69c7964498c94
-  - cd2aa189389cd5b401959d8584c69c7964498c94
-  - cd2aa189389cd5b401959d8584c69c7964498c94
-  - cd2aa189389cd5b401959d8584c69c7964498c94
-  - cd2aa189389cd5b401959d8584c69c7964498c94
-  - cd2aa189389cd5b401959d8584c69c7964498c94
-  commit_sha: d5af451be3b898586fa2578542de0e87e0f5bcba
-  generated_at: '1792310968'
-  generator: kuda-template/0.1.0
+  - d52e184edfe04df9b634fa4cfc7333caa5f7538a
+  - aa0d1717189f96591e32e00fd7ee2fea8af27b34
+  - c7d21f760ed85484aeb0b225873939c9cb846edc
+  commit_sha: 2a6dcebac3778d8c539075212ef7514729e6a60a
+  generated_at: '1793687787'
+  generator: kuda-template/0.1.2

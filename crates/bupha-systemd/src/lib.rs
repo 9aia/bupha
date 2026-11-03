@@ -74,7 +74,18 @@ pub fn write_env_skeleton(dir: &Path, names: &[&str]) -> io::Result<PathBuf> {
             body.push_str("=\n");
         }
         body.push_str("# CODECOV_TOKEN=\n");
-        std::fs::write(&path, body)?;
+        // Create with 0600 from the first write — a write-then-chmod
+        // sequence leaves the token file world-readable between the
+        // two calls under a permissive umask.
+        let mut opts = std::fs::OpenOptions::new();
+        opts.write(true).create_new(true);
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::OpenOptionsExt;
+            opts.mode(0o600);
+        }
+        use std::io::Write;
+        opts.open(&path)?.write_all(body.as_bytes())?;
     }
     #[cfg(unix)]
     {

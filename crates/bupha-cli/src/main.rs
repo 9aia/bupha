@@ -43,6 +43,7 @@ use bupha_tunnel::Tunnel;
 use bupha_vcs::Vcs;
 use bupha_webhook::WebhookSource;
 use clap::{Parser, Subcommand};
+use std::collections::VecDeque;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::sync::{Arc, Condvar, Mutex};
@@ -399,6 +400,15 @@ fn run_job(
     worker: &Worker<'_>,
     sha: &str,
 ) -> JobEnd {
+    // Last-line validation: a hostile sha (persisted store tampering,
+    // a fleet peer's bad write) would otherwise steer remove_dir_all
+    // outside worktree.base or inject git argv options.
+    if !bupha_core::is_valid_sha(sha) {
+        // No status post — the bogus value must not reach the
+        // statuses/<sha> URL either.
+        eprintln!("refusing unsafe sha {sha:?} for {}", repo.key);
+        return JobEnd::Finished(false);
+    }
     // Implicit jobs keep <base>-<repo>-<sha12>; named jobs insert
     // the job — sha stays last so `explain`'s ends_with(sha) and
     // `destroy worktrees`' prefix match still work.
@@ -573,6 +583,16 @@ struct Ingest {
 /// The `Verdict` goes back to the source, which maps it to its own
 /// ack surface (HTTP status codes, log lines).
 fn ingest_push(ix: &Ingest, repo_name: &str, git_ref: &str, sha: &str, sender: &str) -> Verdict {
+    // Defense in depth: the sha names worktree dirs and reaches git
+    // argv — reject anything unsafe HERE so sources that don't (or
+    // can't) validate still can't land a hostile value in the queue.
+    if !bupha_core::is_valid_sha(sha) {
+        eprintln!("rejected push {repo_name} {git_ref}: unsafe sha {sha:?}");
+        if let Some(log) = &ix.audit {
+            log.entry(sha, repo_name, sender, "rejected", "unsafe sha");
+        }
+        return Verdict::Rejected;
+    }
     // Every job of the repo watching this ref gets the push — each
     // keeps its own queue, policy and runner.
     let matched: Vec<&bupha_core::WatchedRepo> = ix
@@ -967,10 +987,23 @@ fn cmd_watch(cfg: Arc<Config>) {
         // pending — it never finished, so it gets another shot (the
         // PersistedQueue doc's promise). A peer that completed it in
         // the meantime is caught by the done-marker drop at dequeue.
+        // Restored shas get the same validation as live pushes — the
+        // store is durable state, not a trust boundary.
         if let Some(r) = pq.running.take() {
-            q.pending.push_front(r);
+            if bupha_core::is_valid_sha(&r) {
+                q.pending.push_front(r);
+            } else {
+                eprintln!("dropping invalid running sha {r:?} for {name}");
+            }
         }
-        q.pending.extend(pq.pending);
+        let (good, bad): (VecDeque<String>, VecDeque<String>) = pq
+            .pending
+            .into_iter()
+            .partition(|s| bupha_core::is_valid_sha(s));
+        for s in &bad {
+            eprintln!("dropping invalid pending sha {s:?} for {name}");
+        }
+        q.pending.extend(good);
         if !q.pending.is_empty() {
             println!("restored {} pending sha(s) for {name}", q.pending.len());
         }
@@ -1292,7 +1325,25 @@ fn cmd_worker(cfg: Arc<Config>) {
         match workq.claim_next(&id, &cfg.worker.labels, &keys) {
             Ok(Some(Claim::Won { job, superseded })) => {
                 for j in &superseded {
-                    sinks[&j.key].post(&j.sha, "error", "superseded by newer push");
+                    if let Some(s) = sinks.get(&j.key) {
+                        s.post(&j.sha, "error", "superseded by newer push");
+                    }
+                }
+                // The shared store is a trust boundary — a fleet
+                // peer (or anyone who can write it) can enqueue
+                // unknown keys or hostile shas. Skip, don't panic.
+                let known = watched.iter().any(|r| r.key == job.key)
+                    && sinks.contains_key(&job.key)
+                    && runners.contains_key(&job.key);
+                if !known {
+                    eprintln!("skipping fleet job with unknown key {:?}", job.key);
+                    let _ = workq.complete(&job, &id);
+                    continue;
+                }
+                if !bupha_core::is_valid_sha(&job.sha) {
+                    eprintln!("dropping fleet job with unsafe sha {:?}", job.sha);
+                    let _ = workq.complete(&job, &id);
+                    continue;
                 }
                 let repo = watched.iter().find(|r| r.key == job.key).unwrap();
                 let sink = &sinks[&job.key];
@@ -1423,8 +1474,20 @@ fn cmd_init(dir: &Path) {
             .canonicalize()
             .ok()
             .and_then(|d| {
-                d.file_name()
-                    .map(|n| n.to_string_lossy().replace([' ', '/', '\\'], "-"))
+                d.file_name().map(|n| {
+                    // Interpolated inside a quoted python string —
+                    // force the same allowlist as job names.
+                    n.to_string_lossy()
+                        .chars()
+                        .map(|c| {
+                            if c.is_ascii_alphanumeric() || matches!(c, '-' | '_' | '.') {
+                                c
+                            } else {
+                                '-'
+                            }
+                        })
+                        .collect::<String>()
+                })
             })
             .unwrap_or("repo".into());
         // patch URL for self-patch: prefer the git remote, else the
@@ -1439,10 +1502,22 @@ fn cmd_init(dir: &Path) {
             .map(|o| {
                 let u = String::from_utf8_lossy(&o.stdout).trim().to_string();
                 let u = u.strip_suffix(".git").map(|s| s.to_string()).unwrap_or(u);
-                if let Some(rest) = u.strip_prefix("git@") {
+                let u = if let Some(rest) = u.strip_prefix("git@") {
                     rest.replacen(':', "/", 1).replacen("", "https://", 1)
                 } else {
                     u
+                };
+                // The value lands inside a quoted string in generated
+                // python — a URL carrying quotes/backslashes would
+                // break out of it. Anything non-URL-shaped drops to
+                // "" (the module then derives the host from Cargo.toml).
+                if u.bytes().all(|b| {
+                    b.is_ascii_alphanumeric()
+                        || matches!(b, b':' | b'/' | b'.' | b'-' | b'_' | b'~' | b'@')
+                }) {
+                    u
+                } else {
+                    String::new()
                 }
             })
             .unwrap_or_default();
@@ -1608,7 +1683,23 @@ fn cmd_doctor(cfg: &Config, json: bool) {
 
     // env or ~/.config/bupha/env — the unit loads the file, so both
     // count as set (same fallback deploy check uses).
-    let env_file = std::fs::read_to_string(cfg_dir().join("env")).unwrap_or_default();
+    let env_path = cfg_dir().join("env");
+    // A secret-bearing file readable by group/other is a finding —
+    // flag it even when the values inside are set correctly.
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        if let Ok(m) = std::fs::metadata(&env_path) {
+            let mode = m.permissions().mode() & 0o777;
+            check(
+                "env file perms",
+                mode & 0o077 == 0,
+                &format!("{} mode {:o} (want 600)", env_path.display(), mode),
+                &mut out,
+            );
+        }
+    }
+    let env_file = std::fs::read_to_string(&env_path).unwrap_or_default();
     let has = |name: &str| {
         secret(name).is_some()
             | env_file
@@ -1642,7 +1733,23 @@ fn cmd_doctor(cfg: &Config, json: bool) {
             .and_then(|v| v.as_str())
     });
     if let Some(conf) = scc {
-        check("sccache conf", Path::new(conf).exists(), conf, &mut out);
+        let exists = Path::new(conf).exists();
+        check("sccache conf", exists, conf, &mut out);
+        // The conf is a KEY=VAL env file — when it carries backend
+        // credentials (AWS_SECRET_ACCESS_KEY & co.) lax perms leak it.
+        #[cfg(unix)]
+        if exists {
+            use std::os::unix::fs::PermissionsExt;
+            if let Ok(m) = std::fs::metadata(conf) {
+                let mode = m.permissions().mode() & 0o777;
+                check(
+                    "sccache conf perms",
+                    mode & 0o077 == 0,
+                    &format!("{conf} mode {:o} (want 600)", mode),
+                    &mut out,
+                );
+            }
+        }
     }
     match cfg.tunnel.provider.as_str() {
         "cloudflared" => check(
@@ -2205,8 +2312,22 @@ fn deploy_check(cfg: &Config) {
         "bupha-watch.service",
         &mut out,
     );
-    let env_ok = home.join(".config/bupha/env").exists();
+    let env_path = home.join(".config/bupha/env");
+    let env_ok = env_path.exists();
     check("env file", env_ok, "~/.config/bupha/env", &mut out);
+    #[cfg(unix)]
+    if env_ok {
+        use std::os::unix::fs::PermissionsExt;
+        let mode = std::fs::metadata(&env_path)
+            .map(|m| m.permissions().mode() & 0o777)
+            .unwrap_or(0);
+        check(
+            "env file perms",
+            mode & 0o077 == 0,
+            &format!("mode {:o} (want 600)", mode),
+            &mut out,
+        );
+    }
     let env_file = std::fs::read_to_string(home.join(".config/bupha/env")).unwrap_or_default();
     for name in webhook_secret_names(cfg) {
         let secret_ok = secret(name).is_some()

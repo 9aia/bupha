@@ -919,6 +919,15 @@ fn deploy_check_variants() {
     std::fs::write(home.join(".config/systemd/user/bupha-watch.service"), "x").unwrap();
     std::fs::create_dir_all(home.join(".config/bupha")).unwrap();
     std::fs::write(home.join(".config/bupha/env"), "E2E_SECRET=s\n").unwrap();
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::set_permissions(
+            home.join(".config/bupha/env"),
+            std::fs::Permissions::from_mode(0o600),
+        )
+        .unwrap();
+    }
     let p = t.join("ok.toml");
     std::fs::write(&p, format!(
         "[trigger]\nkind = \"github\"\nsecret_env = \"E2E_SECRET\"\n[runner]\nkind = \"shell\"\ntoken_env = \"MYTOK\"\n[status]\nkind = \"log\"\n[tunnel]\nprovider = \"direct\"\npublic_url = \"{api}\"\n[[repo]]\nname = \"o/r\"\ndir = \"/tmp\"\nsecret_env = \"REPO_WH\"\n"
@@ -989,6 +998,31 @@ fn deploy_check_variants() {
         ],
     );
     assert!(out_ok(&o).contains("trycloudflare"));
+
+    // env file present but group/other-readable -> perm check fails
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::set_permissions(
+            home.join(".config/bupha/env"),
+            std::fs::Permissions::from_mode(0o644),
+        )
+        .unwrap();
+        let o = bupha(
+            &["deploy", "check", "--config", p.to_str().unwrap()],
+            &[
+                ("HOME", home.display().to_string()),
+                ("PATH", "/usr/bin:/bin".into()),
+                ("MYTOK", "t".into()),
+            ],
+        );
+        let out = out_ok(&o);
+        assert!(
+            out.contains("[FAIL] env file perms"),
+            "lax env perms must fail the check:\n{out}"
+        );
+        assert_eq!(o.status.code(), Some(1));
+    }
 
     // nothing set up -> failures -> exit 1
     let o = bupha(

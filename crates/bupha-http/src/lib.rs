@@ -44,9 +44,18 @@ fn default_secret_env() -> String {
     "BUPHA_AGENT_SECRET".into()
 }
 
-fn sign(secret: &str, body: &[u8]) -> String {
+/// Request signature: HMAC-SHA256 over `METHOD PATH\nBODY`. Binding
+/// the method and path into the MAC is what stops an empty-body
+/// signature from becoming a replayable bearer token — an observer
+/// of the (plain-HTTP) wire can reuse a captured signature only for
+/// the exact request it was captured on.
+fn sign(secret: &str, method: &str, path: &str, body: &[u8]) -> String {
     let mut mac =
         <Hmac<Sha256> as Mac>::new_from_slice(secret.as_bytes()).expect("hmac accepts any key");
+    mac.update(method.as_bytes());
+    mac.update(b" ");
+    mac.update(path.as_bytes());
+    mac.update(b"\n");
     mac.update(body);
     format!("sha256={}", hex::encode(mac.finalize().into_bytes()))
 }
@@ -105,6 +114,14 @@ impl Runner for HttpRunner {
     }
 
     fn spawn(&self, ctx: &RunCtx) -> io::Result<Box<dyn RunHandle>> {
+        // token_env becomes an `export NAME=` on the agent's runner —
+        // reject anything that isn't a valid env-var name.
+        if !bupha_core::is_valid_env_name(ctx.token_env) {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                format!("token_env {0:?} is not a valid env-var name", ctx.token_env),
+            ));
+        }
         // Stage 1: create the remote job.
         let spec = serde_json::to_string(&JobSpec {
             key: ctx.key,
@@ -114,7 +131,10 @@ impl Runner for HttpRunner {
         })
         .expect("spec serializes");
         let resp = ureq::post(format!("{}/jobs", self.url))
-            .header("X-Bupha-Auth", sign(&self.secret, spec.as_bytes()))
+            .header(
+                "X-Bupha-Auth",
+                sign(&self.secret, "POST", "/jobs", spec.as_bytes()),
+            )
             .header("content-type", "application/json")
             .send(spec.as_bytes())
             .map_err(|e| ureq_err("ci infra: agent create", e))?;
@@ -132,8 +152,12 @@ impl Runner for HttpRunner {
         if !tar.status.success() {
             return Err(io::Error::other("ci infra: tar failed"));
         }
-        ureq::put(format!("{}/jobs/{}/worktree", self.url, created.id))
-            .header("X-Bupha-Auth", sign(&self.secret, &tar.stdout))
+        let wt_path = format!("/jobs/{}/worktree", created.id);
+        ureq::put(format!("{}{wt_path}", self.url))
+            .header(
+                "X-Bupha-Auth",
+                sign(&self.secret, "PUT", &wt_path, &tar.stdout),
+            )
             .send(&tar.stdout[..])
             .map_err(|e| ureq_err("ci infra: worktree upload", e))?;
         Ok(Box::new(HttpHandle {
@@ -154,8 +178,9 @@ struct HttpHandle {
 
 impl RunHandle for HttpHandle {
     fn try_wait(&mut self) -> io::Result<Option<std::process::ExitStatus>> {
-        let st: JobStatus = ureq::get(format!("{}/jobs/{}", self.url, self.id))
-            .header("X-Bupha-Auth", sign(&self.secret, b""))
+        let path = format!("/jobs/{}", self.id);
+        let st: JobStatus = ureq::get(format!("{}{path}", self.url))
+            .header("X-Bupha-Auth", sign(&self.secret, "GET", &path, b""))
             .call()
             .map_err(|e| ureq_err("poll", e))?
             .into_body()
@@ -182,8 +207,9 @@ impl RunHandle for HttpHandle {
     }
 
     fn kill(&mut self) -> io::Result<()> {
-        ureq::delete(format!("{}/jobs/{}", self.url, self.id))
-            .header("X-Bupha-Auth", sign(&self.secret, b""))
+        let path = format!("/jobs/{}", self.id);
+        ureq::delete(format!("{}{path}", self.url))
+            .header("X-Bupha-Auth", sign(&self.secret, "DELETE", &path, b""))
             .call()
             .map_err(|e| ureq_err("kill", e))?;
         Ok(())
@@ -211,7 +237,15 @@ pub mod agent {
         desc: Mutex<Option<String>>,
     }
 
-    fn verify(secret: &str, headers: &[(String, String)], body: &[u8]) -> bool {
+    /// Server side of the `METHOD PATH\nBODY` signature — the wire
+    /// identity of the request is part of what gets verified.
+    fn verify(
+        secret: &str,
+        method: &str,
+        url: &str,
+        headers: &[(String, String)],
+        body: &[u8],
+    ) -> bool {
         let Some(sig) = headers
             .iter()
             .find(|(k, _)| k.eq_ignore_ascii_case("x-bupha-auth"))
@@ -227,6 +261,10 @@ pub mod agent {
         };
         let mut mac = <Hmac<Sha256> as Mac>::new_from_slice(secret.as_bytes())
             .expect("hmac accepts any key length");
+        mac.update(method.as_bytes());
+        mac.update(b" ");
+        mac.update(url.as_bytes());
+        mac.update(b"\n");
         mac.update(body);
         mac.verify_slice(&raw).is_ok()
     }
@@ -234,7 +272,11 @@ pub mod agent {
     fn json(status: u16, body: &str) -> tiny_http::Response<std::io::Cursor<Vec<u8>>> {
         tiny_http::Response::from_string(body)
             .with_status_code(status)
-            .with_header("content-type: application/json".parse::<tiny_http::Header>().unwrap())
+            .with_header(
+                "content-type: application/json"
+                    .parse::<tiny_http::Header>()
+                    .unwrap(),
+            )
     }
 
     /// Serve the agent listener. `runner` runs each accepted job;
@@ -272,12 +314,12 @@ pub mod agent {
                 .iter()
                 .map(|h| (h.field.as_str().to_string(), h.value.as_str().to_string()))
                 .collect();
-            if !verify(secret, &headers, &body) {
+            let method = req.method().as_str().to_string();
+            let url = req.url().to_string();
+            if !verify(secret, &method, &url, &headers, &body) {
                 let _ = req.respond(json(401, r#"{"error":"bad signature"}"#));
                 continue;
             }
-            let method = req.method().as_str().to_string();
-            let url = req.url().to_string();
             let mut parts = url.trim_matches('/').split('/');
             match (method.as_str(), parts.next(), parts.next(), parts.next()) {
                 ("POST", Some("jobs"), None, None) => {
@@ -294,8 +336,28 @@ pub mod agent {
                         let _ = req.respond(json(400, r#"{"error":"bad spec"}"#));
                         continue;
                     };
+                    // The spec is controller-authenticated but still
+                    // untrusted input: `sha`/`key` name the extraction
+                    // dir under `base`, env names reach remote shell
+                    // lines. Reject anything outside the allowlists —
+                    // a malformed spec must not escape worktree.base.
+                    if !bupha_core::is_valid_sha(&spec.sha)
+                        || !bupha_core::is_valid_key(&spec.key)
+                        || !spec
+                            .env_names
+                            .iter()
+                            .all(|n| bupha_core::is_valid_env_name(n))
+                    {
+                        let _ = req.respond(json(400, r#"{"error":"bad spec fields"}"#));
+                        continue;
+                    }
                     let n = counter.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
-                    let id = format!("{}-{}-{}", spec.key.replace('/', "-"), &spec.sha[..spec.sha.len().min(12)], n);
+                    let id = format!(
+                        "{}-{}-{}",
+                        spec.key.replace('/', "-"),
+                        &spec.sha[..spec.sha.len().min(12)],
+                        n
+                    );
                     let job = Arc::new(RemoteJob {
                         key: spec.key.clone(),
                         sha: spec.sha.clone(),
@@ -331,12 +393,7 @@ pub mod agent {
                         if !tar.wait()?.success() {
                             return Err(io::Error::other("tar extract failed"));
                         }
-                        let env_names = job
-                            .desc
-                            .lock()
-                            .unwrap()
-                            .take()
-                            .unwrap_or_default();
+                        let env_names = job.desc.lock().unwrap().take().unwrap_or_default();
                         let ctx = RunCtx {
                             workdir: &dir,
                             token_env: env_names.split(',').next().unwrap_or(""),
@@ -384,8 +441,7 @@ pub mod agent {
                                     Ok(None) => {}
                                     Err(e) => {
                                         *job.status.lock().unwrap() = "failure".into();
-                                        *job.desc.lock().unwrap() =
-                                            Some(format!("ci infra: {e}"));
+                                        *job.desc.lock().unwrap() = Some(format!("ci infra: {e}"));
                                     }
                                 }
                             }
@@ -416,5 +472,23 @@ pub mod agent {
                 }
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::sign;
+
+    #[test]
+    fn signature_binds_method_and_path() {
+        // Same secret, same (empty) body — different request
+        // identities produce different signatures, so a captured
+        // poll can't be replayed against another job or verb.
+        let a = sign("s", "GET", "/jobs/1", b"");
+        let b = sign("s", "GET", "/jobs/2", b"");
+        let c = sign("s", "DELETE", "/jobs/1", b"");
+        assert_ne!(a, b);
+        assert_ne!(a, c);
+        assert_eq!(a, sign("s", "GET", "/jobs/1", b""));
     }
 }

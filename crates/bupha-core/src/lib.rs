@@ -10,16 +10,39 @@ use serde::Deserialize;
 use std::collections::VecDeque;
 use std::path::PathBuf;
 
-/// A revision is path-safe — rejects path-injection payloads before
-/// the value reaches worktree paths or status URLs. Deliberately not
-/// hex-only: the shape comes from the forge/VCS, not the domain.
+/// A revision is path- and argv-safe — rejects path-injection payloads
+/// before the value reaches worktree paths or status URLs, and
+/// option-injection payloads before it reaches a `git` argv position
+/// (a leading `-` would parse as a flag, not a revision). Deliberately
+/// not hex-only: the shape comes from the forge/VCS, not the domain.
 pub fn is_valid_sha(sha: &str) -> bool {
     (7..=64).contains(&sha.len())
+        && !sha.starts_with('-')
         && !sha.contains("..")
         && !sha.contains('/')
         && sha
             .bytes()
             .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'-' | b'_' | b'.'))
+}
+
+/// A job key ("owner/name" or "owner/name:job") is path- and
+/// shell-safe — it lands in worktree paths, remote run dirs, claim
+/// keys and status contexts. `..` is rejected even though `/` is a
+/// legal segment separator.
+pub fn is_valid_key(key: &str) -> bool {
+    !key.is_empty()
+        && !key.contains("..")
+        && key
+            .bytes()
+            .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'-' | b'_' | b'.' | b'/' | b':'))
+}
+
+/// An env-var NAME — the shape remote run scripts need for
+/// `export K=V` lines. `[A-Za-z_][A-Za-z0-9_]*`.
+pub fn is_valid_env_name(s: &str) -> bool {
+    !s.is_empty()
+        && !s.bytes().next().is_some_and(|b| b.is_ascii_digit())
+        && s.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'_')
 }
 
 /// How a repo's pending work collapses: `latest` keeps one pending
@@ -547,6 +570,24 @@ impl Config {
         }
         let mut out = Vec::new();
         for r in &self.repos {
+            // `name`/`status_repo` land in worktree paths, remote run
+            // dirs and the statuses API URL — path/argv/shell-safe
+            // only (no `:` — that's the job separator). Slash is NOT
+            // required: sturn-only repos use bare names.
+            for (field, v) in [
+                ("name", Some(r.name.as_str())),
+                ("status_repo", r.status_repo.as_deref()),
+            ]
+            .into_iter()
+            .filter_map(|(f, v)| v.map(|v| (f, v)))
+            {
+                if !is_valid_key(v) || v.contains(':') {
+                    return Err(format!(
+                        "repo {field} {v:?} invalid — \
+                         [A-Za-z0-9._/-]+, no \"..\" or \":\""
+                    ));
+                }
+            }
             if r.jobs.is_empty() {
                 out.push(self.watch_one(r, None, &canon)?);
                 continue;
@@ -828,7 +869,39 @@ pub fn publish_order(members: &[String], deps: &[(String, String)]) -> Result<Ve
 
 #[cfg(test)]
 mod tests {
-    use super::publish_order;
+    use super::{is_valid_env_name, is_valid_key, is_valid_sha, publish_order};
+
+    #[test]
+    fn sha_rejects_path_and_option_injection() {
+        assert!(is_valid_sha("0123456789abcdef"));
+        assert!(is_valid_sha("v1.2.3-rc_1"));
+        // traversal
+        assert!(!is_valid_sha("../../etc/passwd"));
+        assert!(!is_valid_sha("a/../b"));
+        assert!(!is_valid_sha("a/b"));
+        // argv option injection — a leading dash parses as a flag
+        assert!(!is_valid_sha("-eHEADx"));
+        assert!(!is_valid_sha("--lock00"));
+        // bounds
+        assert!(!is_valid_sha("abc"));
+        assert!(!is_valid_sha(&"a".repeat(65)));
+    }
+
+    #[test]
+    fn key_and_env_name_validation() {
+        assert!(is_valid_key("owner/name"));
+        assert!(is_valid_key("owner/name:gate"));
+        assert!(!is_valid_key(""));
+        assert!(!is_valid_key("../x"));
+        assert!(!is_valid_key("a;b"));
+        assert!(!is_valid_key("a b"));
+        assert!(is_valid_env_name("BUPHA_TOKEN"));
+        assert!(is_valid_env_name("_X1"));
+        assert!(!is_valid_env_name("1X"));
+        assert!(!is_valid_env_name("A;rm"));
+        assert!(!is_valid_env_name("A=B"));
+        assert!(!is_valid_env_name(""));
+    }
 
     #[test]
     fn order_respects_path_deps() {

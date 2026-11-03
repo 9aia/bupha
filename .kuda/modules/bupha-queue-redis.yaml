@@ -2,150 +2,217 @@ name: bupha-queue-redis
 path: crates/bupha-queue-redis/Cargo.toml
 purpose: 'QueueStore adapter: redis (multi-worker; SET NX claim + INCR fence)'
 api:
+- name: CLAIM_TTL_MS
+  kind: const
+  file: crates/bupha-queue-redis/src/lib.rs
+  line: 23
+  module: bupha-queue-redis
+- name: FENCE_KEY
+  kind: const
+  file: crates/bupha-queue-redis/src/lib.rs
+  line: 22
+  module: bupha-queue-redis
+- name: Map
+  kind: type
+  file: crates/bupha-queue-redis/tests/fake.rs
+  line: 14
+  module: bupha-queue-redis
+- name: QUEUE_PREFIX
+  kind: const
+  file: crates/bupha-queue-redis/src/lib.rs
+  line: 21
+  module: bupha-queue-redis
+- name: RedisQueueStore
+  kind: type
+  file: crates/bupha-queue-redis/src/lib.rs
+  line: 17
+  module: bupha-queue-redis
 - name: bupha-queue-redis
   kind: module
   file: crates/bupha-queue-redis/Cargo.toml
   line: 1
   module: bupha-queue-redis
-- name: url
+- name: claim_fences_and_excludes
   kind: function
-  file: crates/bupha-queue-redis/tests/live.rs
-  line: 10
+  file: crates/bupha-queue-redis/tests/fake.rs
+  line: 264
   module: bupha-queue-redis
-- name: live_persist_load_roundtrip
+- name: claim_next
   kind: function
-  file: crates/bupha-queue-redis/tests/live.rs
-  line: 16
+  file: crates/bupha-queue-redis/src/lib.rs
+  line: 181
+  module: bupha-queue-redis
+- name: complete
+  kind: function
+  file: crates/bupha-queue-redis/src/lib.rs
+  line: 276
+  module: bupha-queue-redis
+- name: done_key
+  kind: function
+  file: crates/bupha-queue-redis/src/lib.rs
+  line: 29
+  module: bupha-queue-redis
+- name: done_markers
+  kind: function
+  file: crates/bupha-queue-redis/tests/fake.rs
+  line: 255
+  module: bupha-queue-redis
+- name: enqueue
+  kind: function
+  file: crates/bupha-queue-redis/src/lib.rs
+  line: 157
+  module: bupha-queue-redis
+- name: err
+  kind: function
+  file: crates/bupha-queue-redis/src/lib.rs
+  line: 33
+  module: bupha-queue-redis
+- name: is_done
+  kind: function
+  file: crates/bupha-queue-redis/src/lib.rs
+  line: 114
   module: bupha-queue-redis
 - name: live_claim_fences_and_excludes
   kind: function
   file: crates/bupha-queue-redis/tests/live.rs
   line: 34
   module: bupha-queue-redis
+- name: live_persist_load_roundtrip
+  kind: function
+  file: crates/bupha-queue-redis/tests/live.rs
+  line: 16
+  module: bupha-queue-redis
 - name: live_renew_extends_lease
   kind: function
   file: crates/bupha-queue-redis/tests/live.rs
   line: 49
   module: bupha-queue-redis
-- name: RedisQueueStore
-  kind: type
-  file: crates/bupha-queue-redis/src/lib.rs
-  line: 15
-  module: bupha-queue-redis
-- name: QUEUE_KEY
-  kind: const
-  file: crates/bupha-queue-redis/src/lib.rs
-  line: 19
-  module: bupha-queue-redis
-- name: FENCE_KEY
-  kind: const
-  file: crates/bupha-queue-redis/src/lib.rs
-  line: 20
-  module: bupha-queue-redis
-- name: CLAIM_TTL_MS
-  kind: const
-  file: crates/bupha-queue-redis/src/lib.rs
-  line: 21
-  module: bupha-queue-redis
-- name: err
-  kind: function
-  file: crates/bupha-queue-redis/src/lib.rs
-  line: 23
-  module: bupha-queue-redis
-- name: open
-  kind: function
-  file: crates/bupha-queue-redis/src/lib.rs
-  line: 29
-  module: bupha-queue-redis
 - name: load
-  kind: function
-  file: crates/bupha-queue-redis/src/lib.rs
-  line: 39
-  module: bupha-queue-redis
-- name: persist
   kind: function
   file: crates/bupha-queue-redis/src/lib.rs
   line: 49
   module: bupha-queue-redis
+- name: load_empty_and_corrupt_key_skipped
+  kind: function
+  file: crates/bupha-queue-redis/tests/fake.rs
+  line: 193
+  module: bupha-queue-redis
+- name: mark_done
+  kind: function
+  file: crates/bupha-queue-redis/src/lib.rs
+  line: 123
+  module: bupha-queue-redis
+- name: open
+  kind: function
+  file: crates/bupha-queue-redis/src/lib.rs
+  line: 39
+  module: bupha-queue-redis
+- name: open_errors
+  kind: function
+  file: crates/bupha-queue-redis/tests/fake.rs
+  line: 289
+  module: bupha-queue-redis
+- name: persist
+  kind: function
+  file: crates/bupha-queue-redis/src/lib.rs
+  line: 67
+  module: bupha-queue-redis
+- name: persist_key
+  kind: function
+  file: crates/bupha-queue-redis/src/lib.rs
+  line: 84
+  module: bupha-queue-redis
+- name: persist_key_scopes_and_persist_replaces
+  kind: function
+  file: crates/bupha-queue-redis/tests/fake.rs
+  line: 232
+  module: bupha-queue-redis
+- name: persist_load_roundtrip
+  kind: function
+  file: crates/bupha-queue-redis/tests/fake.rs
+  line: 176
+  module: bupha-queue-redis
+- name: qkey
+  kind: function
+  file: crates/bupha-queue-redis/src/lib.rs
+  line: 25
+  module: bupha-queue-redis
+- name: read_cmd
+  kind: function
+  file: crates/bupha-queue-redis/tests/fake.rs
+  line: 16
+  module: bupha-queue-redis
 - name: renew
   kind: function
   file: crates/bupha-queue-redis/src/lib.rs
-  line: 58
-  module: bupha-queue-redis
-- name: try_claim
-  kind: function
-  file: crates/bupha-queue-redis/src/lib.rs
-  line: 62
+  line: 92
   module: bupha-queue-redis
 - name: renew_inner
   kind: function
   file: crates/bupha-queue-redis/src/lib.rs
-  line: 83
+  line: 133
+  module: bupha-queue-redis
+- name: renew_paths
+  kind: function
+  file: crates/bupha-queue-redis/tests/fake.rs
+  line: 279
+  module: bupha-queue-redis
+- name: serve
+  kind: function
+  file: crates/bupha-queue-redis/tests/fake.rs
+  line: 38
+  module: bupha-queue-redis
+- name: try_claim
+  kind: function
+  file: crates/bupha-queue-redis/src/lib.rs
+  line: 96
+  module: bupha-queue-redis
+- name: url
+  kind: function
+  file: crates/bupha-queue-redis/tests/live.rs
+  line: 10
+  module: bupha-queue-redis
+- name: wkey
+  kind: function
+  file: crates/bupha-queue-redis/src/lib.rs
+  line: 152
+  module: bupha-queue-redis
+- name: workq_latest_claim_supersede_complete
+  kind: function
+  file: crates/bupha-queue-redis/tests/fake.rs
+  line: 299
+  module: bupha-queue-redis
+- name: workq_pruned_and_all_policy
+  kind: function
+  file: crates/bupha-queue-redis/tests/fake.rs
+  line: 377
   module: bupha-queue-redis
 deps:
+- bupha-core
 - bupha-queue
 - bupha-queue-lease
 - redis
 - serde_json
-- bupha_queue
-- bupha_queue_lease
-- bupha_queue_redis
-- bupha_queue
-- bupha_queue_lease
+- bupha-queue
+- bupha-queue-lease
 - redis
 notes: ''
 verify:
 - crates/bupha-queue-redis/Cargo.toml
+- crates/bupha-queue-redis/src/lib.rs
+- crates/bupha-queue-redis/tests/fake.rs
 - crates/bupha-queue-redis/tests/live.rs
-- crates/bupha-queue-redis/tests/live.rs
-- crates/bupha-queue-redis/tests/live.rs
-- crates/bupha-queue-redis/tests/live.rs
-- crates/bupha-queue-redis/src/lib.rs
-- crates/bupha-queue-redis/src/lib.rs
-- crates/bupha-queue-redis/src/lib.rs
-- crates/bupha-queue-redis/src/lib.rs
-- crates/bupha-queue-redis/src/lib.rs
-- crates/bupha-queue-redis/src/lib.rs
-- crates/bupha-queue-redis/src/lib.rs
-- crates/bupha-queue-redis/src/lib.rs
-- crates/bupha-queue-redis/src/lib.rs
-- crates/bupha-queue-redis/src/lib.rs
-- crates/bupha-queue-redis/src/lib.rs
 provenance:
   files:
   - crates/bupha-queue-redis/Cargo.toml
+  - crates/bupha-queue-redis/src/lib.rs
+  - crates/bupha-queue-redis/tests/fake.rs
   - crates/bupha-queue-redis/tests/live.rs
-  - crates/bupha-queue-redis/tests/live.rs
-  - crates/bupha-queue-redis/tests/live.rs
-  - crates/bupha-queue-redis/tests/live.rs
-  - crates/bupha-queue-redis/src/lib.rs
-  - crates/bupha-queue-redis/src/lib.rs
-  - crates/bupha-queue-redis/src/lib.rs
-  - crates/bupha-queue-redis/src/lib.rs
-  - crates/bupha-queue-redis/src/lib.rs
-  - crates/bupha-queue-redis/src/lib.rs
-  - crates/bupha-queue-redis/src/lib.rs
-  - crates/bupha-queue-redis/src/lib.rs
-  - crates/bupha-queue-redis/src/lib.rs
-  - crates/bupha-queue-redis/src/lib.rs
-  - crates/bupha-queue-redis/src/lib.rs
   hashes:
-  - 519cfd7d87f50d89a7905f92625bcde1ea63f8d7
+  - b2900c0993ad3c36bc7533acbf5bbf92e0f91265
+  - 914dda37a3e13c0ed6e28493b26c550017917371
+  - 8ffa08905f99f8bf1441180c781f3f0dd4aec388
   - 2722b20e45c8747df321a55db7dc003989ae1a32
-  - 2722b20e45c8747df321a55db7dc003989ae1a32
-  - 2722b20e45c8747df321a55db7dc003989ae1a32
-  - 2722b20e45c8747df321a55db7dc003989ae1a32
-  - 0f9e6c8b71e501cac01c92a0db9b16a92928947b
-  - 0f9e6c8b71e501cac01c92a0db9b16a92928947b
-  - 0f9e6c8b71e501cac01c92a0db9b16a92928947b
-  - 0f9e6c8b71e501cac01c92a0db9b16a92928947b
-  - 0f9e6c8b71e501cac01c92a0db9b16a92928947b
-  - 0f9e6c8b71e501cac01c92a0db9b16a92928947b
-  - 0f9e6c8b71e501cac01c92a0db9b16a92928947b
-  - 0f9e6c8b71e501cac01c92a0db9b16a92928947b
-  - 0f9e6c8b71e501cac01c92a0db9b16a92928947b
-  - 0f9e6c8b71e501cac01c92a0db9b16a92928947b
-  - 0f9e6c8b71e501cac01c92a0db9b16a92928947b
-  commit_sha: d5af451be3b898586fa2578542de0e87e0f5bcba
-  generated_at: '1792310968'
-  generator: kuda-template/0.1.0
+  commit_sha: 2a6dcebac3778d8c539075212ef7514729e6a60a
+  generated_at: '1793687787'
+  generator: kuda-template/0.1.2
