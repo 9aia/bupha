@@ -7,3 +7,4 @@
 - [ ] T-035 SEC: agent spec sha/key/env validation — no traversal out of base (I-004) · created:2026-11-03
 - [ ] T-036 SEC: agent auth binds method+path+body — kills empty-body replay (I-005) · created:2026-11-03
 - [ ] T-037 SEC: verify sturn event sigs when allowed\_signers configured; unattested sender '' (I-006) · created:2026-11-03
+- [ ] T-038 SEC: ssh runner input allowlists — remote/tag/env-name (I-007) · created:2026-11-03
