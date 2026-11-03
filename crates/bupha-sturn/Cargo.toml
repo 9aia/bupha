@@ -1,6 +1,6 @@
 [package]
 name = "bupha-sturn"
-description = "sturn trigger impl: reads refs/sturn/* WAL state out of a clone via git plumbing"
+description = "sturn source impl: reads refs/sturn/* WAL state out of a clone via git plumbing"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -9,6 +9,8 @@ keywords = ["ci", "bupha"]
 categories = ["development-tools"]
 
 [dependencies]
+bupha-core.workspace = true
+bupha-trigger.workspace = true
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 toml = "0.8"

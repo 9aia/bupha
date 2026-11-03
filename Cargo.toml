@@ -40,6 +40,7 @@ members = [
     "crates/bupha-cloudflared",
     "crates/bupha-http",
     "crates/bupha-sturn",
+    "crates/bupha-webhook",
 ]
 
 [workspace.package]
@@ -94,3 +95,4 @@ bupha-github = { path = "crates/bupha-github", version = "0.1.0" }
 bupha-cloudflared = { path = "crates/bupha-cloudflared", version = "0.1.0" }
 bupha-systemd = { path = "crates/bupha-systemd", version = "0.1.0" }
 bupha-sturn = { path = "crates/bupha-sturn", version = "0.1.0" }
+bupha-webhook = { path = "crates/bupha-webhook", version = "0.1.0" }

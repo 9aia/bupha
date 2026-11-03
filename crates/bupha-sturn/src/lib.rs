@@ -11,11 +11,14 @@
 //! heads, walks new event commits, and turns Snapshot markers into
 //! (branch ref, sha, actor) pushes for the shared queue.
 
+use bupha_trigger::{Emit, Push, Source, Stop, Verdict};
 use serde::Deserialize;
 use std::collections::HashMap;
 use std::io;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
+use std::sync::Mutex;
+use std::time::Duration;
 
 fn git(repo: &Path, args: &[&str]) -> io::Result<String> {
     let o = Command::new("git")
@@ -217,4 +220,119 @@ pub fn save_heads(path: &Path, heads: &HashMap<String, String>) -> io::Result<()
     let tmp = path.with_extension("json.tmp");
     std::fs::write(&tmp, serde_json::to_string(heads).unwrap_or_default())?;
     std::fs::rename(&tmp, path)
+}
+
+/// The sturn `Source` impl — polls each `sturn = true` repo's clone
+/// for WAL movement (`refs/sturn/wal/<ws>`), reads new event
+/// commits, and on an `Op::Snapshot` marker emits the ws tip
+/// commit — the same queue every other source feeds. Polls refs,
+/// not the bus: the WAL is the state (the bus is a cache), so this
+/// needs no daemon and catches up across restarts via the persisted
+/// heads file.
+pub struct SturnSource {
+    /// (repo name, clone dir) per sturn-enabled repo — one poll
+    /// entry each; a repo's jobs share the clone.
+    pub repos: Vec<(String, PathBuf)>,
+    /// Remote to fetch `refs/sturn/*` from — empty = local-only.
+    pub remote: String,
+    /// WAL head poll interval, ms.
+    pub poll_ms: u64,
+    /// Persisted per-ws heads file — `"<repo>|<ws>"` → last-seen
+    /// WAL head.
+    pub heads_path: PathBuf,
+    /// Event-id dedup — compaction rebuilds WAL commits, but event
+    /// ids are blob addresses and survive the rewrite.
+    seen: Mutex<bupha_core::Seen>,
+}
+
+impl SturnSource {
+    /// `repos` = one entry per repo NAME (jobs share the clone);
+    /// `heads_path` lives under `worktree.base` on the caller.
+    pub fn new(
+        repos: Vec<(String, PathBuf)>,
+        remote: String,
+        poll_ms: u64,
+        heads_path: PathBuf,
+    ) -> Self {
+        SturnSource {
+            repos,
+            remote,
+            poll_ms,
+            heads_path,
+            seen: Mutex::new(bupha_core::Seen::default()),
+        }
+    }
+}
+
+impl Source for SturnSource {
+    fn name(&self) -> &str {
+        "sturn-wal"
+    }
+
+    fn run(&self, emit: Emit, stop: Stop) {
+        let mut heads = load_heads(&self.heads_path);
+        if self.repos.is_empty() {
+            eprintln!("[trigger.sturn] set but no [[repo]] has sturn = true — poller disabled");
+            return;
+        }
+        println!(
+            "sturn trigger polling {} repo(s) every {}ms",
+            self.repos.len(),
+            self.poll_ms
+        );
+        loop {
+            if stop() {
+                return;
+            }
+            for (name, dir) in &self.repos {
+                let meta = meta(dir);
+                if !fetch(dir, &self.remote) {
+                    eprintln!("sturn fetch {name}: failed — retrying next tick");
+                    continue;
+                }
+                for (ws, head) in wal_heads(dir, &meta.wal_prefix) {
+                    let key = format!("{name}|{ws}");
+                    let prev = heads.get(&key).cloned();
+                    if prev.as_deref() == Some(head.as_str()) {
+                        continue;
+                    }
+                    let wal_ref = format!("{}/{ws}", meta.wal_prefix);
+                    // prev GC'd (compact + prune) → fall back to the
+                    // whole log; event ids dedup the replay in `seen`.
+                    let evs = events_since(dir, &wal_ref, prev.as_deref())
+                        .or_else(|_| events_since(dir, &wal_ref, None))
+                        .unwrap_or_default();
+                    for ev in evs {
+                        if !ev.snapshot {
+                            continue;
+                        }
+                        if !self.seen.lock().unwrap().insert(format!("sturn:{}", ev.id)) {
+                            continue;
+                        }
+                        let Some(sha) = ws_tip(dir, &ws) else {
+                            continue;
+                        };
+                        let git_ref = branch_ref(&meta);
+                        match emit(&Push {
+                            repo: name.clone(),
+                            git_ref: git_ref.clone(),
+                            sha: sha.clone(),
+                            sender: ev.actor,
+                        }) {
+                            Verdict::Queued => {
+                                println!("sturn snap {name} ws={ws} → {:.12} queued", sha)
+                            }
+                            Verdict::NoMatch => {
+                                println!("sturn snap {name} ws={ws} — no job watches {git_ref}")
+                            }
+                            _ => {}
+                        }
+                    }
+                    heads.insert(key, head);
+                }
+            }
+            let _ = save_heads(&self.heads_path, &heads);
+            std::thread::sleep(Duration::from_millis(self.poll_ms));
+        }
+    }
 }

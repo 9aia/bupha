@@ -1,6 +1,8 @@
-//! bupha — "the oxpecker on your repo's back": headless CI that
-//! watches pushes, batches them latest-wins, runs a pluggable runner
-//! per sha, and reports statuses. No server, no UI.
+//! bupha — "the oxpecker on your repo's back": a headless CI
+//! engine. Pluggable sources (forge webhook, sturn WAL poller)
+//! land pushes on the queue, the queue batches them latest-wins,
+//! a pluggable runner executes each sha, and status sinks report.
+//! No server, no UI.
 //!
 //! Config: bupha.toml (secrets come from env). See bupha-core::Config.
 
@@ -36,11 +38,11 @@ use bupha_systemd as deploy;
 use bupha_telemetry::{NoopTelemetry, RunEvent, Telemetry};
 use bupha_telemetry_otel::OtelTelemetry;
 use bupha_trigger::ForgeAdmin;
-use bupha_trigger::{PushOutcome, Trigger};
+use bupha_trigger::{Emit, Push, Source, Stop, Trigger, Verdict};
 use bupha_tunnel::Tunnel;
 use bupha_vcs::Vcs;
+use bupha_webhook::WebhookSource;
 use clap::{Parser, Subcommand};
-use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::sync::{Arc, Condvar, Mutex};
@@ -61,7 +63,8 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Cmd {
-    /// Serve the webhook → queue → runner loop.
+    /// Serve the source → queue → runner loop (forge webhook,
+    /// sturn WAL poller — every configured source).
     Watch,
     /// Fleet puller — claim shared-queue jobs and run them. No
     /// listener/tunnel/trigger; needs only [queue] (redis), [[repo]]
@@ -527,8 +530,6 @@ struct Shared {
     /// Cleared on terminal outcome; ephemeral (a restart forfeits
     /// the count, never the queue).
     attempts: std::collections::HashMap<(String, String), u32>,
-    /// dedup for replayed webhook deliveries (X-GitHub-Delivery)
-    seen: bupha_core::Seen,
 }
 
 /// Persist ONE repo's queue. A whole-map write here would clobber a
@@ -565,30 +566,13 @@ struct Ingest {
     audit: Option<Arc<AuditLog>>,
 }
 
-/// How a push landed — the webhook handler maps these to status
-/// codes, the sturn poller maps them to log lines.
-enum IngestOutcome {
-    /// Well-formed push, but no job watches that (repo, ref).
-    NoBranchMatch,
-    /// Access policy refused the sender (audited inside).
-    Denied,
-    /// At least one job queued the sha.
-    Queued,
-    /// Every matched job already had it pending/running.
-    Duplicate,
-}
-
-/// The shared push→queue path — webhook pushes and sturn snapshot
-/// events land identically: match watched jobs on (repo, ref), gate
-/// on the access policy, enqueue latest-wins per job, feed the fleet
+/// The shared push→queue path — every `Source` lands its pushes
+/// here identically: match watched jobs on (repo, ref), gate on
+/// the access policy, enqueue latest-wins per job, feed the fleet
 /// pull queue, post superseded statuses, cancel in-flight runs.
-fn ingest_push(
-    ix: &Ingest,
-    repo_name: &str,
-    git_ref: &str,
-    sha: &str,
-    sender: &str,
-) -> IngestOutcome {
+/// The `Verdict` goes back to the source, which maps it to its own
+/// ack surface (HTTP status codes, log lines).
+fn ingest_push(ix: &Ingest, repo_name: &str, git_ref: &str, sha: &str, sender: &str) -> Verdict {
     // Every job of the repo watching this ref gets the push — each
     // keeps its own queue, policy and runner.
     let matched: Vec<&bupha_core::WatchedRepo> = ix
@@ -597,14 +581,14 @@ fn ingest_push(
         .filter(|w| w.name == repo_name && w.branch == git_ref)
         .collect();
     if matched.is_empty() {
-        return IngestOutcome::NoBranchMatch;
+        return Verdict::NoMatch;
     }
     if !ix.access.allow(sender, repo_name) {
         println!("denied: {sender} may not trigger {repo_name}");
         if let Some(log) = &ix.audit {
             log.entry(sha, repo_name, sender, "denied", "sender not allowed");
         }
-        return IngestOutcome::Denied;
+        return Verdict::Denied;
     }
     // Lock: mutate queues + decide, then drop.
     // HTTP posts and process kills happen after.
@@ -685,99 +669,9 @@ fn ingest_push(
     }
     if queued {
         ix.cv.notify_one();
-        IngestOutcome::Queued
+        Verdict::Queued
     } else {
-        IngestOutcome::Duplicate
-    }
-}
-
-/// `bupha watch`'s second ingest path — the sturn-native trigger.
-/// Polls each `sturn = true` repo's clone for WAL movement
-/// (`refs/sturn/wal/<ws>`), reads new event commits, and on an
-/// `Op::Snapshot` marker enqueues the ws tip commit — the same
-/// queue the webhook feeds. Polls refs, not the bus: the WAL is
-/// the state (the bus is a cache), so this needs no daemon and
-/// catches up across restarts via the persisted heads file.
-fn sturn_poll(ix: Ingest, st: &bupha_core::SturnTriggerCfg) {
-    let heads_path = PathBuf::from(&ix.cfg.worktree.base).join("sturn-heads.json");
-    let mut heads = bupha_sturn::load_heads(&heads_path);
-    // One poll entry per repo NAME — a repo's jobs share the clone.
-    let mut names: Vec<&str> = Vec::new();
-    for w in ix.watched.iter().filter(|w| w.sturn) {
-        if !names.contains(&w.name.as_str()) {
-            names.push(w.name.as_str());
-        }
-    }
-    if names.is_empty() {
-        eprintln!("[trigger.sturn] set but no [[repo]] has sturn = true — poller disabled");
-        return;
-    }
-    println!(
-        "sturn trigger polling {} repo(s) every {}ms",
-        names.len(),
-        st.poll_ms
-    );
-    loop {
-        // Same e2e shutdown hook as the accept loop / worker.
-        if std::env::var("BUPHA_WATCH_SHUTDOWN_FILE")
-            .ok()
-            .is_some_and(|f| Path::new(&f).exists())
-        {
-            return;
-        }
-        for name in &names {
-            let dir = &ix.watched.iter().find(|w| &w.name == name).unwrap().dir;
-            let meta = bupha_sturn::meta(dir);
-            if !bupha_sturn::fetch(dir, &st.remote) {
-                eprintln!("sturn fetch {name}: failed — retrying next tick");
-                continue;
-            }
-            for (ws, head) in bupha_sturn::wal_heads(dir, &meta.wal_prefix) {
-                let key = format!("{name}|{ws}");
-                let prev = heads.get(&key).cloned();
-                if prev.as_deref() == Some(head.as_str()) {
-                    continue;
-                }
-                let wal_ref = format!("{}/{ws}", meta.wal_prefix);
-                // prev GC'd (compact + prune) → fall back to the whole
-                // log; event ids dedup the replay in `seen`.
-                let evs = bupha_sturn::events_since(dir, &wal_ref, prev.as_deref())
-                    .or_else(|_| bupha_sturn::events_since(dir, &wal_ref, None))
-                    .unwrap_or_default();
-                for ev in evs {
-                    if !ev.snapshot {
-                        continue;
-                    }
-                    // Compaction rebuilds WAL commits, but event ids
-                    // are blob addresses — they survive the rewrite.
-                    if !ix
-                        .shared
-                        .lock()
-                        .unwrap()
-                        .seen
-                        .insert(format!("sturn:{}", ev.id))
-                    {
-                        continue;
-                    }
-                    let Some(sha) = bupha_sturn::ws_tip(dir, &ws) else {
-                        continue;
-                    };
-                    match ingest_push(&ix, name, &bupha_sturn::branch_ref(&meta), &sha, &ev.actor) {
-                        IngestOutcome::Queued => {
-                            println!("sturn snap {name} ws={ws} → {:.12} queued", sha)
-                        }
-                        IngestOutcome::NoBranchMatch => println!(
-                            "sturn snap {name} ws={ws} — no job watches {}",
-                            bupha_sturn::branch_ref(&meta)
-                        ),
-                        _ => {}
-                    }
-                }
-                heads.insert(key, head);
-            }
-        }
-        let _ = bupha_sturn::save_heads(&heads_path, &heads);
-        std::thread::sleep(std::time::Duration::from_millis(st.poll_ms));
+        Verdict::Duplicate
     }
 }
 
@@ -979,7 +873,6 @@ fn cmd_watch(cfg: Arc<Config>) {
     } else {
         (String::new(), Default::default())
     };
-    let secrets = Arc::new(secrets);
     // Who may trigger — forge-attested sender checked against policy.
     let access: Arc<dyn Access> = match cfg.access.kind.as_str() {
         "all" => Arc::new(AllowAll),
@@ -1245,8 +1138,9 @@ fn cmd_watch(cfg: Arc<Config>) {
         });
     }
 
-    // Both ingest sources share this — the webhook request threads
-    // below and, when [trigger.sturn] is set, the WAL poller.
+    // Every ingest source shares this — emitted `Push`es land in
+    // the per-job queues identically (match, access-gate,
+    // latest-wins enqueue, fleet feed, supersede/cancel).
     let ix = Ingest {
         cfg: Arc::clone(&cfg),
         watched: Arc::clone(&watched),
@@ -1260,137 +1154,78 @@ fn cmd_watch(cfg: Arc<Config>) {
         access: access.clone(),
         audit: audit.clone(),
     };
-    if let Some(st) = cfg.trigger.sturn.clone() {
+    let emit: Emit = {
         let ix = ix.clone();
-        std::thread::spawn(move || sturn_poll(ix, &st));
-    }
-
-    // sturn-only watcher: no listener — the poller + worker threads
-    // carry the load; main idles until the e2e shutdown hook lands.
-    let Some(trigger) = trigger else {
-        loop {
-            if std::env::var("BUPHA_WATCH_SHUTDOWN_FILE")
-                .ok()
-                .is_some_and(|f| Path::new(&f).exists())
-            {
-                return;
-            }
-            std::thread::sleep(std::time::Duration::from_millis(50));
-        }
+        Arc::new(move |p: &Push| ingest_push(&ix, &p.repo, &p.git_ref, &p.sha, &p.sender))
+    };
+    // e2e hook: with BUPHA_WATCH_SHUTDOWN_FILE set, sources unwind
+    // once that file appears — spawned test binaries can then shut
+    // down gracefully (no signal-handling deps needed).
+    let stop: Stop = Arc::new(|| {
+        std::env::var("BUPHA_WATCH_SHUTDOWN_FILE")
+            .ok()
+            .is_some_and(|f| Path::new(&f).exists())
+    });
+    #[cfg(coverage)]
+    let stop: Stop = {
+        // Second e2e hook (coverage builds only): stop sources after
+        // N ms. Lets a test reach the accept loop *without* the
+        // shutdown-file hook — covering its no-env path — while the
+        // spawned binary still unwinds cleanly and flushes its
+        // profile.
+        let file = stop.clone();
+        let t0 = std::time::Instant::now();
+        let ms = std::env::var("BUPHA_WATCH_SHUTDOWN_MS")
+            .ok()
+            .map(|v| v.parse().unwrap_or(500));
+        Arc::new(move || {
+            file() || ms.is_some_and(|m| t0.elapsed() >= std::time::Duration::from_millis(m))
+        })
     };
 
-    let server =
-        Arc::new(tiny_http::Server::http(&cfg.trigger.listen).expect("failed to bind listener"));
-    println!("bupha watch listening on {}", cfg.trigger.listen);
+    // The source registry — `trigger.kind` selects the forge-webhook
+    // `Source` (github-webhook today), `[trigger.sturn]` adds the
+    // WAL poller alongside it. New sources (gitlab webhook, cron,
+    // poll-ref, file-watch) impl `Source` and bolt on here; the
+    // queue only ever sees `Push`es.
+    let webhook = trigger.map(|trigger| WebhookSource {
+        name: format!("{}-webhook", cfg.trigger.kind),
+        listen: cfg.trigger.listen.clone(),
+        trigger,
+        secret: wh_secret,
+        secrets,
+        repos: watched.iter().map(|w| w.name.clone()).collect(),
+    });
+    if let Some(st) = cfg.trigger.sturn.clone() {
+        // One poll entry per repo NAME — a repo's jobs share the
+        // clone.
+        let mut seen: std::collections::HashSet<&str> = Default::default();
+        let repos: Vec<(String, PathBuf)> = watched
+            .iter()
+            .filter(|w| w.sturn && seen.insert(w.name.as_str()))
+            .map(|w| (w.name.clone(), w.dir.clone()))
+            .collect();
+        let src = bupha_sturn::SturnSource::new(
+            repos,
+            st.remote,
+            st.poll_ms,
+            PathBuf::from(&cfg.worktree.base).join("sturn-heads.json"),
+        );
+        let emit = emit.clone();
+        let stop = stop.clone();
+        std::thread::spawn(move || src.run(emit, stop));
+    }
 
-    // e2e hook: with BUPHA_WATCH_SHUTDOWN_FILE set, a watcher exits
-    // the accept loop once that file appears — spawned test binaries
-    // can then shut down gracefully (no signal-handling deps needed).
-    if let Ok(f) = std::env::var("BUPHA_WATCH_SHUTDOWN_FILE") {
-        let srv = Arc::clone(&server);
-        std::thread::spawn(move || {
-            while !Path::new(&f).exists() {
+    match webhook {
+        Some(src) => src.run(emit, stop),
+        // No listener (sturn-only) — the source + worker threads
+        // carry the load; main idles until the e2e shutdown hook
+        // lands.
+        None => {
+            while !stop() {
                 std::thread::sleep(std::time::Duration::from_millis(50));
             }
-            srv.unblock();
-        });
-    }
-    #[cfg(coverage)]
-    {
-        // Second e2e hook (coverage builds only): end the accept loop
-        // after N ms. Lets a test reach the loop *without* the
-        // shutdown-file hook — covering its no-env path — while the
-        // spawned binary still unwinds cleanly and flushes its profile.
-        if let Ok(ms) = std::env::var("BUPHA_WATCH_SHUTDOWN_MS") {
-            let srv = Arc::clone(&server);
-            std::thread::spawn(move || {
-                let ms = ms.parse().unwrap_or(500);
-                std::thread::sleep(std::time::Duration::from_millis(ms));
-                srv.unblock();
-            });
         }
-    }
-
-    for req in server.incoming_requests() {
-        // Per-request thread — a stalled client must not block the
-        // accept loop (slowloris). Body cap still applies inside.
-        let ix = ix.clone();
-        let trigger = Arc::clone(&trigger);
-        let secrets = Arc::clone(&secrets);
-        let wh_secret = wh_secret.clone();
-        std::thread::spawn(move || {
-            let mut req = req;
-            let headers: Vec<(String, String)> = req
-                .headers()
-                .iter()
-                .map(|h| (h.field.as_str().to_string(), h.value.as_str().to_string()))
-                .collect();
-            // Only the hook path exists — everything else 404s.
-            if req.url().split('?').next() != Some("/hook") {
-                let _ = req
-                    .respond(tiny_http::Response::from_string("not found").with_status_code(404));
-                return;
-            }
-
-            let mut body = Vec::new();
-            let _ = req.as_reader().take(2 * 1024 * 1024).read_to_end(&mut body);
-
-            let is_ping = headers
-                .iter()
-                .any(|(k, v)| k.eq_ignore_ascii_case("x-github-event") && v == "ping");
-            let (code, msg) = if is_ping {
-                (200, "pong")
-            } else if !trigger.is_event(&headers) {
-                (400, "not a push event")
-            } else {
-                // repo_hint is untrusted until verify passes — it
-                // only picks which watched repo (and secret) applies.
-                let repo = trigger
-                    .repo_hint(&body)
-                    .and_then(|n| ix.watched.iter().find(|r| r.name == n));
-                match repo {
-                    // An unwatched repo can't verify — no secret of
-                    // ours was used to sign it. Reject, not ignore.
-                    None => (404, "unwatched repo"),
-                    Some(r)
-                        if !trigger.verify(
-                            secrets.get(&r.name).unwrap_or(&wh_secret),
-                            &body,
-                            &headers,
-                        ) =>
-                    {
-                        (401, "bad signature")
-                    }
-                    Some(_)
-                        if trigger
-                            .delivery_id(&headers)
-                            .map(|id| !ix.shared.lock().unwrap().seen.insert(id))
-                            .unwrap_or(false) =>
-                    {
-                        // replayed signed payload: same delivery id
-                        (200, "duplicate delivery")
-                    }
-                    Some(_) => match trigger.parse_push(&body) {
-                        Some(PushOutcome::Skip) => (200, "ignored: no-op event"),
-                        Some(PushOutcome::Push {
-                            repo: repo_name,
-                            git_ref,
-                            sha,
-                            sender,
-                        }) => match ingest_push(&ix, &repo_name, &git_ref, &sha, &sender) {
-                            IngestOutcome::NoBranchMatch => {
-                                (200, "ignored: not the watched branch")
-                            }
-                            IngestOutcome::Denied => (403, "sender not allowed"),
-                            IngestOutcome::Queued => (202, "queued"),
-                            IngestOutcome::Duplicate => (200, "already queued"),
-                        },
-                        None => (400, "unparseable payload"),
-                    },
-                }
-            };
-            let _ = req.respond(tiny_http::Response::from_string(msg).with_status_code(code));
-        });
     }
 }
 

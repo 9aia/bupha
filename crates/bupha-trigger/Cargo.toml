@@ -1,6 +1,6 @@
 [package]
 name = "bupha-trigger"
-description = "Trigger port: where pushes come from"
+description = "Source port: where pushes come from — forge webhooks, WAL polls, …"
 version.workspace = true
 edition.workspace = true
 license.workspace = true

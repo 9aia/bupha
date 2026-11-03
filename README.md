@@ -5,24 +5,32 @@
 
 *The oxpecker on your repo's back.*
 
-Headless CI, built for agent-driven setups. A single binary that
-watches pushes, queues them (latest-wins or bounded FIFO), runs your
-pipeline per sha, and reports commit statuses — on a Linux box
-with Git.
+Headless CI, built for agent-driven setups. A single binary —
+a queue engine: pluggable **sources** land pushes on the queue
+(latest-wins or bounded FIFO), your pipeline runs per sha, and
+commit statuses report back — on a Linux box with Git.
 
 ```
-push ──► webhook ──► HMAC ──► dedup ──► queue ──► worktree ──► runner ──► status
-            (signed delivery)   id     latest-wins   detached   per repo
-                                   or bounded "all"   git dir
+push ──► source ──► verify ──► dedup ──► queue ──► worktree ──► runner ──► status
+        (github      (signed    id      latest-    detached    per repo
+         webhook,     delivery)         wins or     git dir
+         sturn WAL)                     "all"
 ```
+
+GitHub's push webhook is one source impl (`trigger.kind =
+"github"`); the sturn WAL poller is another. Cron, poll-ref,
+file-watch plug into the same `Source` port — the queue, runners
+and status sinks never see the difference.
 
 ## Features
 
 - single binary — no CI server product, no UI, no YAML DSL
 - latest-wins batching: 1 run in flight, 1 pending sha per repo,
   superseded commits get honest statuses
-- multi-repo webhook fan-in, HMAC-verified, repo-routed
-- every concern behind a port: runner (`dagger` | `shell` | `ssh`),
+- multi-repo webhook fan-in, HMAC-verified, repo-routed — plus a
+  sturn-native WAL source for webhook-free ingest
+- every concern behind a port: source (`github-webhook`,
+  `sturn-wal`), runner (`dagger` | `shell` | `ssh`),
   tunnel (`cloudflared` | `direct` | `none`), forge
   (`github` today), VCS (`git`), queue store (`redb`), service
   (`systemd`), secrets (`keyring` | `env` file), config (`toml`),

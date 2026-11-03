@@ -1,5 +1,5 @@
-//! Port defaults: `delivery_id` is optional — a trigger without the
-//! concept returns None.
+//! Port defaults: `delivery_id`/`is_ping` are optional — a trigger
+//! without the concept returns None/false.
 
 use bupha_trigger::{PushOutcome, Trigger};
 
@@ -26,4 +26,10 @@ fn default_delivery_id_is_none() {
     assert!(t
         .delivery_id(&[("X-GitHub-Delivery".into(), "d".into())])
         .is_none());
+}
+
+#[test]
+fn default_is_ping_is_false() {
+    let t = Nop;
+    assert!(!t.is_ping(&[("X-GitHub-Event".into(), "ping".into())]));
 }

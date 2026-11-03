@@ -74,7 +74,8 @@ rejected with `queue = "all"`).
 
 | Section | Purpose |
 | --- | --- |
-| `[trigger]` | `kind = "github"`, `listen` addr, `secret_env` — the webhook listener; worker boxes omit it |
+| `[trigger]` | `kind = "github"`, `listen` addr, `secret_env` — the webhook listener (one push source); worker boxes omit it |
+| `[trigger.sturn]` | `remote`, `poll_ms` — sturn WAL source; repos opt in with `sturn = true`. `kind` empty + this set = webhook-free watcher |
 | `[status]` | `kind = "github"|"log"|"none"`, `context` (default `ci/bupha`) |
 | `[tunnel]` | `provider = "none"|"cloudflared"|"direct"` — named tunnels give stable `public_url` for `deploy webhook` |
 | `[worktree]` | `base` — runs land at `<base>-<repo>[-<job>]-<sha12>`; `history.jsonl` and `queue.redb` live at `base` |

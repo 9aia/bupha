@@ -4,7 +4,7 @@
 
 use bupha_core::is_valid_sha;
 use bupha_status::StatusSink;
-use bupha_trigger::{PushOutcome, Trigger};
+use bupha_trigger::{Push, PushOutcome, Trigger};
 use hmac::{Hmac, Mac};
 use sha2::Sha256;
 use std::time::Duration;
@@ -27,6 +27,12 @@ impl Trigger for GitHubTrigger {
         headers
             .iter()
             .any(|(k, v)| k.eq_ignore_ascii_case("x-github-event") && v == "push")
+    }
+
+    fn is_ping(&self, headers: &[(String, String)]) -> bool {
+        headers
+            .iter()
+            .any(|(k, v)| k.eq_ignore_ascii_case("x-github-event") && v == "ping")
     }
 
     fn repo_hint(&self, body: &[u8]) -> Option<String> {
@@ -83,12 +89,12 @@ impl Trigger for GitHubTrigger {
             .pointer("/sender/login")
             .and_then(|l| l.as_str())
             .unwrap_or_default();
-        Some(PushOutcome::Push {
+        Some(PushOutcome::Push(Push {
             repo: repo.to_string(),
             git_ref: git_ref.to_string(),
             sha: sha.to_string(),
             sender: sender.to_string(),
-        })
+        }))
     }
 }
 

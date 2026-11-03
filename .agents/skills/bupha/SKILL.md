@@ -1,15 +1,18 @@
 ---
 name: bupha
-description: Headless CI toolkit — webhook-triggered watch/queue/run/report on a Linux box, statuses on each sha. Trigger when checking gate status (ci/bupha), reproducing a red run, wiring a repo's pipeline (bupha.toml, ci.sh), or managing the watcher systemd unit.
+description: Headless CI engine — pluggable push sources → queue → run/report on a Linux box, statuses on each sha. Trigger when checking gate status (ci/bupha), reproducing a red run, wiring a repo's pipeline (bupha.toml, ci.sh), or managing the watcher systemd unit.
 metadata:
   version: "1.0.0"
 ---
 
 # bupha — headless CI on your own box
 
-`bupha` watches pushes via a forge webhook, queues shas
-(latest-wins or bounded FIFO), runs the pipeline in a detached
-worktree of the pushed sha, and posts `ci/bupha` commit statuses.
+`bupha` is a queue engine: pluggable **sources** — the GitHub push
+webhook (`trigger.kind = "github"`), the sturn WAL poller
+(`[trigger.sturn]` + `sturn = true` per repo) — land pushes on the
+queue, shas batch (latest-wins or bounded FIFO), the pipeline runs
+in a detached worktree of the pushed sha, and `ci/bupha` commit
+statuses post back.
 One binary, one systemd user unit, no YAML DSL — the pipeline is a
 script (`ci.sh`) or a dagger function.
 
@@ -59,7 +62,7 @@ the config structs. `--config` is global and resolves
 | Wire a repo (install side) | `bupha init` (stub `ci.sh` / dagger module) · `deploy env` · `deploy service` · `deploy webhook` · `deploy check` |
 | Unwire | `bupha destroy webhook` · `destroy service` · `destroy worktrees` |
 | Release seed (repo-local, no config) | `bupha deploy release [--dry-run]` — cargo publish + tag |
-| Daemons — normally via systemd | `bupha watch` (webhook → queue → runner) · `worker` (redis fleet puller) · `agent` (remote-run side of `kind="http"`) |
+| Daemons — normally via systemd | `bupha watch` (sources → queue → runner) · `worker` (redis fleet puller) · `agent` (remote-run side of `kind="http"`) |
 
 ## The daily loop
 

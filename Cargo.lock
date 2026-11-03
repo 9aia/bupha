@@ -127,6 +127,7 @@ dependencies = [
  "bupha-trigger",
  "bupha-tunnel",
  "bupha-vcs",
+ "bupha-webhook",
  "clap",
  "clap-markdown",
  "dirs",
@@ -134,7 +135,6 @@ dependencies = [
  "hmac",
  "serde_json",
  "sha2",
- "tiny_http",
  "toml",
  "ureq",
 ]
@@ -372,6 +372,8 @@ version = "0.1.0"
 name = "bupha-sturn"
 version = "0.1.0"
 dependencies = [
+ "bupha-core",
+ "bupha-trigger",
  "serde",
  "serde_json",
  "toml",
@@ -407,6 +409,15 @@ version = "0.1.0"
 [[package]]
 name = "bupha-vcs"
 version = "0.1.0"
+
+[[package]]
+name = "bupha-webhook"
+version = "0.1.0"
+dependencies = [
+ "bupha-core",
+ "bupha-trigger",
+ "tiny_http",
+]
 
 [[package]]
 name = "bytes"
