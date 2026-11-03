@@ -60,6 +60,22 @@ kind = "github"                   # impl: bupha-github
 listen = "127.0.0.1:29173"
 secret_env = "BUPHA_WEBHOOK_SECRET"
 
+# sturn-native trigger — an ADDITIONAL push source next to the
+# webhook: `bupha watch` polls `refs/sturn/wal/*` in each
+# `sturn = true` repo for Snapshot events and enqueues the snap
+# commit (refs/sturn/ws/<ws>). No daemon needed — the WAL is the
+# state; each tick fetches refs/sturn/* from `remote`. Set kind = ""
+# above for a webhook-free watcher (no listener, no secret).
+# [trigger.sturn]
+# remote = "origin"               # "" = local-only: ops land in the
+#                                 # watched clone itself (one-box
+#                                 # dogfooding, nothing to fetch)
+# poll_ms = 5000
+# [[repo]]
+# name = "owner/sturn-repo"
+# dir = "/path/to/clone"          # its sturn.toml sets snap's branch
+# sturn = true
+
 [runner]
 kind = "dagger"                   # impl: bupha-runner-dagger
 # kind = "shell"                 # impl: bupha-runner-script (no containers)

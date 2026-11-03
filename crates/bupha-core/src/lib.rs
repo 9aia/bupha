@@ -424,6 +424,12 @@ pub struct RepoEntry {
     /// a superseded or claim-lost one may not.
     #[serde(default)]
     pub retry: u32,
+    /// Opt this repo into the `[trigger.sturn]` WAL poller — its
+    /// jobs enqueue on `Op::Snapshot` events found under
+    /// `refs/sturn/wal/*` in `dir`, no webhook needed. Repo-level:
+    /// every job inherits it (branch filters still apply).
+    #[serde(default)]
+    pub sturn: bool,
     /// Pipelines within this repo (`[[repo.jobs]]`). Each job gets
     /// its own branch filter, queue policy, runner and status
     /// context — one webhook feeds them all. Empty = the repo
@@ -512,6 +518,9 @@ pub struct WatchedRepo {
     pub runs_on: Vec<String>,
     /// Resolved failed-run retry count (job → repo → 0).
     pub retry: u32,
+    /// Repo-level `[trigger.sturn]` opt-in (jobs share the clone's
+    /// WAL — the flag is per repo, not per job).
+    pub sturn: bool,
 }
 
 impl Config {
@@ -613,8 +622,37 @@ impl Config {
                 }
                 n
             },
+            sturn: r.sturn,
         })
     }
+}
+
+/// sturn-native trigger (`[trigger.sturn]`) — an ADDITIONAL push
+/// source alongside the webhook listener: `bupha watch` polls each
+/// `sturn = true` repo's clone for `refs/sturn/wal/*` movement and
+/// enqueues Snapshot commits. Absent = webhook only. With
+/// `trigger.kind` empty it is the ONLY source — no listener, no
+/// webhook secret required.
+#[derive(Debug, Deserialize, Clone)]
+#[serde(deny_unknown_fields)]
+pub struct SturnTriggerCfg {
+    /// Remote to fetch `refs/sturn/*` from. Empty = local-only —
+    /// ops land in the watched clone itself (single-box dogfooding,
+    /// no remote needed).
+    #[serde(default = "default_sturn_remote")]
+    pub remote: String,
+    /// WAL head poll interval, ms (default 5s — a tick may run one
+    /// `git fetch` per sturn repo).
+    #[serde(default = "default_sturn_poll_ms")]
+    pub poll_ms: u64,
+}
+
+fn default_sturn_remote() -> String {
+    "origin".into()
+}
+
+fn default_sturn_poll_ms() -> u64 {
+    5000
 }
 
 #[derive(Debug, Deserialize, Clone)]
@@ -624,9 +662,14 @@ pub struct TriggerCfg {
     /// github.com. Used by the trigger, status, and forge-admin impls.
     #[serde(default = "default_api_base")]
     pub api_base: String,
-    /// "github" today; other forges = new impl crates.
+    /// "github" today; other forges = new impl crates. Empty is
+    /// valid only when [trigger.sturn] supplies the pushes —
+    /// a sturn-only watcher needs no listener or webhook secret.
     #[serde(default)]
     pub kind: String,
+    /// Optional sturn-native push source — see SturnTriggerCfg.
+    #[serde(default)]
+    pub sturn: Option<SturnTriggerCfg>,
     /// Webhook listener bind address ("127.0.0.1:29173").
     #[serde(default = "default_listen")]
     pub listen: String,
@@ -644,6 +687,7 @@ impl Default for TriggerCfg {
             kind: String::new(),
             listen: default_listen(),
             secret_env: default_secret_env(),
+            sturn: None,
         }
     }
 }

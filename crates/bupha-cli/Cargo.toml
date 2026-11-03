@@ -37,6 +37,7 @@ bupha-http.workspace = true
 bupha-tunnel.workspace = true
 bupha-cloudflared.workspace = true
 bupha-github.workspace = true
+bupha-sturn.workspace = true
 tiny_http = "0.12"
 clap = { version = "4", features = ["derive"] }
 bupha-systemd.workspace = true

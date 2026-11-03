@@ -547,6 +547,240 @@ fn persist_queue(g: &Shared, store: &dyn QueueStore, key: &str) {
     }
 }
 
+/// Everything an ingest source needs to land a (repo, ref, sha,
+/// sender) push in the queues — Arc'd once in `bupha watch` and
+/// shared by the webhook request threads and the sturn poller.
+#[derive(Clone)]
+struct Ingest {
+    cfg: Arc<Config>,
+    watched: Arc<Vec<bupha_core::WatchedRepo>>,
+    shared: Arc<Mutex<Shared>>,
+    cv: Arc<Condvar>,
+    child: ChildSlot,
+    store: Arc<dyn QueueStore>,
+    workq: Option<Arc<dyn WorkQueue>>,
+    sinks: Arc<std::collections::HashMap<String, Arc<dyn StatusSink>>>,
+    telemetry: Arc<dyn Telemetry>,
+    access: Arc<dyn Access>,
+    audit: Option<Arc<AuditLog>>,
+}
+
+/// How a push landed — the webhook handler maps these to status
+/// codes, the sturn poller maps them to log lines.
+enum IngestOutcome {
+    /// Well-formed push, but no job watches that (repo, ref).
+    NoBranchMatch,
+    /// Access policy refused the sender (audited inside).
+    Denied,
+    /// At least one job queued the sha.
+    Queued,
+    /// Every matched job already had it pending/running.
+    Duplicate,
+}
+
+/// The shared push→queue path — webhook pushes and sturn snapshot
+/// events land identically: match watched jobs on (repo, ref), gate
+/// on the access policy, enqueue latest-wins per job, feed the fleet
+/// pull queue, post superseded statuses, cancel in-flight runs.
+fn ingest_push(
+    ix: &Ingest,
+    repo_name: &str,
+    git_ref: &str,
+    sha: &str,
+    sender: &str,
+) -> IngestOutcome {
+    // Every job of the repo watching this ref gets the push — each
+    // keeps its own queue, policy and runner.
+    let matched: Vec<&bupha_core::WatchedRepo> = ix
+        .watched
+        .iter()
+        .filter(|w| w.name == repo_name && w.branch == git_ref)
+        .collect();
+    if matched.is_empty() {
+        return IngestOutcome::NoBranchMatch;
+    }
+    if !ix.access.allow(sender, repo_name) {
+        println!("denied: {sender} may not trigger {repo_name}");
+        if let Some(log) = &ix.audit {
+            log.entry(sha, repo_name, sender, "denied", "sender not allowed");
+        }
+        return IngestOutcome::Denied;
+    }
+    // Lock: mutate queues + decide, then drop.
+    // HTTP posts and process kills happen after.
+    let mut olds: Vec<(String, String)> = vec![];
+    let mut queued = false;
+    let mut kill = false;
+    {
+        let mut g = ix.shared.lock().unwrap();
+        for w in &matched {
+            // The local queue only holds jobs THIS box can run —
+            // a job wanting labels we lack belongs to the fleet
+            // pull queue.
+            if !w.runs_on.iter().all(|l| ix.cfg.worker.labels.contains(l)) {
+                continue;
+            }
+            let q = g.queues.get_mut(&w.key).unwrap();
+            // Snapshot before enqueue: only THIS job's in-flight run
+            // is killable — another job's running entry must not be
+            // touched.
+            let running = q.running.is_some();
+            match q.enqueue(sha.to_string()) {
+                EnqueueResult::Duplicate => {}
+                EnqueueResult::Queued { superseded } => {
+                    queued = true;
+                    ix.telemetry.event(&RunEvent::Queued {
+                        repo: w.key.clone(),
+                        sha: sha.to_string(),
+                    });
+                    if let Some(old) = superseded {
+                        olds.push((w.key.clone(), old));
+                    }
+                    if w.runner.cancel_running && running {
+                        q.cancelled = true;
+                        kill = true;
+                    }
+                }
+            }
+        }
+        for w in &matched {
+            persist_queue(&g, &*ix.store, &w.key);
+        }
+    }
+    // Fleet visibility: the shared pull queue gets every matched job
+    // regardless of local labels.
+    if let Some(wq) = &ix.workq {
+        for w in &matched {
+            let j = Job {
+                key: w.key.clone(),
+                sha: sha.to_string(),
+                runs_on: w.runs_on.clone(),
+            };
+            if wq.enqueue(&j).unwrap_or(false) {
+                ix.telemetry.event(&RunEvent::Queued {
+                    repo: j.key.clone(),
+                    sha: sha.to_string(),
+                });
+                queued = true;
+            }
+        }
+    }
+    for (key, old) in olds {
+        ix.telemetry.event(&RunEvent::Superseded {
+            repo: key.clone(),
+            sha: old.clone(),
+        });
+        ix.sinks[&key].post(
+            &old,
+            "error",
+            &format!("superseded by {}", &sha[..12.min(sha.len())]),
+        );
+        println!("superseded {key} {old:.12} -> {:.12}", sha);
+    }
+    if kill {
+        let _ = ix.child.lock().unwrap().as_mut().map(|c| {
+            let _ = c.kill();
+            println!("cancelled in-flight run");
+        });
+    }
+    if queued {
+        ix.cv.notify_one();
+        IngestOutcome::Queued
+    } else {
+        IngestOutcome::Duplicate
+    }
+}
+
+/// `bupha watch`'s second ingest path — the sturn-native trigger.
+/// Polls each `sturn = true` repo's clone for WAL movement
+/// (`refs/sturn/wal/<ws>`), reads new event commits, and on an
+/// `Op::Snapshot` marker enqueues the ws tip commit — the same
+/// queue the webhook feeds. Polls refs, not the bus: the WAL is
+/// the state (the bus is a cache), so this needs no daemon and
+/// catches up across restarts via the persisted heads file.
+fn sturn_poll(ix: Ingest, st: &bupha_core::SturnTriggerCfg) {
+    let heads_path = PathBuf::from(&ix.cfg.worktree.base).join("sturn-heads.json");
+    let mut heads = bupha_sturn::load_heads(&heads_path);
+    // One poll entry per repo NAME — a repo's jobs share the clone.
+    let mut names: Vec<&str> = Vec::new();
+    for w in ix.watched.iter().filter(|w| w.sturn) {
+        if !names.contains(&w.name.as_str()) {
+            names.push(w.name.as_str());
+        }
+    }
+    if names.is_empty() {
+        eprintln!("[trigger.sturn] set but no [[repo]] has sturn = true — poller disabled");
+        return;
+    }
+    println!(
+        "sturn trigger polling {} repo(s) every {}ms",
+        names.len(),
+        st.poll_ms
+    );
+    loop {
+        // Same e2e shutdown hook as the accept loop / worker.
+        if std::env::var("BUPHA_WATCH_SHUTDOWN_FILE")
+            .ok()
+            .is_some_and(|f| Path::new(&f).exists())
+        {
+            return;
+        }
+        for name in &names {
+            let dir = &ix.watched.iter().find(|w| &w.name == name).unwrap().dir;
+            let meta = bupha_sturn::meta(dir);
+            if !bupha_sturn::fetch(dir, &st.remote) {
+                eprintln!("sturn fetch {name}: failed — retrying next tick");
+                continue;
+            }
+            for (ws, head) in bupha_sturn::wal_heads(dir, &meta.wal_prefix) {
+                let key = format!("{name}|{ws}");
+                let prev = heads.get(&key).cloned();
+                if prev.as_deref() == Some(head.as_str()) {
+                    continue;
+                }
+                let wal_ref = format!("{}/{ws}", meta.wal_prefix);
+                // prev GC'd (compact + prune) → fall back to the whole
+                // log; event ids dedup the replay in `seen`.
+                let evs = bupha_sturn::events_since(dir, &wal_ref, prev.as_deref())
+                    .or_else(|_| bupha_sturn::events_since(dir, &wal_ref, None))
+                    .unwrap_or_default();
+                for ev in evs {
+                    if !ev.snapshot {
+                        continue;
+                    }
+                    // Compaction rebuilds WAL commits, but event ids
+                    // are blob addresses — they survive the rewrite.
+                    if !ix
+                        .shared
+                        .lock()
+                        .unwrap()
+                        .seen
+                        .insert(format!("sturn:{}", ev.id))
+                    {
+                        continue;
+                    }
+                    let Some(sha) = bupha_sturn::ws_tip(dir, &ws) else {
+                        continue;
+                    };
+                    match ingest_push(&ix, name, &bupha_sturn::branch_ref(&meta), &sha, &ev.actor) {
+                        IngestOutcome::Queued => {
+                            println!("sturn snap {name} ws={ws} → {:.12} queued", sha)
+                        }
+                        IngestOutcome::NoBranchMatch => println!(
+                            "sturn snap {name} ws={ws} — no job watches {}",
+                            bupha_sturn::branch_ref(&meta)
+                        ),
+                        _ => {}
+                    }
+                }
+                heads.insert(key, head);
+            }
+        }
+        let _ = bupha_sturn::save_heads(&heads_path, &heads);
+        std::thread::sleep(std::time::Duration::from_millis(st.poll_ms));
+    }
+}
+
 /// Shared builders — `bupha watch` (listener + worker) and `bupha
 /// worker` (pull-only) wire the same adapters.
 fn build_telemetry(cfg: &Config) -> Arc<dyn Telemetry> {
@@ -702,39 +936,50 @@ fn settle_run(
 }
 
 fn cmd_watch(cfg: Arc<Config>) {
-    let wh_secret = secret(&cfg.trigger.secret_env).unwrap_or_else(|| {
-        panic!(
-            "{} required (env, keyring or env file)",
-            cfg.trigger.secret_env
-        )
-    });
     let token = secret(&cfg.runner.token_env).unwrap_or_default();
 
     let watched: Vec<bupha_core::WatchedRepo> = cfg.watched().unwrap_or_else(|e| {
         eprintln!("config: {e}");
         std::process::exit(2);
     });
-    // Per-repo webhook secrets resolved once at boot — a repo with
-    // `secret_env` set fails fast like the global when the name
-    // doesn't resolve; repos without it share `wh_secret`.
-    let mut secrets: std::collections::HashMap<String, String> = Default::default();
-    for r in watched.iter() {
-        if let Some(name) = &r.secret_env {
-            let v = secret(name)
-                .unwrap_or_else(|| panic!("{name} required (env, keyring or env file)"));
-            secrets.insert(r.name.clone(), v);
-        }
-    }
-    let secrets = Arc::new(secrets);
     let watched = Arc::new(watched);
 
-    let trigger: Arc<dyn Trigger> = match cfg.trigger.kind.as_str() {
-        "github" => Arc::new(GitHubTrigger),
+    // Webhook ingest is optional: `kind` empty + `[trigger.sturn]`
+    // = a sturn-only watcher — no listener, no webhook secret.
+    // `kind` set keeps the listener; `[trigger.sturn]` may still be
+    // added on top as a second source.
+    let trigger: Option<Arc<dyn Trigger>> = match cfg.trigger.kind.as_str() {
+        "github" => Some(Arc::new(GitHubTrigger)),
+        "" if cfg.trigger.sturn.is_some() => None,
         other => {
             eprintln!("unknown trigger '{other}' (github)");
             std::process::exit(2);
         }
     };
+    // Per-repo webhook secrets resolved once at boot — a repo with
+    // `secret_env` set fails fast like the global when the name
+    // doesn't resolve; repos without it share `wh_secret`. All of
+    // this only matters while the listener exists.
+    let (wh_secret, secrets) = if trigger.is_some() {
+        let wh = secret(&cfg.trigger.secret_env).unwrap_or_else(|| {
+            panic!(
+                "{} required (env, keyring or env file)",
+                cfg.trigger.secret_env
+            )
+        });
+        let mut map: std::collections::HashMap<String, String> = Default::default();
+        for r in watched.iter() {
+            if let Some(name) = &r.secret_env {
+                let v = secret(name)
+                    .unwrap_or_else(|| panic!("{name} required (env, keyring or env file)"));
+                map.insert(r.name.clone(), v);
+            }
+        }
+        (wh, map)
+    } else {
+        (String::new(), Default::default())
+    };
+    let secrets = Arc::new(secrets);
     // Who may trigger — forge-attested sender checked against policy.
     let access: Arc<dyn Access> = match cfg.access.kind.as_str() {
         "all" => Arc::new(AllowAll),
@@ -756,12 +1001,17 @@ fn cmd_watch(cfg: Arc<Config>) {
     let runners = build_runners(&cfg, &watched);
 
     // Optional tunnel — the watcher stays decoupled from ingress.
-    let tunnel: Option<Box<dyn Tunnel>> = match cfg.tunnel.provider.as_str() {
-        "cloudflared" => Some(Box::new(CloudflaredTunnel::new(cfg.tunnel.clone()))),
-        "none" | "direct" => None,
-        other => {
-            eprintln!("unknown tunnel provider '{other}'");
-            std::process::exit(2);
+    // No listener (sturn-only) means nothing to expose.
+    let tunnel: Option<Box<dyn Tunnel>> = if trigger.is_none() {
+        None
+    } else {
+        match cfg.tunnel.provider.as_str() {
+            "cloudflared" => Some(Box::new(CloudflaredTunnel::new(cfg.tunnel.clone()))),
+            "none" | "direct" => None,
+            other => {
+                eprintln!("unknown tunnel provider '{other}'");
+                std::process::exit(2);
+            }
         }
     };
     if let Some(t) = tunnel {
@@ -995,6 +1245,40 @@ fn cmd_watch(cfg: Arc<Config>) {
         });
     }
 
+    // Both ingest sources share this — the webhook request threads
+    // below and, when [trigger.sturn] is set, the WAL poller.
+    let ix = Ingest {
+        cfg: Arc::clone(&cfg),
+        watched: Arc::clone(&watched),
+        shared: Arc::clone(&shared),
+        cv: Arc::clone(&cv),
+        child: Arc::clone(&child),
+        store: Arc::clone(&store),
+        workq: workq.clone(),
+        sinks: Arc::clone(&sinks),
+        telemetry: telemetry.clone(),
+        access: access.clone(),
+        audit: audit.clone(),
+    };
+    if let Some(st) = cfg.trigger.sturn.clone() {
+        let ix = ix.clone();
+        std::thread::spawn(move || sturn_poll(ix, &st));
+    }
+
+    // sturn-only watcher: no listener — the poller + worker threads
+    // carry the load; main idles until the e2e shutdown hook lands.
+    let Some(trigger) = trigger else {
+        loop {
+            if std::env::var("BUPHA_WATCH_SHUTDOWN_FILE")
+                .ok()
+                .is_some_and(|f| Path::new(&f).exists())
+            {
+                return;
+            }
+            std::thread::sleep(std::time::Duration::from_millis(50));
+        }
+    };
+
     let server =
         Arc::new(tiny_http::Server::http(&cfg.trigger.listen).expect("failed to bind listener"));
     println!("bupha watch listening on {}", cfg.trigger.listen);
@@ -1030,20 +1314,10 @@ fn cmd_watch(cfg: Arc<Config>) {
     for req in server.incoming_requests() {
         // Per-request thread — a stalled client must not block the
         // accept loop (slowloris). Body cap still applies inside.
-        let shared = shared.clone();
-        let cv = cv.clone();
-        let trigger = trigger.clone();
-        let sinks = Arc::clone(&sinks);
-        let child = Arc::clone(&child);
-        let store = store.clone();
-        let watched = Arc::clone(&watched);
+        let ix = ix.clone();
+        let trigger = Arc::clone(&trigger);
         let secrets = Arc::clone(&secrets);
         let wh_secret = wh_secret.clone();
-        let access = access.clone();
-        let audit = audit.clone();
-        let telemetry = telemetry.clone();
-        let workq = workq.clone();
-        let cfg = Arc::clone(&cfg);
         std::thread::spawn(move || {
             let mut req = req;
             let headers: Vec<(String, String)> = req
@@ -1073,7 +1347,7 @@ fn cmd_watch(cfg: Arc<Config>) {
                 // only picks which watched repo (and secret) applies.
                 let repo = trigger
                     .repo_hint(&body)
-                    .and_then(|n| watched.iter().find(|r| r.name == n));
+                    .and_then(|n| ix.watched.iter().find(|r| r.name == n));
                 match repo {
                     // An unwatched repo can't verify — no secret of
                     // ours was used to sign it. Reject, not ignore.
@@ -1090,140 +1364,29 @@ fn cmd_watch(cfg: Arc<Config>) {
                     Some(_)
                         if trigger
                             .delivery_id(&headers)
-                            .map(|id| !shared.lock().unwrap().seen.insert(id))
+                            .map(|id| !ix.shared.lock().unwrap().seen.insert(id))
                             .unwrap_or(false) =>
                     {
                         // replayed signed payload: same delivery id
                         (200, "duplicate delivery")
                     }
-                    Some(_) => {
-                        match trigger.parse_push(&body) {
-                            Some(PushOutcome::Skip) => (200, "ignored: no-op event"),
-                            Some(PushOutcome::Push {
-                                repo: repo_name,
-                                git_ref,
-                                sha,
-                                sender,
-                            }) => {
-                                // Every job of the repo watching this
-                                // ref gets the push — each keeps its
-                                // own queue, policy and runner.
-                                let matched: Vec<&bupha_core::WatchedRepo> = watched
-                                    .iter()
-                                    .filter(|w| w.name == repo_name && w.branch == git_ref)
-                                    .collect();
-                                if matched.is_empty() {
-                                    (200, "ignored: not the watched branch")
-                                } else if !access.allow(&sender, &repo_name) {
-                                    println!("denied: {sender} may not trigger {repo_name}");
-                                    if let Some(log) = &audit {
-                                        log.entry(
-                                            &sha,
-                                            &repo_name,
-                                            &sender,
-                                            "denied",
-                                            "sender not allowed",
-                                        );
-                                    }
-                                    (403, "sender not allowed")
-                                } else {
-                                    // Lock: mutate queues + decide, then drop.
-                                    // HTTP posts and process kills happen after.
-                                    let mut olds: Vec<(String, String)> = vec![];
-                                    let mut queued = false;
-                                    let mut kill = false;
-                                    {
-                                        let mut g = shared.lock().unwrap();
-                                        for w in &matched {
-                                            // The local queue only
-                                            // holds jobs THIS box can
-                                            // run — a job wanting
-                                            // labels we lack belongs
-                                            // to the fleet pull queue.
-                                            if !w
-                                                .runs_on
-                                                .iter()
-                                                .all(|l| cfg.worker.labels.contains(l))
-                                            {
-                                                continue;
-                                            }
-                                            let q = g.queues.get_mut(&w.key).unwrap();
-                                            // Snapshot before enqueue:
-                                            // only THIS job's in-flight
-                                            // run is killable — another
-                                            // job's running entry must
-                                            // not be touched.
-                                            let running = q.running.is_some();
-                                            match q.enqueue(sha.clone()) {
-                                                EnqueueResult::Duplicate => {}
-                                                EnqueueResult::Queued { superseded } => {
-                                                    queued = true;
-                                                    telemetry.event(&RunEvent::Queued {
-                                                        repo: w.key.clone(),
-                                                        sha: sha.clone(),
-                                                    });
-                                                    if let Some(old) = superseded {
-                                                        olds.push((w.key.clone(), old));
-                                                    }
-                                                    if w.runner.cancel_running && running {
-                                                        q.cancelled = true;
-                                                        kill = true;
-                                                    }
-                                                }
-                                            }
-                                        }
-                                        for w in &matched {
-                                            persist_queue(&g, &*store, &w.key);
-                                        }
-                                    }
-                                    // Fleet visibility: the shared
-                                    // pull queue gets every matched
-                                    // job regardless of local labels.
-                                    if let Some(wq) = &workq {
-                                        for w in &matched {
-                                            let j = Job {
-                                                key: w.key.clone(),
-                                                sha: sha.clone(),
-                                                runs_on: w.runs_on.clone(),
-                                            };
-                                            if wq.enqueue(&j).unwrap_or(false) {
-                                                telemetry.event(&RunEvent::Queued {
-                                                    repo: j.key.clone(),
-                                                    sha: sha.clone(),
-                                                });
-                                                queued = true;
-                                            }
-                                        }
-                                    }
-                                    for (key, old) in olds {
-                                        telemetry.event(&RunEvent::Superseded {
-                                            repo: key.clone(),
-                                            sha: old.clone(),
-                                        });
-                                        sinks[&key].post(
-                                            &old,
-                                            "error",
-                                            &format!("superseded by {}", &sha[..12.min(sha.len())]),
-                                        );
-                                        println!("superseded {key} {old:.12} -> {:.12}", sha);
-                                    }
-                                    if kill {
-                                        let _ = child.lock().unwrap().as_mut().map(|c| {
-                                            let _ = c.kill();
-                                            println!("cancelled in-flight run");
-                                        });
-                                    }
-                                    if queued {
-                                        cv.notify_one();
-                                        (202, "queued")
-                                    } else {
-                                        (200, "already queued")
-                                    }
-                                }
+                    Some(_) => match trigger.parse_push(&body) {
+                        Some(PushOutcome::Skip) => (200, "ignored: no-op event"),
+                        Some(PushOutcome::Push {
+                            repo: repo_name,
+                            git_ref,
+                            sha,
+                            sender,
+                        }) => match ingest_push(&ix, &repo_name, &git_ref, &sha, &sender) {
+                            IngestOutcome::NoBranchMatch => {
+                                (200, "ignored: not the watched branch")
                             }
-                            None => (400, "unparseable payload"),
-                        }
-                    }
+                            IngestOutcome::Denied => (403, "sender not allowed"),
+                            IngestOutcome::Queued => (202, "queued"),
+                            IngestOutcome::Duplicate => (200, "already queued"),
+                        },
+                        None => (400, "unparseable payload"),
+                    },
                 }
             };
             let _ = req.respond(tiny_http::Response::from_string(msg).with_status_code(code));
@@ -2173,10 +2336,12 @@ fn cmd_destroy(cfg: &Config, sub: &DestroySub) {
                     }
                 }
             }
-            let q = base.join("queue.json");
-            if q.exists() {
-                let _ = std::fs::remove_file(&q);
-                println!("removed {}", q.display());
+            for f in ["queue.json", "sturn-heads.json"] {
+                let q = base.join(f);
+                if q.exists() {
+                    let _ = std::fs::remove_file(&q);
+                    println!("removed {}", q.display());
+                }
             }
             if let Ok(ws) = cfg.watched() {
                 // One prune per repo — jobs share the clone.
