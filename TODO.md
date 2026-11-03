@@ -8,3 +8,4 @@
 - [ ] T-036 SEC: agent auth binds method+path+body — kills empty-body replay (I-005) · created:2026-11-03
 - [ ] T-037 SEC: verify sturn event sigs when allowed\_signers configured; unattested sender '' (I-006) · created:2026-11-03
 - [ ] T-038 SEC: ssh runner input allowlists — remote/tag/env-name (I-007) · created:2026-11-03
+- [ ] T-039 SEC: doctor/deploy-check perms on env + sccache conf; chmod local files (I-008) · created:2026-11-03
