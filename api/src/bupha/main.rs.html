@@ -18,7 +18,7 @@
 <a href=#18 id=18 data-nosnippet>18</a><span class="kw">use </span>bupha_cache_sccache::SccacheConf;
 <a href=#19 id=19 data-nosnippet>19</a><span class="kw">use </span>bupha_cloudflared::CloudflaredTunnel;
 <a href=#20 id=20 data-nosnippet>20</a><span class="kw">use </span>bupha_config::ConfigSource;
-<a href=#21 id=21 data-nosnippet>21</a><span class="kw">use </span>bupha_config_toml::TomlSource;
+<a href=#21 id=21 data-nosnippet>21</a><span class="kw">use </span>bupha_config_file::FileSource;
 <a href=#22 id=22 data-nosnippet>22</a><span class="kw">use </span>bupha_container::{ContainerCfg, ContainerRunner};
 <a href=#23 id=23 data-nosnippet>23</a><span class="kw">use </span>bupha_core::{Config, EnqueueResult, Queue};
 <a href=#24 id=24 data-nosnippet>24</a><span class="kw">use </span>bupha_dagger::DaggerRunner;
@@ -1869,7 +1869,7 @@
 <a href=#1869 id=1869 data-nosnippet>1869</a>        </span>Cmd::Service { worker, sub } =&gt; cmd_service(<span class="kw-2">*</span>worker, sub),
 <a href=#1870 id=1870 data-nosnippet>1870</a>        <span class="kw">_ </span>=&gt; {
 <a href=#1871 id=1871 data-nosnippet>1871</a>            <span class="kw">let </span>cfg = Arc::new(
-<a href=#1872 id=1872 data-nosnippet>1872</a>                TomlSource {
+<a href=#1872 id=1872 data-nosnippet>1872</a>                FileSource {
 <a href=#1873 id=1873 data-nosnippet>1873</a>                    path: cli.config.clone(),
 <a href=#1874 id=1874 data-nosnippet>1874</a>                }
 <a href=#1875 id=1875 data-nosnippet>1875</a>                .load()
