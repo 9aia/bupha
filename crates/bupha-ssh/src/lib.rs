@@ -355,6 +355,6 @@ mod tests {
     fn leaf_components_are_shell_safe() {
         assert_eq!(safe_component("owner/name:gate"), "owner-name-gate");
         assert_eq!(safe_component("a'; rm -rf /;'"), "a---rm--rf----");
-        assert_eq!(safe_component("$(id)"), "--id--");
+        assert_eq!(safe_component("$(id)"), "--id-");
     }
 }

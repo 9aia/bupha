@@ -31,14 +31,14 @@ fn persist_key_updates_only_its_key() {
         pending: shas.iter().map(|s| s.to_string()).collect::<VecDeque<_>>(),
         running: None,
     };
-    s.persist_key("a/x", &q(&["1"])).unwrap();
-    s.persist_key("a/y", &q(&["2"])).unwrap();
-    s.persist_key("a/x", &q(&["3", "4"])).unwrap();
+    s.persist_key("a/x", &q(&["aaaaaa1"])).unwrap();
+    s.persist_key("a/y", &q(&["aaaaaa2"])).unwrap();
+    s.persist_key("a/x", &q(&["aaaaaa3", "aaaaaa4"])).unwrap();
     let m = s.load().unwrap();
     assert_eq!(m.len(), 2);
     // a/y untouched by a/x's second write — the whole point of the
     // scoped persist (a whole-map write would have clobbered it).
-    assert_eq!(m["a/y"].pending.front().unwrap(), "2");
+    assert_eq!(m["a/y"].pending.front().unwrap(), "aaaaaa2");
     assert_eq!(m["a/x"].pending.len(), 2);
 }
 
@@ -72,21 +72,21 @@ fn mem_workq_claim_complete_and_labels() {
     let none: &[String] = &[];
 
     // Latest: only newest is claimable; older = superseded.
-    q.enqueue(&job("a/x", "1", &[])).unwrap();
-    q.enqueue(&job("a/x", "1", &[])).unwrap(); // dedup
-    q.enqueue(&job("a/x", "2", &[])).unwrap();
+    q.enqueue(&job("a/x", "aaaaaa1", &[])).unwrap();
+    q.enqueue(&job("a/x", "aaaaaa1", &[])).unwrap(); // dedup
+    q.enqueue(&job("a/x", "aaaaaa2", &[])).unwrap();
     // All-FIFO: needs a label we don't have -> skipped.
-    q.enqueue(&job("a/y", "3", &["arch=arm64"])).unwrap();
+    q.enqueue(&job("a/y", "aaaaaa3", &["arch=arm64"])).unwrap();
 
     match q.claim_next("w1", none, &keys).unwrap() {
         Some(Claim::Won { job: j, superseded }) => {
-            assert_eq!(j.sha, "2");
+            assert_eq!(j.sha, "aaaaaa2");
             assert_eq!(
                 superseded
                     .iter()
                     .map(|s| s.sha.as_str())
                     .collect::<Vec<_>>(),
-                vec!["1"]
+                vec!["aaaaaa1"]
             );
         }
         _ => panic!("expected a won claim"),
@@ -97,7 +97,7 @@ fn mem_workq_claim_complete_and_labels() {
         _ => {}
     }
     // A label-gated latest entry behind the held one -> skip arm.
-    q.enqueue(&job("a/x", "4", &["arch=x86"])).unwrap();
+    q.enqueue(&job("a/x", "aaaaaa4", &["arch=x86"])).unwrap();
     // Held entries aren't re-claimed; a/y wants a missing label.
     match q.claim_next("w2", none, &keys).unwrap() {
         Some(Claim::Won { .. }) => panic!("held sha re-claimed"),
@@ -105,12 +105,13 @@ fn mem_workq_claim_complete_and_labels() {
     }
     let arm = vec!["arch=arm64".to_string()];
     match q.claim_next("w2", &arm, &keys).unwrap() {
-        Some(Claim::Won { job: j, .. }) => assert_eq!(j.sha, "3"),
+        Some(Claim::Won { job: j, .. }) => assert_eq!(j.sha, "aaaaaa3"),
         _ => panic!("expected the labeled job"),
     }
-    q.complete(&job("a/y", "3", &["arch=arm64"]), "w2").unwrap();
+    q.complete(&job("a/y", "aaaaaa3", &["arch=arm64"]), "w2")
+        .unwrap();
     // Completing marks done — even if re-enqueued it's filtered.
-    q.enqueue(&job("a/y", "3", &[])).unwrap();
+    q.enqueue(&job("a/y", "aaaaaa3", &[])).unwrap();
     assert!(matches!(q.claim_next("w1", &arm, &keys).unwrap(), None));
     // Held-but-never-completed a/x:2 stays claimed — nothing left.
     let keys2 = [KeyPolicy {
@@ -128,18 +129,18 @@ fn mem_workq_all_policy_fifo() {
         latest: false,
     }];
     let none: &[String] = &[];
-    q.enqueue(&job("o/r", "1", &[])).unwrap();
-    q.enqueue(&job("o/r", "2", &[])).unwrap();
+    q.enqueue(&job("o/r", "aaaaaa1", &[])).unwrap();
+    q.enqueue(&job("o/r", "aaaaaa2", &[])).unwrap();
     match q.claim_next("w", none, &keys).unwrap() {
         Some(Claim::Won { job: j, superseded }) => {
-            assert_eq!(j.sha, "1"); // oldest first — no supersede
+            assert_eq!(j.sha, "aaaaaa1"); // oldest first — no supersede
             assert!(superseded.is_empty());
         }
         _ => panic!(),
     }
-    // While "1" is held, "2" is claimable (all = every sha runs).
+    // While "aaaaaa1" is held, "aaaaaa2" is claimable (all = every sha runs).
     match q.claim_next("w", none, &keys).unwrap() {
-        Some(Claim::Won { job: j, .. }) => assert_eq!(j.sha, "2"),
+        Some(Claim::Won { job: j, .. }) => assert_eq!(j.sha, "aaaaaa2"),
         _ => panic!(),
     }
 }

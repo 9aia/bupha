@@ -317,7 +317,7 @@ fn workq_latest_claim_supersede_complete() {
         runs_on: on.iter().map(|s| s.to_string()).collect(),
     };
     // Seed: done sha (pruned silently), a parse-broken entry, old+new.
-    s.mark_done("o/r", "done1").unwrap();
+    s.mark_done("o/r", "done_1").unwrap();
     // Write directly through a raw socket — done1 (prunes) and a
     // broken entry (skipped) seed the list alongside live jobs.
     {
@@ -327,7 +327,7 @@ fn workq_latest_claim_supersede_complete() {
             .trim_end_matches('/')
             .to_string();
         let mut raw = TcpStream::connect(port).unwrap();
-        let d1 = serde_json::to_string(&j("done1", &[])).unwrap();
+        let d1 = serde_json::to_string(&j("done_1", &[])).unwrap();
         let push = |v: &str| {
             format!(
                 "*3\r\n$5\r\nRPUSH\r\n$14\r\nbupha:work:o/r\r\n${}\r\n{}\r\n",
@@ -343,32 +343,32 @@ fn workq_latest_claim_supersede_complete() {
         let mut line2 = String::new();
         r.read_line(&mut line2).unwrap();
     }
-    s.enqueue(&j("old", &[])).unwrap();
-    s.enqueue(&j("old", &[])).unwrap(); // dedup
-    s.enqueue(&j("new", &[])).unwrap();
+    s.enqueue(&j("old_sha", &[])).unwrap();
+    s.enqueue(&j("old_sha", &[])).unwrap(); // dedup
+    s.enqueue(&j("new_sha", &[])).unwrap();
 
     match s.claim_next("w1", none, &keys).unwrap() {
         Some(Claim::Won { job, superseded }) => {
-            assert_eq!(job.sha, "new");
+            assert_eq!(job.sha, "new_sha");
             assert_eq!(superseded.len(), 1);
-            assert_eq!(superseded[0].sha, "old");
+            assert_eq!(superseded[0].sha, "old_sha");
         }
         _ => panic!("expected won claim"),
     }
     // Labels gate: a job requiring a label we lack is skipped.
-    s.enqueue(&j("lab", &["arch=arm64"])).unwrap();
+    s.enqueue(&j("lab_sha", &["arch=arm64"])).unwrap();
     assert!(matches!(s.claim_next("w1", none, &keys).unwrap(), None));
     // A stale completer mustn't settle a peer's re-claim.
-    s.complete(&j("new", &[]), "intruder").unwrap();
+    s.complete(&j("new_sha", &[]), "intruder").unwrap();
     // Real holder completes -> entry LREM'd + done marker set.
-    s.complete(&j("new", &[]), "w1").unwrap();
-    assert!(s.is_done("o/r", "new").unwrap());
+    s.complete(&j("new_sha", &[]), "w1").unwrap();
+    assert!(s.is_done("o/r", "new_sha").unwrap());
     // Done entry NEWER than a live one prunes in the scan itself.
-    s.enqueue(&j("live2", &[])).unwrap();
-    s.enqueue(&j("done2", &[])).unwrap();
-    s.mark_done("o/r", "done2").unwrap();
+    s.enqueue(&j("live_sha2", &[])).unwrap();
+    s.enqueue(&j("done_sha2", &[])).unwrap();
+    s.mark_done("o/r", "done_sha2").unwrap();
     match s.claim_next("w1", none, &keys).unwrap() {
-        Some(Claim::Won { job, .. }) => assert_eq!(job.sha, "live2"),
+        Some(Claim::Won { job, .. }) => assert_eq!(job.sha, "live_sha2"),
         _ => panic!("expected live2 after done-prune"),
     }
 }
@@ -399,9 +399,9 @@ fn workq_pruned_and_all_policy() {
         let mut l = String::new();
         r.read_line(&mut l).unwrap();
     }
-    s.enqueue(&j("o/r", "old")).unwrap();
-    s.enqueue(&j("o/r", "new")).unwrap();
-    s.try_claim("o/r", "new", "peer").unwrap();
+    s.enqueue(&j("o/r", "old_sha")).unwrap();
+    s.enqueue(&j("o/r", "new_sha")).unwrap();
+    s.try_claim("o/r", "new_sha", "peer").unwrap();
     let keys = [
         KeyPolicy {
             key: "o/r".into(),
@@ -415,7 +415,7 @@ fn workq_pruned_and_all_policy() {
     match s.claim_next("w1", none, &keys).unwrap() {
         Some(Claim::Pruned(sup)) => {
             assert_eq!(sup.len(), 1);
-            assert_eq!(sup[0].sha, "old");
+            assert_eq!(sup[0].sha, "old_sha");
         }
         _ => panic!("expected pruned outcome"),
     }
@@ -439,25 +439,25 @@ fn workq_pruned_and_all_policy() {
             )
         };
         raw.write_all(put("broken").as_bytes()).unwrap();
-        raw.write_all(put(&serde_json::to_string(&j("o/fifo", "done1")).unwrap()).as_bytes())
+        raw.write_all(put(&serde_json::to_string(&j("o/fifo", "done_1")).unwrap()).as_bytes())
             .unwrap();
         let mut r = BufReader::new(raw);
         let (mut l1, mut l2) = (String::new(), String::new());
         r.read_line(&mut l1).unwrap();
         r.read_line(&mut l2).unwrap();
     }
-    s.mark_done("o/fifo", "done1").unwrap();
+    s.mark_done("o/fifo", "done_1").unwrap();
     let lab = Job {
         key: "o/fifo".into(),
-        sha: "lab".into(),
+        sha: "lab_sha".into(),
         runs_on: vec!["arch=x86".into()],
     };
     s.enqueue(&lab).unwrap();
-    s.enqueue(&j("o/fifo", "a")).unwrap();
-    s.enqueue(&j("o/fifo", "b")).unwrap();
-    s.try_claim("o/fifo", "a", "peer").unwrap();
+    s.enqueue(&j("o/fifo", "aaaaaaa")).unwrap();
+    s.enqueue(&j("o/fifo", "bbbbbbb")).unwrap();
+    s.try_claim("o/fifo", "aaaaaaa", "peer").unwrap();
     match s.claim_next("w1", none, &keys).unwrap() {
-        Some(Claim::Won { job, .. }) => assert_eq!(job.sha, "b"),
+        Some(Claim::Won { job, .. }) => assert_eq!(job.sha, "bbbbbbb"),
         _ => panic!("expected fifo claim of 'b'"),
     }
 }
