@@ -19,7 +19,7 @@ Queue engine for event-driven jobs — shipped as CI
 ### Reference
 
 - [Command-Line Help for `bupha`](/bupha/reference/cli.md)
-- [Config — `bupha.toml`](/bupha/reference/config.md)
+- [Config — `bupha.yaml` / `bupha.toml`](/bupha/reference/config.md)
 - [Crate API](/bupha/reference/crate-api.md)
 
 ### Explanation

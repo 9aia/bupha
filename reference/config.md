@@ -1,7 +1,19 @@
 ---
 url: /bupha/reference/config.md
 ---
-# Config — `bupha.toml`
+# Config — `bupha.yaml` / `bupha.toml`
+
+Both formats are permanent. `bupha.yaml`/`.yml` are preferred
+over `bupha.toml` at each search step — `--config`,
+`$BUPHA_CONFIG`, `./bupha.*`, `~/.config/bupha/bupha.*` — and an
+explicit `.toml` path still parses as TOML. Fields below are
+spelled in TOML; in YAML the same names nest under `:` maps
+(`[[repo]]` → `repos:`/`repo:` list, `[repo.runner]` → `runner:`
+map). Local-path fields (`dir`, `base`, `sccache_conf`,
+`cli_source`, `audit.path`, `telemetry.path`, `attest.dir`,
+`cache.conf`) expand a leading `~/` to `$HOME` at load in both
+formats. See `examples/bupha.toml.example` and
+`examples/bupha.yaml.example`.
 
 ## Top level
 
@@ -25,7 +37,7 @@ url: /bupha/reference/config.md
 | field | type | required | notes |
 |---|---|---|---|
 | `name` | `string` | required | repository.full_name in the webhook payload ("owner/name") — also the status target repo. |
-| `dir` | `path` | required | Clone to fetch + create detached worktrees from. |
+| `dir` | `path` | required | Clone to fetch + create detached worktrees from. A leading `~/` expands to `$HOME` at load. |
 | `branch` | `string` | optional | The ref to watch (e.g. "refs/heads/main"). |
 | `status_repo` | `string` | optional | Status repo override (defaults to `name`). |
 | `runner` | `RunnerCfg` | optional | Per-repo runner override — a full \[repo.runner] table replaces the global `[runner]` for this repo. |
@@ -83,7 +95,7 @@ url: /bupha/reference/config.md
 
 | field | type | required | notes |
 |---|---|---|---|
-| `base` | `string` | optional | Worktree parent dir — runs land at `&lt;base&gt;-&lt;repo&gt;-&lt;sha12&gt;`. |
+| `base` | `string` | optional | Worktree parent dir — runs land at `&lt;base&gt;-&lt;repo&gt;-&lt;sha12&gt;`. A leading `~/` expands to `$HOME` at load. |
 
 ## `[[repo.jobs]]`
 

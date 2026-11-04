@@ -7,6 +7,9 @@ url: /bupha/how-to/shell-runner.md
 verification, the queue, detached worktrees and statuses; your script
 does the build. No dagger, no docker, no image pulls.
 
+Snippets are TOML; `bupha.yaml`/`bupha.yml` is preferred and works
+identically (see [config reference](../reference/config.md)).
+
 ```toml
 [runner]
 kind = "shell"

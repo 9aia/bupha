@@ -20,8 +20,10 @@ or a direct box; quick tunnels are convenient but flaky.
 2. `bupha deploy env` → set `BUPHA_WEBHOOK_SECRET` + `BUPHA_TOKEN`
    (a repo-scoped PAT) — in `~/.config/bupha/env`, or store them in
    your OS keyring with `secret-tool` (resolution: env → keyring → file).
-3. Write `bupha.toml` (see `examples/bupha.toml.example`): your repo's
-   `[[repo]]` entry, `runner.kind`, `tunnel`.
+3. Write `bupha.yaml` (or `bupha.toml` — YAML is preferred, TOML is
+   permanent; see `examples/bupha.yaml.example` /
+   `examples/bupha.toml.example`): your repo's entry, `runner.kind`,
+   `tunnel`. Local paths may use `~/`.
 4. `bupha doctor` — checks this box (binaries, secrets, config) before
    you commit; fix anything red.
 5. `bupha deploy service` — systemd unit written + enabled
@@ -45,6 +47,10 @@ payload's `repository.full_name`. Each repo gets its own pending
 slot; a single global worker serializes runs (deliberate — safe on
 one box). Same-repo pushes may cancel their own in-flight run
 (`cancel_running`); a push never cancels another repo's run.
+
+Snippets are TOML; the equivalent `bupha.yaml`/`bupha.yml` works
+identically and is preferred when both exist (TOML is permanent —
+see [config reference](../reference/config.md)).
 
 ```toml
 [[repo]]
@@ -119,6 +125,9 @@ url: /bupha/how-to/shell-runner.md
 `runner.kind = "shell"` + `cmd` (alias: `"script"`) — the watcher still does webhook
 verification, the queue, detached worktrees and statuses; your script
 does the build. No dagger, no docker, no image pulls.
+
+Snippets are TOML; `bupha.yaml`/`bupha.yml` is preferred and works
+identically (see [config reference](../reference/config.md)).
 
 ```toml
 [runner]
@@ -222,7 +231,7 @@ the oxpecker on your repo's back — headless CI
 
 ###### **Subcommands:**
 
-* `watch` — Serve the webhook → queue → runner loop
+* `watch` — Serve the source → queue → runner loop (forge webhook, sturn WAL poller — every configured source)
 * `worker` — Fleet puller — claim shared-queue jobs and run them. No listener/tunnel/trigger; needs only \[queue] (redis), \[\[repo]] dirs, \[runner], \[status], \[worktree]
 * `agent` — Serve the remote-run agent — accepts jobs from `kind="http"` runners and executes them with this box's \[runner]
 * `init` — Scaffold dagger CI in a repo (dagger init + pinned module + delegate). For the script runner, a ci.sh is enough
@@ -237,11 +246,11 @@ the oxpecker on your repo's back — headless CI
 
 ###### **Options:**
 
-* `--config <CONFIG>` — Path to bupha.toml (default: ./bupha.toml or ~/.config/bupha/)
+* `--config <CONFIG>` — Path to the config file — bupha.yaml/.yml or bupha.toml (default: ./bupha.\* or ~/.config/bupha/, YAML preferred)
 
 ## `bupha watch`
 
-Serve the webhook → queue → runner loop
+Serve the source → queue → runner loop (forge webhook, sturn WAL poller — every configured source)
 
 **Usage:** `bupha watch`
 
@@ -468,7 +477,19 @@ clap-markdown.&#xA;
 ---
 url: /bupha/reference/config.md
 ---
-# Config — `bupha.toml`
+# Config — `bupha.yaml` / `bupha.toml`
+
+Both formats are permanent. `bupha.yaml`/`.yml` are preferred
+over `bupha.toml` at each search step — `--config`,
+`$BUPHA_CONFIG`, `./bupha.*`, `~/.config/bupha/bupha.*` — and an
+explicit `.toml` path still parses as TOML. Fields below are
+spelled in TOML; in YAML the same names nest under `:` maps
+(`[[repo]]` → `repos:`/`repo:` list, `[repo.runner]` → `runner:`
+map). Local-path fields (`dir`, `base`, `sccache_conf`,
+`cli_source`, `audit.path`, `telemetry.path`, `attest.dir`,
+`cache.conf`) expand a leading `~/` to `$HOME` at load in both
+formats. See `examples/bupha.toml.example` and
+`examples/bupha.yaml.example`.
 
 ## Top level
 
@@ -492,7 +513,7 @@ url: /bupha/reference/config.md
 | field | type | required | notes |
 |---|---|---|---|
 | `name` | `string` | required | repository.full_name in the webhook payload ("owner/name") — also the status target repo. |
-| `dir` | `path` | required | Clone to fetch + create detached worktrees from. |
+| `dir` | `path` | required | Clone to fetch + create detached worktrees from. A leading `~/` expands to `$HOME` at load. |
 | `branch` | `string` | optional | The ref to watch (e.g. "refs/heads/main"). |
 | `status_repo` | `string` | optional | Status repo override (defaults to `name`). |
 | `runner` | `RunnerCfg` | optional | Per-repo runner override — a full \[repo.runner] table replaces the global `[runner]` for this repo. |
@@ -550,7 +571,7 @@ url: /bupha/reference/config.md
 
 | field | type | required | notes |
 |---|---|---|---|
-| `base` | `string` | optional | Worktree parent dir — runs land at `&lt;base&gt;-&lt;repo&gt;-&lt;sha12&gt;`. |
+| `base` | `string` | optional | Worktree parent dir — runs land at `&lt;base&gt;-&lt;repo&gt;-&lt;sha12&gt;`. A leading `~/` expands to `$HOME` at load. |
 
 ## `[[repo.jobs]]`
 
@@ -683,7 +704,7 @@ impls to ports.
 | `bupha-access` | port | Access port: who may trigger a repo |
 | `bupha-attest` | port | Attest port: signed run provenance (SLSA-style predicate) |
 | `bupha-cache` | port | Cache port: artifact-cache backend for runners |
-| `bupha-config` | port | Config port: where bupha.toml-shaped config comes from |
+| `bupha-config` | port | Config port: where bupha.yaml/toml-shaped config comes from |
 | `bupha-queue` | port | QueueStore port: queue persistence |
 | `bupha-queue-lease` | port | Queue-lease port: multi-worker fencing (try_claim + Fence) |
 | `bupha-runner` | port | Runner port: how a job becomes a spawned process |
@@ -701,7 +722,7 @@ impls to ports.
 | `bupha-audit-file` | adapter | Audit adapter: append access/outcome decisions to a JSONL file |
 | `bupha-cache-sccache` | adapter | Cache impl: sccache-compatible conf (file/S3/R2/GCS via conf) |
 | `bupha-cloudflared` | adapter | Tunnel impl: cloudflared (named tunnel preferred, quick tunnel fallback) |
-| `bupha-config-toml` | adapter | Config impl: bupha.toml file (explicit path, env, ./, ~/.config) |
+| `bupha-config-toml` | adapter | Config impl: bupha.yaml/yml/toml file (explicit path, env, ./, ~/.config) |
 | `bupha-container` | adapter | Runner adapter: unprivileged container (podman/docker), network-off |
 | `bupha-dagger` | adapter | Runner impl: `dagger call &lt;fn&gt;` per job |
 | `bupha-dotenv` | adapter | Secret impl: KEY=VAL env file (chmod 600) |
@@ -936,6 +957,10 @@ they're absent:
   enqueue into and M `bupha worker` boxes claim from;
 * **`bupha worker`** — a puller that runs jobs without listening for
   webhooks;
+
+Config snippets below are TOML; `bupha.yaml`/`bupha.yml` is preferred
+and works identically (see [config reference](../reference/config.md)).
+
 * **`bupha agent`** + `kind = "http"` runner — a remote executor for
   boxes that can't pull (or that you drive explicitly).
 
