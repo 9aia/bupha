@@ -216,7 +216,7 @@ deps:
 - bupha-cache-sccache
 - bupha-cloudflared
 - bupha-config
-- bupha-config-toml
+- bupha-config-file
 - bupha-container
 - bupha-core
 - bupha-dagger
@@ -268,7 +268,7 @@ deps:
 - bupha-cache-sccache
 - bupha-cloudflared
 - bupha-config
-- bupha-config-toml
+- bupha-config-file
 - bupha-container
 - bupha-core
 - bupha-dagger
@@ -319,9 +319,9 @@ provenance:
   - modules/dagger/dagger/src/bupha/main.py
   - modules/dagger/tests/test_self_patch.py
   hashes:
-  - 2a75193e9317861f9bc846bfbb84cd17b660c47d
-  - 665626298391c47b86ca67db004e4052d979e447
-  - 41851c980bed83b8e3b5aac2ede18e10a1d1028d
+  - 67bc908e84723738ba055d6365e573c9daf482cc
+  - c097e8565ff02fadefbe113d613a238cf8400bed
+  - c336bf7555428210eec0dcd8e6db5884d3910dc5
   - 41b9ccc52c8b9c16b9264c2c1245637e7e64545a
   - e6680112289b06ae1e8d8d6659c60f2333c8ca23
   - 16a66bca9a602549e108d45e9d1233dbe2e7e34b
@@ -330,6 +330,6 @@ provenance:
   - 297de02314bb3e68d56e2e8a33bcad4ba6c92465
   - b266b7f034f3d194f5cba16fd2bf6a51886ccf46
   - 509a3147960f3aa59978a55730803da3c2ff0850
-  commit_sha: 29db661af1c41a0b6f3dc587582530fa86b9f806
-  generated_at: '1793763847'
+  commit_sha: 1543079ccff2cc09889702770de80e4fbbd7f2db
+  generated_at: '1793765006'
   generator: kuda-template/0.1.2

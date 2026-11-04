@@ -14,7 +14,7 @@ modules:
 - bupha-cache-sccache
 - bupha-cloudflared
 - bupha-config
-- bupha-config-toml
+- bupha-config-file
 - bupha-container
 - bupha-core
 - bupha-dagger
@@ -45,7 +45,7 @@ modules:
 commands:
 - cargo check
 - cargo test --workspace
-tree_digest: fc5c8c92be27796562384f2dd98f94270b2eac5b
+tree_digest: 9e357dd3bad26a3930cc1302f8cb572edda14017
 files_total: 129
 provenance:
   files:
@@ -63,7 +63,7 @@ provenance:
   - crates/bupha-cli/Cargo.toml
   - crates/bupha-cloudflared/Cargo.toml
   - crates/bupha-config/Cargo.toml
-  - crates/bupha-config-toml/Cargo.toml
+  - crates/bupha-config-file/Cargo.toml
   - crates/bupha-container/Cargo.toml
   - crates/bupha-core/Cargo.toml
   - crates/bupha-dagger/Cargo.toml
@@ -93,7 +93,7 @@ provenance:
   - crates/bupha-webhook/Cargo.toml
   - modules/dagger/dagger/pyproject.toml
   hashes:
-  - 2a75193e9317861f9bc846bfbb84cd17b660c47d
+  - 67bc908e84723738ba055d6365e573c9daf482cc
   - a166155f92dac6af1203098e1315f9295ed0a2f8
   - faa9d3e3b2e30ebed8aecf8da83c4683f33024c8
   - d3b36ada9a99ed7e36e96e47a7beb1f5bf3fe348
@@ -104,10 +104,10 @@ provenance:
   - d46021a5cc4e28ee9eed1d7ca349dd222a5d8306
   - 1e8b72c77e68157b0bceb70cbb4e3ea5c6b4868e
   - 1ce58c0ddf98f4e695cbd71d19541ac6dc19034a
-  - 665626298391c47b86ca67db004e4052d979e447
+  - c097e8565ff02fadefbe113d613a238cf8400bed
   - c6468e2b1603699af53234b1fa10040bc21f84b9
   - b1c0f26fe1cf3ded47e08fa677971c448489f47a
-  - 68dde02e84502e365fbecedb962905f450d10c63
+  - 28b79923adebd40202c4850066e0e3c63de993d9
   - ed119b77d73632bed5f8699fe776993139cce885
   - 2949c06c8e71ef5da170506ce9cd8dfbb7312ce3
   - 6ebc856617d9589fc7fa9c6363696d2e543e5f0b
@@ -136,6 +136,6 @@ provenance:
   - 634f96eb54a20f970a3488c4356ca2c51ffefa70
   - cd8e10b771c3960ae45a2b6f7705fa9f1cdc6344
   - a787b6af9e98fd8cae6ece92467308d34e49bbce
-  commit_sha: 29db661af1c41a0b6f3dc587582530fa86b9f806
-  generated_at: '1793763847'
+  commit_sha: 5707e87c1d7037a673af2b8e517e455f1fcc9a37
+  generated_at: '1793765038'
   generator: kuda/0.1.0
