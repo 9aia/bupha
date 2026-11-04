@@ -1,6 +1,6 @@
 [package]
 name = "bupha-config-toml"
-description = "Config impl: bupha.toml file (explicit path, env, ./, ~/.config)"
+description = "Config impl: bupha.yaml/yml/toml file (explicit path, env, ./, ~/.config)"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -11,4 +11,6 @@ categories = ["development-tools"]
 [dependencies]
 bupha-config.workspace = true
 bupha-core.workspace = true
+serde = "1"
+serde_norway = "0.9"
 toml = "0.8"

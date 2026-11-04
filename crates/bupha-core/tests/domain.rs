@@ -373,3 +373,89 @@ fn publish_order_degenerate() {
     let order = publish_order(&["a".into()], &[("a".into(), "serde".into())]).unwrap();
     assert_eq!(order, vec!["a"]);
 }
+
+/// `~` handling is env-global ($HOME) — every variant stays in this
+/// one test fn so nothing races with parallel env readers.
+#[test]
+fn tilde_expansion_variants() {
+    let saved = std::env::var("HOME").ok();
+    std::env::set_var("HOME", "/h/u");
+    // ~/rest and bare ~ expand; ~user and non-tilde pass through.
+    assert_eq!(expand_tilde("~/x"), "/h/u/x");
+    assert_eq!(expand_tilde("~"), "/h/u");
+    assert_eq!(expand_tilde("~other/x"), "~other/x");
+    assert_eq!(expand_tilde("/abs"), "/abs");
+    assert_eq!(expand_tilde("a~/b"), "a~/b");
+    // No usable $HOME -> the tilde stays literal.
+    std::env::set_var("HOME", "");
+    assert_eq!(expand_tilde("~/x"), "~/x");
+    std::env::remove_var("HOME");
+    assert_eq!(expand_tilde("~/x"), "~/x");
+    if let Some(h) = saved {
+        std::env::set_var("HOME", h);
+    }
+}
+
+#[test]
+fn config_expand_tilde_all_fields() {
+    std::env::set_var("HOME", "/h/u");
+    let mut cfg: Config = toml::from_str(
+        r#"
+[runner]
+kind = "dagger"
+sccache_conf = "~/sccache-env"
+cli_source = "~/sdk"
+nope = 5
+[status]
+kind = "log"
+[worktree]
+base = "~/wt"
+[audit]
+path = "~/audit.log"
+[telemetry]
+path = "~/bupha.prom"
+[attest]
+dir = "~/attest"
+[cache]
+conf = "~/scc.conf"
+[[repo]]
+name = "o/r"
+dir = "~/repo"
+[repo.runner]
+kind = "shell"
+sccache_conf = "~/rr.conf"
+remote_dir = "~/keep-remote"
+[[repo.jobs]]
+name = "docs"
+[repo.jobs.runner]
+kind = "shell"
+sccache_conf = "~/jr.conf"
+"#,
+    )
+    .unwrap();
+    cfg.expand_tilde();
+    let r = &cfg.repos[0];
+    assert_eq!(r.dir, std::path::PathBuf::from("/h/u/repo"));
+    let extra = &cfg.runner.extra;
+    assert_eq!(extra["sccache_conf"].as_str(), Some("/h/u/sccache-env"));
+    assert_eq!(extra["cli_source"].as_str(), Some("/h/u/sdk"));
+    assert_eq!(extra["nope"].as_integer(), Some(5)); // non-str untouched
+    assert_eq!(
+        r.runner.as_ref().unwrap().extra["sccache_conf"].as_str(),
+        Some("/h/u/rr.conf")
+    );
+    // remote-path extras keep a literal ~ for the remote shell.
+    assert_eq!(
+        r.runner.as_ref().unwrap().extra["remote_dir"].as_str(),
+        Some("~/keep-remote")
+    );
+    assert_eq!(
+        r.jobs[0].runner.as_ref().unwrap().extra["sccache_conf"].as_str(),
+        Some("/h/u/jr.conf")
+    );
+    assert_eq!(cfg.worktree.base, "/h/u/wt");
+    assert_eq!(cfg.audit.path, "/h/u/audit.log");
+    assert_eq!(cfg.telemetry.path.as_deref(), Some("/h/u/bupha.prom"));
+    assert_eq!(cfg.attest.dir.as_deref(), Some("/h/u/attest"));
+    assert_eq!(cfg.cache.conf.as_deref(), Some("/h/u/scc.conf"));
+}

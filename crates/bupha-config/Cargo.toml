@@ -1,6 +1,6 @@
 [package]
 name = "bupha-config"
-description = "Config port: where bupha.toml-shaped config comes from"
+description = "Config port: where bupha.yaml/toml-shaped config comes from"
 version.workspace = true
 edition.workspace = true
 license.workspace = true

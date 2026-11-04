@@ -5,32 +5,32 @@ api:
 - name: AccessCfg
   kind: type
   file: crates/bupha-core/src/lib.rs
-  line: 182
+  line: 214
   module: bupha-core
 - name: AgentCfg
   kind: type
   file: crates/bupha-core/src/lib.rs
-  line: 339
+  line: 371
   module: bupha-core
 - name: AttestCfg
   kind: type
   file: crates/bupha-core/src/lib.rs
-  line: 259
+  line: 291
   module: bupha-core
 - name: AuditCfg
   kind: type
   file: crates/bupha-core/src/lib.rs
-  line: 210
+  line: 242
   module: bupha-core
 - name: CacheCfg
   kind: type
   file: crates/bupha-core/src/lib.rs
-  line: 160
+  line: 192
   module: bupha-core
 - name: Config
   kind: type
   file: crates/bupha-core/src/lib.rs
-  line: 367
+  line: 399
   module: bupha-core
 - name: EnqueueResult
   kind: type
@@ -40,7 +40,7 @@ api:
 - name: JobEntry
   kind: type
   file: crates/bupha-core/src/lib.rs
-  line: 469
+  line: 502
   module: bupha-core
 - name: MAX_PENDING
   kind: const
@@ -55,7 +55,7 @@ api:
 - name: QueueCfg
   kind: type
   file: crates/bupha-core/src/lib.rs
-  line: 292
+  line: 324
   module: bupha-core
 - name: QueuePolicy
   kind: type
@@ -65,12 +65,12 @@ api:
 - name: RepoEntry
   kind: type
   file: crates/bupha-core/src/lib.rs
-  line: 416
+  line: 448
   module: bupha-core
 - name: RunnerCfg
   kind: type
   file: crates/bupha-core/src/lib.rs
-  line: 737
+  line: 806
   module: bupha-core
 - name: Seen
   kind: type
@@ -80,52 +80,57 @@ api:
 - name: StatusCfg
   kind: type
   file: crates/bupha-core/src/lib.rs
-  line: 759
+  line: 828
   module: bupha-core
 - name: SturnTriggerCfg
   kind: type
   file: crates/bupha-core/src/lib.rs
-  line: 679
+  line: 748
   module: bupha-core
 - name: TelemetryCfg
   kind: type
   file: crates/bupha-core/src/lib.rs
-  line: 240
+  line: 272
   module: bupha-core
 - name: TriggerCfg
   kind: type
   file: crates/bupha-core/src/lib.rs
-  line: 701
+  line: 770
   module: bupha-core
 - name: TunnelCfg
   kind: type
   file: crates/bupha-core/src/lib.rs
-  line: 773
+  line: 842
   module: bupha-core
 - name: WatchedRepo
   kind: type
   file: crates/bupha-core/src/lib.rs
-  line: 517
+  line: 550
   module: bupha-core
 - name: WorkerCfg
   kind: type
   file: crates/bupha-core/src/lib.rs
-  line: 327
+  line: 359
   module: bupha-core
 - name: WorktreeCfg
   kind: type
   file: crates/bupha-core/src/lib.rs
-  line: 801
+  line: 870
   module: bupha-core
 - name: bupha-core
   kind: module
   file: crates/bupha-core/Cargo.toml
   line: 1
   module: bupha-core
+- name: config_expand_tilde_all_fields
+  kind: function
+  file: crates/bupha-core/tests/domain.rs
+  line: 400
+  module: bupha-core
 - name: cycle_errors
   kind: function
   file: crates/bupha-core/src/lib.rs
-  line: 921
+  line: 991
   module: bupha-core
 - name: default
   kind: function
@@ -135,74 +140,69 @@ api:
 - name: default
   kind: function
   file: crates/bupha-core/src/lib.rs
-  line: 197
+  line: 229
   module: bupha-core
 - name: default
   kind: function
   file: crates/bupha-core/src/lib.rs
-  line: 228
+  line: 260
   module: bupha-core
 - name: default
   kind: function
   file: crates/bupha-core/src/lib.rs
-  line: 279
+  line: 311
   module: bupha-core
 - name: default
   kind: function
   file: crates/bupha-core/src/lib.rs
-  line: 306
+  line: 338
   module: bupha-core
 - name: default
   kind: function
   file: crates/bupha-core/src/lib.rs
-  line: 315
+  line: 347
   module: bupha-core
 - name: default
   kind: function
   file: crates/bupha-core/src/lib.rs
-  line: 357
+  line: 389
   module: bupha-core
 - name: default
   kind: function
   file: crates/bupha-core/src/lib.rs
-  line: 725
+  line: 794
   module: bupha-core
 - name: default
   kind: function
   file: crates/bupha-core/src/lib.rs
-  line: 789
+  line: 858
   module: bupha-core
 - name: default
   kind: function
   file: crates/bupha-core/src/lib.rs
-  line: 808
+  line: 878
   module: bupha-core
 - name: default_access_kind
   kind: function
   file: crates/bupha-core/src/lib.rs
-  line: 192
+  line: 224
   module: bupha-core
 - name: default_agent_listen
   kind: function
   file: crates/bupha-core/src/lib.rs
-  line: 348
+  line: 380
   module: bupha-core
 - name: default_agent_secret_env
   kind: function
   file: crates/bupha-core/src/lib.rs
-  line: 352
+  line: 384
   module: bupha-core
 - name: default_api_base
   kind: function
   file: crates/bupha-core/src/lib.rs
-  line: 173
+  line: 205
   module: bupha-core
-- name: default_attest_kind
-  kind: function
-  file: crates/bupha-core/src/lib.rs
-  line: 274
-  module: bupha-core
-api_omitted: 48
+api_omitted: 54
 deps:
 - serde
 - serde_json
@@ -222,9 +222,9 @@ provenance:
   - crates/bupha-core/tests/domain.rs
   hashes:
   - 2949c06c8e71ef5da170506ce9cd8dfbb7312ce3
-  - cf89711530c149fd7bb03da06503facf7c4c6a56
+  - 87b71b6f75b7c43b85a239f5beccb5658404da3d
   - eaf5e74313b7393277e9a2bb3b2fa036cdfc2d3f
-  - f730ed478b929fa483ae14763567f3540f764614
-  commit_sha: 2a6dcebac3778d8c539075212ef7514729e6a60a
-  generated_at: '1793687787'
+  - 31d0720a548a2d3028e65efd43d02c823c3dfb62
+  commit_sha: 29db661af1c41a0b6f3dc587582530fa86b9f806
+  generated_at: '1793763847'
   generator: kuda-template/0.1.2

@@ -14,10 +14,23 @@ fn loads_via_env_var() {
     }
     let c = TomlSource { path: None }.load().unwrap();
     assert_eq!(c.repos[0].name, "o/r");
+    // A .yaml path via $BUPHA_CONFIG parses as YAML.
+    let y = std::env::temp_dir().join(format!("bupha-cfg-{}-env.yaml", std::process::id()));
+    std::fs::write(
+        &y,
+        "runner:\n  kind: shell\nstatus:\n  kind: log\nrepos:\n  - name: o/y\n    dir: /tmp/y\n",
+    )
+    .unwrap();
+    unsafe {
+        std::env::set_var("BUPHA_CONFIG", &y);
+    }
+    let c = TomlSource { path: None }.load().unwrap();
+    assert_eq!(c.repos[0].name, "o/y");
     unsafe {
         std::env::remove_var("BUPHA_CONFIG");
     }
     let _ = std::fs::remove_file(&f);
+    let _ = std::fs::remove_file(&y);
 }
 
 #[test]
@@ -35,5 +48,19 @@ fn explicit_path_and_missing_error() {
     }
     .load()
     .is_err());
+    // Explicit .yaml path parses as YAML.
+    let y = tmp("yaml").with_extension("yaml");
+    std::fs::write(
+        &y,
+        "runner:\n  kind: shell\nstatus:\n  kind: log\nrepos:\n  - name: o/y\n    dir: /tmp/y\n",
+    )
+    .unwrap();
+    let c = TomlSource {
+        path: Some(y.to_string_lossy().into()),
+    }
+    .load()
+    .unwrap();
+    assert_eq!(c.repos[0].name, "o/y");
     let _ = std::fs::remove_file(&f);
+    let _ = std::fs::remove_file(&y);
 }

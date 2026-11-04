@@ -1,4 +1,4 @@
-//! bupha-core — domain types, `bupha.toml` config, and the latest-wins
+//! bupha-core — domain types, `bupha.{yaml,yml,toml}` config, and the latest-wins
 //! queue every runner impl shares.
 //!
 //! The queue is the batch semantic for fast-pushing repos: at most one
@@ -152,7 +152,39 @@ pub enum EnqueueResult {
     Duplicate,
 }
 
-/// bupha.toml — one per watched repo. Secrets come from env only
+/// Expand a leading `~` (alone or `~/…`) to `$HOME` — applied to
+/// local-path config fields by [`Config::expand_tilde`] so `dir:
+/// ~/GitHub/x` works in every source format. `~user` and anything
+/// else passes through untouched, as does `~` when `$HOME` is unset.
+pub fn expand_tilde(p: &str) -> String {
+    let Some(rest) = p.strip_prefix('~') else {
+        return p.into();
+    };
+    if !rest.is_empty() && !rest.starts_with('/') {
+        return p.into();
+    }
+    match std::env::var("HOME") {
+        Ok(h) if !h.is_empty() => format!("{h}{rest}"),
+        _ => p.into(),
+    }
+}
+
+/// Config fields that are local paths — expanded in place by
+/// [`Config::expand_tilde`]. Impl-owned extras are whitelisted by
+/// key (`sccache_conf`, `cli_source`): remote-path extras like the
+/// ssh runner's `remote_dir` must keep a literal `~` for the remote
+/// shell, and command strings expand `~` themselves.
+fn expand_extra(extra: &mut toml::Table) {
+    for key in ["sccache_conf", "cli_source"] {
+        if let Some(v) = extra.get_mut(key) {
+            if let Some(s) = v.as_str() {
+                *v = expand_tilde(s).into();
+            }
+        }
+    }
+}
+
+/// Artifact cache config (`[cache]`). Secrets come from env only
 /// (`secret_env`/`token_env` name the variables; values never enter
 /// the file).
 #[derive(Debug, Deserialize, Clone, Default)]
@@ -417,7 +449,8 @@ pub struct RepoEntry {
     /// repository.full_name in the webhook payload ("owner/name") —
     /// also the status target repo.
     pub name: String,
-    /// Clone to fetch + create detached worktrees from.
+    /// Clone to fetch + create detached worktrees from. A leading
+    /// `~/` expands to `$HOME` at load.
     pub dir: PathBuf,
     /// The ref to watch (e.g. "refs/heads/main").
     #[serde(default = "default_branch")]
@@ -547,6 +580,42 @@ pub struct WatchedRepo {
 }
 
 impl Config {
+    /// Post-load normalization: expand a leading `~` in every
+    /// local-path field (`repo.dir`, `worktree.base`, `audit.path`,
+    /// `telemetry.path`, `attest.dir`, `cache.conf`, plus the
+    /// `sccache_conf`/`cli_source` extras at every runner level).
+    /// Sources call this after parsing so TOML and YAML configs get
+    /// identical semantics.
+    pub fn expand_tilde(&mut self) {
+        fn runner(r: &mut RunnerCfg) {
+            expand_extra(&mut r.extra);
+        }
+        for r in &mut self.repos {
+            let dir = expand_tilde(&r.dir.to_string_lossy());
+            r.dir = dir.into();
+            if let Some(rr) = &mut r.runner {
+                runner(rr);
+            }
+            for j in &mut r.jobs {
+                if let Some(jr) = &mut j.runner {
+                    runner(jr);
+                }
+            }
+        }
+        runner(&mut self.runner);
+        self.worktree.base = expand_tilde(&self.worktree.base);
+        self.audit.path = expand_tilde(&self.audit.path);
+        if let Some(p) = &mut self.telemetry.path {
+            *p = expand_tilde(p);
+        }
+        if let Some(d) = &mut self.attest.dir {
+            *d = expand_tilde(d);
+        }
+        if let Some(c) = &mut self.cache.conf {
+            *c = expand_tilde(c);
+        }
+    }
+
     /// Expand `[[repo]]` entries into one WatchedRepo per job —
     /// a repo without `[[repo.jobs]]` yields its single implicit
     /// pipeline (job = "", key = name).
@@ -800,6 +869,7 @@ impl Default for TunnelCfg {
 #[serde(deny_unknown_fields)]
 pub struct WorktreeCfg {
     /// Worktree parent dir — runs land at `<base>-<repo>-<sha12>`.
+    /// A leading `~/` expands to `$HOME` at load.
     #[serde(default = "default_wt_base")]
     pub base: String,
 }

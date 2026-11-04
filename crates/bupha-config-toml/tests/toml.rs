@@ -31,7 +31,7 @@ fn missing_and_malformed_err() {
     }
     .load()
     .unwrap_err()
-    .contains("no bupha.toml"));
+    .contains("no bupha.{yaml,yml,toml}"));
     let p = scratch("b").join("bupha.toml");
     std::fs::write(&p, "[[[").unwrap();
     assert!(TomlSource {

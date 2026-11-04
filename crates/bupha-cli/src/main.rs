@@ -4,7 +4,8 @@
 //! a pluggable runner executes each sha, and status sinks report.
 //! No server, no UI.
 //!
-//! Config: bupha.toml (secrets come from env). See bupha-core::Config.
+//! Config: bupha.yaml/.yml/.toml (secrets come from env). See
+//! bupha-core::Config.
 
 use bupha_access::{Access, AllowAll};
 use bupha_access_file::FileAccess;
@@ -54,7 +55,8 @@ use std::sync::{Arc, Condvar, Mutex};
     about = "the oxpecker on your repo's back — headless CI"
 )]
 struct Cli {
-    /// Path to bupha.toml (default: ./bupha.toml or ~/.config/bupha/).
+    /// Path to the config file — bupha.yaml/.yml or bupha.toml
+    /// (default: ./bupha.* or ~/.config/bupha/, YAML preferred).
     #[arg(long, global = true)]
     config: Option<String>,
 
@@ -1859,11 +1861,11 @@ fn main() {
             println!("{}", clap_markdown::help_markdown::<Cli>());
             std::process::exit(0);
         }
-        // Release is repo-local (cwd) — no bupha.toml needed.
+        // Release is repo-local (cwd) — no config file needed.
         Cmd::Deploy {
             sub: DeploySub::Release { dry_run },
         } => cmd_deploy_release(*dry_run),
-        // Toggling the unit needs no bupha.toml either.
+        // Toggling the unit needs no config file either.
         Cmd::Service { worker, sub } => cmd_service(*worker, sub),
         _ => {
             let cfg = Arc::new(

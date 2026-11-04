@@ -1,0 +1,140 @@
+# bupha.yaml — YAML twin of bupha.toml.example (same fields, maps for
+# tables, lists for arrays). YAML is preferred at each search step;
+# TOML is permanent. Secrets resolve via env var -> OS keyring
+# (secret-tool) -> ~/.config/bupha/env; never this file.
+
+# Watched repos — one pending slot each, one shared worker.
+# `name` must match the payload's repository.full_name.
+repos:
+  - name: owner/name
+    dir: ~/path/to/clone          # leading ~ expands to $HOME at load
+    branch: refs/heads/main
+    # queue: all                  # run every push FIFO (default: latest-wins)
+    # status_repo: owner/name     # optional override for statuses
+    # secret_env: REPO_WEBHOOK_SECRET  # per-repo hook secret (default:
+                                      # trigger.secret_env) — lets each repo's
+                                      # hook be managed independently
+    # runner:                     # optional per-repo runner override
+    #   kind: shell               #   (full replacement of [runner])
+    #   cmd: ./scripts/release.sh
+
+# Remote runner — ships the worktree to another box and runs there.
+# This is the multi-arch path: point one repo/job at an arm64
+# (or other-arch) host while the rest run locally. Each run lands in
+# its own <remote_dir>/<key>-<sha12>, so several watchers can share
+# one remote without clobbering each other's trees.
+#   - name: owner/arm-repo
+#     dir: /path/to/clone
+#     runner:
+#       kind: ssh
+#       remote: ci@arm64-box      # ssh config resolves auth (agent/keys)
+#       remote_dir: ~/bupha       # remote parent dir — kept literal,
+#                                 #   the remote shell expands it
+#       cmd: ./ci.sh              # run via remote `bash -s`; token_env
+#                                 #   is exported remotely via ssh stdin
+# Caveats: the rsynced worktree's .git pointer file is meaningless
+# remotely (pipelines needing git must clone themselves), and a
+# killed run's remote process can linger (best-effort pkill + rm).
+
+# Multiple pipelines for one repo — each jobs: entry gets its own
+# branch, queue, runner and status context ("ci/bupha/<job>" by
+# default); they share the repo's webhook, secret and clone. When
+# jobs: is present the repo-level branch/queue/runner only act as
+# the jobs' defaults.
+#     jobs:
+#       - name: gate              # path-safe [A-Za-z0-9._-]+; lands in
+#                                 # worktree names + status contexts
+#         branch: refs/heads/main
+#         queue: latest
+#         runner:
+#           kind: shell
+#           cmd: bash scripts/ci.sh
+#       - name: docs
+#         branch: refs/heads/docs
+#         context: ci/docs        # status context override
+#         runner:
+#           kind: shell
+#           cmd: bash scripts/deploy-docs.sh
+
+trigger:
+  kind: github                    # impl: bupha-github
+  listen: 127.0.0.1:29173
+  secret_env: BUPHA_WEBHOOK_SECRET
+
+# sturn-native trigger — an ADDITIONAL push source next to the
+# webhook: `bupha watch` polls `refs/sturn/wal/*` in each
+# `sturn = true` repo for Snapshot events and enqueues the snap
+# commit (refs/sturn/ws/<ws>). No daemon needed — the WAL is the
+# state; each tick fetches refs/sturn/* from `remote`. Set kind: ""
+# above for a webhook-free watcher (no listener, no secret).
+#   sturn:
+#     remote: origin              # "" = local-only: ops land in the
+#                                 # watched clone itself (one-box
+#                                 # dogfooding, nothing to fetch)
+#     poll_ms: 5000
+#   - name: owner/sturn-repo
+#     dir: /path/to/clone         # its sturn.toml sets snap's branch
+#     sturn: true
+
+runner:
+  kind: dagger                    # impl: bupha-runner-dagger
+  # kind: shell                   # impl: bupha-runner-script (no containers)
+  # cmd: ./ci.sh                  # shell runner only
+  function: ci
+  shards: "1"
+  jobs: "2"
+  # Extra dagger flags are emitted only when set — the module's function
+  # must declare every flag the runner sends (`dagger call` rejects
+  # unknown args). shards/jobs/token are always sent; these are opt-in:
+  # dogfood_jobs: "2"             # only if your ci() accepts it
+  # sequential: true              # memory-constrained boxes
+  cancel_running: true            # kill in-flight run on newer push
+                                  # (invalid with queue = "all")
+  sccache_conf: /path/to/sccache-env   # optional KEY=VAL secret file
+  token_env: BUPHA_TOKEN
+  # extra_args: ["--flag", "val"] # appended verbatim to dagger call
+  # cli_source: /path/to/sibling-checkout  # emitted as --cli-source
+                                     # if your ci() declares it
+
+status:
+  kind: github                    # impl: bupha-github | "log" | "none"
+  # repo: owner/name              # only for legacy configs;
+                                  # repos: posts to status_repo (defaults to name)
+  context: ci/bupha
+
+tunnel:
+  provider: none                  # none | cloudflared | direct
+  # provider: cloudflared         # prefer a NAMED tunnel — quick
+  # name: my-tunnel               #   (*.trycloudflare.com) URLs are
+  #                               #   flaky at the Cloudflare edge
+  # local_url: http://127.0.0.1:29173
+  # public_url: https://ci.example.com  # needed for deploy webhook
+
+worktree:
+  base: /tmp/bupha                # worktrees land at <base>-<repo>-<sha12>
+
+# --- Distributed runners (T-005) -----------------------------------
+#
+# queue:
+#   kind: redis                   # shared pull queue for fleet workers
+#   url: redis://queue-box:6379/
+#
+# worker:                         # this box's claim labels
+#   labels: ["arch=arm64"]
+#
+#   - name: org/firmware
+#     dir: /srv/repos/firmware
+#     runs_on: ["arch=arm64"]     # only arm64-labeled workers claim it
+#
+# Remote execution: runner kind "http" posts the spec to a
+# `bupha agent` and ships the tarred worktree. secret_env names the
+# shared HMAC secret — the value resolves via env/keyring/env file.
+#
+# runner:
+#   kind: http
+#   agent_url: http://arm-box:29174
+#   secret_env: BUPHA_AGENT_SECRET
+#
+# agent:                          # on the remote box: `bupha agent`
+#   listen: 0.0.0.0:29174
+#   token_env: BUPHA_AGENT_SECRET
