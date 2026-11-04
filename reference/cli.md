@@ -54,7 +54,7 @@ the oxpecker on your repo's back — headless CI
 
 ###### **Options:**
 
-* `--config <CONFIG>` — Path to bupha.toml (default: ./bupha.toml or ~/.config/bupha/)
+* `--config <CONFIG>` — Path to the config file — bupha.yaml/.yml or bupha.toml (default: ./bupha.* or ~/.config/bupha/, YAML preferred)
 
 
 

@@ -17,8 +17,10 @@ or a direct box; quick tunnels are convenient but flaky.
 2. `bupha deploy env` → set `BUPHA_WEBHOOK_SECRET` + `BUPHA_TOKEN`
    (a repo-scoped PAT) — in `~/.config/bupha/env`, or store them in
    your OS keyring with `secret-tool` (resolution: env → keyring → file).
-3. Write `bupha.toml` (see `examples/bupha.toml.example`): your repo's
-   `[[repo]]` entry, `runner.kind`, `tunnel`.
+3. Write `bupha.yaml` (or `bupha.toml` — YAML is preferred, TOML is
+   permanent; see `examples/bupha.yaml.example` /
+   `examples/bupha.toml.example`): your repo's entry, `runner.kind`,
+   `tunnel`. Local paths may use `~/`.
 4. `bupha doctor` — checks this box (binaries, secrets, config) before
    you commit; fix anything red.
 5. `bupha deploy service` — systemd unit written + enabled

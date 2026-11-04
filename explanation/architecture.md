@@ -17,7 +17,7 @@ impls to ports.
 | `bupha-access` | port | Access port: who may trigger a repo |
 | `bupha-attest` | port | Attest port: signed run provenance (SLSA-style predicate) |
 | `bupha-cache` | port | Cache port: artifact-cache backend for runners |
-| `bupha-config` | port | Config port: where bupha.toml-shaped config comes from |
+| `bupha-config` | port | Config port: where bupha.yaml/toml-shaped config comes from |
 | `bupha-queue` | port | QueueStore port: queue persistence |
 | `bupha-queue-lease` | port | Queue-lease port: multi-worker fencing (try_claim + Fence) |
 | `bupha-runner` | port | Runner port: how a job becomes a spawned process |
@@ -35,7 +35,7 @@ impls to ports.
 | `bupha-audit-file` | adapter | Audit adapter: append access/outcome decisions to a JSONL file |
 | `bupha-cache-sccache` | adapter | Cache impl: sccache-compatible conf (file/S3/R2/GCS via conf) |
 | `bupha-cloudflared` | adapter | Tunnel impl: cloudflared (named tunnel preferred, quick tunnel fallback) |
-| `bupha-config-toml` | adapter | Config impl: bupha.toml file (explicit path, env, ./, ~/.config) |
+| `bupha-config-toml` | adapter | Config impl: bupha.yaml/yml/toml file (explicit path, env, ./, ~/.config) |
 | `bupha-container` | adapter | Runner adapter: unprivileged container (podman/docker), network-off |
 | `bupha-dagger` | adapter | Runner impl: `dagger call &lt;fn&gt;` per job |
 | `bupha-dotenv` | adapter | Secret impl: KEY=VAL env file (chmod 600) |
@@ -52,7 +52,7 @@ impls to ports.
 | `bupha-systemd` | adapter | Service impl: systemd user units |
 | `bupha-telemetry-otel` | adapter | Telemetry adapter: OpenMetrics textfile for Prometheus |
 | `bupha-webhook` | adapter | Source impl: forge-webhook listener driving a Trigger port impl |
-| `bupha` | binary | bupha — the oxpecker on your repo's back: headless CI CLI |
+| `bupha` | binary | bupha — queue engine for event-driven jobs: shipped as CI |
 
 <!-- /gen:crate-map -->
 
