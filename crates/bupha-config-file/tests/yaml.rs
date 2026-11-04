@@ -5,7 +5,7 @@
 //! can run in parallel.
 
 use bupha_config::ConfigSource;
-use bupha_config_toml::TomlSource;
+use bupha_config_file::FileSource;
 use std::path::PathBuf;
 
 fn scratch(name: &str) -> PathBuf {
@@ -16,7 +16,7 @@ fn scratch(name: &str) -> PathBuf {
 }
 
 fn load(p: &PathBuf) -> Result<bupha_core::Config, String> {
-    TomlSource {
+    FileSource {
         path: Some(p.to_string_lossy().into_owned()),
     }
     .load()

@@ -1,7 +1,7 @@
-//! TomlSource: explicit path, missing-file error, parse error.
+//! FileSource: explicit path, missing-file error, parse error.
 
 use bupha_config::ConfigSource;
-use bupha_config_toml::TomlSource;
+use bupha_config_file::FileSource;
 use std::path::PathBuf;
 
 fn scratch(name: &str) -> PathBuf {
@@ -15,7 +15,7 @@ fn scratch(name: &str) -> PathBuf {
 fn explicit_path_loads() {
     let p = scratch("ok").join("bupha.toml");
     std::fs::write(&p, "[trigger]\nkind = \"fs\"\n[runner]\nkind = \"local\"\n[status]\nkind = \"none\"\n[tunnel]\nprovider = \"none\"\n").unwrap();
-    let cfg = TomlSource {
+    let cfg = FileSource {
         path: Some(p.to_string_lossy().into_owned()),
     }
     .load()
@@ -26,7 +26,7 @@ fn explicit_path_loads() {
 #[test]
 fn missing_and_malformed_err() {
     let p = scratch("m").join("nope.toml");
-    assert!(TomlSource {
+    assert!(FileSource {
         path: Some(p.to_string_lossy().into_owned())
     }
     .load()
@@ -34,7 +34,7 @@ fn missing_and_malformed_err() {
     .contains("no bupha.{yaml,yml,toml}"));
     let p = scratch("b").join("bupha.toml");
     std::fs::write(&p, "[[[").unwrap();
-    assert!(TomlSource {
+    assert!(FileSource {
         path: Some(p.to_string_lossy().into_owned())
     }
     .load()

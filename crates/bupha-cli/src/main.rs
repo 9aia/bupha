@@ -18,7 +18,7 @@ use bupha_cache::Cache;
 use bupha_cache_sccache::SccacheConf;
 use bupha_cloudflared::CloudflaredTunnel;
 use bupha_config::ConfigSource;
-use bupha_config_toml::TomlSource;
+use bupha_config_file::FileSource;
 use bupha_container::{ContainerCfg, ContainerRunner};
 use bupha_core::{Config, EnqueueResult, Queue};
 use bupha_dagger::DaggerRunner;
@@ -1869,7 +1869,7 @@ fn main() {
         Cmd::Service { worker, sub } => cmd_service(*worker, sub),
         _ => {
             let cfg = Arc::new(
-                TomlSource {
+                FileSource {
                     path: cli.config.clone(),
                 }
                 .load()

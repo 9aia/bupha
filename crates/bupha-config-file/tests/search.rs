@@ -3,7 +3,7 @@
 //! and env are global, so the variants must run sequentially.
 
 use bupha_config::ConfigSource;
-use bupha_config_toml::TomlSource;
+use bupha_config_file::FileSource;
 use std::path::PathBuf;
 
 const CFG: &str =
@@ -29,7 +29,7 @@ fn search_paths_in_order() {
     std::fs::write(d.join("bupha.toml"), CFG).unwrap();
     std::env::set_var("HOME", dir("h1"));
     std::env::set_current_dir(&d).unwrap();
-    assert!(TomlSource { path: None }.load().is_ok());
+    assert!(FileSource { path: None }.load().is_ok());
 
     // ~/.config/bupha/bupha.toml is the fallback
     let cwd = dir("cwd2");
@@ -39,7 +39,7 @@ fn search_paths_in_order() {
     std::fs::write(cfgd.join("bupha.toml"), CFG).unwrap();
     std::env::set_var("HOME", &home);
     std::env::set_current_dir(&cwd).unwrap();
-    assert!(TomlSource { path: None }.load().is_ok());
+    assert!(FileSource { path: None }.load().is_ok());
 
     // YAML beats TOML inside one directory — ./bupha.yaml wins over
     // ./bupha.toml (and .yml fills the middle slot).
@@ -48,11 +48,11 @@ fn search_paths_in_order() {
     std::fs::write(cwd.join("bupha.toml"), CFG).unwrap();
     std::env::set_var("HOME", dir("hy"));
     std::env::set_current_dir(&cwd).unwrap();
-    let c = TomlSource { path: None }.load().unwrap();
+    let c = FileSource { path: None }.load().unwrap();
     assert_eq!(c.repos[0].name, "o/yaml");
     std::fs::remove_file(cwd.join("bupha.yaml")).unwrap();
     std::fs::write(cwd.join("bupha.yml"), YML).unwrap();
-    let c = TomlSource { path: None }.load().unwrap();
+    let c = FileSource { path: None }.load().unwrap();
     assert_eq!(c.repos[0].name, "o/yml");
 
     // Step order still holds: ./bupha.toml beats
@@ -65,13 +65,13 @@ fn search_paths_in_order() {
     std::fs::write(cfgd.join("bupha.yaml"), YAML).unwrap();
     std::env::set_var("HOME", &home);
     std::env::set_current_dir(&cwd).unwrap();
-    let c = TomlSource { path: None }.load().unwrap();
+    let c = FileSource { path: None }.load().unwrap();
     assert!(c.repos.is_empty(), "toml CFG has no repos — it loaded");
 
     // …and with ./ empty, ~/.config/bupha/bupha.yaml serves.
     let cwd = dir("cwdhy");
     std::env::set_current_dir(&cwd).unwrap();
-    let c = TomlSource { path: None }.load().unwrap();
+    let c = FileSource { path: None }.load().unwrap();
     assert_eq!(c.repos[0].name, "o/yaml");
 
     // nothing anywhere -> the miss error
@@ -79,13 +79,13 @@ fn search_paths_in_order() {
     let home = dir("h3");
     std::env::set_var("HOME", &home);
     std::env::set_current_dir(&cwd).unwrap();
-    let e = TomlSource { path: None }.load().unwrap_err();
+    let e = FileSource { path: None }.load().unwrap_err();
     assert!(e.contains("no bupha.{yaml,yml,toml}"), "{e}");
 
     // exists() but unreadable-as-file (a directory) -> read arm
     let p = dir("dir-as-cfg");
     std::env::set_var("BUPHA_CONFIG", &p);
-    let e = TomlSource { path: None }.load().unwrap_err();
+    let e = FileSource { path: None }.load().unwrap_err();
     assert!(e.contains("read"), "{e}");
     std::env::remove_var("BUPHA_CONFIG");
 }

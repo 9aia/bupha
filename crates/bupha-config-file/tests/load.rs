@@ -1,5 +1,5 @@
 use bupha_config::ConfigSource;
-use bupha_config_toml::TomlSource;
+use bupha_config_file::FileSource;
 
 fn tmp(tag: &str) -> std::path::PathBuf {
     std::env::temp_dir().join(format!("bupha-cfg-{}-{tag}.toml", std::process::id()))
@@ -12,7 +12,7 @@ fn loads_via_env_var() {
     unsafe {
         std::env::set_var("BUPHA_CONFIG", &f);
     }
-    let c = TomlSource { path: None }.load().unwrap();
+    let c = FileSource { path: None }.load().unwrap();
     assert_eq!(c.repos[0].name, "o/r");
     // A .yaml path via $BUPHA_CONFIG parses as YAML.
     let y = std::env::temp_dir().join(format!("bupha-cfg-{}-env.yaml", std::process::id()));
@@ -24,7 +24,7 @@ fn loads_via_env_var() {
     unsafe {
         std::env::set_var("BUPHA_CONFIG", &y);
     }
-    let c = TomlSource { path: None }.load().unwrap();
+    let c = FileSource { path: None }.load().unwrap();
     assert_eq!(c.repos[0].name, "o/y");
     unsafe {
         std::env::remove_var("BUPHA_CONFIG");
@@ -37,13 +37,13 @@ fn loads_via_env_var() {
 fn explicit_path_and_missing_error() {
     let f = tmp("b");
     std::fs::write(&f, "[trigger]\nkind = \"github\"\n[runner]\nkind = \"shell\"\ncmd = \"true\"\n[status]\nkind = \"log\"\n[[repo]]\nname = \"o/r\"\ndir = \"/tmp/r\"\n").unwrap();
-    let c = TomlSource {
+    let c = FileSource {
         path: Some(f.to_string_lossy().into()),
     }
     .load()
     .unwrap();
     assert_eq!(c.repos[0].name, "o/r");
-    assert!(TomlSource {
+    assert!(FileSource {
         path: Some("/nonexistent/x".into())
     }
     .load()
@@ -55,7 +55,7 @@ fn explicit_path_and_missing_error() {
         "runner:\n  kind: shell\nstatus:\n  kind: log\nrepos:\n  - name: o/y\n    dir: /tmp/y\n",
     )
     .unwrap();
-    let c = TomlSource {
+    let c = FileSource {
         path: Some(y.to_string_lossy().into()),
     }
     .load()

@@ -8,7 +8,7 @@ use bupha_config::ConfigSource;
 use serde::Deserialize;
 use std::path::{Path, PathBuf};
 
-pub struct TomlSource {
+pub struct FileSource {
     /// Explicit `--config` path, or None for the default search.
     pub path: Option<String>,
 }
@@ -38,7 +38,7 @@ fn parse(text: &str, path: &Path) -> Result<bupha_core::Config, String> {
     Ok(cfg)
 }
 
-impl ConfigSource for TomlSource {
+impl ConfigSource for FileSource {
     fn load(&self) -> Result<bupha_core::Config, String> {
         let candidates: Vec<PathBuf> = match self
             .path

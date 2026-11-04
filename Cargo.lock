@@ -100,7 +100,7 @@ dependencies = [
  "bupha-cache-sccache",
  "bupha-cloudflared",
  "bupha-config",
- "bupha-config-toml",
+ "bupha-config-file",
  "bupha-container",
  "bupha-core",
  "bupha-dagger",
@@ -213,7 +213,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "bupha-config-toml"
+name = "bupha-config-file"
 version = "0.1.0"
 dependencies = [
  "bupha-config",

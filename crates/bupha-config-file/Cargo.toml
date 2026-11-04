@@ -1,6 +1,6 @@
 [package]
-name = "bupha-config-toml"
-description = "Config impl: bupha.yaml/yml/toml file (explicit path, env, ./, ~/.config)"
+name = "bupha-config-file"
+description = "File impl of ConfigSource — bupha.yaml/.yml preferred, bupha.toml accepted"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
