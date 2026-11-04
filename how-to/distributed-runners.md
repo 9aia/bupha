@@ -8,6 +8,9 @@ they're absent:
   enqueue into and M `bupha worker` boxes claim from;
 - **`bupha worker`** — a puller that runs jobs without listening for
   webhooks;
+
+Config snippets below are TOML; `bupha.yaml`/`bupha.yml` is preferred
+and works identically (see [config reference](../reference/config.md)).
 - **`bupha agent`** + `kind = "http"` runner — a remote executor for
   boxes that can't pull (or that you drive explicitly).
 

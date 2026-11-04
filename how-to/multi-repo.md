@@ -6,6 +6,10 @@ slot; a single global worker serializes runs (deliberate — safe on
 one box). Same-repo pushes may cancel their own in-flight run
 (`cancel_running`); a push never cancels another repo's run.
 
+Snippets are TOML; the equivalent `bupha.yaml`/`bupha.yml` works
+identically and is preferred when both exist (TOML is permanent —
+see [config reference](../reference/config.md)).
+
 ```toml
 [[repo]]
 name = "org/api"
