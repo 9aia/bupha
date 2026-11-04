@@ -217,10 +217,27 @@ name = "bupha-config-file"
 version = "0.1.0"
 dependencies = [
  "bupha-config",
+ "bupha-config-toml",
+ "bupha-config-yaml",
  "bupha-core",
- "serde",
- "serde_norway",
+]
+
+[[package]]
+name = "bupha-config-toml"
+version = "0.1.0"
+dependencies = [
+ "bupha-config",
+ "bupha-core",
  "toml",
+]
+
+[[package]]
+name = "bupha-config-yaml"
+version = "0.1.0"
+dependencies = [
+ "bupha-config",
+ "bupha-core",
+ "serde_norway",
 ]
 
 [[package]]

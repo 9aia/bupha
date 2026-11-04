@@ -1,11 +1,10 @@
-//! YAML side of the file source: same `Config` shape through
-//! .yaml/.yml — nested `runner:`/`jobs:` maps, `extra` flatten into
-//! `toml::Table`, deny_unknown_fields, `~` expansion on local-path
-//! fields. Explicit paths only — env/cwd stay untouched so these
-//! can run in parallel.
+//! YamlSource: reads one file as YAML — same `Config` shape through
+//! the `serde_norway` transcode: nested `runner:`/`jobs:` maps,
+//! `extra` flatten into `toml::Table`, deny_unknown_fields, `~`
+//! expansion on local-path fields.
 
 use bupha_config::ConfigSource;
-use bupha_config_file::FileSource;
+use bupha_config_yaml::YamlSource;
 use std::path::PathBuf;
 
 fn scratch(name: &str) -> PathBuf {
@@ -15,11 +14,8 @@ fn scratch(name: &str) -> PathBuf {
     d
 }
 
-fn load(p: &PathBuf) -> Result<bupha_core::Config, String> {
-    FileSource {
-        path: Some(p.to_string_lossy().into_owned()),
-    }
-    .load()
+fn load(p: PathBuf) -> Result<bupha_core::Config, String> {
+    YamlSource { path: p }.load()
 }
 
 /// Full shape: `repos:` alias, per-repo `runner:` map, `jobs:` list
@@ -65,7 +61,7 @@ fn yaml_full_shape_and_tilde() {
     let p = scratch("full").join("bupha.yaml");
     std::fs::write(&p, FULL).unwrap();
     let home = std::env::var("HOME").unwrap();
-    let c = load(&p).unwrap();
+    let c = load(p).unwrap();
     let r = &c.repos[0];
     assert_eq!(r.name, "o/r");
     assert_eq!(r.dir, PathBuf::from(&home).join("repo"));
@@ -106,21 +102,24 @@ fn yaml_full_shape_and_tilde() {
 }
 
 #[test]
-fn yml_extension_and_singular_repo_key() {
-    let p = scratch("yml").join("bupha.yml");
+fn repo_and_repos_keys() {
     // `repo:` is the canonical serde name; `repos:` is the alias.
+    let p = scratch("repo").join("bupha.yaml");
     std::fs::write(&p, "runner:\n  kind: shell\n  cmd: \"true\"\nstatus:\n  kind: log\nrepo:\n  - name: o/r\n    dir: /tmp/r\n").unwrap();
-    let c = load(&p).unwrap();
+    let c = load(p).unwrap();
     assert_eq!(c.repos[0].name, "o/r");
     assert_eq!(c.repos[0].dir, PathBuf::from("/tmp/r"));
 }
 
 #[test]
 fn yaml_errors() {
+    // missing file -> read error
+    let p = scratch("none").join("nope.yaml");
+    assert!(load(p).unwrap_err().contains("read"));
     // malformed YAML -> parse error
     let p = scratch("bad").join("bupha.yaml");
     std::fs::write(&p, "runner: [unclosed\n").unwrap();
-    assert!(load(&p).unwrap_err().contains("parse"));
+    assert!(load(p).unwrap_err().contains("parse"));
     // well-formed YAML, unknown field -> serde deny
     let p = scratch("deny").join("bupha.yaml");
     std::fs::write(
@@ -128,24 +127,5 @@ fn yaml_errors() {
         "runner:\n  kind: shell\nstatus:\n  kind: log\nbogus: 1\n",
     )
     .unwrap();
-    assert!(load(&p).unwrap_err().contains("parse"));
-}
-
-#[test]
-fn toml_extensionless_and_toml_still_toml() {
-    // A `.toml` path keeps TOML semantics even when the bytes would
-    // also parse as YAML — extension picks the syntax.
-    let p = scratch("toml").join("bupha.toml");
-    std::fs::write(
-        &p,
-        "runner = { kind = \"shell\" }\nstatus = { kind = \"log\" }\n",
-    )
-    .unwrap();
-    let c = load(&p).unwrap();
-    assert_eq!(c.runner.kind, "shell");
-    // Extensionless explicit path: TOML (back-compat).
-    let p = scratch("bare").join("bupha");
-    std::fs::write(&p, "[runner]\nkind = \"ssh\"\n[status]\nkind = \"none\"\n").unwrap();
-    let c = load(&p).unwrap();
-    assert_eq!(c.runner.kind, "ssh");
+    assert!(load(p).unwrap_err().contains("parse"));
 }

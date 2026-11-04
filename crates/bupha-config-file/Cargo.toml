@@ -1,6 +1,6 @@
 [package]
 name = "bupha-config-file"
-description = "File impl of ConfigSource — bupha.yaml/.yml preferred, bupha.toml accepted"
+description = "File impl of ConfigSource — resolves bupha.yaml/.yml/.toml path, dispatches parse to the per-syntax adapter"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -10,7 +10,6 @@ categories = ["development-tools"]
 
 [dependencies]
 bupha-config.workspace = true
+bupha-config-toml.workspace = true
+bupha-config-yaml.workspace = true
 bupha-core.workspace = true
-serde = "1"
-serde_norway = "0.9"
-toml = "0.8"

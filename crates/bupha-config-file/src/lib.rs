@@ -1,11 +1,13 @@
-//! File impl of `ConfigSource` — `bupha.yaml`/`bupha.yml` preferred,
-//! `bupha.toml` permanent. Explicit path → $BUPHA_CONFIG →
-//! ./bupha.* → ~/.config/bupha/bupha.*; at each search step YAML wins
-//! when both formats exist. Parsed `Config`s get `~` expanded in
-//! local-path fields (`Config::expand_tilde`).
+//! File impl of `ConfigSource` — resolves which config file to load:
+//! explicit path → $BUPHA_CONFIG → ./bupha.* → ~/.config/bupha/bupha.*;
+//! at each search step YAML wins when both formats exist. Syntax is
+//! dispatched by extension to the per-syntax adapters:
+//! `.yaml`/`.yml` → `bupha-config-yaml`, everything else →
+//! `bupha-config-toml` (back-compat for explicit/extensionless paths).
 
 use bupha_config::ConfigSource;
-use serde::Deserialize;
+use bupha_config_toml::TomlSource;
+use bupha_config_yaml::YamlSource;
 use std::path::{Path, PathBuf};
 
 pub struct FileSource {
@@ -24,18 +26,6 @@ fn is_yaml(p: &Path) -> bool {
         p.extension().and_then(|e| e.to_str()),
         Some("yaml") | Some("yml")
     )
-}
-
-fn parse(text: &str, path: &Path) -> Result<bupha_core::Config, String> {
-    let mut cfg = if is_yaml(path) {
-        let v: serde_norway::Value =
-            serde_norway::from_str(text).map_err(|e| format!("parse {}: {e}", path.display()))?;
-        bupha_core::Config::deserialize(v).map_err(|e| format!("parse {}: {e}", path.display()))?
-    } else {
-        toml::from_str(text).map_err(|e| format!("parse {}: {e}", path.display()))?
-    };
-    cfg.expand_tilde();
-    Ok(cfg)
 }
 
 impl ConfigSource for FileSource {
@@ -63,9 +53,11 @@ impl ConfigSource for FileSource {
         };
         for p in candidates {
             if p.exists() {
-                let text = std::fs::read_to_string(&p)
-                    .map_err(|e| format!("read {}: {e}", p.display()))?;
-                return parse(&text, &p);
+                return if is_yaml(&p) {
+                    YamlSource { path: p }.load()
+                } else {
+                    TomlSource { path: p }.load()
+                };
             }
         }
         Err("no bupha.{yaml,yml,toml} found (search: $BUPHA_CONFIG, ., ~/.config/bupha/)".into())
