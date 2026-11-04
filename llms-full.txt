@@ -149,9 +149,11 @@ a secret). Without it, sccache uses a local cache volume.
 ## Local S3 (garage)
 
 ```
+DATA=${XDG_DATA_HOME:-$HOME/.local/share}/bupha
+
 docker run -d --name garage --restart always \
-  -v $HOME/bupha-data/garage:/data \
-  -v $HOME/bupha-data/garage.toml:/etc/garage.toml \
+  -v $DATA/garage:/data \
+  -v $DATA/garage.toml:/etc/garage.toml \
   -p 9100:9100 dxflrs/garage:v1.x.x
 ```
 
@@ -271,7 +273,11 @@ Scaffold dagger CI in a repo (dagger init + pinned module + delegate). For the s
 
 Check what the loaded config actually needs on this box
 
-**Usage:** `bupha doctor`
+**Usage:** `bupha doctor [OPTIONS]`
+
+###### **Options:**
+
+* `--json` — Machine-readable JSON output — `{"ok", "failures", "checks"}`
 
 ## `bupha run`
 
@@ -473,6 +479,7 @@ url: /bupha/reference/config.md
 | `tunnel` | `TunnelCfg` | optional | How the listener is exposed publicly (cloudflared, direct, none). |
 | `cache` | `CacheCfg` | optional | Artifact cache backend (`[cache]`); `runner.sccache_conf` is accepted for older configs — `[cache]` wins. |
 | `access` | `AccessCfg` | optional | Who may trigger (`[access]`). Absent = open. |
+| `audit` | `AuditCfg` | optional | Decision/outcome audit log (`[audit]`). Absent = none. |
 | `telemetry` | `TelemetryCfg` | optional | Pipeline observability (`[telemetry]`). Absent = none. |
 | `attest` | `AttestCfg` | optional | Run provenance (`[attest]`). Absent = none. |
 | `queue` | `QueueCfg` | optional | Queue persistence backend (`[queue]`). Absent = redb. |
@@ -492,6 +499,8 @@ url: /bupha/reference/config.md
 | `queue` | `"latest" | "all"` | optional | Queue policy — `latest` (default) or `all` (run every push). |
 | `secret_env` | `string` | optional | Per-repo webhook-secret env var — a NAME resolved like `trigger.secret_env` (its fallback). Lets each repo's hook be managed and rotated independently of the other watched repos. |
 | `runs_on` | `list` | optional | Fleet routing: labels a claiming worker must carry (e.g. \["arch=arm64"]). Empty = any worker. Per-repo arch pinning — same-push multi-arch matrix is future work. |
+| `retry` | `u32` | optional | Failed runs re-enqueue at the back this many times (0..3, ADR-0002 §3). 0 = today's behavior. A *failed* sha may retry — a superseded or claim-lost one may not. |
+| `sturn` | `bool` | optional | Opt this repo into the `[trigger.sturn]` WAL poller — its jobs enqueue on `Op::Snapshot` events found under `refs/sturn/wal/*` in `dir`, no webhook needed. Repo-level: every job inherits it (branch filters still apply). |
 | `jobs` | `Vec<JobEntry>` | optional | Pipelines within this repo (`[[repo.jobs]]`). Each job gets its own branch filter, queue policy, runner and status context — one webhook feeds them all. Empty = the repo itself is its single implicit pipeline. |
 
 ## `[trigger]`
@@ -499,7 +508,8 @@ url: /bupha/reference/config.md
 | field | type | required | notes |
 |---|---|---|---|
 | `api_base` | `string` | optional | Forge API base — GHES ("https://ghe.acme/api/v3") or default github.com. Used by the trigger, status, and forge-admin impls. |
-| `kind` | `string` | optional | "github" today; other forges = new impl crates. |
+| `kind` | `string` | optional | "github" today; other forges = new impl crates. Empty is valid only when \[trigger.sturn] supplies the pushes — a sturn-only watcher needs no listener or webhook secret. |
+| `sturn` | `SturnTriggerCfg` | optional | Optional sturn-native push source — see SturnTriggerCfg. |
 | `listen` | `string` | optional | Webhook listener bind address ("127.0.0.1:29173"). |
 | `secret_env` | `string` | optional | Env var holding the webhook secret — the default for every watched repo; `[[repo]] secret_env` overrides it per repo. |
 
@@ -552,6 +562,7 @@ url: /bupha/reference/config.md
 | `queue` | `"latest" | "all"` | optional | Queue policy for this job — `latest` (default) or `all`. Falls back to the repo's `queue`. |
 | `context` | `string` | optional | Status context override (default: `"&lt;status.context&gt;/&lt;job name&gt;"`). |
 | `runs_on` | `list` | optional | Label requirements — overrides the repo's `runs_on` for this job only (job -> repo -> \[] inheritance, like runner/queue). |
+| `retry` | `u32` | optional | Retry count override — job -> repo -> 0 inheritance. |
 
 ## `[runner]` — kind `dagger`
 
@@ -571,6 +582,8 @@ url: /bupha/reference/config.md
 | field | type | required | notes |
 |---|---|---|---|
 | `cmd` | `string` | optional | — |
+| `isolate` | `string` | optional | "scope" → the job runs in its own systemd user scope so a fat job gets OOM-killed alone instead of taking the watcher down with it. Anything else → plain child process. |
+| `memory_max` | `string` | optional | `MemoryMax` for the scope ("9G", "4096M") — required for the isolation to bound anything; without it the scope only groups processes. |
 
 ## `[runner]` — kind `ssh`
 
@@ -626,6 +639,7 @@ documented at source (doc comments).
 * [bupha-access-forge](/bupha/api/bupha_access_forge/index.html) — adapter
 * [bupha-attest-file](/bupha/api/bupha_attest_file/index.html) — adapter
 * [bupha-attest-sigstore](/bupha/api/bupha_attest_sigstore/index.html) — adapter
+* [bupha-audit-file](/bupha/api/bupha_audit_file/index.html) — adapter
 * [bupha-cache-sccache](/bupha/api/bupha_cache_sccache/index.html) — adapter
 * [bupha-cloudflared](/bupha/api/bupha_cloudflared/index.html) — adapter
 * [bupha-config-toml](/bupha/api/bupha_config_toml/index.html) — adapter
@@ -641,8 +655,10 @@ documented at source (doc comments).
 * [bupha-queue-redis](/bupha/api/bupha_queue_redis/index.html) — adapter
 * [bupha-shell](/bupha/api/bupha_shell/index.html) — adapter
 * [bupha-ssh](/bupha/api/bupha_ssh/index.html) — adapter
+* [bupha-sturn](/bupha/api/bupha_sturn/index.html) — adapter
 * [bupha-systemd](/bupha/api/bupha_systemd/index.html) — adapter
 * [bupha-telemetry-otel](/bupha/api/bupha_telemetry_otel/index.html) — adapter
+* [bupha-webhook](/bupha/api/bupha_webhook/index.html) — adapter
 * [bupha](/bupha/api/bupha/index.html) — binary
 
 ---
@@ -675,13 +691,14 @@ impls to ports.
 | `bupha-service` | port | Service port: OS service lifecycle |
 | `bupha-status` | port | StatusSink port: where run outcomes are reported |
 | `bupha-telemetry` | port | Telemetry port: fire-and-forget pipeline events |
-| `bupha-trigger` | port | Trigger port: where pushes come from |
+| `bupha-trigger` | port | Source port: where pushes come from — forge webhooks, WAL polls, … |
 | `bupha-tunnel` | port | Tunnel port: expose the webhook listener publicly |
 | `bupha-vcs` | port | Vcs port: VCS operations for repos and worktrees |
 | `bupha-access-file` | adapter | Access adapter: allowlist of forge logins from config |
 | `bupha-access-forge` | adapter | Access adapter: forge collaborator-permission check |
 | `bupha-attest-file` | adapter | Attest adapter: SLSA-shape predicate JSON per run (unsigned v1) |
 | `bupha-attest-sigstore` | adapter | Attest adapter: cosign-signed run predicates (needs cosign + key) |
+| `bupha-audit-file` | adapter | Audit adapter: append access/outcome decisions to a JSONL file |
 | `bupha-cache-sccache` | adapter | Cache impl: sccache-compatible conf (file/S3/R2/GCS via conf) |
 | `bupha-cloudflared` | adapter | Tunnel impl: cloudflared (named tunnel preferred, quick tunnel fallback) |
 | `bupha-config-toml` | adapter | Config impl: bupha.toml file (explicit path, env, ./, ~/.config) |
@@ -697,14 +714,40 @@ impls to ports.
 | `bupha-queue-redis` | adapter | QueueStore adapter: redis (multi-worker; SET NX claim + INCR fence) |
 | `bupha-shell` | adapter | Runner impl: bash -c \<cmd> per job — no containers |
 | `bupha-ssh` | adapter | Runner impl: remote execution over ssh (rsync worktree + run) |
+| `bupha-sturn` | adapter | sturn source impl: reads refs/sturn/\* WAL state out of a clone via git plumbing |
 | `bupha-systemd` | adapter | Service impl: systemd user units |
 | `bupha-telemetry-otel` | adapter | Telemetry adapter: OpenMetrics textfile for Prometheus |
-| `bupha` | binary | bupha — the oxpecker on your repo's back: headless CI CLI |
+| `bupha-webhook` | adapter | Source impl: forge-webhook listener driving a Trigger port impl |
+| `bupha` | binary | bupha — queue engine for event-driven jobs: shipped as CI |
 
 `modules/dagger/` (Python SDK) is the shared pipeline module
 `bupha init` installs into consumer repos — pinned to a sha.
 
-## Request flow
+## Sources — the ingest edge
+
+bupha is a queue engine: `source → queue → effect`. Everything
+in front of the queue is a `Source` — a long-running ingest that
+emits normalized `(repo, ref, sha, sender)` pushes; everything
+behind it (queues, runner, status sinks) is source-agnostic. A
+`bupha watch` process runs every configured source and feeds one
+shared ingest path.
+
+| source            | config                                   | emits on                        |
+| ----------------- | ---------------------------------------- | ------------------------------- |
+| `github-webhook`  | `trigger.kind = "github"` (+ `[trigger]` listener, secrets, tunnel) | verified `push` deliveries      |
+| `sturn-wal`       | `[trigger.sturn]` + `[[repo]] sturn = true` | `Op::Snapshot` WAL events       |
+
+`Trigger` is the narrower per-request port a webhook `Source`
+drives — is this our event, which repo (untrusted hint), does the
+signature verify, what does the payload ask for. New forges mean a
+new `Trigger` impl reusing the same webhook listener; new *kinds*
+of ingest (gitlab webhook, cron, poll-ref, file-watch) are new
+`Source` impls — neither touches the queue.
+
+## Webhook request flow
+
+The `github-webhook` source's per-request pipeline (byte-stable —
+routing and statuses are part of the contract):
 
 ```
 POST /hook
@@ -771,11 +814,12 @@ the queue moving.
 
 ## Extending
 
-| to add…                 | write…                              | core changes? |
-| ----------------------- | ----------------------------------- | ------------- |
-| forge (gitea/gitlab)    | `Trigger` + `StatusSink` adapter crate | no            |
-| pipeline backend        | `Runner` adapter crate                 | no            |
-| ingress (fly/tailscale) | `Tunnel` adapter crate                 | no            |
+| to add…                     | write…                                 | core changes? |
+| --------------------------- | -------------------------------------- | ------------- |
+| push source (cron, poll)    | `Source` adapter crate                  | no            |
+| forge (gitea/gitlab)        | `Trigger` + `StatusSink` adapter crate  | no            |
+| pipeline backend            | `Runner` adapter crate                  | no            |
+| ingress (fly/tailscale)     | `Tunnel` adapter crate                  | no            |
 
 ---
 

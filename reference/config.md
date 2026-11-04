@@ -12,6 +12,7 @@ url: /bupha/reference/config.md
 | `tunnel` | `TunnelCfg` | optional | How the listener is exposed publicly (cloudflared, direct, none). |
 | `cache` | `CacheCfg` | optional | Artifact cache backend (`[cache]`); `runner.sccache_conf` is accepted for older configs — `[cache]` wins. |
 | `access` | `AccessCfg` | optional | Who may trigger (`[access]`). Absent = open. |
+| `audit` | `AuditCfg` | optional | Decision/outcome audit log (`[audit]`). Absent = none. |
 | `telemetry` | `TelemetryCfg` | optional | Pipeline observability (`[telemetry]`). Absent = none. |
 | `attest` | `AttestCfg` | optional | Run provenance (`[attest]`). Absent = none. |
 | `queue` | `QueueCfg` | optional | Queue persistence backend (`[queue]`). Absent = redb. |
@@ -31,6 +32,8 @@ url: /bupha/reference/config.md
 | `queue` | `"latest" | "all"` | optional | Queue policy — `latest` (default) or `all` (run every push). |
 | `secret_env` | `string` | optional | Per-repo webhook-secret env var — a NAME resolved like `trigger.secret_env` (its fallback). Lets each repo's hook be managed and rotated independently of the other watched repos. |
 | `runs_on` | `list` | optional | Fleet routing: labels a claiming worker must carry (e.g. \["arch=arm64"]). Empty = any worker. Per-repo arch pinning — same-push multi-arch matrix is future work. |
+| `retry` | `u32` | optional | Failed runs re-enqueue at the back this many times (0..3, ADR-0002 §3). 0 = today's behavior. A *failed* sha may retry — a superseded or claim-lost one may not. |
+| `sturn` | `bool` | optional | Opt this repo into the `[trigger.sturn]` WAL poller — its jobs enqueue on `Op::Snapshot` events found under `refs/sturn/wal/*` in `dir`, no webhook needed. Repo-level: every job inherits it (branch filters still apply). |
 | `jobs` | `Vec<JobEntry>` | optional | Pipelines within this repo (`[[repo.jobs]]`). Each job gets its own branch filter, queue policy, runner and status context — one webhook feeds them all. Empty = the repo itself is its single implicit pipeline. |
 
 ## `[trigger]`
@@ -38,7 +41,8 @@ url: /bupha/reference/config.md
 | field | type | required | notes |
 |---|---|---|---|
 | `api_base` | `string` | optional | Forge API base — GHES ("https://ghe.acme/api/v3") or default github.com. Used by the trigger, status, and forge-admin impls. |
-| `kind` | `string` | optional | "github" today; other forges = new impl crates. |
+| `kind` | `string` | optional | "github" today; other forges = new impl crates. Empty is valid only when \[trigger.sturn] supplies the pushes — a sturn-only watcher needs no listener or webhook secret. |
+| `sturn` | `SturnTriggerCfg` | optional | Optional sturn-native push source — see SturnTriggerCfg. |
 | `listen` | `string` | optional | Webhook listener bind address ("127.0.0.1:29173"). |
 | `secret_env` | `string` | optional | Env var holding the webhook secret — the default for every watched repo; `[[repo]] secret_env` overrides it per repo. |
 
@@ -91,6 +95,7 @@ url: /bupha/reference/config.md
 | `queue` | `"latest" | "all"` | optional | Queue policy for this job — `latest` (default) or `all`. Falls back to the repo's `queue`. |
 | `context` | `string` | optional | Status context override (default: `"&lt;status.context&gt;/&lt;job name&gt;"`). |
 | `runs_on` | `list` | optional | Label requirements — overrides the repo's `runs_on` for this job only (job -> repo -> \[] inheritance, like runner/queue). |
+| `retry` | `u32` | optional | Retry count override — job -> repo -> 0 inheritance. |
 
 ## `[runner]` — kind `dagger`
 
@@ -110,6 +115,8 @@ url: /bupha/reference/config.md
 | field | type | required | notes |
 |---|---|---|---|
 | `cmd` | `string` | optional | — |
+| `isolate` | `string` | optional | "scope" → the job runs in its own systemd user scope so a fat job gets OOM-killed alone instead of taking the watcher down with it. Anything else → plain child process. |
+| `memory_max` | `string` | optional | `MemoryMax` for the scope ("9G", "4096M") — required for the isolation to bound anything; without it the scope only groups processes. |
 
 ## `[runner]` — kind `ssh`
 

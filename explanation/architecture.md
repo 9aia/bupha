@@ -26,13 +26,14 @@ impls to ports.
 | `bupha-service` | port | Service port: OS service lifecycle |
 | `bupha-status` | port | StatusSink port: where run outcomes are reported |
 | `bupha-telemetry` | port | Telemetry port: fire-and-forget pipeline events |
-| `bupha-trigger` | port | Trigger port: where pushes come from |
+| `bupha-trigger` | port | Source port: where pushes come from — forge webhooks, WAL polls, … |
 | `bupha-tunnel` | port | Tunnel port: expose the webhook listener publicly |
 | `bupha-vcs` | port | Vcs port: VCS operations for repos and worktrees |
 | `bupha-access-file` | adapter | Access adapter: allowlist of forge logins from config |
 | `bupha-access-forge` | adapter | Access adapter: forge collaborator-permission check |
 | `bupha-attest-file` | adapter | Attest adapter: SLSA-shape predicate JSON per run (unsigned v1) |
 | `bupha-attest-sigstore` | adapter | Attest adapter: cosign-signed run predicates (needs cosign + key) |
+| `bupha-audit-file` | adapter | Audit adapter: append access/outcome decisions to a JSONL file |
 | `bupha-cache-sccache` | adapter | Cache impl: sccache-compatible conf (file/S3/R2/GCS via conf) |
 | `bupha-cloudflared` | adapter | Tunnel impl: cloudflared (named tunnel preferred, quick tunnel fallback) |
 | `bupha-config-toml` | adapter | Config impl: bupha.toml file (explicit path, env, ./, ~/.config) |
@@ -48,14 +49,40 @@ impls to ports.
 | `bupha-queue-redis` | adapter | QueueStore adapter: redis (multi-worker; SET NX claim + INCR fence) |
 | `bupha-shell` | adapter | Runner impl: bash -c \<cmd> per job — no containers |
 | `bupha-ssh` | adapter | Runner impl: remote execution over ssh (rsync worktree + run) |
+| `bupha-sturn` | adapter | sturn source impl: reads refs/sturn/\* WAL state out of a clone via git plumbing |
 | `bupha-systemd` | adapter | Service impl: systemd user units |
 | `bupha-telemetry-otel` | adapter | Telemetry adapter: OpenMetrics textfile for Prometheus |
-| `bupha` | binary | bupha — the oxpecker on your repo's back: headless CI CLI |
+| `bupha-webhook` | adapter | Source impl: forge-webhook listener driving a Trigger port impl |
+| `bupha` | binary | bupha — queue engine for event-driven jobs: shipped as CI |
 
 `modules/dagger/` (Python SDK) is the shared pipeline module
 `bupha init` installs into consumer repos — pinned to a sha.
 
-## Request flow
+## Sources — the ingest edge
+
+bupha is a queue engine: `source → queue → effect`. Everything
+in front of the queue is a `Source` — a long-running ingest that
+emits normalized `(repo, ref, sha, sender)` pushes; everything
+behind it (queues, runner, status sinks) is source-agnostic. A
+`bupha watch` process runs every configured source and feeds one
+shared ingest path.
+
+| source            | config                                   | emits on                        |
+| ----------------- | ---------------------------------------- | ------------------------------- |
+| `github-webhook`  | `trigger.kind = "github"` (+ `[trigger]` listener, secrets, tunnel) | verified `push` deliveries      |
+| `sturn-wal`       | `[trigger.sturn]` + `[[repo]] sturn = true` | `Op::Snapshot` WAL events       |
+
+`Trigger` is the narrower per-request port a webhook `Source`
+drives — is this our event, which repo (untrusted hint), does the
+signature verify, what does the payload ask for. New forges mean a
+new `Trigger` impl reusing the same webhook listener; new *kinds*
+of ingest (gitlab webhook, cron, poll-ref, file-watch) are new
+`Source` impls — neither touches the queue.
+
+## Webhook request flow
+
+The `github-webhook` source's per-request pipeline (byte-stable —
+routing and statuses are part of the contract):
 
 ```
 POST /hook
@@ -122,8 +149,9 @@ the queue moving.
 
 ## Extending
 
-| to add…                 | write…                              | core changes? |
-| ----------------------- | ----------------------------------- | ------------- |
-| forge (gitea/gitlab)    | `Trigger` + `StatusSink` adapter crate | no            |
-| pipeline backend        | `Runner` adapter crate                 | no            |
-| ingress (fly/tailscale) | `Tunnel` adapter crate                 | no            |
+| to add…                     | write…                                 | core changes? |
+| --------------------------- | -------------------------------------- | ------------- |
+| push source (cron, poll)    | `Source` adapter crate                  | no            |
+| forge (gitea/gitlab)        | `Trigger` + `StatusSink` adapter crate  | no            |
+| pipeline backend            | `Runner` adapter crate                  | no            |
+| ingress (fly/tailscale)     | `Tunnel` adapter crate                  | no            |

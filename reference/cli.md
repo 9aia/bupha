@@ -93,7 +93,11 @@ Scaffold dagger CI in a repo (dagger init + pinned module + delegate). For the s
 
 Check what the loaded config actually needs on this box
 
-**Usage:** `bupha doctor`
+**Usage:** `bupha doctor [OPTIONS]`
+
+###### **Options:**
+
+* `--json` — Machine-readable JSON output — `{"ok", "failures", "checks"}`
 
 ## `bupha run`
 
