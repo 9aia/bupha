@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """Generate docs/reference/config.md from config-struct doc comments
 — the structs across core + impl crates are the source of truth."""
-import pathlib, re, sys
+import os, pathlib, re, sys
 
-ROOT = pathlib.Path(__file__).parent / ".."
+ROOT = pathlib.Path(
+    os.environ.get("BUPHA_ROOT") or pathlib.Path(__file__).parent / "..")
 OUT  = pathlib.Path(__file__).parent / "reference" / "config.md"
 
 # file → {struct: section title}; order preserved
