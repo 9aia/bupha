@@ -1,26 +1,21 @@
 name: bupha-config-file
 path: crates/bupha-config-file/Cargo.toml
-purpose: File impl of ConfigSource — bupha.yaml/.yml preferred, bupha.toml accepted
+purpose: File impl of ConfigSource — resolves bupha.yaml/.yml/.toml path, dispatches parse to the per-syntax adapter
 api:
 - name: CFG
   kind: const
   file: crates/bupha-config-file/tests/search.rs
   line: 9
   module: bupha-config-file
-- name: FULL
-  kind: const
-  file: crates/bupha-config-file/tests/yaml.rs
-  line: 27
-  module: bupha-config-file
 - name: FileSource
   kind: type
   file: crates/bupha-config-file/src/lib.rs
-  line: 11
+  line: 13
   module: bupha-config-file
 - name: NAMES
   kind: const
   file: crates/bupha-config-file/src/lib.rs
-  line: 18
+  line: 20
   module: bupha-config-file
 - name: YAML
   kind: const
@@ -47,25 +42,30 @@ api:
   file: crates/bupha-config-file/tests/load.rs
   line: 37
   module: bupha-config-file
-- name: explicit_path_loads
+- name: explicit_toml_loads
   kind: function
-  file: crates/bupha-config-file/tests/toml.rs
-  line: 15
+  file: crates/bupha-config-file/tests/dispatch.rs
+  line: 24
+  module: bupha-config-file
+- name: extension_picks_syntax
+  kind: function
+  file: crates/bupha-config-file/tests/dispatch.rs
+  line: 43
   module: bupha-config-file
 - name: is_yaml
   kind: function
   file: crates/bupha-config-file/src/lib.rs
-  line: 22
+  line: 24
   module: bupha-config-file
 - name: load
   kind: function
   file: crates/bupha-config-file/src/lib.rs
-  line: 42
+  line: 32
   module: bupha-config-file
 - name: load
   kind: function
-  file: crates/bupha-config-file/tests/yaml.rs
-  line: 18
+  file: crates/bupha-config-file/tests/dispatch.rs
+  line: 16
   module: bupha-config-file
 - name: loads_via_env_var
   kind: function
@@ -74,23 +74,13 @@ api:
   module: bupha-config-file
 - name: missing_and_malformed_err
   kind: function
-  file: crates/bupha-config-file/tests/toml.rs
-  line: 27
-  module: bupha-config-file
-- name: parse
-  kind: function
-  file: crates/bupha-config-file/src/lib.rs
-  line: 29
+  file: crates/bupha-config-file/tests/dispatch.rs
+  line: 32
   module: bupha-config-file
 - name: scratch
   kind: function
-  file: crates/bupha-config-file/tests/toml.rs
-  line: 7
-  module: bupha-config-file
-- name: scratch
-  kind: function
-  file: crates/bupha-config-file/tests/yaml.rs
-  line: 11
+  file: crates/bupha-config-file/tests/dispatch.rs
+  line: 9
   module: bupha-config-file
 - name: search_paths_in_order
   kind: function
@@ -102,57 +92,34 @@ api:
   file: crates/bupha-config-file/tests/load.rs
   line: 4
   module: bupha-config-file
-- name: toml_extensionless_and_toml_still_toml
-  kind: function
-  file: crates/bupha-config-file/tests/yaml.rs
-  line: 135
-  module: bupha-config-file
-- name: yaml_errors
-  kind: function
-  file: crates/bupha-config-file/tests/yaml.rs
-  line: 119
-  module: bupha-config-file
-- name: yaml_full_shape_and_tilde
-  kind: function
-  file: crates/bupha-config-file/tests/yaml.rs
-  line: 64
-  module: bupha-config-file
-- name: yml_extension_and_singular_repo_key
-  kind: function
-  file: crates/bupha-config-file/tests/yaml.rs
-  line: 109
-  module: bupha-config-file
 deps:
 - bupha-config
+- bupha-config-toml
+- bupha-config-yaml
 - bupha-core
-- serde
-- serde_norway
-- toml
 - bupha-config
-- serde
+- bupha-config-toml
+- bupha-config-yaml
 notes: ''
 verify:
 - crates/bupha-config-file/Cargo.toml
 - crates/bupha-config-file/src/lib.rs
+- crates/bupha-config-file/tests/dispatch.rs
 - crates/bupha-config-file/tests/load.rs
 - crates/bupha-config-file/tests/search.rs
-- crates/bupha-config-file/tests/toml.rs
-- crates/bupha-config-file/tests/yaml.rs
 provenance:
   files:
   - crates/bupha-config-file/Cargo.toml
   - crates/bupha-config-file/src/lib.rs
+  - crates/bupha-config-file/tests/dispatch.rs
   - crates/bupha-config-file/tests/load.rs
   - crates/bupha-config-file/tests/search.rs
-  - crates/bupha-config-file/tests/toml.rs
-  - crates/bupha-config-file/tests/yaml.rs
   hashes:
-  - 28b79923adebd40202c4850066e0e3c63de993d9
-  - 8635ebf567b686afc4cc04ac71f1d78c801db9c1
+  - 90556965fe774768db42f410ce6430ce8dd30f55
+  - c9f433fa3c34b43809f5233f52d479c77850183f
+  - b3f57df7d478faef4c32be98cb7500f348763309
   - 29a3085a3c73b6653d16cffd753921b0e9e2c89b
   - 56f3c0d733b468e1350be40e67796855405bb039
-  - 9cc1d34bb81dd824f03eb8025c57510994bf1975
-  - 35d38466355e14ebc2c42305d7e63a597d2eb408
-  commit_sha: 1543079ccff2cc09889702770de80e4fbbd7f2db
-  generated_at: '1793765006'
+  commit_sha: b29f20b2a40520508f43b19bff8eb2e9406a6dee
+  generated_at: '1793765340'
   generator: kuda-template/0.1.2

@@ -5,7 +5,7 @@ api:
 - name: ConfigSource
   kind: trait
   file: crates/bupha-config/src/lib.rs
-  line: 5
+  line: 6
   module: bupha-config
 - name: bupha-config
   kind: module
@@ -24,7 +24,7 @@ provenance:
   - crates/bupha-config/src/lib.rs
   hashes:
   - b1c0f26fe1cf3ded47e08fa677971c448489f47a
-  - 16f669b2ffb33b607e91fc529a42c1e526370c42
-  commit_sha: 1543079ccff2cc09889702770de80e4fbbd7f2db
-  generated_at: '1793765006'
+  - eb969adcac14390e81c454cdb7509a41ca1f8f46
+  commit_sha: 03524d6c777d0c18115defb979d4e2048e3fcdbf
+  generated_at: '1793765353'
   generator: kuda-template/0.1.2

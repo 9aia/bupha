@@ -1,0 +1,61 @@
+name: bupha-config-toml
+path: crates/bupha-config-toml/Cargo.toml
+purpose: TOML impl of ConfigSource — parses a bupha.toml file
+api:
+- name: TomlSource
+  kind: type
+  file: crates/bupha-config-toml/src/lib.rs
+  line: 10
+  module: bupha-config-toml
+- name: bupha-config-toml
+  kind: module
+  file: crates/bupha-config-toml/Cargo.toml
+  line: 1
+  module: bupha-config-toml
+- name: load
+  kind: function
+  file: crates/bupha-config-toml/src/lib.rs
+  line: 16
+  module: bupha-config-toml
+- name: loads_toml
+  kind: function
+  file: crates/bupha-config-toml/tests/toml.rs
+  line: 16
+  module: bupha-config-toml
+- name: missing_and_malformed_err
+  kind: function
+  file: crates/bupha-config-toml/tests/toml.rs
+  line: 37
+  module: bupha-config-toml
+- name: scratch
+  kind: function
+  file: crates/bupha-config-toml/tests/toml.rs
+  line: 8
+  module: bupha-config-toml
+- name: tilde_expands
+  kind: function
+  file: crates/bupha-config-toml/tests/toml.rs
+  line: 24
+  module: bupha-config-toml
+deps:
+- bupha-config
+- bupha-core
+- toml
+- bupha-config
+notes: ''
+verify:
+- crates/bupha-config-toml/Cargo.toml
+- crates/bupha-config-toml/src/lib.rs
+- crates/bupha-config-toml/tests/toml.rs
+provenance:
+  files:
+  - crates/bupha-config-toml/Cargo.toml
+  - crates/bupha-config-toml/src/lib.rs
+  - crates/bupha-config-toml/tests/toml.rs
+  hashes:
+  - f1fc22a2f89214a9691ed2fd8d63142b79b58671
+  - c58e3c85f5840d2b2a4ae84d8a5aed36858db4a6
+  - 3ac36e6a27e4eb022894453c4f3fb55e77b72de9
+  commit_sha: b29f20b2a40520508f43b19bff8eb2e9406a6dee
+  generated_at: '1793765340'
+  generator: kuda-template/0.1.2
