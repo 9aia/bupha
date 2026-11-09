@@ -63,9 +63,9 @@ fn load_skips_corrupt_values() {
     // reject; either way load must not panic.
     let mut bytes = std::fs::read(&f).unwrap();
     let n = bytes.len();
-    for i in (n.saturating_sub(64))..n {
-        if bytes[i] == b'a' {
-            bytes[i] = b'!';
+    for b in bytes.iter_mut().skip(n.saturating_sub(64)) {
+        if *b == b'a' {
+            *b = b'!';
         }
     }
     std::fs::write(&f, &bytes).unwrap();

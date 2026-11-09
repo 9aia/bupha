@@ -5,6 +5,27 @@
 use bupha_attest::{Attest, RunAttestation};
 use bupha_attest_sigstore::SigstoreAttest;
 use std::path::{Path, PathBuf};
+use std::sync::Mutex;
+
+/// Env (PATH) is process-global — serialize this file's tests so
+/// exclusive-PATH setups can't break a parallel sibling.
+static LOCK: Mutex<()> = Mutex::new(());
+
+/// Restore PATH at scope end — tests run serialized under LOCK but
+/// a leaked exclusive PATH would break the next sibling's stubs.
+struct PathGuard(Option<String>);
+impl PathGuard {
+    fn capture() -> Self {
+        Self(std::env::var("PATH").ok())
+    }
+}
+impl Drop for PathGuard {
+    fn drop(&mut self) {
+        if let Some(p) = &self.0 {
+            std::env::set_var("PATH", p);
+        }
+    }
+}
 
 fn dir(tag: &str) -> PathBuf {
     let d = std::env::temp_dir().join(format!("bupha-sig-{}-{tag}", std::process::id()));
@@ -47,6 +68,8 @@ fn path_with(dir: &Path) {
 
 #[test]
 fn signs_predicate_and_stores_sig() {
+    let _g = LOCK.lock().unwrap();
+    let _path = PathGuard::capture();
     let d = dir("ok");
     stub(
         &d,
@@ -71,6 +94,8 @@ fn signs_predicate_and_stores_sig() {
 
 #[test]
 fn keyless_omits_key_arg() {
+    let _g = LOCK.lock().unwrap();
+    let _path = PathGuard::capture();
     let d = dir("kl");
     stub(
         &d,
@@ -89,6 +114,8 @@ fn keyless_omits_key_arg() {
 
 #[test]
 fn cosign_failure_errors() {
+    let _g = LOCK.lock().unwrap();
+    let _path = PathGuard::capture();
     let d = dir("fail");
     stub(&d, "cosign", "echo nope >&2\nexit 1");
     path_with(&d);
@@ -102,6 +129,8 @@ fn cosign_failure_errors() {
 
 #[test]
 fn missing_cosign_reports_install_hint() {
+    let _g = LOCK.lock().unwrap();
+    let _path = PathGuard::capture();
     let d = dir("none");
     std::env::set_var("PATH", &d);
     let a = SigstoreAttest {
@@ -114,6 +143,8 @@ fn missing_cosign_reports_install_hint() {
 
 #[test]
 fn non_executable_cosign_propagates_error() {
+    let _g = LOCK.lock().unwrap();
+    let _path = PathGuard::capture();
     let d = dir("perm");
     // Exists but not executable -> PermissionDenied, not NotFound.
     let p = d.join("cosign");

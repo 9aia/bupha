@@ -6,6 +6,27 @@ use bupha_cloudflared::CloudflaredTunnel;
 use bupha_core::TunnelCfg;
 use bupha_tunnel::Tunnel;
 use std::path::{Path, PathBuf};
+use std::sync::Mutex;
+
+/// Env (PATH) is process-global — serialize this file's tests so
+/// exclusive-PATH setups can't break a parallel sibling.
+static LOCK: Mutex<()> = Mutex::new(());
+
+/// Restore PATH at scope end — tests run serialized under LOCK but
+/// a leaked exclusive PATH would break the next sibling's stubs.
+struct PathGuard(Option<String>);
+impl PathGuard {
+    fn capture() -> Self {
+        Self(std::env::var("PATH").ok())
+    }
+}
+impl Drop for PathGuard {
+    fn drop(&mut self) {
+        if let Some(p) = &self.0 {
+            std::env::set_var("PATH", p);
+        }
+    }
+}
 
 fn dir(tag: &str) -> PathBuf {
     let d = std::env::temp_dir().join(format!("bupha-cf-{}-{tag}", std::process::id()));
@@ -64,6 +85,8 @@ fn args_of(d: &Path) -> String {
 
 #[test]
 fn quick_tunnel_args() {
+    let _g = LOCK.lock().unwrap();
+    let _path = PathGuard::capture();
     let d = dir("quick");
     stub_cloudflared(&d);
     let t = CloudflaredTunnel::new(cfg("", ""));
@@ -78,6 +101,8 @@ fn quick_tunnel_args() {
 
 #[test]
 fn named_tunnel_args_and_public_url() {
+    let _g = LOCK.lock().unwrap();
+    let _path = PathGuard::capture();
     let d = dir("named");
     stub_cloudflared(&d);
     let t = CloudflaredTunnel::new(cfg("my-tunnel", "https://ci.example.com"));
@@ -91,6 +116,8 @@ fn named_tunnel_args_and_public_url() {
 
 #[test]
 fn spawn_fails_without_binary() {
+    let _g = LOCK.lock().unwrap();
+    let _path = PathGuard::capture();
     let d = dir("nope");
     std::env::set_var("PATH", &d);
     let t = CloudflaredTunnel::new(cfg("", ""));

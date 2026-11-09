@@ -171,7 +171,8 @@ fn serve(f: impl Fn(&str, &[u8]) -> (u16, String) + Send + 'static) -> (String, 
 
 /// serve() variant that records (reqline, body) per request — for
 /// asserting which statuses actually landed on the forge.
-fn serve_rec() -> (String, Arc<Mutex<Vec<(String, String)>>>) {
+type Rec = Arc<Mutex<Vec<(String, String)>>>;
+fn serve_rec() -> (String, Rec) {
     let rec = Arc::new(Mutex::new(Vec::<(String, String)>::new()));
     let r = rec.clone();
     let (url, _hits) = serve(move |req, body| {
@@ -1973,8 +1974,16 @@ base = "{base}"
 #[test]
 fn agent_error_exits() {
     let t = tmp("agerr");
-    let port = free_port();
-    let hold = std::net::TcpListener::bind(("127.0.0.1", port)).unwrap();
+    // free_port() releases its probe bind before we re-bind — a
+    // parallel test can steal the port in between, so retry.
+    let (port, hold) = (0..100)
+        .find_map(|_| {
+            let p = free_port();
+            std::net::TcpListener::bind(("127.0.0.1", p))
+                .ok()
+                .map(|l| (p, l))
+        })
+        .expect("no bindable port after 100 tries");
     let cfg = format!(
         r#"
 [agent]

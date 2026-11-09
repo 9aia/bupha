@@ -92,16 +92,14 @@ fn mem_workq_claim_complete_and_labels() {
         _ => panic!("expected a won claim"),
     }
     // A/x's only entry is held -> rposition finds nothing -> skip.
-    match q.claim_next("w2", none, &keys[..1]).unwrap() {
-        Some(Claim::Won { .. }) => panic!("held sha re-claimed"),
-        _ => {}
+    if let Some(Claim::Won { .. }) = q.claim_next("w2", none, &keys[..1]).unwrap() {
+        panic!("held sha re-claimed")
     }
     // A label-gated latest entry behind the held one -> skip arm.
     q.enqueue(&job("a/x", "aaaaaa4", &["arch=x86"])).unwrap();
     // Held entries aren't re-claimed; a/y wants a missing label.
-    match q.claim_next("w2", none, &keys).unwrap() {
-        Some(Claim::Won { .. }) => panic!("held sha re-claimed"),
-        _ => {}
+    if let Some(Claim::Won { .. }) = q.claim_next("w2", none, &keys).unwrap() {
+        panic!("held sha re-claimed")
     }
     let arm = vec!["arch=arm64".to_string()];
     match q.claim_next("w2", &arm, &keys).unwrap() {
@@ -112,13 +110,13 @@ fn mem_workq_claim_complete_and_labels() {
         .unwrap();
     // Completing marks done — even if re-enqueued it's filtered.
     q.enqueue(&job("a/y", "aaaaaa3", &[])).unwrap();
-    assert!(matches!(q.claim_next("w1", &arm, &keys).unwrap(), None));
+    assert!(q.claim_next("w1", &arm, &keys).unwrap().is_none());
     // Held-but-never-completed a/x:2 stays claimed — nothing left.
     let keys2 = [KeyPolicy {
         key: "a/never".into(),
         latest: false,
     }];
-    assert!(matches!(q.claim_next("w1", none, &keys2).unwrap(), None));
+    assert!(q.claim_next("w1", none, &keys2).unwrap().is_none());
 }
 
 #[test]

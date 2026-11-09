@@ -4,6 +4,27 @@
 use bupha_keyring::KeyringSecrets;
 use bupha_secret::Secrets;
 use std::path::{Path, PathBuf};
+use std::sync::Mutex;
+
+/// Env (PATH, STUB_*) is process-global — serialize this file's
+/// tests so exclusive-PATH setups can't break a parallel sibling.
+static LOCK: Mutex<()> = Mutex::new(());
+
+/// Restore PATH at scope end — tests run serialized under LOCK but
+/// a leaked exclusive PATH would break the next sibling's stubs.
+struct PathGuard(Option<String>);
+impl PathGuard {
+    fn capture() -> Self {
+        Self(std::env::var("PATH").ok())
+    }
+}
+impl Drop for PathGuard {
+    fn drop(&mut self) {
+        if let Some(p) = &self.0 {
+            std::env::set_var("PATH", p);
+        }
+    }
+}
 
 fn dir(tag: &str) -> PathBuf {
     let d = std::env::temp_dir().join(format!("bupha-key-{}-{tag}", std::process::id()));
@@ -41,6 +62,8 @@ fn stub_secret_tool(dir: &Path) {
 
 #[test]
 fn lookup_hit_miss_and_empty() {
+    let _g = LOCK.lock().unwrap();
+    let _path = PathGuard::capture();
     let d = dir("get");
     stub_secret_tool(&d);
     let k = KeyringSecrets::default();
@@ -64,6 +87,8 @@ fn lookup_hit_miss_and_empty() {
 
 #[test]
 fn missing_binary_is_a_miss_and_set_errors() {
+    let _g = LOCK.lock().unwrap();
+    let _path = PathGuard::capture();
     let d = dir("none");
     std::env::set_var("PATH", &d);
     let k = KeyringSecrets {
@@ -75,6 +100,8 @@ fn missing_binary_is_a_miss_and_set_errors() {
 
 #[test]
 fn store_writes_stdin_and_failure_errors() {
+    let _g = LOCK.lock().unwrap();
+    let _path = PathGuard::capture();
     let d = dir("set");
     stub_secret_tool(&d);
     let k = KeyringSecrets::default();

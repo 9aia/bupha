@@ -603,13 +603,17 @@ fn deploy_env_variants() {
     let env_body = std::fs::read_to_string(home4.join(".config/bupha/env")).unwrap();
     assert!(env_body.contains("REPO_WH=") && env_body.contains("BUPHA_WEBHOOK_SECRET="));
 
-    // no secret-tool -> keyring unavailable note
+    // no secret-tool -> keyring unavailable note. PATH must be a
+    // dir guaranteed empty of secret-tool: /usr/bin may legitimately
+    // carry it (libsecret is a base install on some distros).
     let home2 = t.join("home2");
+    let no_tools = t.join("no-tools");
+    std::fs::create_dir_all(&no_tools).unwrap();
     let o = bupha(
         &["deploy", "env", "--config", cfgp.to_str().unwrap()],
         &[
             ("HOME", home2.display().to_string()),
-            ("PATH", "/usr/bin:/bin".into()),
+            ("PATH", no_tools.display().to_string()),
             ("BUPHA_TOKEN", "tok".into()),
             ("BUPHA_WEBHOOK_SECRET", "sek".into()),
         ],
@@ -624,7 +628,7 @@ fn deploy_env_variants() {
         &["deploy", "env", "--config", cfgp.to_str().unwrap()],
         &[
             ("HOME", home3.display().to_string()),
-            ("PATH", "/usr/bin:/bin".into()),
+            ("PATH", no_tools.display().to_string()),
         ],
     );
     assert_eq!(o.status.code(), Some(1));
@@ -636,7 +640,7 @@ fn deploy_env_variants() {
         .args(["deploy", "env", "--config"])
         .arg(&cfgp)
         .current_dir(&cwd)
-        .env("PATH", "/usr/bin:/bin")
+        .env("PATH", no_tools.display().to_string())
         .env_remove("HOME")
         .env_remove("XDG_CONFIG_HOME")
         .output()

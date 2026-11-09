@@ -176,11 +176,9 @@ impl WorkQueue for MemWorkQueue {
 
     fn complete(&self, job: &Job, worker: &str) -> io::Result<()> {
         let _ = worker;
-        self.lists
-            .lock()
-            .unwrap()
-            .get_mut(&job.key)
-            .map(|q| q.retain(|j| j.sha != job.sha));
+        if let Some(q) = self.lists.lock().unwrap().get_mut(&job.key) {
+            q.retain(|j| j.sha != job.sha);
+        }
         self.held
             .lock()
             .unwrap()

@@ -357,7 +357,7 @@ fn workq_latest_claim_supersede_complete() {
     }
     // Labels gate: a job requiring a label we lack is skipped.
     s.enqueue(&j("lab_sha", &["arch=arm64"])).unwrap();
-    assert!(matches!(s.claim_next("w1", none, &keys).unwrap(), None));
+    assert!(s.claim_next("w1", none, &keys).unwrap().is_none());
     // A stale completer mustn't settle a peer's re-claim.
     s.complete(&j("new_sha", &[]), "intruder").unwrap();
     // Real holder completes -> entry LREM'd + done marker set.
@@ -420,7 +420,7 @@ fn workq_pruned_and_all_policy() {
         _ => panic!("expected pruned outcome"),
     }
     // Next scan: the leased newest is the only entry; sup empty -> break.
-    assert!(matches!(s.claim_next("w1", none, &keys).unwrap(), None));
+    assert!(s.claim_next("w1", none, &keys).unwrap().is_none());
     // all-policy: oldest claimable wins; held entries are skipped.
     // Seed a broken entry, a done entry and a label-gated entry so
     // every skip arm runs during the scan.

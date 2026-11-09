@@ -3,6 +3,28 @@
 //! eviction, publish_order degenerate inputs.
 
 use bupha_core::*;
+use std::sync::Mutex;
+
+/// $HOME is process-global — the two tilde tests below mutate it;
+/// serialize them so a parallel sibling can't observe a half-set
+/// value (or inherit the leak).
+static HOME_LOCK: Mutex<()> = Mutex::new(());
+
+/// Restore $HOME at scope end.
+struct HomeGuard(Option<String>);
+impl HomeGuard {
+    fn capture() -> Self {
+        Self(std::env::var("HOME").ok())
+    }
+}
+impl Drop for HomeGuard {
+    fn drop(&mut self) {
+        match &self.0 {
+            Some(h) => std::env::set_var("HOME", h),
+            None => std::env::remove_var("HOME"),
+        }
+    }
+}
 
 #[test]
 fn sha_validation_bounds() {
@@ -378,7 +400,8 @@ fn publish_order_degenerate() {
 /// one test fn so nothing races with parallel env readers.
 #[test]
 fn tilde_expansion_variants() {
-    let saved = std::env::var("HOME").ok();
+    let _g = HOME_LOCK.lock().unwrap();
+    let _home = HomeGuard::capture();
     std::env::set_var("HOME", "/h/u");
     // ~/rest and bare ~ expand; ~user and non-tilde pass through.
     assert_eq!(expand_tilde("~/x"), "/h/u/x");
@@ -391,13 +414,12 @@ fn tilde_expansion_variants() {
     assert_eq!(expand_tilde("~/x"), "~/x");
     std::env::remove_var("HOME");
     assert_eq!(expand_tilde("~/x"), "~/x");
-    if let Some(h) = saved {
-        std::env::set_var("HOME", h);
-    }
 }
 
 #[test]
 fn config_expand_tilde_all_fields() {
+    let _g = HOME_LOCK.lock().unwrap();
+    let _home = HomeGuard::capture();
     std::env::set_var("HOME", "/h/u");
     let mut cfg: Config = toml::from_str(
         r#"

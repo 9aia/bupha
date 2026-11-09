@@ -3,9 +3,30 @@
 
 use bupha_runner::{RunCtx, Runner};
 use bupha_shell::{ShellCfg, ShellRunner};
+use std::sync::Mutex;
+
+/// Env (PATH) is process-global — serialize this file's tests so
+/// the exclusive-PATH setup can't break the parallel bash spawn.
+static LOCK: Mutex<()> = Mutex::new(());
+
+/// Restore PATH at scope end.
+struct PathGuard(Option<String>);
+impl PathGuard {
+    fn capture() -> Self {
+        Self(std::env::var("PATH").ok())
+    }
+}
+impl Drop for PathGuard {
+    fn drop(&mut self) {
+        if let Some(p) = &self.0 {
+            std::env::set_var("PATH", p);
+        }
+    }
+}
 
 #[test]
 fn name_and_default_cmd() {
+    let _g = LOCK.lock().unwrap();
     let r = ShellRunner::new(ShellCfg {
         cmd: None,
         isolate: None,
@@ -28,6 +49,8 @@ fn name_and_default_cmd() {
 
 #[test]
 fn spawn_fails_without_bash() {
+    let _g = LOCK.lock().unwrap();
+    let _path = PathGuard::capture();
     // An empty PATH dir makes `bash` unresolvable.
     let d = std::env::temp_dir().join(format!("bupha-sh2-{}", std::process::id()));
     std::fs::create_dir_all(&d).unwrap();

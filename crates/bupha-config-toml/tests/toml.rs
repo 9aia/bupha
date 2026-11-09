@@ -36,14 +36,8 @@ fn tilde_expands() {
 #[test]
 fn missing_and_malformed_err() {
     let p = scratch("m").join("nope.toml");
-    assert!(TomlSource { path: p }
-        .load()
-        .unwrap_err()
-        .contains("read"));
+    assert!(TomlSource { path: p }.load().unwrap_err().contains("read"));
     let p = scratch("b").join("bupha.toml");
     std::fs::write(&p, "[[[").unwrap();
-    assert!(TomlSource { path: p }
-        .load()
-        .unwrap_err()
-        .contains("parse"));
+    assert!(TomlSource { path: p }.load().unwrap_err().contains("parse"));
 }

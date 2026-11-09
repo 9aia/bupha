@@ -5,6 +5,27 @@
 use bupha_container::{ContainerCfg, ContainerRunner};
 use bupha_runner::{RunCtx, Runner};
 use std::path::{Path, PathBuf};
+use std::sync::Mutex;
+
+/// Env (PATH) is process-global — serialize this file's tests so
+/// exclusive-PATH setups can't break a parallel sibling.
+static LOCK: Mutex<()> = Mutex::new(());
+
+/// Restore PATH at scope end — tests run serialized under LOCK but
+/// a leaked exclusive PATH would break the next sibling's stubs.
+struct PathGuard(Option<String>);
+impl PathGuard {
+    fn capture() -> Self {
+        Self(std::env::var("PATH").ok())
+    }
+}
+impl Drop for PathGuard {
+    fn drop(&mut self) {
+        if let Some(p) = &self.0 {
+            std::env::set_var("PATH", p);
+        }
+    }
+}
 
 fn dir(tag: &str) -> PathBuf {
     let d = std::env::temp_dir().join(format!("bupha-ctr-{}-{tag}", std::process::id()));
@@ -52,6 +73,8 @@ fn ctx<'a>(wd: &'a Path) -> RunCtx<'a> {
 
 #[test]
 fn podman_run_args() {
+    let _g = LOCK.lock().unwrap();
+    let _path = PathGuard::capture();
     let d = dir("pod");
     stub(&d, "podman", 0);
     path_with(&d);
@@ -73,6 +96,8 @@ fn podman_run_args() {
 
 #[test]
 fn docker_engine_and_default_cmd() {
+    let _g = LOCK.lock().unwrap();
+    let _path = PathGuard::capture();
     let d = dir("dck");
     stub(&d, "docker", 0);
     path_with(&d);
@@ -91,6 +116,8 @@ fn docker_engine_and_default_cmd() {
 
 #[test]
 fn spawn_fails_without_engine() {
+    let _g = LOCK.lock().unwrap();
+    let _path = PathGuard::capture();
     let d = dir("nope");
     std::env::set_var("PATH", &d);
     let r = ContainerRunner::new(ContainerCfg {

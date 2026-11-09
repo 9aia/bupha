@@ -137,7 +137,7 @@ fn dq_escape(s: &str) -> String {
 /// (rsync expands `host:~/…` itself; remote bash does not).
 fn shell_dir(rdir: &str) -> String {
     match rdir.strip_prefix('~') {
-        Some(rest) if rest.is_empty() => "\"$HOME\"".into(),
+        Some("") => "\"$HOME\"".into(),
         Some(rest) if rest.starts_with('/') => format!("\"$HOME\"/{}", dq_escape(&rest[1..])),
         _ => dq_escape(rdir),
     }

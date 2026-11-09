@@ -16,8 +16,8 @@ impl ConfigSource for TomlSource {
     fn load(&self) -> Result<bupha_core::Config, String> {
         let text = std::fs::read_to_string(&self.path)
             .map_err(|e| format!("read {}: {e}", self.path.display()))?;
-        let mut cfg: bupha_core::Config = toml::from_str(&text)
-            .map_err(|e| format!("parse {}: {e}", self.path.display()))?;
+        let mut cfg: bupha_core::Config =
+            toml::from_str(&text).map_err(|e| format!("parse {}: {e}", self.path.display()))?;
         cfg.expand_tilde();
         Ok(cfg)
     }

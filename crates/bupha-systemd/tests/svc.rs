@@ -5,6 +5,38 @@
 use bupha_service::Service;
 use bupha_systemd::{self as deploy, SystemdService};
 use std::path::{Path, PathBuf};
+use std::sync::Mutex;
+
+/// Env (HOME, PATH) is process-global — serialize this file's tests
+/// so exclusive-PATH/HOME setups can't break a parallel sibling.
+static LOCK: Mutex<()> = Mutex::new(());
+
+/// Restore HOME/PATH at scope end — tests run serialized under LOCK
+/// but a leaked exclusive PATH/HOME would break the next sibling.
+struct EnvGuard {
+    home: Option<std::ffi::OsString>,
+    path: Option<std::ffi::OsString>,
+}
+impl EnvGuard {
+    fn capture() -> Self {
+        Self {
+            home: std::env::var_os("HOME"),
+            path: std::env::var_os("PATH"),
+        }
+    }
+}
+impl Drop for EnvGuard {
+    fn drop(&mut self) {
+        match &self.home {
+            Some(v) => std::env::set_var("HOME", v),
+            None => std::env::remove_var("HOME"),
+        }
+        match &self.path {
+            Some(v) => std::env::set_var("PATH", v),
+            None => std::env::remove_var("PATH"),
+        }
+    }
+}
 
 fn dir(tag: &str) -> PathBuf {
     let d = std::env::temp_dir().join(format!("bupha-svc-{}-{tag}", std::process::id()));
@@ -45,6 +77,8 @@ fn ok_systemctl(dir: &Path) {
 
 #[test]
 fn enable_stop_restart_status_logs() {
+    let _g = LOCK.lock().unwrap();
+    let _env = EnvGuard::capture();
     let home = dir("h1");
     let stubs = dir("s1");
     env_with(&home, &stubs);
@@ -86,6 +120,8 @@ fn enable_stop_restart_status_logs() {
 
 #[test]
 fn failures_propagate() {
+    let _g = LOCK.lock().unwrap();
+    let _env = EnvGuard::capture();
     let home = dir("h2");
     let stubs = dir("s2");
     env_with(&home, &stubs);
@@ -102,6 +138,8 @@ fn failures_propagate() {
 
 #[test]
 fn missing_tools_report_unknown_and_err() {
+    let _g = LOCK.lock().unwrap();
+    let _env = EnvGuard::capture();
     let home = dir("h3");
     let stubs = dir("s3"); // no systemctl/journalctl inside
     env_with(&home, &stubs);
@@ -118,6 +156,8 @@ fn missing_tools_report_unknown_and_err() {
 
 #[test]
 fn disable_removes_unit_and_env_skeleton() {
+    let _g = LOCK.lock().unwrap();
+    let _env = EnvGuard::capture();
     let home = dir("h4");
     let stubs = dir("s4");
     env_with(&home, &stubs);
@@ -167,6 +207,8 @@ fn disable_removes_unit_and_env_skeleton() {
 
 #[test]
 fn skeleton_error_and_disable_error() {
+    let _g = LOCK.lock().unwrap();
+    let _env = EnvGuard::capture();
     let home = dir("h5");
     let stubs = dir("s5");
     env_with(&home, &stubs);
@@ -188,6 +230,8 @@ fn skeleton_error_and_disable_error() {
 
 #[test]
 fn write_unit_and_skeleton_write_errors() {
+    let _g = LOCK.lock().unwrap();
+    let _env = EnvGuard::capture();
     let home = dir("h6");
     let stubs = dir("s6");
     env_with(&home, &stubs);

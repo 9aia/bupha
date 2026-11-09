@@ -810,6 +810,7 @@ fn worker_id() -> String {
 
 /// Post-run bookkeeping shared by the watch worker and the fleet
 /// puller: telemetry, history, attestation.
+#[allow(clippy::too_many_arguments)]
 fn settle_run(
     cfg: &Config,
     telemetry: &dyn Telemetry,

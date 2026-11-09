@@ -5,6 +5,27 @@
 use bupha_dagger::{DaggerCfg, DaggerRunner};
 use bupha_runner::{RunCtx, Runner};
 use std::path::{Path, PathBuf};
+use std::sync::Mutex;
+
+/// Env (PATH) is process-global — serialize this file's tests so
+/// exclusive-PATH setups can't break a parallel sibling.
+static LOCK: Mutex<()> = Mutex::new(());
+
+/// Restore PATH at scope end — tests run serialized under LOCK but
+/// a leaked exclusive PATH would break the next sibling's stubs.
+struct PathGuard(Option<String>);
+impl PathGuard {
+    fn capture() -> Self {
+        Self(std::env::var("PATH").ok())
+    }
+}
+impl Drop for PathGuard {
+    fn drop(&mut self) {
+        if let Some(p) = &self.0 {
+            std::env::set_var("PATH", p);
+        }
+    }
+}
 
 fn dir(tag: &str) -> PathBuf {
     let d = std::env::temp_dir().join(format!("bupha-dgr-{}-{tag}", std::process::id()));
@@ -53,6 +74,8 @@ fn cfg() -> DaggerCfg {
 
 #[test]
 fn all_args_emitted() {
+    let _g = LOCK.lock().unwrap();
+    let _path = PathGuard::capture();
     let d = dir("all");
     stub_dagger(&d, 0);
     let r = DaggerRunner::new(cfg(), Some("sibling-src".into()));
@@ -84,6 +107,8 @@ fn all_args_emitted() {
 
 #[test]
 fn minimal_args() {
+    let _g = LOCK.lock().unwrap();
+    let _path = PathGuard::capture();
     let d = dir("min");
     stub_dagger(&d, 0);
     let r = DaggerRunner::new(
@@ -115,6 +140,8 @@ fn minimal_args() {
 
 #[test]
 fn spawn_fails_without_dagger() {
+    let _g = LOCK.lock().unwrap();
+    let _path = PathGuard::capture();
     let d = dir("nope");
     std::env::set_var("PATH", &d);
     let r = DaggerRunner::new(cfg(), None);
@@ -130,6 +157,8 @@ fn spawn_fails_without_dagger() {
 
 #[test]
 fn failing_run_propagates_status() {
+    let _g = LOCK.lock().unwrap();
+    let _path = PathGuard::capture();
     let d = dir("fail");
     stub_dagger(&d, 3);
     let r = DaggerRunner::new(cfg(), None);
