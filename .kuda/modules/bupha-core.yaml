@@ -37,6 +37,16 @@ api:
   file: crates/bupha-core/src/lib.rs
   line: 150
   module: bupha-core
+- name: HOME_LOCK
+  kind: const
+  file: crates/bupha-core/tests/domain.rs
+  line: 11
+  module: bupha-core
+- name: HomeGuard
+  kind: type
+  file: crates/bupha-core/tests/domain.rs
+  line: 14
+  module: bupha-core
 - name: JobEntry
   kind: type
   file: crates/bupha-core/src/lib.rs
@@ -122,10 +132,15 @@ api:
   file: crates/bupha-core/Cargo.toml
   line: 1
   module: bupha-core
+- name: capture
+  kind: function
+  file: crates/bupha-core/tests/domain.rs
+  line: 16
+  module: bupha-core
 - name: config_expand_tilde_all_fields
   kind: function
   file: crates/bupha-core/tests/domain.rs
-  line: 400
+  line: 420
   module: bupha-core
 - name: cycle_errors
   kind: function
@@ -187,22 +202,7 @@ api:
   file: crates/bupha-core/src/lib.rs
   line: 224
   module: bupha-core
-- name: default_agent_listen
-  kind: function
-  file: crates/bupha-core/src/lib.rs
-  line: 380
-  module: bupha-core
-- name: default_agent_secret_env
-  kind: function
-  file: crates/bupha-core/src/lib.rs
-  line: 384
-  module: bupha-core
-- name: default_api_base
-  kind: function
-  file: crates/bupha-core/src/lib.rs
-  line: 205
-  module: bupha-core
-api_omitted: 54
+api_omitted: 58
 deps:
 - serde
 - serde_json
@@ -224,7 +224,7 @@ provenance:
   - 2949c06c8e71ef5da170506ce9cd8dfbb7312ce3
   - 87b71b6f75b7c43b85a239f5beccb5658404da3d
   - eaf5e74313b7393277e9a2bb3b2fa036cdfc2d3f
-  - 31d0720a548a2d3028e65efd43d02c823c3dfb62
-  commit_sha: 29db661af1c41a0b6f3dc587582530fa86b9f806
-  generated_at: '1793763847'
+  - e507aff33522cac687b6bb04b9f5d4789f3d3d4a
+  commit_sha: 804e98a4c3563e04363c85c0957e703865ff33bb
+  generated_at: '1794198342'
   generator: kuda-template/0.1.2

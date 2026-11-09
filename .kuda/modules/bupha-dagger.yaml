@@ -12,20 +12,35 @@ api:
   file: crates/bupha-dagger/src/lib.rs
   line: 44
   module: bupha-dagger
+- name: LOCK
+  kind: const
+  file: crates/bupha-dagger/tests/runner.rs
+  line: 12
+  module: bupha-dagger
+- name: PathGuard
+  kind: type
+  file: crates/bupha-dagger/tests/runner.rs
+  line: 16
+  module: bupha-dagger
 - name: all_args_emitted
   kind: function
   file: crates/bupha-dagger/tests/runner.rs
-  line: 55
+  line: 76
   module: bupha-dagger
 - name: bupha-dagger
   kind: module
   file: crates/bupha-dagger/Cargo.toml
   line: 1
   module: bupha-dagger
+- name: capture
+  kind: function
+  file: crates/bupha-dagger/tests/runner.rs
+  line: 18
+  module: bupha-dagger
 - name: cfg
   kind: function
   file: crates/bupha-dagger/tests/runner.rs
-  line: 41
+  line: 62
   module: bupha-dagger
 - name: default_function
   kind: function
@@ -45,17 +60,22 @@ api:
 - name: dir
   kind: function
   file: crates/bupha-dagger/tests/runner.rs
-  line: 9
+  line: 30
+  module: bupha-dagger
+- name: drop
+  kind: function
+  file: crates/bupha-dagger/tests/runner.rs
+  line: 23
   module: bupha-dagger
 - name: failing_run_propagates_status
   kind: function
   file: crates/bupha-dagger/tests/runner.rs
-  line: 132
+  line: 159
   module: bupha-dagger
 - name: minimal_args
   kind: function
   file: crates/bupha-dagger/tests/runner.rs
-  line: 86
+  line: 109
   module: bupha-dagger
 - name: name
   kind: function
@@ -75,12 +95,12 @@ api:
 - name: spawn_fails_without_dagger
   kind: function
   file: crates/bupha-dagger/tests/runner.rs
-  line: 117
+  line: 142
   module: bupha-dagger
 - name: stub_dagger
   kind: function
   file: crates/bupha-dagger/tests/runner.rs
-  line: 16
+  line: 37
   module: bupha-dagger
 deps:
 - bupha-core
@@ -102,7 +122,7 @@ provenance:
   hashes:
   - 6ebc856617d9589fc7fa9c6363696d2e543e5f0b
   - 1df6231881479c8c56a4ee2f99daf2c868d52794
-  - 6175e00ca01861a5e2c0e1d26e02c4cdcc70ed55
-  commit_sha: 2a6dcebac3778d8c539075212ef7514729e6a60a
-  generated_at: '1793687787'
+  - 1bbd0cbc18bc9f213ecd63b85e6ce85659eafa05
+  commit_sha: 804e98a4c3563e04363c85c0957e703865ff33bb
+  generated_at: '1794198342'
   generator: kuda-template/0.1.2

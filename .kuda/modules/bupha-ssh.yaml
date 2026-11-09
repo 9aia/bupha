@@ -216,8 +216,8 @@ provenance:
   - crates/bupha-ssh/tests/runner.rs
   hashes:
   - 29f876e5787cf84ffefed9baa070cee30bda8972
-  - ee3e843f5969d2b16f3420337531a9a59e10a0f5
+  - 98aa284b10e83d21baac7c93f4201786124e47b1
   - 2c4c511ec253d0164146f89f4c01f9b8c29c5b26
-  commit_sha: 29db661af1c41a0b6f3dc587582530fa86b9f806
-  generated_at: '1793763847'
+  commit_sha: 804e98a4c3563e04363c85c0957e703865ff33bb
+  generated_at: '1794198342'
   generator: kuda-template/0.1.2

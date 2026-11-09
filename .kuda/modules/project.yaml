@@ -187,11 +187,6 @@ api:
   file: project/TODO.md
   line: 6
   module: project
-- name: T-045
-  kind: record
-  file: project/TODO.md
-  line: 7
-  module: project
 deps: []
 warnings:
 - 'project/issues/issue-0003-unvalidated-sha-on-non-webhook-paths-worktree-path-traversal-git-option-injection.md: schema: "critical" is not one of "low", "med" or 3 other candidates'
@@ -232,7 +227,7 @@ provenance:
   - project/proposals/proposal-0001-status-signature-attestation-link-in-commit-status-body.md
   hashes:
   - 3da860598e3e77ec43cce7d6e537274c761aca4c
-  - bc2e1d4e9615a8c8b5fd9c100e75815e5ab450b8
+  - a8220fba525dd40a74bee2aecf455783f1e705a9
   - 2dc7665583c806fc5a5a09d8c2ad485b2888aa4b
   - 83ad74c3b209b9f10a7edd820fd31e8d583e5489
   - 522318709a3923d3396a224c9968ee4471e7750e
@@ -252,6 +247,6 @@ provenance:
   - 754f2219f7c59af7eb3add454d07669932d45edd
   - 002b0049113c3dc274fc3c858e2ec68c97a8b63d
   - df3eb22a6b42fbc7a4353c8d160b5b4387205b8f
-  commit_sha: 2d4a96daf7ba7229d45d539225fd64293e5c01a3
-  generated_at: '1794195473'
+  commit_sha: 804e98a4c3563e04363c85c0957e703865ff33bb
+  generated_at: '1794198342'
   generator: kuda-template/0.1.2

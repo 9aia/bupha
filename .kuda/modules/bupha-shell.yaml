@@ -2,6 +2,16 @@ name: bupha-shell
 path: crates/bupha-shell/Cargo.toml
 purpose: 'Runner impl: bash -c <cmd> per job — no containers'
 api:
+- name: LOCK
+  kind: const
+  file: crates/bupha-shell/tests/more.rs
+  line: 10
+  module: bupha-shell
+- name: PathGuard
+  kind: type
+  file: crates/bupha-shell/tests/more.rs
+  line: 13
+  module: bupha-shell
 - name: ScopeHandle
   kind: type
   file: crates/bupha-shell/src/lib.rs
@@ -21,6 +31,16 @@ api:
   kind: module
   file: crates/bupha-shell/Cargo.toml
   line: 1
+  module: bupha-shell
+- name: capture
+  kind: function
+  file: crates/bupha-shell/tests/more.rs
+  line: 15
+  module: bupha-shell
+- name: drop
+  kind: function
+  file: crates/bupha-shell/tests/more.rs
+  line: 20
   module: bupha-shell
 - name: failure_desc
   kind: function
@@ -45,7 +65,7 @@ api:
 - name: name_and_default_cmd
   kind: function
   file: crates/bupha-shell/tests/more.rs
-  line: 8
+  line: 28
   module: bupha-shell
 - name: new
   kind: function
@@ -65,7 +85,7 @@ api:
 - name: spawn_fails_without_bash
   kind: function
   file: crates/bupha-shell/tests/more.rs
-  line: 30
+  line: 51
   module: bupha-shell
 - name: try_wait
   kind: function
@@ -104,8 +124,8 @@ provenance:
   hashes:
   - 6dce52587f4d41a91e9f578dddf2fec383a2f3a2
   - d6e7c808b875dc618924a84d7c804a4a01ee37b4
-  - f98a2286219bb250e56939eaf5d79ea499b4792a
+  - 830a73e28fadf772454d7cca3bcae90710936bab
   - f512d2a60d91d59646fa1296631c65071811c869
-  commit_sha: 2a6dcebac3778d8c539075212ef7514729e6a60a
-  generated_at: '1793687787'
+  commit_sha: 804e98a4c3563e04363c85c0957e703865ff33bb
+  generated_at: '1794198342'
   generator: kuda-template/0.1.2

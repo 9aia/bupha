@@ -50,7 +50,7 @@ api:
 - name: extension_picks_syntax
   kind: function
   file: crates/bupha-config-file/tests/dispatch.rs
-  line: 43
+  line: 41
   module: bupha-config-file
 - name: is_yaml
   kind: function
@@ -117,9 +117,9 @@ provenance:
   hashes:
   - 90556965fe774768db42f410ce6430ce8dd30f55
   - c9f433fa3c34b43809f5233f52d479c77850183f
-  - b3f57df7d478faef4c32be98cb7500f348763309
+  - dba1e01dbb4195eed72c776a6cf838dda86a21b1
   - 29a3085a3c73b6653d16cffd753921b0e9e2c89b
   - 56f3c0d733b468e1350be40e67796855405bb039
-  commit_sha: b29f20b2a40520508f43b19bff8eb2e9406a6dee
-  generated_at: '1793765340'
+  commit_sha: 804e98a4c3563e04363c85c0957e703865ff33bb
+  generated_at: '1794198342'
   generator: kuda-template/0.1.2

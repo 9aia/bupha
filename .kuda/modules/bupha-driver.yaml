@@ -15,7 +15,7 @@ api:
 - name: MIN_CONFIG
   kind: const
   file: crates/bupha-driver/src/data.rs
-  line: 241
+  line: 259
   module: bupha-driver
 - name: Plane
   kind: type
@@ -95,7 +95,7 @@ api:
 - name: ctx
   kind: function
   file: crates/bupha-driver/src/data.rs
-  line: 228
+  line: 246
   module: bupha-driver
 - name: ctx_base
   kind: function
@@ -145,7 +145,7 @@ api:
 - name: expand_tilde_branches
   kind: function
   file: crates/bupha-driver/src/data.rs
-  line: 244
+  line: 262
   module: bupha-driver
 - name: history_path
   kind: function
@@ -160,12 +160,12 @@ api:
 - name: history_records_missing_file_is_empty
   kind: function
   file: crates/bupha-driver/src/data.rs
-  line: 303
+  line: 321
   module: bupha-driver
 - name: history_records_skips_corrupt_lines
   kind: function
   file: crates/bupha-driver/src/data.rs
-  line: 309
+  line: 327
   module: bupha-driver
 - name: home_dir
   kind: function
@@ -242,13 +242,13 @@ provenance:
   - crates/bupha-driver/tests/verbs.rs
   hashes:
   - 31e1240c322325b504640069f52840f948f5f4bf
-  - 0469fd25e3ad5ca25bdfc0064a1fbd683d8dfed1
+  - 292745af60a6bc6c289a0f5c534dbfea4fd7bdc7
   - d86e5cf85b3c72f409be6d9599a65504d54f822e
   - 60c5a429cde47facc7cb7a21d89bac8deb6a56c0
   - 3fd86f049b7a1d9e2346cf7fb66a91c3d8dc4083
   - 39c206d85acc5c3cc6a666f4b3547eb240197a0a
   - 17f411861a0e6854e68c84d6d49453d7ed147079
   - 8e7de3f9f70d0fa8a2b8d56c947130e03c4b25da
-  commit_sha: 2d4a96daf7ba7229d45d539225fd64293e5c01a3
-  generated_at: '1794195473'
+  commit_sha: 804e98a4c3563e04363c85c0957e703865ff33bb
+  generated_at: '1794198342'
   generator: kuda-template/0.1.2

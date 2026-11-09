@@ -12,15 +12,30 @@ api:
   file: crates/bupha-container/src/lib.rs
   line: 34
   module: bupha-container
+- name: LOCK
+  kind: const
+  file: crates/bupha-container/tests/run.rs
+  line: 12
+  module: bupha-container
+- name: PathGuard
+  kind: type
+  file: crates/bupha-container/tests/run.rs
+  line: 16
+  module: bupha-container
 - name: bupha-container
   kind: module
   file: crates/bupha-container/Cargo.toml
   line: 1
   module: bupha-container
+- name: capture
+  kind: function
+  file: crates/bupha-container/tests/run.rs
+  line: 18
+  module: bupha-container
 - name: ctx
   kind: function
   file: crates/bupha-container/tests/run.rs
-  line: 44
+  line: 65
   module: bupha-container
 - name: default_engine
   kind: function
@@ -30,7 +45,7 @@ api:
 - name: default_engine
   kind: function
   file: crates/bupha-container/tests/run.rs
-  line: 106
+  line: 133
   module: bupha-container
 - name: default_network
   kind: function
@@ -40,12 +55,17 @@ api:
 - name: dir
   kind: function
   file: crates/bupha-container/tests/run.rs
-  line: 9
+  line: 30
   module: bupha-container
 - name: docker_engine_and_default_cmd
   kind: function
   file: crates/bupha-container/tests/run.rs
-  line: 75
+  line: 98
+  module: bupha-container
+- name: drop
+  kind: function
+  file: crates/bupha-container/tests/run.rs
+  line: 23
   module: bupha-container
 - name: name
   kind: function
@@ -60,12 +80,12 @@ api:
 - name: path_with
   kind: function
   file: crates/bupha-container/tests/run.rs
-  line: 33
+  line: 54
   module: bupha-container
 - name: podman_run_args
   kind: function
   file: crates/bupha-container/tests/run.rs
-  line: 54
+  line: 75
   module: bupha-container
 - name: spawn
   kind: function
@@ -75,12 +95,12 @@ api:
 - name: spawn_fails_without_engine
   kind: function
   file: crates/bupha-container/tests/run.rs
-  line: 93
+  line: 118
   module: bupha-container
 - name: stub
   kind: function
   file: crates/bupha-container/tests/run.rs
-  line: 16
+  line: 37
   module: bupha-container
 deps:
 - bupha-runner
@@ -100,7 +120,7 @@ provenance:
   hashes:
   - ed119b77d73632bed5f8699fe776993139cce885
   - 3c7c0737799d9cc2061e27c9d35573bc55bb2828
-  - 84326c7968d451b380241e80fde18f028eeffd4a
-  commit_sha: 2a6dcebac3778d8c539075212ef7514729e6a60a
-  generated_at: '1793687787'
+  - 1de68ad07747aca31775333eae70fefb084b8bc5
+  commit_sha: 804e98a4c3563e04363c85c0957e703865ff33bb
+  generated_at: '1794198342'
   generator: kuda-template/0.1.2

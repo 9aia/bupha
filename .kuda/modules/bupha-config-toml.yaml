@@ -54,8 +54,8 @@ provenance:
   - crates/bupha-config-toml/tests/toml.rs
   hashes:
   - f1fc22a2f89214a9691ed2fd8d63142b79b58671
-  - c58e3c85f5840d2b2a4ae84d8a5aed36858db4a6
-  - 3ac36e6a27e4eb022894453c4f3fb55e77b72de9
-  commit_sha: b29f20b2a40520508f43b19bff8eb2e9406a6dee
-  generated_at: '1793765340'
+  - 268b1f6b0aec5f2441c16d30bb3759d349e986de
+  - ed56600dc7177924c19f224a23aea40cf5ba71fb
+  commit_sha: 804e98a4c3563e04363c85c0957e703865ff33bb
+  generated_at: '1794198342'
   generator: kuda-template/0.1.2

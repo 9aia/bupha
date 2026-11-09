@@ -2,6 +2,16 @@ name: bupha-attest-sigstore
 path: crates/bupha-attest-sigstore/Cargo.toml
 purpose: 'Attest adapter: cosign-signed run predicates (needs cosign + key)'
 api:
+- name: LOCK
+  kind: const
+  file: crates/bupha-attest-sigstore/tests/cosign.rs
+  line: 12
+  module: bupha-attest-sigstore
+- name: PathGuard
+  kind: type
+  file: crates/bupha-attest-sigstore/tests/cosign.rs
+  line: 16
+  module: bupha-attest-sigstore
 - name: SigstoreAttest
   kind: type
   file: crates/bupha-attest-sigstore/src/lib.rs
@@ -10,7 +20,7 @@ api:
 - name: att
   kind: function
   file: crates/bupha-attest-sigstore/tests/cosign.rs
-  line: 27
+  line: 48
   module: bupha-attest-sigstore
 - name: attest
   kind: function
@@ -22,45 +32,55 @@ api:
   file: crates/bupha-attest-sigstore/Cargo.toml
   line: 1
   module: bupha-attest-sigstore
+- name: capture
+  kind: function
+  file: crates/bupha-attest-sigstore/tests/cosign.rs
+  line: 18
+  module: bupha-attest-sigstore
 - name: cosign_failure_errors
-  kind: function
-  file: crates/bupha-attest-sigstore/tests/cosign.rs
-  line: 91
-  module: bupha-attest-sigstore
-- name: dir
-  kind: function
-  file: crates/bupha-attest-sigstore/tests/cosign.rs
-  line: 9
-  module: bupha-attest-sigstore
-- name: keyless_omits_key_arg
-  kind: function
-  file: crates/bupha-attest-sigstore/tests/cosign.rs
-  line: 73
-  module: bupha-attest-sigstore
-- name: missing_cosign_reports_install_hint
-  kind: function
-  file: crates/bupha-attest-sigstore/tests/cosign.rs
-  line: 104
-  module: bupha-attest-sigstore
-- name: non_executable_cosign_propagates_error
   kind: function
   file: crates/bupha-attest-sigstore/tests/cosign.rs
   line: 116
   module: bupha-attest-sigstore
+- name: dir
+  kind: function
+  file: crates/bupha-attest-sigstore/tests/cosign.rs
+  line: 30
+  module: bupha-attest-sigstore
+- name: drop
+  kind: function
+  file: crates/bupha-attest-sigstore/tests/cosign.rs
+  line: 23
+  module: bupha-attest-sigstore
+- name: keyless_omits_key_arg
+  kind: function
+  file: crates/bupha-attest-sigstore/tests/cosign.rs
+  line: 96
+  module: bupha-attest-sigstore
+- name: missing_cosign_reports_install_hint
+  kind: function
+  file: crates/bupha-attest-sigstore/tests/cosign.rs
+  line: 131
+  module: bupha-attest-sigstore
+- name: non_executable_cosign_propagates_error
+  kind: function
+  file: crates/bupha-attest-sigstore/tests/cosign.rs
+  line: 145
+  module: bupha-attest-sigstore
 - name: path_with
   kind: function
   file: crates/bupha-attest-sigstore/tests/cosign.rs
-  line: 37
+  line: 58
   module: bupha-attest-sigstore
 - name: signs_predicate_and_stores_sig
   kind: function
   file: crates/bupha-attest-sigstore/tests/cosign.rs
-  line: 49
+  line: 70
   module: bupha-attest-sigstore
 - name: stub
   kind: function
   file: crates/bupha-attest-sigstore/tests/cosign.rs
-  line: 16
+  line: 37
   module: bupha-attest-sigstore
 deps:
 - bupha-attest
@@ -80,7 +100,7 @@ provenance:
   hashes:
   - f12b90da40b7e3bb81eeb84c1ccd8529f31722a0
   - 912f8356ff602b84f277a42e2f71bd6e7a6cd126
-  - 97adf81ae63bbc407a3d0f53180e9474f67c227a
-  commit_sha: 2a6dcebac3778d8c539075212ef7514729e6a60a
-  generated_at: '1793687787'
+  - a5f6dd632e28a8a3f5090a5cbd253455109c094c
+  commit_sha: 804e98a4c3563e04363c85c0957e703865ff33bb
+  generated_at: '1794198342'
   generator: kuda-template/0.1.2

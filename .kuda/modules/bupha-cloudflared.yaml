@@ -7,25 +7,45 @@ api:
   file: crates/bupha-cloudflared/src/lib.rs
   line: 13
   module: bupha-cloudflared
+- name: LOCK
+  kind: const
+  file: crates/bupha-cloudflared/tests/tunnel.rs
+  line: 13
+  module: bupha-cloudflared
+- name: PathGuard
+  kind: type
+  file: crates/bupha-cloudflared/tests/tunnel.rs
+  line: 17
+  module: bupha-cloudflared
 - name: args_of
   kind: function
   file: crates/bupha-cloudflared/tests/tunnel.rs
-  line: 55
+  line: 76
   module: bupha-cloudflared
 - name: bupha-cloudflared
   kind: module
   file: crates/bupha-cloudflared/Cargo.toml
   line: 1
   module: bupha-cloudflared
+- name: capture
+  kind: function
+  file: crates/bupha-cloudflared/tests/tunnel.rs
+  line: 19
+  module: bupha-cloudflared
 - name: cfg
   kind: function
   file: crates/bupha-cloudflared/tests/tunnel.rs
-  line: 44
+  line: 65
   module: bupha-cloudflared
 - name: dir
   kind: function
   file: crates/bupha-cloudflared/tests/tunnel.rs
-  line: 10
+  line: 31
+  module: bupha-cloudflared
+- name: drop
+  kind: function
+  file: crates/bupha-cloudflared/tests/tunnel.rs
+  line: 24
   module: bupha-cloudflared
 - name: name
   kind: function
@@ -35,7 +55,7 @@ api:
 - name: named_tunnel_args_and_public_url
   kind: function
   file: crates/bupha-cloudflared/tests/tunnel.rs
-  line: 80
+  line: 103
   module: bupha-cloudflared
 - name: new
   kind: function
@@ -50,7 +70,7 @@ api:
 - name: quick_tunnel_args
   kind: function
   file: crates/bupha-cloudflared/tests/tunnel.rs
-  line: 66
+  line: 87
   module: bupha-cloudflared
 - name: spawn
   kind: function
@@ -60,12 +80,12 @@ api:
 - name: spawn_fails_without_binary
   kind: function
   file: crates/bupha-cloudflared/tests/tunnel.rs
-  line: 93
+  line: 118
   module: bupha-cloudflared
 - name: stub_cloudflared
   kind: function
   file: crates/bupha-cloudflared/tests/tunnel.rs
-  line: 17
+  line: 38
   module: bupha-cloudflared
 deps:
 - bupha-core
@@ -85,7 +105,7 @@ provenance:
   hashes:
   - c6468e2b1603699af53234b1fa10040bc21f84b9
   - b0b010efc76a3f5188cb637c2491835bbc7a64ce
-  - 1047a30c9c68ded669402eb6a274e4b0caf25099
-  commit_sha: 2a6dcebac3778d8c539075212ef7514729e6a60a
-  generated_at: '1793687787'
+  - 5943b0ef7a53bda16aa8b1fbfeccada4d6dd1b79
+  commit_sha: 804e98a4c3563e04363c85c0957e703865ff33bb
+  generated_at: '1794198342'
   generator: kuda-template/0.1.2

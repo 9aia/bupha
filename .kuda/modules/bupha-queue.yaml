@@ -80,12 +80,12 @@ api:
 - name: mem_enqueue_rejects_unsafe_sha
   kind: function
   file: crates/bupha-queue/src/lib.rs
-  line: 201
+  line: 199
   module: bupha-queue
 - name: mem_workq_all_policy_fifo
   kind: function
   file: crates/bupha-queue/tests/store.rs
-  line: 125
+  line: 123
   module: bupha-queue
 - name: mem_workq_claim_complete_and_labels
   kind: function
@@ -110,7 +110,7 @@ api:
 - name: tests
   kind: module
   file: crates/bupha-queue/src/lib.rs
-  line: 197
+  line: 195
   module: bupha-queue
 deps:
 - bupha-core
@@ -128,8 +128,8 @@ provenance:
   - crates/bupha-queue/tests/store.rs
   hashes:
   - d8bdacf5871e0188feecd3c7ae3e53d622052a3d
-  - e6198ddff66e0ca382bf3a5a0bd2101a8e8d5552
-  - 2837447bdfa382b7653bb704f432692900f658b6
-  commit_sha: 29db661af1c41a0b6f3dc587582530fa86b9f806
-  generated_at: '1793763847'
+  - 668bd118db356e923c1094d58ca580f2062b5701
+  - 6969472b290b481ac9170c9bbd85c9a24e177784
+  commit_sha: 804e98a4c3563e04363c85c0957e703865ff33bb
+  generated_at: '1794198342'
   generator: kuda-template/0.1.2

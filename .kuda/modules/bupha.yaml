@@ -25,7 +25,7 @@ api:
 - name: DELEGATE_TEMPLATE
   kind: const
   file: crates/bupha-cli/src/main.rs
-  line: 1544
+  line: 1545
   module: bupha
 - name: DeploySub
   kind: type
@@ -40,7 +40,7 @@ api:
 - name: DocOut
   kind: type
   file: crates/bupha-cli/src/main.rs
-  line: 1570
+  line: 1571
   module: bupha
 - name: FailWait
   kind: type
@@ -65,17 +65,22 @@ api:
 - name: MODULE_REF
   kind: const
   file: crates/bupha-cli/src/main.rs
-  line: 1542
+  line: 1543
   module: bupha
 - name: N
   kind: const
   file: crates/bupha-cli/tests/watch.rs
-  line: 1092
+  line: 1093
   module: bupha
 - name: Poll
   kind: type
   file: crates/bupha-cli/src/main.rs
   line: 455
+  module: bupha
+- name: Rec
+  kind: type
+  file: crates/bupha-cli/tests/watch.rs
+  line: 174
   module: bupha
 - name: ServiceSub
   kind: type
@@ -100,12 +105,12 @@ api:
 - name: agent_error_exits
   kind: function
   file: crates/bupha-cli/tests/watch.rs
-  line: 1974
+  line: 1975
   module: bupha
 - name: agent_serves_and_http_runner_arm
   kind: function
   file: crates/bupha-cli/tests/watch.rs
-  line: 1895
+  line: 1896
   module: bupha
 - name: build_attest
   kind: function
@@ -165,7 +170,7 @@ api:
 - name: cancel_supersede_honest_statuses
   kind: function
   file: crates/bupha-cli/tests/watch.rs
-  line: 368
+  line: 369
   module: bupha
 - name: cfg
   kind: function
@@ -185,24 +190,19 @@ api:
 - name: cfg_text
   kind: function
   file: crates/bupha-cli/tests/watch.rs
-  line: 203
+  line: 204
   module: bupha
 - name: check
   kind: function
   file: crates/bupha-cli/src/main.rs
-  line: 1576
+  line: 1577
   module: bupha
 - name: cmd_agent
   kind: function
   file: crates/bupha-cli/src/main.rs
-  line: 1404
+  line: 1405
   module: bupha
-- name: cmd_deploy
-  kind: function
-  file: crates/bupha-cli/src/main.rs
-  line: 1959
-  module: bupha
-api_omitted: 124
+api_omitted: 125
 deps:
 - dagger-io
 - bupha-access
@@ -321,15 +321,15 @@ provenance:
   hashes:
   - 8e5083a2ac0f96144cf0b5854887eedb0c757dcd
   - c097e8565ff02fadefbe113d613a238cf8400bed
-  - c336bf7555428210eec0dcd8e6db5884d3910dc5
-  - 41b9ccc52c8b9c16b9264c2c1245637e7e64545a
+  - ed9b2ac76ac8c6a195f388ea30d6767792ffeba4
+  - 7b9643c47f2c7a05251aaa324b4a5b7d8a768e4e
   - e6680112289b06ae1e8d8d6659c60f2333c8ca23
   - 16a66bca9a602549e108d45e9d1233dbe2e7e34b
-  - 983c5e6918f0ae5b06d4954e56e0c57b0217c59b
+  - f7ce4dc828758cb9b9c497bf376619a8d6cba527
   - a787b6af9e98fd8cae6ece92467308d34e49bbce
   - 297de02314bb3e68d56e2e8a33bcad4ba6c92465
   - b266b7f034f3d194f5cba16fd2bf6a51886ccf46
   - 509a3147960f3aa59978a55730803da3c2ff0850
-  commit_sha: 2d4a96daf7ba7229d45d539225fd64293e5c01a3
-  generated_at: '1794195473'
+  commit_sha: 804e98a4c3563e04363c85c0957e703865ff33bb
+  generated_at: '1794198342'
   generator: kuda-template/0.1.2
