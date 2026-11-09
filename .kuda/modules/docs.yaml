@@ -1,0 +1,119 @@
+name: docs
+path: docs/package.json
+purpose: documentation corpus — pages as records, backticked refs as edges
+api:
+- name: Architecture
+  kind: record
+  file: docs/explanation/architecture.md
+  line: 1
+  module: docs
+- name: Command-Line Help for `bupha`
+  kind: record
+  file: docs/reference/cli.md
+  line: 1
+  module: docs
+- name: Config — `bupha.yaml` / `bupha.toml`
+  kind: record
+  file: docs/reference/config.md
+  line: 1
+  module: docs
+- name: Crate API
+  kind: record
+  file: docs/reference/crate-api.md
+  line: 1
+  module: docs
+- name: Distributed runners
+  kind: record
+  file: docs/how-to/distributed-runners.md
+  line: 1
+  module: docs
+- name: Getting started
+  kind: record
+  file: docs/getting-started.md
+  line: 1
+  module: docs
+- name: 'How-to: run without containers'
+  kind: record
+  file: docs/how-to/shell-runner.md
+  line: 1
+  module: docs
+- name: 'How-to: sccache backend'
+  kind: record
+  file: docs/how-to/sccache-backend.md
+  line: 1
+  module: docs
+- name: 'How-to: watch multiple repos'
+  kind: record
+  file: docs/how-to/multi-repo.md
+  line: 1
+  module: docs
+- name: The release model
+  kind: record
+  file: docs/explanation/release-model.md
+  line: 1
+  module: docs
+- name: 'Tutorial: your first bupha run'
+  kind: record
+  file: docs/tutorials/first-run.md
+  line: 1
+  module: docs
+- name: bupha vs hosted CI
+  kind: record
+  file: docs/comparison.md
+  line: 1
+  module: docs
+deps: []
+notes: ''
+verify:
+- docs/package.json
+- docs/comparison.md
+- docs/explanation/architecture.md
+- docs/explanation/release-model.md
+- docs/gen-api-index.py
+- docs/gen-config-docs.py
+- docs/gen-crate-map.py
+- docs/getting-started.md
+- docs/how-to/distributed-runners.md
+- docs/how-to/multi-repo.md
+provenance:
+  files:
+  - docs/comparison.md
+  - docs/explanation/architecture.md
+  - docs/explanation/release-model.md
+  - docs/gen-api-index.py
+  - docs/gen-config-docs.py
+  - docs/gen-crate-map.py
+  - docs/getting-started.md
+  - docs/how-to/distributed-runners.md
+  - docs/how-to/multi-repo.md
+  - docs/how-to/sccache-backend.md
+  - docs/how-to/shell-runner.md
+  - docs/index.md
+  - docs/package.json
+  - docs/public/api/static.files/SourceSerif4-LICENSE-a2cfd9d5.md
+  - docs/reference/cli.md
+  - docs/reference/config.md
+  - docs/reference/crate-api.md
+  - docs/tutorials/first-run.md
+  hashes:
+  - c2ddb396f43286f9bedec282a4c99e8f90ca47eb
+  - 342f9098904ff8454c2a041b2326597e67e55bd1
+  - 9dbdd7b6bbf4c07e8811a0842dc26ca4dd88ca8a
+  - 4190ba42e1402d3b750ddb42650ef4322a0ffda5
+  - 768bad3d834ab41488f660d9a512b78638543399
+  - bbd5eb7406ea4575ec41ab702a951fc85f6c346d
+  - 4cf5fe376d64f261d7db0fec59b606150e4b33a1
+  - 711ac6669b0af0c9e1f84c4b7aad1ab895b5c1e2
+  - 16fbf905102ef5a2a8cfd8b633c4854c6a5ecf9a
+  - 4ee7f2b425b4393d662c8e6d54a59b6272e22a6a
+  - 4831a71b4f2cf04bff365e8b1297a035f629ab5c
+  - f12f8973e61db5dc2c1924a5ac48cb77b7e1b94b
+  - 3383cb82ab33f666e6c2f4d9d9990cf647a3ca5f
+  - 175fa4f47aecdc02e902d243a1c29914eb2ee258
+  - e1a24e9797edb151014edb30991718d03e9ad68b
+  - 66162b8db114a707747f84246c8ef0c2f6afc83b
+  - fa785c76e1e5397e4e01daef23ac28e591afc6b9
+  - 37bee1e511822188060b6fe1d22ac4d7a9f417c2
+  commit_sha: 2d4a96daf7ba7229d45d539225fd64293e5c01a3
+  generated_at: '1794195473'
+  generator: kuda-template/0.1.2

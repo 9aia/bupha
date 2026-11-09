@@ -1,0 +1,32 @@
+[package]
+name = "bupha-driver"
+description = "tamias-driver-bupha — pavo view driver over bupha's on-disk run/queue state (read-only)"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+keywords = ["bupha", "pavo", "driver", "ci"]
+categories = ["development-tools"]
+
+[[bin]]
+name = "tamias-driver-bupha"
+path = "src/main.rs"
+
+[dependencies]
+bupha-core.workspace = true
+bupha-config.workspace = true
+bupha-config-file.workspace = true
+bupha-queue.workspace = true
+bupha-queue-redb.workspace = true
+bupha-systemd.workspace = true
+serde_json.workspace = true
+# The public wire contract — git dep so `cargo install --git` and CI
+# work without a sibling ../pavo checkout (bupha's CI has none;
+# path deps break workspace resolution on a fresh clone).
+# `version` is the crates.io fallback.
+pavo-protocol = { git = "https://github.com/9aia/pavo", version = "0.1.0" }
+
+[dev-dependencies]
+# Conformance gate — `cargo test` runs pavo's wire-contract suite
+# against this crate's own `tamias-driver-bupha serve` binary.
+pavo-testkit = { git = "https://github.com/9aia/pavo" }

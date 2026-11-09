@@ -43,6 +43,7 @@ members = [
     "crates/bupha-http",
     "crates/bupha-sturn",
     "crates/bupha-webhook",
+    "crates/bupha-driver",
 ]
 
 [workspace.package]
@@ -101,3 +102,4 @@ bupha-cloudflared = { path = "crates/bupha-cloudflared", version = "0.1.0" }
 bupha-systemd = { path = "crates/bupha-systemd", version = "0.1.0" }
 bupha-sturn = { path = "crates/bupha-sturn", version = "0.1.0" }
 bupha-webhook = { path = "crates/bupha-webhook", version = "0.1.0" }
+bupha-driver = { path = "crates/bupha-driver", version = "0.1.0" }

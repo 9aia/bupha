@@ -1,0 +1,80 @@
+# bupha-driver — `tamias-driver-bupha`
+
+The [pavo](https://github.com/9aia/pavo) view driver for
+[bupha](https://github.com/9aia/bupha) — read-only surfaces over
+bupha's on-disk CI state. Bin name is the tamias driver contract:
+`tamias-driver-bupha`.
+
+## Verbs
+
+| verb | output |
+| --- | --- |
+| `manifest` | the `DriverManifest` JSON (name `bupha`, views, contributes) |
+| `capabilities` | `{"capabilities": ["pavo"], "verbs": ["manifest","serve"], …}` |
+| `serve` | ndjson JSON-RPC on stdio — `{"op":"manifest"|"views"|"view"|"query"}` → `{"ok":true,"result":…}` / `{"ok":false,"error":…}` (pavo-protocol v1 wire) |
+
+`render`/`submit` answer explicit `ok:false` — the driver claims no
+renderers and no forms.
+
+Install: `cargo build --release -p bupha-driver` and put
+`target/release/tamias-driver-bupha` on `PATH`, or into
+`$TAMIAS_HOME/drivers/` (`~/.local/share/tamias/drivers`).
+
+## Which state does it read?
+
+bupha has **no serve wire** — its state is files under
+`worktree.base`, written by the watcher:
+
+| surface | source |
+| --- | --- |
+| run history | `<base>/history.jsonl` — one JSONL record per finished run (`{sha, repo, status, wall_secs}`), the same file `bupha runs`/`bupha log` read |
+| queue state | `<base>/queue.redb` — read through `bupha-queue-redb`'s `RedbQueueStore` via a temp snapshot copy: the watcher holds the live db lock (`Database already open`) for its whole lifetime, and a direct open could run recovery writes — the driver stays read-only |
+| watcher units | `systemctl --user is-enabled/is-active` via `bupha-systemd` — the probe `bupha service status` runs |
+
+The `bupha` CLI was **not** chosen as the data plane: `runs`, `log`,
+and `explain` print human-formatted text with no `--json`, so
+proxying them would mean parsing prose. Reading the files directly —
+through the same crates that write them — is the stable read path.
+`[queue] kind = "redis"` fleets keep queue state in redis; the queue
+view degrades to a note there.
+
+## Which `base`?
+
+First hit wins:
+
+1. **Request params** — `base` (a `worktree.base` path, `~` expands)
+   or `config` (a `bupha.toml`/`bupha.yaml` path, like `--config`).
+   e.g. `pavo view bupha:runs --param base=/tmp/bupha`.
+2. **Config discovery** via `bupha-config-file` — `$BUPHA_CONFIG`,
+   then `./bupha.{yaml,yml,toml}`, then
+   `~/.config/bupha/bupha.*` — the watcher's own order; the loaded
+   config supplies `worktree.base` and `[queue] kind`.
+3. **`/tmp/bupha`** — the compiled default.
+
+`manifest`/`views` never touch bupha state. Missing files degrade to
+empty tables; unreadable stores degrade to `{"error": …}` /
+`{"note": …}` payloads inside `ok:true` responses — the wire stays
+healthy and hosts render the failure inline.
+
+## Views
+
+| view | data | params |
+| --- | --- | --- |
+| `bupha:status` | plane digest — base, queue kind, history presence, pending count, unit states | — |
+| `bupha:runs` | `history.jsonl` tail | `repo` (matches `owner/name` + `owner/name:job` keys, like `bupha runs`), `limit` (default 100, keeps the tail) |
+| `bupha:queue` | `queue.redb` pending/running per key | — |
+| `bupha:repos` | latest history record per repo/job key — the "statuses on each sha" surface | `repo` |
+| `bupha:service` | `bupha-watch.service` + `bupha-worker.service` enabled/active | — |
+
+Read-only: the driver never writes queue/history/audit state and
+never invokes mutating `bupha` verbs.
+
+## Tests
+
+- `tests/conformance.rs` — pavo-testkit `check_driver_with` (120s
+  timeout, matching the sibling drivers).
+- `tests/serve.rs` — every wire op plus degraded/unknown/broken-pipe
+  paths.
+- `tests/verbs.rs` — the `manifest`/`capabilities`/usage verbs.
+- Unit tests cover the file-plane reads against tempdirs (the CI
+  coverage gate requires every line executed).

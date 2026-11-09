@@ -1,5 +1,5 @@
 name: bupha
-root: /home/luis/GitHub/9aia/bupha
+root: /home/luis/GitHub/9aia/workspace/repos/bupha
 purpose: '*Queue engine for event-driven jobs — shipped as CI.*'
 modules:
 - bupha
@@ -21,6 +21,7 @@ modules:
 - bupha-core
 - bupha-dagger
 - bupha-dotenv
+- bupha-driver
 - bupha-git
 - bupha-github
 - bupha-history
@@ -44,11 +45,13 @@ modules:
 - bupha-tunnel
 - bupha-vcs
 - bupha-webhook
+- docs
+- project
 commands:
 - cargo check
 - cargo test --workspace
-tree_digest: bfcef2c7769d6c718fc39bb46f66871bd0b1e7e1
-files_total: 134
+tree_digest: 54033d9bfea20de9142bcf4756610e37029942fb
+files_total: 181
 provenance:
   files:
   - Cargo.toml
@@ -72,6 +75,7 @@ provenance:
   - crates/bupha-core/Cargo.toml
   - crates/bupha-dagger/Cargo.toml
   - crates/bupha-dotenv/Cargo.toml
+  - crates/bupha-driver/Cargo.toml
   - crates/bupha-git/Cargo.toml
   - crates/bupha-github/Cargo.toml
   - crates/bupha-history/Cargo.toml
@@ -97,7 +101,7 @@ provenance:
   - crates/bupha-webhook/Cargo.toml
   - modules/dagger/dagger/pyproject.toml
   hashes:
-  - 2890f60b5822b26547c3ad1160bc15fdd8fa34c2
+  - 8e5083a2ac0f96144cf0b5854887eedb0c757dcd
   - a166155f92dac6af1203098e1315f9295ed0a2f8
   - faa9d3e3b2e30ebed8aecf8da83c4683f33024c8
   - d3b36ada9a99ed7e36e96e47a7beb1f5bf3fe348
@@ -118,6 +122,7 @@ provenance:
   - 2949c06c8e71ef5da170506ce9cd8dfbb7312ce3
   - 6ebc856617d9589fc7fa9c6363696d2e543e5f0b
   - 65cf007ad2f3d1e6517719d11469bc6e97b7326d
+  - 31e1240c322325b504640069f52840f948f5f4bf
   - 15329f105dd770552bcd21afd4cba3ac3467cded
   - 9a8bdeb02a9e8896e60f63d221a83f115d8a5980
   - bd3c49c8020bf9cc448326c4af9bd71df1191fb1
@@ -142,6 +147,6 @@ provenance:
   - 634f96eb54a20f970a3488c4356ca2c51ffefa70
   - cd8e10b771c3960ae45a2b6f7705fa9f1cdc6344
   - a787b6af9e98fd8cae6ece92467308d34e49bbce
-  commit_sha: 03524d6c777d0c18115defb979d4e2048e3fcdbf
-  generated_at: '1793765353'
+  commit_sha: 2d4a96daf7ba7229d45d539225fd64293e5c01a3
+  generated_at: '1794195473'
   generator: kuda/0.1.0
