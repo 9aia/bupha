@@ -290,6 +290,7 @@ dependencies = [
  "bupha-queue",
  "bupha-queue-redb",
  "bupha-systemd",
+ "pavo-driver-kit",
  "pavo-protocol",
  "pavo-testkit",
  "serde_json",
@@ -683,7 +684,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "39cab71617ae0d63f51a36d69f866391735b51691dbda63cf6f96d042b63efeb"
 dependencies = [
  "libc",
- "windows-sys 0.52.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -1033,9 +1034,19 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "04744f49eae99ab78e0d5c0b603ab218f515ea8cfe5a456d7629ad883a3b6e7d"
 
 [[package]]
+name = "pavo-driver-kit"
+version = "0.1.0"
+source = "git+https://github.com/9aia/pavo#090dcb4bde1a158f8c68b1ddbc85dddf191e4abb"
+dependencies = [
+ "pavo-protocol",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "pavo-protocol"
 version = "0.1.0"
-source = "git+https://github.com/9aia/pavo#130817eb3ba149f1cf2702a9b5c922c606b757dc"
+source = "git+https://github.com/9aia/pavo#090dcb4bde1a158f8c68b1ddbc85dddf191e4abb"
 dependencies = [
  "serde",
  "serde_json",
@@ -1045,7 +1056,7 @@ dependencies = [
 [[package]]
 name = "pavo-testkit"
 version = "0.1.0"
-source = "git+https://github.com/9aia/pavo#130817eb3ba149f1cf2702a9b5c922c606b757dc"
+source = "git+https://github.com/9aia/pavo#090dcb4bde1a158f8c68b1ddbc85dddf191e4abb"
 dependencies = [
  "pavo-protocol",
  "serde",
@@ -1158,7 +1169,7 @@ dependencies = [
  "errno",
  "libc",
  "linux-raw-sys",
- "windows-sys 0.52.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -1362,7 +1373,7 @@ dependencies = [
  "getrandom 0.4.3",
  "once_cell",
  "rustix",
- "windows-sys 0.52.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]

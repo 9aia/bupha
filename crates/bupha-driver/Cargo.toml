@@ -25,6 +25,9 @@ serde_json.workspace = true
 # path deps break workspace resolution on a fresh clone).
 # `version` is the crates.io fallback.
 pavo-protocol = { git = "https://github.com/9aia/pavo", version = "0.1.0" }
+# Driver-authoring kit — serve loop, manifest/view/node builders.
+# Same git-dep rule as pavo-protocol above.
+pavo-driver-kit = { git = "https://github.com/9aia/pavo", version = "0.1.0" }
 
 [dev-dependencies]
 # Conformance gate — `cargo test` runs pavo's wire-contract suite

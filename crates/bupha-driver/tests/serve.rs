@@ -123,6 +123,10 @@ fn degraded_and_unknown_ops_answer_honestly() {
     for req in [
         r#"{"op":"render","kind":"graph","node":{},"data":{},"surface":"cli"}"#,
         r#"{"op":"submit","view":"status","values":{}}"#,
+        // Optional platform feeds — the manifest declares neither
+        // contributes.jobs nor contributes.notifications.
+        r#"{"op":"jobs"}"#,
+        r#"{"op":"notifications"}"#,
         r#"{"op":"bogus"}"#,
         "this is not json",
         r#"{"op":"query","query":"bogus"}"#,
