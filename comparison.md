@@ -11,7 +11,7 @@ not a GHA replacement at fleet scale.
 | queue        | latest-wins + bounded `all`, no cold start      | unlimited parallelism, queue wait |
 | secrets      | never leave the machine                         | hosted on GitHub                  |
 | cache        | your backend — local disk or your S3/R2/minio   | hosted cache                      |
-| pipeline def | your runner — `ci.sh` or dagger module          | YAML DSL + marketplace actions    |
+| pipeline def | your runner — `ci.sh`, dagger module, or a supported subset of `.github/workflows` YAML (`runner.kind = "gha"`) | YAML DSL + marketplace actions    |
 | local == CI  | `bupha run` is literally the same path          | `act` approximates                |
 | batching     | supersede built-in, honest "cancelled" statuses | `concurrency` groups              |
 | scale        | one worker, serialized runs                     | matrix/fleet                      |
@@ -21,7 +21,8 @@ not a GHA replacement at fleet scale.
 hosted macOS/Windows builds, or marketplace actions. **When bupha
 fits:** instant feedback on self-owned hardware, secrets that
 never leave the machine, warm caches on self-owned storage, no
-YAML.
+runner fleet to operate (the `gha` dialect runs a documented
+workflow subset — not full Actions parity).
 
 ## vs others
 
