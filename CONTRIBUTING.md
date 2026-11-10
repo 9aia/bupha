@@ -1,7 +1,8 @@
 # Contributing
 
 Issues and PRs are **disabled** — the project is agent-maintained and
-dogfoods its own CI. Fork freely under MIT.
+dogfooded its own CI (bupha is now retired; CI is peregrin campaigns
+via tamias). Fork freely under MIT.
 
 ## Layout
 

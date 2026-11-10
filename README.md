@@ -1,5 +1,12 @@
 # bupha
 
+> **DEPRECATED — retired.** bupha is no longer the CI/gate system for
+> this org. CI is now **peregrin campaigns** (`peregrin campaign run
+> ci-gate-full.yaml`) driven by the tamias-managed `ci-gate` service;
+> the GitHub→peregrin webhook path runs over the cloudflared tunnel.
+> This repo is kept for history and reference only — do not deploy,
+> extend, or point new jobs at it.
+
 [![crates.io](https://img.shields.io/crates/v/bupha)](https://crates.io/crates/bupha)
 [![license: MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
