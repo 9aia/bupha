@@ -7,7 +7,7 @@ priority = "high"
 labels = ["architecture", "ci"]
 +++
 
-# ADR-0003: bupha is the CI repo — un-deprecation, gha dialect, tamias driver
+# ADR-0005: bupha is the CI repo — un-deprecation, gha dialect, tamias driver
 
 Status: **accepted** · Created: 2026-11-10 · Amends: org ADR-0080 (CI-absorption half), supersedes the 2026-10-31 deprecation
 
