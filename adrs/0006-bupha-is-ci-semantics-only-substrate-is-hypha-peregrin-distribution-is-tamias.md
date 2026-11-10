@@ -58,3 +58,13 @@ second queue/lock/cache stack inside bupha duplicates it.
   driver and campaigns speak.
 - `bupha run`/tests keep an in-process mode — ports stay, impls
   get swapped.
+
+## Amendment (2026-11-10, same day)
+
+**No user-facing `bupha` CLI.** Tamias + peregrin already cover the
+surface: `doctor`→driver `health`/`status`; `run <sha>`→driver
+provider verb or `ci-job` op; `import`→one-shot cutover util via the
+driver, not a permanent verb; `watch`/`deploy`/service→tamias
+lifecycle. Bupha's binary surface = engine lib + `tamias-driver-bupha`
+(driver wire only). Anyone wanting CI runs `tamias …` or a peregrin
+campaign.
