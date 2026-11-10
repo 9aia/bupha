@@ -1,24 +1,19 @@
 # bupha
 
-> **DEPRECATED — retired.** bupha is no longer the CI/gate system for
-> this org. CI is now **peregrin campaigns** (`peregrin campaign run
-> ci-gate-full.yaml`) driven by the tamias-managed `ci-gate` service;
-> the GitHub→peregrin webhook path runs over the cloudflared tunnel.
-> This repo is kept for history and reference only — do not deploy,
-> extend, or point new jobs at it.
-
 [![crates.io](https://img.shields.io/crates/v/bupha)](https://crates.io/crates/bupha)
 [![license: MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
-*Queue engine for event-driven jobs — shipped as CI.*
+*CI for your own forge — GitHub first, GitLab later; GHA workflows
+as a runner dialect.*
 
-Headless CI, built for agent-driven setups. A single binary —
-a queue engine: pluggable **sources** land pushes on the queue
-(latest-wins or bounded FIFO), your pipeline runs per sha, and
-commit statuses report back — on a Linux box with Git.
+Headless CI, built for agent-driven setups — **pre-1.0**, Linux +
+systemd focus. A single binary — a queue engine: pluggable **sources**
+land pushes and pull requests on the queue (latest-wins or bounded
+FIFO), your pipeline runs per sha, and commit statuses report back —
+on a Linux box with Git.
 
 ```
-push ──► source ──► verify ──► dedup ──► queue ──► worktree ──► runner ──► status
+push/pr ──► source ──► verify ──► dedup ──► queue ──► worktree ──► runner ──► status
         (github      (signed    id      latest-    detached    per repo
          webhook,     delivery)         wins or     git dir
          sturn WAL)                     "all"
@@ -34,8 +29,11 @@ and status sinks never see the difference.
 - single binary — no CI server product, no UI, no YAML DSL
 - latest-wins batching: 1 run in flight, 1 pending sha per repo,
   superseded commits get honest statuses
-- multi-repo webhook fan-in, HMAC-verified, repo-routed — plus a
-  sturn-native WAL source for webhook-free ingest
+- multi-repo webhook fan-in, HMAC-verified, repo-routed — push and
+  `pull_request` (opened/synchronize/reopened, per-repo opt-in via
+  `events`) — plus a sturn-native WAL source for webhook-free ingest
+- `bupha import <campaign>` — translate a peregrin campaign YAML
+  (the ci-gate fleet shape) into a `bupha.yaml`
 - every concern behind a port: source (`github-webhook`,
   `sturn-wal`), runner (`dagger` | `shell` | `ssh`),
   tunnel (`cloudflared` | `direct` | `none`), forge
