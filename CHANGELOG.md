@@ -11,6 +11,20 @@ generator lands.
 
 ### Added
 
+- **`bupha.yaml` config** — YAML is the preferred format
+  (`bupha.yaml`/`.yml` win each search step; `.toml` stays
+  permanent), with `~/` expansion on local-path fields in both
+  syntaxes. Config impls split per syntax:
+  `bupha-config-{file,toml,yaml}`.
+- **sturn WAL trigger** — a second push `Source`: repos opt in with
+  `sturn = true` and their jobs enqueue on `Op::Snapshot` events
+  under `refs/sturn/wal/*` — webhook-free ingest on the same
+  queue/runner/status path.
+- **`runner.kind = "gha"`** — new `bupha-gha` crate executes the
+  repo's own `.github/workflows/*.yml` natively: `on.push`
+  workflows run sequentially in one local bash process against the
+  pushed sha's worktree. Supported subset + hard-error boundary in
+  `crates/bupha-gha/README.md`; `runner.workflow` pins files.
 - **`pull_request` deliveries** — the GitHub trigger accepts
   `opened`/`synchronize`/`reopened` (drafts and other actions skip),
   mapping the PR head sha onto the *base* ref so `branch` filters
@@ -22,6 +36,23 @@ generator lands.
   contexts) into a `bupha.yaml` fleet config; `--dir owner/name=path`
   overrides clone paths, `--pull-request` opts every repo into PR
   deliveries.
+- **`tamias-driver-bupha` + `libraries/` bundles** — the driver is
+  dual-surface: pavo view verbs (`manifest`/`capabilities`/`serve`)
+  plus tamias content-type verbs (`install`/`deploy`/`uninstall`/
+  `hooks`/`health`/`status`/`logs`/`config-schema`). Ships
+  `libraries/ci-gate` (push-to-verdict gate on `main`) and
+  `libraries/docs-deploy` (push to `docs` → site deploy →
+  `docs/deploy` status) as `type: bupha` tamias bundles.
+- **`[[repo]] retry`** — failed runs re-enqueue at the back
+  (0–3); superseded/claim-lost never retry.
+- **`bupha-audit-file`** — decision/outcome JSONL audit sink
+  (`[audit]`); **`bupha doctor --json`** — machine-readable checks.
+
+### Fixed
+
+- Security audit hardening — sha/key/env validation, agent wire
+  signature binding, sturn sender attestation, file perms +
+  injection fixes.
 
 ## [0.1.0]
 
@@ -42,9 +73,7 @@ statuses — on a Linux box with git, no CI server product.
   survives restarts; Redis-backed shared pull queue with lease
   renewal, `bupha worker` fleet claiming and label routing.
 - **Ports & impls** — every concern behind a port, impls as separate
-  crates: runner (`dagger` | `shell` | `ssh` | `http` | `container` |
-  `gha` — `.github/workflows` on.push execution, sequential local
-  bash; see `crates/bupha-gha/README.md` for the v1 subset),
+  crates: runner (`dagger` | `shell` | `ssh` | `http` | `container`),
   tunnel (`cloudflared` | `direct` | `none`), forge (`github`), VCS
   (`git`), queue store (`redb` | `redis`), service (`systemd`),
   secrets (`keyring` | `env` file), config (`toml`), cache (`sccache`
