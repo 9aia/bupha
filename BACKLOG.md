@@ -4,6 +4,7 @@
 
 - T-007 Auto-deploy docs on docs-branch changes (and on repo changes when the API surface moves — via the dogfood loop).
 - T-046 gitlab forge impls — bupha-gitlab trigger (webhook HMAC/X-Gitlab-Token, push+merge\_request) + status sink; same Trigger/StatusSink ports as github (PL-013 F1) · created:2026-11-10 · #ci · #gitlab
+- T-047 gitlab-ci runner impl — bupha-runner-gitlabci interpreting .gitlab-ci.yml; same Runner port as gha/shell/dagger; plan.rs core is dialect-agnostic (PL-013 F2) · created:2026-11-10 · #ci · #gitlab
 
 ## Migration
 
