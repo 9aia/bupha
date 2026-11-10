@@ -15,7 +15,7 @@ impl Trigger for Nop {
     fn verify(&self, _secret: &str, _body: &[u8], _headers: &[(String, String)]) -> bool {
         false
     }
-    fn parse_push(&self, _body: &[u8]) -> Option<PushOutcome> {
+    fn parse_push(&self, _body: &[u8], _headers: &[(String, String)]) -> Option<PushOutcome> {
         None
     }
 }

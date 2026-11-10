@@ -140,6 +140,7 @@ dependencies = [
  "hex",
  "hmac",
  "serde_json",
+ "serde_norway",
  "sha2",
  "toml",
  "ureq",

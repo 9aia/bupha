@@ -5,12 +5,12 @@ api:
 - name: Emit
   kind: type
   file: crates/bupha-trigger/src/lib.rs
-  line: 46
+  line: 52
   module: bupha-trigger
 - name: ForgeAdmin
   kind: trait
   file: crates/bupha-trigger/src/lib.rs
-  line: 107
+  line: 115
   module: bupha-trigger
 - name: Nop
   kind: type
@@ -20,32 +20,32 @@ api:
 - name: Push
   kind: type
   file: crates/bupha-trigger/src/lib.rs
-  line: 18
+  line: 21
   module: bupha-trigger
 - name: PushOutcome
   kind: type
   file: crates/bupha-trigger/src/lib.rs
-  line: 96
+  line: 104
   module: bupha-trigger
 - name: Source
   kind: trait
   file: crates/bupha-trigger/src/lib.rs
-  line: 56
+  line: 62
   module: bupha-trigger
 - name: Stop
   kind: type
   file: crates/bupha-trigger/src/lib.rs
-  line: 50
+  line: 56
   module: bupha-trigger
 - name: Trigger
   kind: trait
   file: crates/bupha-trigger/src/lib.rs
-  line: 68
+  line: 74
   module: bupha-trigger
 - name: Verdict
   kind: type
   file: crates/bupha-trigger/src/lib.rs
-  line: 29
+  line: 35
   module: bupha-trigger
 - name: bupha-trigger
   kind: module
@@ -65,7 +65,7 @@ api:
 - name: delivery_id
   kind: function
   file: crates/bupha-trigger/src/lib.rs
-  line: 90
+  line: 98
   module: bupha-trigger
 - name: is_event
   kind: function
@@ -75,7 +75,7 @@ api:
 - name: is_ping
   kind: function
   file: crates/bupha-trigger/src/lib.rs
-  line: 74
+  line: 80
   module: bupha-trigger
 - name: parse_push
   kind: function
@@ -105,8 +105,8 @@ provenance:
   - crates/bupha-trigger/tests/defaults.rs
   hashes:
   - 5049aec6b8565aa211bac21b52c0f690c0509d63
-  - 8b820cd6370e790ebc890b9a4fafc59b0b5351d8
-  - 418881a42e1f25e722b38f2709847f2aeedb2da8
-  commit_sha: 2a6dcebac3778d8c539075212ef7514729e6a60a
-  generated_at: '1793687787'
+  - 42ee46e9419c1a22757faa351866919a9721d9d4
+  - 9534343ce359af5f9a079a28e2620b91d5058dd9
+  commit_sha: 08bbbf393f27729578afc140c1d0c3cad4a40673
+  generated_at: '1794336962'
   generator: kuda-template/0.1.2

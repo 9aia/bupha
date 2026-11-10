@@ -460,6 +460,7 @@ impl Source for SturnSource {
                             git_ref: git_ref.clone(),
                             sha: sha.clone(),
                             sender,
+                            event: "push".into(),
                         }) {
                             Verdict::Queued => {
                                 println!("sturn snap {name} ws={ws} → {:.12} queued", sha)

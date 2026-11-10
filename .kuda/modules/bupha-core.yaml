@@ -50,7 +50,7 @@ api:
 - name: JobEntry
   kind: type
   file: crates/bupha-core/src/lib.rs
-  line: 502
+  line: 507
   module: bupha-core
 - name: MAX_PENDING
   kind: const
@@ -80,7 +80,7 @@ api:
 - name: RunnerCfg
   kind: type
   file: crates/bupha-core/src/lib.rs
-  line: 806
+  line: 829
   module: bupha-core
 - name: Seen
   kind: type
@@ -90,12 +90,12 @@ api:
 - name: StatusCfg
   kind: type
   file: crates/bupha-core/src/lib.rs
-  line: 828
+  line: 851
   module: bupha-core
 - name: SturnTriggerCfg
   kind: type
   file: crates/bupha-core/src/lib.rs
-  line: 748
+  line: 771
   module: bupha-core
 - name: TelemetryCfg
   kind: type
@@ -105,17 +105,17 @@ api:
 - name: TriggerCfg
   kind: type
   file: crates/bupha-core/src/lib.rs
-  line: 770
+  line: 793
   module: bupha-core
 - name: TunnelCfg
   kind: type
   file: crates/bupha-core/src/lib.rs
-  line: 842
+  line: 865
   module: bupha-core
 - name: WatchedRepo
   kind: type
   file: crates/bupha-core/src/lib.rs
-  line: 550
+  line: 555
   module: bupha-core
 - name: WorkerCfg
   kind: type
@@ -125,7 +125,7 @@ api:
 - name: WorktreeCfg
   kind: type
   file: crates/bupha-core/src/lib.rs
-  line: 870
+  line: 893
   module: bupha-core
 - name: bupha-core
   kind: module
@@ -145,7 +145,7 @@ api:
 - name: cycle_errors
   kind: function
   file: crates/bupha-core/src/lib.rs
-  line: 991
+  line: 1014
   module: bupha-core
 - name: default
   kind: function
@@ -185,17 +185,17 @@ api:
 - name: default
   kind: function
   file: crates/bupha-core/src/lib.rs
-  line: 794
+  line: 817
   module: bupha-core
 - name: default
   kind: function
   file: crates/bupha-core/src/lib.rs
-  line: 858
+  line: 881
   module: bupha-core
 - name: default
   kind: function
   file: crates/bupha-core/src/lib.rs
-  line: 878
+  line: 901
   module: bupha-core
 - name: default_access_kind
   kind: function
@@ -222,9 +222,9 @@ provenance:
   - crates/bupha-core/tests/domain.rs
   hashes:
   - 2949c06c8e71ef5da170506ce9cd8dfbb7312ce3
-  - 87b71b6f75b7c43b85a239f5beccb5658404da3d
+  - cc764e5ba98270742fd7ac886fdf811a55d4964a
   - eaf5e74313b7393277e9a2bb3b2fa036cdfc2d3f
   - e507aff33522cac687b6bb04b9f5d4789f3d3d4a
-  commit_sha: 804e98a4c3563e04363c85c0957e703865ff33bb
-  generated_at: '1794198342'
+  commit_sha: 08bbbf393f27729578afc140c1d0c3cad4a40673
+  generated_at: '1794336962'
   generator: kuda-template/0.1.2

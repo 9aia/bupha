@@ -140,7 +140,7 @@ api:
 - name: raw_event_reads_sig_and_op
   kind: function
   file: crates/bupha-sturn/src/lib.rs
-  line: 503
+  line: 504
   module: bupha-sturn
 - name: repo
   kind: function
@@ -170,12 +170,12 @@ api:
 - name: signing_bytes_match_sturn_canonical_form
   kind: function
   file: crates/bupha-sturn/src/lib.rs
-  line: 487
+  line: 488
   module: bupha-sturn
 - name: tests
   kind: module
   file: crates/bupha-sturn/src/lib.rs
-  line: 483
+  line: 484
   module: bupha-sturn
 - name: tmp
   kind: function
@@ -222,8 +222,8 @@ provenance:
   - crates/bupha-sturn/tests/wal.rs
   hashes:
   - 3ab4e5c0ef5a9ba093bbecec61fba19bedab49ed
-  - 9b76ad9370147d7f6db3f5d48d4ddf0c736712f8
+  - 449ff8faef67ee59f34e0d782f37173be431c02e
   - 84df4414a588071a59e7b09011807a8dcd990b51
-  commit_sha: 2a6dcebac3778d8c539075212ef7514729e6a60a
-  generated_at: '1793687787'
+  commit_sha: 08bbbf393f27729578afc140c1d0c3cad4a40673
+  generated_at: '1794336962'
   generator: kuda-template/0.1.2

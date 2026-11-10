@@ -7,6 +7,22 @@ Crate versions are workspace-shared; per-crate tags (`<crate>-vX.Y.Z`)
 record what shipped in each release. Entries are hand-written until the
 generator lands.
 
+## [Unreleased]
+
+### Added
+
+- **`pull_request` deliveries** — the GitHub trigger accepts
+  `opened`/`synchronize`/`reopened` (drafts and other actions skip),
+  mapping the PR head sha onto the *base* ref so `branch` filters
+  gate PRs unchanged. Opt-in per repo via
+  `[[repo]] events = ["push", "pull_request"]` (default `["push"]`);
+  `deploy webhook` subscribes each hook to the repo's event list.
+- **`bupha import <campaign>`** — translate a peregrin campaign YAML
+  (github-webhook `params.repos[]` + `git` job nodes + github-status
+  contexts) into a `bupha.yaml` fleet config; `--dir owner/name=path`
+  overrides clone paths, `--pull-request` opts every repo into PR
+  deliveries.
+
 ## [0.1.0]
 
 First public release. Headless CI for agent-driven setups: a single

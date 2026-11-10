@@ -14,7 +14,10 @@ use std::sync::Arc;
 /// One normalized push — (repo, ref, sha, sender) is all the queue
 /// ever sees. `sender` is the source-attested identity that
 /// triggered the event (empty string if the source has no such
-/// concept).
+/// concept). `event` is the source's event kind ("push",
+/// "pull_request") — matched against each watched job's `events`
+/// list at ingest, so a repo can take PR deliveries without also
+/// taking every other event the forge sends.
 pub struct Push {
     /// `repository.full_name` ("owner/name") — the caller filters
     /// ref per watched repo.
@@ -22,6 +25,9 @@ pub struct Push {
     pub git_ref: String,
     pub sha: String,
     pub sender: String,
+    /// Event kind — "push" for branch pushes and push-equivalent
+    /// sources (sturn snaps), "pull_request" for PR deliveries.
+    pub event: String,
 }
 
 /// The queue's answer to an emitted push — each source maps it to
@@ -81,9 +87,11 @@ pub trait Trigger: Send + Sync {
     /// (resolved per repo by the caller via `repo_hint`).
     fn verify(&self, secret: &str, body: &[u8], headers: &[(String, String)]) -> bool;
     /// Parse the payload — `Push` to enqueue, `Skip` for well-formed
-    /// events with nothing to run (e.g. branch deletion), `None` for
-    /// malformed bodies.
-    fn parse_push(&self, body: &[u8]) -> Option<PushOutcome>;
+    /// events with nothing to run (e.g. branch deletion, draft or
+    /// unsupported pull_request action), `None` for malformed bodies.
+    /// `headers` carries the event kind — the body alone doesn't say
+    /// whether it was a push or a pull_request delivery.
+    fn parse_push(&self, body: &[u8], headers: &[(String, String)]) -> Option<PushOutcome>;
     /// Unique delivery id from the request headers (e.g. GitHub's
     /// `X-GitHub-Delivery`). Used for replay dedup — `None` means the
     /// trigger has no such concept.

@@ -169,6 +169,7 @@ fn admin_trait_delegates() {
     let a = GitHubAdmin {
         repo: "o/r".into(),
         api_base: base,
+        events: vec!["push".into(), "pull_request".into()],
     };
     assert_eq!(a.repo(), "o/r");
     assert!(a
@@ -185,6 +186,7 @@ fn admin_trait_delegates() {
     let a2 = GitHubAdmin {
         repo: "o/r".into(),
         api_base: base401,
+        events: Vec::new(),
     };
     assert!(a2.register_hook("http://ci", "sec", "tok").is_err());
     assert!(a2.remove_hook("http://ci", "tok").is_err());

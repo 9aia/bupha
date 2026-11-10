@@ -10,12 +10,12 @@ api:
 - name: GitHubAdmin
   kind: type
   file: crates/bupha-github/src/lib.rs
-  line: 279
+  line: 348
   module: bupha-github
 - name: GitHubStatus
   kind: type
   file: crates/bupha-github/src/lib.rs
-  line: 101
+  line: 157
   module: bupha-github
 - name: GitHubTrigger
   kind: type
@@ -25,7 +25,17 @@ api:
 - name: LogStatus
   kind: type
   file: crates/bupha-github/src/lib.rs
-  line: 142
+  line: 198
+  module: bupha-github
+- name: PR_ACTIONS
+  kind: const
+  file: crates/bupha-github/src/lib.rs
+  line: 27
+  module: bupha-github
+- name: PR_HEADERS
+  kind: const
+  file: crates/bupha-github/tests/github.rs
+  line: 115
   module: bupha-github
 - name: admin_trait_delegates
   kind: function
@@ -45,27 +55,37 @@ api:
 - name: context
   kind: function
   file: crates/bupha-github/src/lib.rs
-  line: 111
+  line: 167
   module: bupha-github
 - name: context
   kind: function
   file: crates/bupha-github/src/lib.rs
-  line: 147
+  line: 203
   module: bupha-github
 - name: delivery_id
   kind: function
   file: crates/bupha-github/src/lib.rs
-  line: 64
+  line: 74
   module: bupha-github
 - name: delivery_id_header
   kind: function
   file: crates/bupha-github/tests/github.rs
   line: 108
   module: bupha-github
+- name: event_kind
+  kind: function
+  file: crates/bupha-github/src/lib.rs
+  line: 30
+  module: bupha-github
 - name: is_event
   kind: function
   file: crates/bupha-github/src/lib.rs
-  line: 26
+  line: 38
+  module: bupha-github
+- name: is_event_accepts_pull_request
+  kind: function
+  file: crates/bupha-github/tests/github.rs
+  line: 136
   module: bupha-github
 - name: is_event_checks_push_header
   kind: function
@@ -75,17 +95,37 @@ api:
 - name: is_ping
   kind: function
   file: crates/bupha-github/src/lib.rs
-  line: 32
+  line: 42
   module: bupha-github
 - name: log_status_prints
   kind: function
   file: crates/bupha-github/tests/api.rs
-  line: 229
+  line: 231
+  module: bupha-github
+- name: parse_pull_request
+  kind: function
+  file: crates/bupha-github/src/lib.rs
+  line: 121
+  module: bupha-github
+- name: parse_pull_request_maps_base_ref_and_head_sha
+  kind: function
+  file: crates/bupha-github/tests/github.rs
+  line: 143
+  module: bupha-github
+- name: parse_pull_request_rejects_malformed
+  kind: function
+  file: crates/bupha-github/tests/github.rs
+  line: 178
+  module: bupha-github
+- name: parse_pull_request_skips_drafts_and_other_actions
+  kind: function
+  file: crates/bupha-github/tests/github.rs
+  line: 163
   module: bupha-github
 - name: parse_push
   kind: function
   file: crates/bupha-github/src/lib.rs
-  line: 71
+  line: 81
   module: bupha-github
 - name: parse_push_extracts_repo_ref_sha
   kind: function
@@ -105,12 +145,22 @@ api:
 - name: post
   kind: function
   file: crates/bupha-github/src/lib.rs
-  line: 115
+  line: 171
   module: bupha-github
 - name: post
   kind: function
   file: crates/bupha-github/src/lib.rs
-  line: 151
+  line: 207
+  module: bupha-github
+- name: pr_body
+  kind: function
+  file: crates/bupha-github/tests/github.rs
+  line: 124
+  module: bupha-github
+- name: pr_headers
+  kind: function
+  file: crates/bupha-github/tests/github.rs
+  line: 117
   module: bupha-github
 - name: register_401_needs_scopes
   kind: function
@@ -130,7 +180,7 @@ api:
 - name: register_hook
   kind: function
   file: crates/bupha-github/src/lib.rs
-  line: 287
+  line: 359
   module: bupha-github
 - name: register_non_json_list_then_post
   kind: function
@@ -145,64 +195,14 @@ api:
 - name: register_webhook
   kind: function
   file: crates/bupha-github/src/lib.rs
-  line: 211
+  line: 267
   module: bupha-github
-- name: remove_hook
+- name: register_webhook_events
   kind: function
   file: crates/bupha-github/src/lib.rs
-  line: 290
+  line: 279
   module: bupha-github
-- name: repo
-  kind: function
-  file: crates/bupha-github/src/lib.rs
-  line: 293
-  module: bupha-github
-- name: repo_hint
-  kind: function
-  file: crates/bupha-github/src/lib.rs
-  line: 38
-  module: bupha-github
-- name: repo_hint_peeks_full_name_unverified
-  kind: function
-  file: crates/bupha-github/tests/github.rs
-  line: 39
-  module: bupha-github
-- name: serve
-  kind: function
-  file: crates/bupha-github/tests/api.rs
-  line: 14
-  module: bupha-github
-- name: sign
-  kind: function
-  file: crates/bupha-github/tests/github.rs
-  line: 6
-  module: bupha-github
-- name: status_post_ok_and_transport_error
-  kind: function
-  file: crates/bupha-github/tests/api.rs
-  line: 194
-  module: bupha-github
-- name: unregister_403_needs_scopes
-  kind: function
-  file: crates/bupha-github/tests/api.rs
-  line: 155
-  module: bupha-github
-- name: unregister_deletes_match_and_reports_none
-  kind: function
-  file: crates/bupha-github/tests/api.rs
-  line: 116
-  module: bupha-github
-- name: unregister_webhook
-  kind: function
-  file: crates/bupha-github/src/lib.rs
-  line: 158
-  module: bupha-github
-- name: verify
-  kind: function
-  file: crates/bupha-github/src/lib.rs
-  line: 43
-  module: bupha-github
-api_omitted: 2
+api_omitted: 13
 deps:
 - bupha-core
 - bupha-status
@@ -231,9 +231,9 @@ provenance:
   - crates/bupha-github/tests/github.rs
   hashes:
   - 9a8bdeb02a9e8896e60f63d221a83f115d8a5980
-  - 5ce8eaf162badaf9e22c9414a53c36b1eebc2a6a
-  - a46acbe2183b75dc24aa6770772d0ea5e2b17a11
-  - c3ed19640bc58d641cad3cfa7207ec00a7f9a12d
-  commit_sha: 2a6dcebac3778d8c539075212ef7514729e6a60a
-  generated_at: '1793687787'
+  - aedaa517f98559aeb7a3fa30ce3fec59e2883ae6
+  - 6eec4c65a0336bba59a302b11e82775a2fa32bf1
+  - 7ad49904a8b0c678609d1d4514372e246d371948
+  commit_sha: 08bbbf393f27729578afc140c1d0c3cad4a40673
+  generated_at: '1794336962'
   generator: kuda-template/0.1.2

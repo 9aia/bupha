@@ -9,6 +9,10 @@ dir = "/path/to/clone"
 branch = "refs/heads/main"
 # queue = "all"                  # run every push FIFO (default: latest-wins)
 # status_repo = "owner/name"     # optional override for statuses
+# events = ["push", "pull_request"]  # source event kinds this repo runs
+                                  # on (default: ["push"]). PR deliveries
+                                  # map onto the BASE ref — a job watching
+                                  # refs/heads/main gates PRs targeting main.
 # secret_env = "REPO_WEBHOOK_SECRET"  # per-repo hook secret (default:
                                   # trigger.secret_env) — lets each repo's
                                   # hook be managed independently

@@ -44,6 +44,8 @@ use bupha_tunnel::Tunnel;
 use bupha_vcs::Vcs;
 use bupha_webhook::WebhookSource;
 use clap::{Parser, Subcommand};
+
+mod campaign_import;
 use std::collections::VecDeque;
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -129,6 +131,23 @@ enum Cmd {
     Explain {
         /// The pushed sha (any prefix ≥ 4 chars).
         sha: String,
+    },
+    /// Translate a peregrin campaign YAML (ci-gate fleet shape) into
+    /// a bupha.yaml — no config file needed.
+    Import {
+        /// Campaign file (e.g. libraries/ci-gate/main.yaml).
+        file: PathBuf,
+        /// Write the generated config here instead of stdout.
+        #[arg(long)]
+        out: Option<PathBuf>,
+        /// Clone-path override `owner/name=/path` (repeatable) —
+        /// wins over cmd-derived and default dirs.
+        #[arg(long = "dir", value_name = "OWNER/REPO=PATH")]
+        dirs: Vec<String>,
+        /// Also run every repo on pull_request deliveries
+        /// (`events: [push, pull_request]`).
+        #[arg(long)]
+        pull_request: bool,
     },
     /// Print the CLI reference as markdown (docs pipeline).
     #[command(hide = true, name = "gen-cli-docs")]
@@ -584,7 +603,14 @@ struct Ingest {
 /// pull queue, post superseded statuses, cancel in-flight runs.
 /// The `Verdict` goes back to the source, which maps it to its own
 /// ack surface (HTTP status codes, log lines).
-fn ingest_push(ix: &Ingest, repo_name: &str, git_ref: &str, sha: &str, sender: &str) -> Verdict {
+fn ingest_push(
+    ix: &Ingest,
+    repo_name: &str,
+    git_ref: &str,
+    sha: &str,
+    sender: &str,
+    event: &str,
+) -> Verdict {
     // Defense in depth: the sha names worktree dirs and reaches git
     // argv — reject anything unsafe HERE so sources that don't (or
     // can't) validate still can't land a hostile value in the queue.
@@ -595,12 +621,16 @@ fn ingest_push(ix: &Ingest, repo_name: &str, git_ref: &str, sha: &str, sender: &
         }
         return Verdict::Rejected;
     }
-    // Every job of the repo watching this ref gets the push — each
-    // keeps its own queue, policy and runner.
+    // Every job of the repo watching this ref AND event kind gets
+    // the push — each keeps its own queue, policy and runner. A
+    // pull_request delivery maps onto the base ref, so `branch`
+    // filters work unchanged; `events` is the opt-in gate.
     let matched: Vec<&bupha_core::WatchedRepo> = ix
         .watched
         .iter()
-        .filter(|w| w.name == repo_name && w.branch == git_ref)
+        .filter(|w| {
+            w.name == repo_name && w.branch == git_ref && w.events.iter().any(|e| e == event)
+        })
         .collect();
     if matched.is_empty() {
         return Verdict::NoMatch;
@@ -1192,7 +1222,7 @@ fn cmd_watch(cfg: Arc<Config>) {
     };
     let emit: Emit = {
         let ix = ix.clone();
-        Arc::new(move |p: &Push| ingest_push(&ix, &p.repo, &p.git_ref, &p.sha, &p.sender))
+        Arc::new(move |p: &Push| ingest_push(&ix, &p.repo, &p.git_ref, &p.sha, &p.sender, &p.event))
     };
     // e2e hook: with BUPHA_WATCH_SHUTDOWN_FILE set, sources unwind
     // once that file appears — spawned test binaries can then shut
@@ -1866,6 +1896,13 @@ fn main() {
         Cmd::Deploy {
             sub: DeploySub::Release { dry_run },
         } => cmd_deploy_release(*dry_run),
+        // Campaign import reads a peregrin file, not a bupha config.
+        Cmd::Import {
+            file,
+            out,
+            dirs,
+            pull_request,
+        } => cmd_import(file, out.as_deref(), dirs, *pull_request),
         // Toggling the unit needs no config file either.
         Cmd::Service { worker, sub } => cmd_service(*worker, sub),
         _ => {
@@ -1906,11 +1943,43 @@ fn dispatch_cmd(cfg: &Arc<Config>, cmd: &Cmd, cli_config: Option<String>) {
         Cmd::Log { n } => cmd_log(cfg, *n),
         Cmd::Explain { sha } => cmd_explain(cfg, sha),
         // Handled before config load — unreachable by construction.
-        Cmd::Init { .. } | Cmd::GenCliDocs | Cmd::Service { .. } => {
+        Cmd::Init { .. } | Cmd::GenCliDocs | Cmd::Service { .. } | Cmd::Import { .. } => {
             #[cfg(not(coverage))]
             unreachable!()
         }
     }
+}
+
+/// `bupha import <campaign>` — peregrin campaign YAML → bupha.yaml.
+fn cmd_import(file: &Path, out: Option<&Path>, dirs: &[String], pull_request: bool) {
+    let text = std::fs::read_to_string(file).unwrap_or_else(|e| {
+        eprintln!("import: read {}: {e}", file.display());
+        std::process::exit(2);
+    });
+    let mut overrides = std::collections::HashMap::new();
+    for d in dirs {
+        let Some((repo, path)) = d.split_once('=') else {
+            eprintln!("import: --dir wants OWNER/REPO=PATH, got {d:?}");
+            std::process::exit(2);
+        };
+        overrides.insert(repo.to_string(), path.to_string());
+    }
+    let (yaml, repos, guessed) = campaign_import::campaign_to_yaml(&text, &overrides, pull_request)
+        .unwrap_or_else(|e| {
+            eprintln!("import: {e}");
+            std::process::exit(2);
+        });
+    match out {
+        Some(p) => {
+            if let Err(e) = std::fs::write(p, &yaml) {
+                eprintln!("import: write {}: {e}", p.display());
+                std::process::exit(1);
+            }
+            eprintln!("wrote {}", p.display());
+        }
+        None => print!("{yaml}"),
+    }
+    eprintln!("import: {repos} repos ({guessed} with guessed dirs — check `dir`)");
 }
 
 /// `bupha service enable|disable|status` — toggle the watcher unit
@@ -2060,6 +2129,7 @@ fn cmd_deploy(cfg: &Config, sub: &DeploySub, cli_config: Option<String>) {
                     let msg = (GitHubAdmin {
                         repo: r.name.clone(),
                         api_base: cfg.trigger.api_base.clone(),
+                        events: r.events.clone(),
                     })
                     .register_hook(&url, &wh_secret, &token)
                     .unwrap_or_else(|e| {
@@ -2249,6 +2319,7 @@ fn cmd_destroy(cfg: &Config, sub: &DestroySub) {
                     let msg = (GitHubAdmin {
                         repo: r.name.clone(),
                         api_base: cfg.trigger.api_base.clone(),
+                        events: Vec::new(),
                     })
                     .remove_hook(&cfg.tunnel.public_url, &token)
                     .unwrap_or_else(|e| {
