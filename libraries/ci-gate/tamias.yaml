@@ -1,0 +1,58 @@
+# ci-gate — the org CI gate as a tamias `bupha` bundle.
+#
+# `tamias install <ref>` fetches this payload; `tamias deploy ci-gate`
+# renders the provider unit (`bupha-watch.service` running
+# `bupha watch --config ~/.config/bupha/bundles/ci-gate.toml`) and
+# `tamias-driver-bupha deploy` writes that operator config from
+# `fleet.toml` + this manifest's `provider.ingress` block.
+# `tamias driver exec ci-gate hooks register` points the declared
+# GitHub webhooks at the public URL.
+name: ci-gate
+version: "0.1.0"
+type: bupha
+description: >-
+  Push-to-verdict CI gate: GitHub push webhook → bupha watcher →
+  detached worktree → per-repo pipeline → commit status. Latest-wins
+  supersede per repo, HMAC-verified deliveries, secrets by env-var
+  NAME only.
+
+# The declarative runtime spec — `tamias deploy` renders each
+# `services[]` entry as a per-user systemd unit named
+# `<provider.name>-<service>` (here `bupha-watch.service`, the same
+# unit name `bupha deploy service` writes by hand).
+provider:
+  name: bupha
+  services:
+    # The watcher: one listener + queue + runner for the whole fleet.
+    # `--config` points at the per-bundle operator config the deploy
+    # driver generates — the fleet itself lives in the payload's
+    # fleet.toml, never in this unit file.
+    - name: watch
+      exec: >-
+        ~/.cargo/bin/bupha watch --config ~/.config/bupha/bundles/ci-gate.toml
+      env_file: "~/.config/bupha/env"
+      workdir: "~"
+      restart: on-failure
+  ingress:
+    # Declarative only — forge-hook *registration* is the deploy
+    # driver's job (`tamias driver exec ci-gate hooks register`);
+    # nothing here performs live registration. `public_url` is also
+    # what deploy writes into `tunnel.public_url`, and `listen` into
+    # `trigger.listen` — the manifest is the single source of truth
+    # for the wiring. `path` must be `/hook` (the only route
+    # bupha-webhook serves).
+    - public_url: https://ci.luisfuturist.com
+      listen: 127.0.0.1:29173
+      path: /hook
+      hooks:
+        - forge: github
+          repo: 9aia/bupha
+          events: [push]
+        - forge: github
+          repo: 9aia/tamias
+          events: [push]
+        - forge: github
+          repo: 9aia/myco
+          events: [push]
+  # Advisory verb hints for `tamias provider list`/`tamias run`.
+  verbs: [run, logs, health]
