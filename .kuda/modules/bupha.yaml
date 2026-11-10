@@ -1,71 +1,81 @@
 name: bupha
-path: crates/bupha-cli/Cargo.toml
-purpose: 'bupha — queue engine for event-driven jobs: shipped as CI'
+path: Cargo.toml
+purpose: '*CI for your own forge — GitHub first, GitLab later; GHA workflows'
 api:
 - name: Bupha
   kind: type
   file: modules/dagger/dagger/src/bupha/main.py
   line: 102
   module: bupha
+- name: CAMPAIGN
+  kind: const
+  file: crates/bupha-cli/src/campaign_import.rs
+  line: 302
+  module: bupha
 - name: ChildSlot
   kind: type
   file: crates/bupha-cli/src/main.rs
-  line: 374
+  line: 393
   module: bupha
 - name: Cli
   kind: type
   file: crates/bupha-cli/src/main.rs
-  line: 58
+  line: 60
   module: bupha
 - name: Cmd
   kind: type
   file: crates/bupha-cli/src/main.rs
-  line: 69
+  line: 71
   module: bupha
 - name: DELEGATE_TEMPLATE
   kind: const
   file: crates/bupha-cli/src/main.rs
-  line: 1554
+  line: 1584
   module: bupha
 - name: DeploySub
   kind: type
   file: crates/bupha-cli/src/main.rs
-  line: 140
+  line: 159
   module: bupha
 - name: DestroySub
   kind: type
   file: crates/bupha-cli/src/main.rs
-  line: 169
+  line: 188
   module: bupha
 - name: DocOut
   kind: type
   file: crates/bupha-cli/src/main.rs
-  line: 1580
+  line: 1610
   module: bupha
 - name: FailWait
   kind: type
   file: crates/bupha-cli/src/main.rs
-  line: 282
+  line: 301
   module: bupha
 - name: FailWaitRunner
   kind: type
   file: crates/bupha-cli/src/main.rs
-  line: 280
+  line: 299
   module: bupha
 - name: Ingest
   kind: type
   file: crates/bupha-cli/src/main.rs
-  line: 576
+  line: 595
+  module: bupha
+- name: Job
+  kind: type
+  file: crates/bupha-cli/src/campaign_import.rs
+  line: 20
   module: bupha
 - name: JobEnd
   kind: type
   file: crates/bupha-cli/src/main.rs
-  line: 397
+  line: 416
   module: bupha
 - name: MODULE_REF
   kind: const
   file: crates/bupha-cli/src/main.rs
-  line: 1552
+  line: 1582
   module: bupha
 - name: N
   kind: const
@@ -75,7 +85,7 @@ api:
 - name: Poll
   kind: type
   file: crates/bupha-cli/src/main.rs
-  line: 464
+  line: 483
   module: bupha
 - name: Rec
   kind: type
@@ -85,12 +95,12 @@ api:
 - name: ServiceSub
   kind: type
   file: crates/bupha-cli/src/main.rs
-  line: 183
+  line: 202
   module: bupha
 - name: Shared
   kind: type
   file: crates/bupha-cli/src/main.rs
-  line: 548
+  line: 567
   module: bupha
 - name: Svc
   kind: type
@@ -100,7 +110,7 @@ api:
 - name: Worker
   kind: type
   file: crates/bupha-cli/src/main.rs
-  line: 377
+  line: 396
   module: bupha
 - name: agent_error_exits
   kind: function
@@ -115,32 +125,37 @@ api:
 - name: build_attest
   kind: function
   file: crates/bupha-cli/src/main.rs
-  line: 730
+  line: 760
   module: bupha
 - name: build_audit
   kind: function
   file: crates/bupha-cli/src/main.rs
-  line: 760
+  line: 790
   module: bupha
 - name: build_runner
   kind: function
   file: crates/bupha-cli/src/main.rs
-  line: 201
+  line: 220
   module: bupha
 - name: build_runners
   kind: function
   file: crates/bupha-cli/src/main.rs
-  line: 802
+  line: 832
   module: bupha
 - name: build_sinks
   kind: function
   file: crates/bupha-cli/src/main.rs
-  line: 775
+  line: 805
   module: bupha
 - name: build_telemetry
   kind: function
   file: crates/bupha-cli/src/main.rs
-  line: 711
+  line: 741
+  module: bupha
+- name: bupha
+  kind: module
+  file: Cargo.toml
+  line: 1
   module: bupha
 - name: bupha
   kind: module
@@ -162,6 +177,16 @@ api:
   file: crates/bupha-cli/tests/cli.rs
   line: 40
   module: bupha
+- name: campaign_import
+  kind: module
+  file: crates/bupha-cli/src/main.rs
+  line: 49
+  module: bupha
+- name: campaign_to_yaml
+  kind: function
+  file: crates/bupha-cli/src/campaign_import.rs
+  line: 120
+  module: bupha
 - name: cancel_supersede_honest_statuses
   kind: function
   file: crates/bupha-cli/tests/watch.rs
@@ -175,34 +200,9 @@ api:
 - name: cfg_dir
   kind: function
   file: crates/bupha-cli/src/main.rs
-  line: 316
+  line: 335
   module: bupha
-- name: cfg_repo
-  kind: function
-  file: crates/bupha-cli/tests/cli.rs
-  line: 139
-  module: bupha
-- name: cfg_text
-  kind: function
-  file: crates/bupha-cli/tests/watch.rs
-  line: 204
-  module: bupha
-- name: check
-  kind: function
-  file: crates/bupha-cli/src/main.rs
-  line: 1586
-  module: bupha
-- name: cmd_agent
-  kind: function
-  file: crates/bupha-cli/src/main.rs
-  line: 1414
-  module: bupha
-- name: cmd_deploy
-  kind: function
-  file: crates/bupha-cli/src/main.rs
-  line: 1992
-  module: bupha
-api_omitted: 124
+api_omitted: 141
 deps:
 - dagger-io
 - bupha-access
@@ -249,6 +249,7 @@ deps:
 - clap-markdown
 - dirs
 - serde_json
+- serde_norway
 - toml
 - ureq
 - hex
@@ -292,23 +293,27 @@ deps:
 - bupha-vcs
 - bupha-webhook
 - clap
+- serde_json
 - asyncio
 - typing
 - dagger
 notes: ''
 verify:
+- Cargo.toml
 - crates/bupha-cli/Cargo.toml
 - crates/bupha-cli/src/main.rs
+- modules/dagger/dagger/pyproject.toml
+- modules/dagger/dagger/src/bupha/__init__.py
+- crates/bupha-cli/src/campaign_import.rs
 - crates/bupha-cli/tests/cli.rs
 - crates/bupha-cli/tests/e2e.rs
 - crates/bupha-cli/tests/sturn.rs
 - crates/bupha-cli/tests/watch.rs
-- modules/dagger/dagger/pyproject.toml
-- modules/dagger/dagger/src/bupha/__init__.py
-- modules/dagger/dagger/src/bupha/main.py
 provenance:
   files:
+  - Cargo.toml
   - crates/bupha-cli/Cargo.toml
+  - crates/bupha-cli/src/campaign_import.rs
   - crates/bupha-cli/src/main.rs
   - crates/bupha-cli/tests/cli.rs
   - crates/bupha-cli/tests/e2e.rs
@@ -317,16 +322,20 @@ provenance:
   - modules/dagger/dagger/pyproject.toml
   - modules/dagger/dagger/src/bupha/__init__.py
   - modules/dagger/dagger/src/bupha/main.py
+  - modules/dagger/tests/test_self_patch.py
   hashes:
-  - de6036f45fe89238ef7fe8dc9521403ca5a17646
-  - 8730cc349db45fe633ee0df51142aa5a8b672b39
+  - 974bd9d77d6dece577fb9fdeef687df2abc3c81a
+  - d46c76bc07f89f82d0098c6a592c3d867d3d5bc9
+  - 4102762337a49a25a35bd6da2202b6c0536fe273
+  - bb04127a0df6011d8e628db74ef3e1ed85917774
   - 7b9643c47f2c7a05251aaa324b4a5b7d8a768e4e
   - e6680112289b06ae1e8d8d6659c60f2333c8ca23
   - 16a66bca9a602549e108d45e9d1233dbe2e7e34b
-  - f7ce4dc828758cb9b9c497bf376619a8d6cba527
+  - 80022608682e31f7c8c29936b9597577b4a61494
   - a787b6af9e98fd8cae6ece92467308d34e49bbce
   - 297de02314bb3e68d56e2e8a33bcad4ba6c92465
   - b266b7f034f3d194f5cba16fd2bf6a51886ccf46
-  commit_sha: 08bbbf393f27729578afc140c1d0c3cad4a40673
-  generated_at: '1794337080'
+  - 509a3147960f3aa59978a55730803da3c2ff0850
+  commit_sha: 4678ccac0cfef02ef0696abed83babef4c0550f5
+  generated_at: '1794337184'
   generator: kuda-template/0.1.2
