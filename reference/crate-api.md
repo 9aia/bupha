@@ -31,6 +31,8 @@ documented at source (doc comments).
 - [bupha-container](/bupha/api/bupha_container/index.html) — adapter
 - [bupha-dagger](/bupha/api/bupha_dagger/index.html) — adapter
 - [bupha-dotenv](/bupha/api/bupha_dotenv/index.html) — adapter
+- [bupha-driver](/bupha/api/bupha_driver/index.html) — adapter
+- [bupha-gha](/bupha/api/bupha_gha/index.html) — adapter
 - [bupha-git](/bupha/api/bupha_git/index.html) — adapter
 - [bupha-github](/bupha/api/bupha_github/index.html) — adapter
 - [bupha-history](/bupha/api/bupha_history/index.html) — adapter

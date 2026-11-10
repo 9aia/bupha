@@ -20,6 +20,7 @@ SRCS = {
     "crates/bupha-shell/src/lib.rs":  {"ShellCfg": "`[runner]` — kind `shell`"},
     "crates/bupha-ssh/src/lib.rs":    {"SshCfg": "`[runner]` — kind `ssh`"},
     "crates/bupha-container/src/lib.rs": {"ContainerCfg": "`[runner]` — kind `container`"},
+    "crates/bupha-gha/src/lib.rs":      {"GhaCfg": "`[runner]` — kind `gha`"},
 }
 SRC = {n: (ROOT / f).read_text()
        for f, names in SRCS.items() for n in names}

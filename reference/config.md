@@ -45,6 +45,7 @@ formats. See `examples/bupha.toml.example` and
 | `runs_on` | `list` | optional | Fleet routing: labels a claiming worker must carry (e.g. ["arch=arm64"]). Empty = any worker. Per-repo arch pinning — same-push multi-arch matrix is future work. |
 | `retry` | `u32` | optional | Failed runs re-enqueue at the back this many times (0..3, ADR-0002 §3). 0 = today's behavior. A *failed* sha may retry — a superseded or claim-lost one may not. |
 | `sturn` | `bool` | optional | Opt this repo into the `[trigger.sturn]` WAL poller — its jobs enqueue on `Op::Snapshot` events found under `refs/sturn/wal/*` in `dir`, no webhook needed. Repo-level: every job inherits it (branch filters still apply). |
+| `events` | `list` | optional | Source event kinds this repo runs on — "push" and/or "pull_request" (GitHub webhook deliveries). Empty = ["push"] (today's behavior). Repo-level: every job inherits it. |
 | `jobs` | `Vec<JobEntry>` | optional | Pipelines within this repo (`[[repo.jobs]]`). Each job gets its own branch filter, queue policy, runner and status context — one webhook feeds them all. Empty = the repo itself is its single implicit pipeline. |
 
 ## `[trigger]`
@@ -145,6 +146,12 @@ formats. See `examples/bupha.toml.example` and
 | `cmd` | `string` | optional | Shell command executed inside the container. |
 | `engine` | `string` | optional | Engine binary — `"podman"` (default) or `"docker"`. |
 | `network` | `string` | optional | Network mode — `"none"` default (isolated); `"host"`/`"bridge"` for pipelines that genuinely need outbound. |
+
+## `[runner]` — kind `gha`
+
+| field | type | required | notes |
+|---|---|---|---|
+| `workflow` | `WorkflowSel` | optional | Pin workflow file(s) instead of discovering every `on.push`-matching file under `.github/workflows/`. Entries resolve against `.github/workflows/` first, then the worktree root. |
 
 ## Constraints
 

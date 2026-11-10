@@ -41,6 +41,8 @@ impls to ports.
 | `bupha-container` | adapter | Runner adapter: unprivileged container (podman/docker), network-off |
 | `bupha-dagger` | adapter | Runner impl: `dagger call &lt;fn&gt;` per job |
 | `bupha-dotenv` | adapter | Secret impl: KEY=VAL env file (chmod 600) |
+| `bupha-driver` | adapter | tamias-driver-bupha — pavo view driver over bupha's on-disk run/queue state (read-only) |
+| `bupha-gha` | adapter | Runner impl: .github/workflows/*.yml executed natively — GitHub Actions as CI dialect |
 | `bupha-git` | adapter | Vcs impl: git via the git CLI |
 | `bupha-github` | adapter | GitHub impl: push-webhook trigger + commit-status sink |
 | `bupha-history` | adapter | Run-history adapter: JSONL records per finished run |
@@ -72,8 +74,13 @@ shared ingest path.
 
 | source            | config                                   | emits on                        |
 | ----------------- | ---------------------------------------- | ------------------------------- |
-| `github-webhook`  | `trigger.kind = "github"` (+ `[trigger]` listener, secrets, tunnel) | verified `push` deliveries      |
+| `github-webhook`  | `trigger.kind = "github"` (+ `[trigger]` listener, secrets, tunnel) | verified `push`/`pull_request` deliveries (`[[repo]] events`) |
 | `sturn-wal`       | `[trigger.sturn]` + `[[repo]] sturn = true` | `Op::Snapshot` WAL events       |
+
+`pull_request` deliveries are opt-in per repo (`events`): the PR
+head sha runs in a worktree while `branch`/job filters evaluate
+the *base* ref — a `refs/heads/main` gate covers PRs targeting
+main with no extra config.
 
 `Trigger` is the narrower per-request port a webhook `Source`
 drives — is this our event, which repo (untrusted hint), does the

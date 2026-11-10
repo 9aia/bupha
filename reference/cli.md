@@ -30,6 +30,7 @@ This document contains the help content for the `bupha` command-line program.
 * [`bupha runs`↴](#bupha-runs)
 * [`bupha log`↴](#bupha-log)
 * [`bupha explain`↴](#bupha-explain)
+* [`bupha import`↴](#bupha-import)
 
 ## `bupha`
 
@@ -51,6 +52,7 @@ the oxpecker on your repo's back — headless CI
 * `runs` — Recent finished runs (reads `<worktree.base>/history.jsonl`)
 * `log` — Raw run log — last N lines of history.jsonl
 * `explain` — Why a sha did/didn't run — history + queue + worktree state
+* `import` — Translate a peregrin campaign YAML (ci-gate fleet shape) into a bupha.yaml — no config file needed
 
 ###### **Options:**
 
@@ -326,6 +328,24 @@ Why a sha did/didn't run — history + queue + worktree state
 ###### **Arguments:**
 
 * `<SHA>` — The pushed sha (any prefix ≥ 4 chars)
+
+
+
+## `bupha import`
+
+Translate a peregrin campaign YAML (ci-gate fleet shape) into a bupha.yaml — no config file needed
+
+**Usage:** `bupha import [OPTIONS] <FILE>`
+
+###### **Arguments:**
+
+* `<FILE>` — Campaign file (e.g. libraries/ci-gate/main.yaml)
+
+###### **Options:**
+
+* `--out <OUT>` — Write the generated config here instead of stdout
+* `--dir <OWNER/REPO=PATH>` — Clone-path override `owner/name=/path` (repeatable) — wins over cmd-derived and default dirs
+* `--pull-request` — Also run every repo on pull_request deliveries (`events: [push, pull_request]`)
 
 
 
