@@ -1,13 +1,14 @@
 ---
 name: bupha
-description: CI product — GitHub webhooks (push + pull_request) → queue → run/report on a Linux box; GHA workflows as a runner dialect; fleets packaged as tamias `type: bupha` bundles. Trigger when checking gate status (ci/bupha, docs/deploy), reproducing a red run, wiring a repo's pipeline (bupha.yaml, ci.sh, .github/workflows), importing a peregrin campaign (bupha import), or managing watcher systemd units / tamias bundles.
+description: CI integration for tamias — GitHub webhooks (push + pull_request) → queue → run/report on a Linux box; GHA workflows as a runner dialect; fleets packaged as tamias `type: bupha` bundles. Trigger when checking gate status (ci/bupha, docs/deploy), reproducing a red run, wiring a repo's pipeline (bupha.yaml, ci.sh, .github/workflows), importing a peregrin campaign (bupha import), or managing watcher systemd units / tamias bundles.
 metadata:
   version: "1.1.0"
 ---
 
 # bupha — CI on your own box
 
-`bupha` is the org's CI product: a queue engine where pluggable
+`bupha` is the CI **integration** for tamias (the product): a queue
+engine where pluggable
 **sources** — the GitHub push/PR webhook (`trigger.kind =
 "github"`), the sturn WAL poller (`[trigger.sturn]` + `sturn =
 true` per repo) — land events on the queue, shas batch

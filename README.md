@@ -3,8 +3,13 @@
 [![crates.io](https://img.shields.io/crates/v/bupha)](https://crates.io/crates/bupha)
 [![license: MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
-*CI for your own forge — GitHub first, GitLab later; GHA workflows
-as a runner dialect.*
+*The CI integration for [tamias](https://github.com/9aia/tamias) —
+GitHub first, GitLab later; GHA workflows as a runner dialect.*
+
+**bupha is not a standalone product — tamias is.** bupha is the
+`type: bupha` content integration: fleets ship as tamias bundles,
+`tamias install`/`deploy` provisions the watcher, tunnel, and forge
+hooks. The engine below is the integration's implementation.
 
 Headless CI, built for agent-driven setups — **pre-1.0**, Linux +
 systemd focus. A single binary — a queue engine: pluggable **sources**
