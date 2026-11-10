@@ -1,20 +1,39 @@
 # bupha-driver — `tamias-driver-bupha`
 
 The [pavo](https://github.com/9aia/pavo) view driver for
-[bupha](https://github.com/9aia/bupha) — read-only surfaces over
-bupha's on-disk CI state. Bin name is the tamias driver contract:
-`tamias-driver-bupha`.
+[bupha](https://github.com/9aia/bupha) **and** the tamias
+content-type driver for `type: bupha` bundles (the org CI gate —
+see `libraries/ci-gate/`). One binary, two disjoint argv surfaces:
+pavo verbs take no `--dir`/`--name`; tamias verbs always do.
 
-## Verbs
+## pavo verbs
 
 | verb | output |
 | --- | --- |
 | `manifest` | the `DriverManifest` JSON (name `bupha`, views, contributes) |
-| `capabilities` | `{"capabilities": ["pavo"], "verbs": ["manifest","serve"], …}` |
+| `capabilities` | merged JSON — `{"capabilities": ["pavo"], "verbs": […], "types": ["bupha"], "views": N}`; pavo's discovery greps `capabilities`/`verbs` for `"pavo"`/`"serve"`, tamias's greps `types` for the content kind — one payload answers both |
 | `serve` | ndjson JSON-RPC on stdio — `{"op":"manifest"|"views"|"view"|"query"}` → `{"ok":true,"result":…}` / `{"ok":false,"error":…}` (pavo-protocol v1 wire) |
 
 `render`/`submit` answer explicit `ok:false` — the driver claims no
 renderers and no forms.
+
+## tamias verbs (`type: bupha`)
+
+tamias dispatches `<verb> --dir <payload> --name <pkg> [--config <f>]`:
+
+| verb | output |
+| --- | --- |
+| `install` | no-op — the operator config is `deploy`'s job (install only sees the evictable fetch-cache payload) |
+| `deploy` | merge the payload's `fleet.toml` (a complete `bupha_core::Config` doc) with `tamias.yaml provider.ingress[]` — `tunnel.public_url`, `trigger.listen`/`kind`, `tunnel.local_url` are manifest-owned — and write `~/.config/bupha/bundles/<name>.toml`, the file the provider unit's `bupha watch --config` consumes. Idempotent: fully regenerated each run, validated as a real `Config` before write |
+| `uninstall` | remove the deployed config (`--config` overrides the path) |
+| `hooks register\|uninstall [--dry-run] [--api-base <url>] [--token-env <NAME>]` | upsert/remove the GitHub webhooks `provider.ingress[].hooks[]` declare, via `bupha_github`'s REST path (exact-URL match). `--dry-run` prints the plan and resolves no secrets. Register needs the forge token + each repo's webhook secret **by NAME** (env → keyring → `~/.config/bupha/env`) |
+| `health` | JSON `{ok, probes[]}` — webhook `ping` per ingress `listen`+`path` (`POST …/hook` + `X-GitHub-Event: ping` → `200 pong`), else `systemctl --user is-active` per provider unit |
+| `status` | JSON per-unit `is-active`/`is-enabled` (`<provider>-<service>.service`) |
+| `logs [--lines N]` | `journalctl --user` over the provider units |
+| `config-schema` | JSON Schema (draft 2020-12) of the operator config `deploy` writes — tamias's reserved verb |
+
+Unit names derive exactly like `tamias deploy` renders them:
+`<provider.name|scope-name|name>-<service>.service`.
 
 Install: `cargo build --release -p bupha-driver` and put
 `target/release/tamias-driver-bupha` on `PATH`, or into

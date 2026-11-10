@@ -19,7 +19,18 @@ bupha-config-file.workspace = true
 bupha-queue.workspace = true
 bupha-queue-redb.workspace = true
 bupha-systemd.workspace = true
+# tamias content-type surface (ops.rs): forge-hook REST calls reuse
+# bupha-github; the secret chain reuses the same three stores
+# `bupha` resolves through.
+bupha-github.workspace = true
+bupha-secret.workspace = true
+bupha-keyring.workspace = true
+bupha-dotenv.workspace = true
+serde = { version = "1", features = ["derive"] }
 serde_json.workspace = true
+serde_norway = "0.9"
+toml.workspace = true
+ureq = { version = "3", features = ["json"] }
 # The public wire contract — git dep so `cargo install --git` and CI
 # work without a sibling ../pavo checkout (bupha's CI has none;
 # path deps break workspace resolution on a fresh clone).

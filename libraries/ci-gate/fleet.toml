@@ -1,0 +1,67 @@
+# ci-gate fleet — the operator config `bupha watch` runs.
+#
+# This file is the payload's fleet source: `tamias-driver-bupha
+# deploy` merges it with tamias.yaml's provider.ingress (which owns
+# `tunnel.public_url`, `trigger.listen`/`kind`) and writes the result
+# to ~/.config/bupha/bundles/ci-gate.toml. It is a COMPLETE
+# bupha_core::Config doc — every section `bupha watch --config`
+# needs is here; only the two manifest-owned fields are absent.
+#
+# Secrets are env-var NAMES only — values resolve env → OS keyring →
+# ~/.config/bupha/env (the unit's EnvironmentFile). Never put a
+# value in this file.
+#
+# Representative fleet — the full org import is a separate
+# workstream; drop the generated [[repo]] set in here when it lands.
+
+# --- fleet -------------------------------------------------------------------
+
+[[repo]]
+name = "9aia/bupha"
+dir = "~/GitHub/9aia/workspace/repos/bupha"
+branch = "refs/heads/main"
+secret_env = "BUPHA_WH_9AIA_BUPHA"
+
+[[repo]]
+name = "9aia/tamias"
+dir = "~/GitHub/9aia/workspace/repos/tamias"
+branch = "refs/heads/main"
+secret_env = "BUPHA_WH_9AIA_TAMIAS"
+
+[[repo]]
+name = "9aia/myco"
+dir = "~/GitHub/9aia/workspace/repos/myco"
+branch = "refs/heads/main"
+secret_env = "BUPHA_WH_9AIA_MYCO"
+
+# --- pipeline ------------------------------------------------------------------
+
+# The zero-container path: `bash -c <cmd>` in a detached worktree.
+# Per-repo [repo.runner] tables replace this for repos that need
+# dagger/ssh/http instead. `cancel_running` gives latest-wins
+# supersede semantics (rejected with queue = "all").
+[runner]
+kind = "shell"
+token_env = "BUPHA_TOKEN"
+cancel_running = true
+
+# Commit statuses post back to github under this context
+# (per-job contexts become "<context>/<job>").
+[status]
+kind = "github"
+context = "ci/bupha"
+
+# Embedded ACIC store — survives watcher restarts; redis is the
+# multi-box fleet option ([queue] kind = "redis").
+[queue]
+kind = "redb"
+
+# Detached worktrees for runs — kept under $HOME, not /tmp, so a
+# reboot doesn't strand in-flight checkouts.
+[worktree]
+base = "~/.local/share/bupha/worktrees"
+
+# `tunnel.public_url`, `trigger.listen`, `trigger.kind` are written
+# by `tamias deploy` from provider.ingress — do not set them here.
+# `tunnel.provider` stays "none": the public URL is fronted by the
+# org's external tunnel, not a bupha-spawned cloudflared.

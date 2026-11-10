@@ -24,6 +24,7 @@
 //! parsing prose. See `data.rs`.
 
 pub mod data;
+pub mod ops;
 pub mod views;
 
 use pavo_driver_kit as kit;
@@ -35,12 +36,34 @@ pub fn manifest_value() -> Value {
     serde_json::to_value(views::manifest()).unwrap_or(Value::Null)
 }
 
-/// `capabilities` verb payload — the kit's shape plus the
-/// `"views"` count every bupha surface already reads.
+/// `capabilities` verb payload — merged for both consumers of this
+/// binary. pavo's discovery checks `capabilities`/`verbs` for
+/// `"pavo"`/`"serve"`; tamias's checks `types` for the content kind
+/// and warns on undeclared `verbs`. One JSON answers both: the kit's
+/// `{capabilities, verbs}` shape plus `"types": ["bupha"]` and the
+/// tamias provider verbs folded into `verbs`.
 pub fn capabilities_value() -> Value {
     let m = views::manifest();
     let mut v = kit::capabilities_value(&m);
     v["views"] = serde_json::json!(m.views.len());
+    v["types"] = serde_json::json!(["bupha"]);
+    let mut verbs: Vec<Value> = v["verbs"].as_array().cloned().unwrap_or_default();
+    for extra in [
+        "capabilities",
+        "install",
+        "deploy",
+        "uninstall",
+        "hooks",
+        "health",
+        "status",
+        "logs",
+        "config-schema",
+    ] {
+        if !verbs.iter().any(|x| x.as_str() == Some(extra)) {
+            verbs.push(serde_json::json!(extra));
+        }
+    }
+    v["verbs"] = Value::Array(verbs);
     v
 }
 
