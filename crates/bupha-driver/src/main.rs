@@ -1,17 +1,46 @@
-//! tamias-driver-bupha — the pavo view driver for bupha's CI state.
+//! tamias-driver-bupha — dual-surface driver for bupha's CI state.
 //!
-//! Verbs (the tamias driver contract):
+//! One binary, two consumers, disjoint argv:
+//!
+//! **pavo view driver** (verbs take no `--dir`/`--name`):
 //!
 //! - `manifest` — print the [`pavo_protocol::DriverManifest`] JSON
 //!   (discovery probe; never touches bupha state).
-//! - `capabilities` — `{"capabilities": ["pavo"], "verbs": […]}`.
+//! - `capabilities` — merged JSON advertising BOTH surfaces: pavo's
+//!   `{"capabilities": ["pavo"], "verbs": […"serve"…]}` shape plus
+//!   tamias's `"types": ["bupha"]` and the provider verbs in `verbs`.
+//!   pavo's discovery greps `capabilities`/`verbs` for
+//!   `"pavo"`/`"serve"`; tamias's greps `types` for the content kind
+//!   and warns on verbs missing from `verbs` — one payload satisfies
+//!   both.
 //! - `serve` — ndjson JSON-RPC on stdio (see `bupha_driver::serve`).
 //!
-//! Read path: files under `worktree.base` — see `bupha_driver::data`
-//! for resolution (`--param base=`/`config=`, `$BUPHA_CONFIG`,
-//! `./bupha.*`, `~/.config/bupha/`, default `/tmp/bupha`). The driver
-//! is strictly read-only: it never writes queue/history/audit state
-//! and never invokes mutating `bupha` verbs.
+//! **tamias content-type driver** (`type: bupha` packages — tamias
+//! always passes `--dir <payload> --name <pkg> [--config <f>]`, so
+//! these verbs are unreachable from pavo's bare probes):
+//!
+//! - `install` — no-op (the operator config is `deploy`'s job; install
+//!   only sees the evictable fetch-cache payload).
+//! - `deploy` — merge the payload's `fleet.toml` with
+//!   `tamias.yaml provider.ingress[]` (`tunnel.public_url`,
+//!   `trigger.listen`/`kind`) and write
+//!   `~/.config/bupha/bundles/<name>.toml` — the file the provider
+//!   unit's `bupha watch --config` consumes.
+//! - `uninstall` — remove that file.
+//! - `hooks register|uninstall [--dry-run] [--api-base <url>]
+//!   [--token-env <NAME>]` — upsert/remove the GitHub webhooks
+//!   `provider.ingress[].hooks[]` declare, via `bupha_github`'s REST
+//!   path. Secrets resolve by NAME (env → keyring →
+//!   `~/.config/bupha/env`); values are never printed.
+//! - `health` — JSON probe: webhook `ping` per ingress
+//!   `listen`+`path`, else `systemctl --user is-active` per unit.
+//! - `status` — JSON per-unit `is-active`/`is-enabled`.
+//! - `logs [--lines N]` — `journalctl --user` over the provider units.
+//! - `config-schema` — JSON Schema (draft 2020-12) of the operator
+//!   config `deploy` writes (tamias's reserved verb).
+//!
+//! See `bupha_driver::ops` for the implementation and
+//! `bupha_driver::data` for the pavo read plane.
 
 use bupha_driver as drv;
 
@@ -31,8 +60,18 @@ fn main() {
             );
         }
         Some("serve") => std::process::exit(drv::serve()),
+        // Tamias verbs — always invoked with `--dir`/`--name` by the
+        // tamias dispatch contract; pavo never passes those flags, so
+        // subcommand-first dispatch keeps the surfaces disjoint.
+        Some(
+            verb @ ("install" | "deploy" | "uninstall" | "hooks" | "health" | "status" | "logs"
+            | "config-schema"),
+        ) => {
+            std::process::exit(drv::ops::run(verb, &args.collect::<Vec<_>>()));
+        }
         _ => {
             eprintln!("usage: tamias-driver-bupha manifest|capabilities|serve");
+            eprintln!("       tamias-driver-bupha <install|deploy|uninstall|hooks|health|status|logs|config-schema> --dir <d> --name <n> [--config <c>]");
             std::process::exit(1);
         }
     }

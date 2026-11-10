@@ -287,13 +287,21 @@ dependencies = [
  "bupha-config",
  "bupha-config-file",
  "bupha-core",
+ "bupha-dotenv",
+ "bupha-github",
+ "bupha-keyring",
  "bupha-queue",
  "bupha-queue-redb",
+ "bupha-secret",
  "bupha-systemd",
  "pavo-driver-kit",
  "pavo-protocol",
  "pavo-testkit",
+ "serde",
  "serde_json",
+ "serde_norway",
+ "toml",
+ "ureq",
 ]
 
 [[package]]
