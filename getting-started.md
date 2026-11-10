@@ -5,6 +5,8 @@ Pick by what you need to do.
 - **Tutorials** (learn): [first-run](tutorials/first-run.md)
 - **How-to** (tasks): [multi-repo](how-to/multi-repo.md) ·
   [shell runner](how-to/shell-runner.md) ·
+  [gha runner — your own GHA workflows](how-to/gha-runner.md) ·
+  [tamias bundles](how-to/tamias-bundles.md) ·
   [sccache backend](how-to/sccache-backend.md)
 - **Reference** (lookup): [cli](reference/cli.md) ·
   [config](reference/config.md) ·

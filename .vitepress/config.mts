@@ -35,6 +35,8 @@ export default defineConfig({
         items: [
           { text: "Multi-repo", link: "/how-to/multi-repo" },
           { text: "Shell runner", link: "/how-to/shell-runner" },
+          { text: "GHA workflows on your box", link: "/how-to/gha-runner" },
+          { text: "Tamias bundles", link: "/how-to/tamias-bundles" },
           { text: "sccache backend", link: "/how-to/sccache-backend" },
         ],
       },
