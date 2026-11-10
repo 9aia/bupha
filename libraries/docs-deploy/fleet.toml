@@ -53,6 +53,8 @@ secret_env = "BUPHA_WH_9AIA_BUPHA"
 # of the pushed docs sha. Global default for every [[repo]]; a repo
 # whose deploy command differs overrides with its own
 # [repo.runner] table (a full table replaces this one).
+# LEGACY (ADR-0006): cancel_running/lease semantics are queue policy —
+# home TBD (ci-job contract, bupha T-051). Runner KIND stays bupha's.
 [runner]
 kind = "shell"
 cmd = "bash scripts/deploy-docs.sh"
@@ -69,11 +71,14 @@ context = "docs/deploy"
 
 # Embedded ACIC store — survives watcher restarts; redis is the
 # multi-box fleet option ([queue] kind = "redis").
+# LEGACY (ADR-0006): queue/cache/locks are substrate-owned —
+# this section migrates to the ci-job/hypha path (bupha T-049/051).
 [queue]
 kind = "redb"
 
 # Detached worktrees for runs — kept under $HOME, not /tmp, so a
 # reboot doesn't strand in-flight checkouts.
+# LEGACY (ADR-0006): worktree cache is substrate-owned — migrates with T-049.
 [worktree]
 base = "~/.local/share/bupha/worktrees-docs"
 

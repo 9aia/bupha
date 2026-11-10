@@ -28,6 +28,9 @@ provider:
     # driver generates — the fleet itself lives in the payload's
     # fleet.toml, never in this unit file.
     - name: watch
+      # INTERIM (bupha T-052): unit execs the cargo-installed bupha
+      # binary until the driver gains engine-host mode — then this becomes
+      # `tamias-driver-bupha host --config ...`.
       exec: >-
         ~/.cargo/bin/bupha watch --config ~/.config/bupha/bundles/ci-gate.toml
       env_file: "~/.config/bupha/env"

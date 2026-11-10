@@ -40,6 +40,8 @@ secret_env = "BUPHA_WH_9AIA_MYCO"
 # Per-repo [repo.runner] tables replace this for repos that need
 # dagger/ssh/http instead. `cancel_running` gives latest-wins
 # supersede semantics (rejected with queue = "all").
+# LEGACY (ADR-0006): cancel_running/lease semantics are queue policy —
+# home TBD (ci-job contract, bupha T-051). Runner KIND stays bupha's.
 [runner]
 kind = "shell"
 token_env = "BUPHA_TOKEN"
@@ -53,11 +55,14 @@ context = "ci/bupha"
 
 # Embedded ACIC store — survives watcher restarts; redis is the
 # multi-box fleet option ([queue] kind = "redis").
+# LEGACY (ADR-0006): queue/cache/locks are substrate-owned —
+# this section migrates to the ci-job/hypha path (bupha T-049/051).
 [queue]
 kind = "redb"
 
 # Detached worktrees for runs — kept under $HOME, not /tmp, so a
 # reboot doesn't strand in-flight checkouts.
+# LEGACY (ADR-0006): worktree cache is substrate-owned — migrates with T-049.
 [worktree]
 base = "~/.local/share/bupha/worktrees"
 
