@@ -1,6 +1,6 @@
 //! bupha-github — the GitHub impl of Trigger + StatusSink: verifies
-//! X-Hub-Signature-256, parses push payloads, and posts commit
-//! statuses to api.github.com.
+//! X-Hub-Signature-256, parses push and pull_request payloads, and
+//! posts commit statuses to api.github.com.
 
 use bupha_core::is_valid_sha;
 use bupha_status::StatusSink;
@@ -22,11 +22,21 @@ fn agent() -> ureq::Agent {
 /// first) and passes it to verify per request.
 pub struct GitHubTrigger;
 
+/// pull_request actions that enqueue a run — everything else
+/// (edited, labeled, closed, …) is a well-formed skip.
+const PR_ACTIONS: [&str; 3] = ["opened", "synchronize", "reopened"];
+
+/// The `X-GitHub-Event` header value, if present.
+fn event_kind(headers: &[(String, String)]) -> Option<&str> {
+    headers
+        .iter()
+        .find(|(k, _)| k.eq_ignore_ascii_case("x-github-event"))
+        .map(|(_, v)| v.as_str())
+}
+
 impl Trigger for GitHubTrigger {
     fn is_event(&self, headers: &[(String, String)]) -> bool {
-        headers
-            .iter()
-            .any(|(k, v)| k.eq_ignore_ascii_case("x-github-event") && v == "push")
+        matches!(event_kind(headers), Some("push" | "pull_request"))
     }
 
     fn is_ping(&self, headers: &[(String, String)]) -> bool {
@@ -68,7 +78,10 @@ impl Trigger for GitHubTrigger {
             .map(|(_, v)| v.clone())
     }
 
-    fn parse_push(&self, body: &[u8]) -> Option<PushOutcome> {
+    fn parse_push(&self, body: &[u8], headers: &[(String, String)]) -> Option<PushOutcome> {
+        if event_kind(headers) == Some("pull_request") {
+            return self.parse_pull_request(body);
+        }
         let v: serde_json::Value = serde_json::from_slice(body).ok()?;
         let repo = v.pointer("/repository/full_name")?.as_str()?;
         let git_ref = v.get("ref")?.as_str()?;
@@ -94,6 +107,49 @@ impl Trigger for GitHubTrigger {
             git_ref: git_ref.to_string(),
             sha: sha.to_string(),
             sender: sender.to_string(),
+            event: "push".into(),
+        }))
+    }
+}
+
+impl GitHubTrigger {
+    /// A verified `pull_request` delivery → a `Push` on the PR's
+    /// *base* ref (`refs/heads/<base.ref>`) carrying the head sha —
+    /// jobs watch base branches, so `branch = "refs/heads/main"`
+    /// gates PRs targeting main without a per-PR ref. Drafts and
+    /// non-lifecycle actions are well-formed skips.
+    fn parse_pull_request(&self, body: &[u8]) -> Option<PushOutcome> {
+        let v: serde_json::Value = serde_json::from_slice(body).ok()?;
+        let repo = v.pointer("/repository/full_name")?.as_str()?;
+        let action = v.get("action")?.as_str()?;
+        if !PR_ACTIONS.contains(&action) {
+            return Some(PushOutcome::Skip);
+        }
+        let pr = v.get("pull_request")?;
+        if pr.get("draft").and_then(|d| d.as_bool()).unwrap_or(false) {
+            return Some(PushOutcome::Skip);
+        }
+        let sha = pr.pointer("/head/sha")?.as_str()?;
+        if !is_valid_sha(sha) {
+            return None;
+        }
+        let base = pr.pointer("/base/ref")?.as_str()?;
+        let git_ref = if base.starts_with("refs/") {
+            base.to_string()
+        } else {
+            format!("refs/heads/{base}")
+        };
+        let sender = v
+            .pointer("/sender/login")
+            .and_then(|l| l.as_str())
+            .or_else(|| pr.pointer("/user/login").and_then(|l| l.as_str()))
+            .unwrap_or_default();
+        Some(PushOutcome::Push(Push {
+            repo: repo.to_string(),
+            git_ref,
+            sha: sha.to_string(),
+            sender: sender.to_string(),
+            event: "pull_request".into(),
         }))
     }
 }
@@ -215,6 +271,19 @@ pub fn register_webhook(
     secret: &str,
     api_base: &str,
 ) -> std::io::Result<String> {
+    register_webhook_events(token, repo, url, secret, api_base, &["push"])
+}
+
+/// `register_webhook` with an explicit event list — a repo opted
+/// into `pull_request` deliveries needs the hook subscribed to both.
+pub fn register_webhook_events(
+    token: &str,
+    repo: &str,
+    url: &str,
+    secret: &str,
+    api_base: &str,
+    events: &[&str],
+) -> std::io::Result<String> {
     let hook_url = format!("{}/hook", url.trim_end_matches('/'));
     let agent = agent();
     let list = agent
@@ -257,7 +326,7 @@ pub fn register_webhook(
             .header("Accept", "application/vnd.github+json")
             .header("User-Agent", "bupha")
             .send_json(serde_json::json!({
-                "config": config, "events": ["push"], "active": true}))
+                "config": config, "events": events, "active": true}))
             .map_err(std::io::Error::other)?;
         Ok(format!("updated hook {id} -> {hook_url}"))
     } else {
@@ -268,7 +337,7 @@ pub fn register_webhook(
             .header("User-Agent", "bupha")
             .send_json(serde_json::json!({
                 "name": "web", "config": config,
-                "events": ["push"], "active": true}))
+                "events": events, "active": true}))
             .map_err(std::io::Error::other)?;
         Ok(format!("created hook -> {hook_url}"))
     }
@@ -281,11 +350,20 @@ pub struct GitHubAdmin {
     pub repo: String,
     /// Forge API base ("https://api.github.com" or GHES).
     pub api_base: String,
+    /// Events the hook subscribes to — the repo's resolved
+    /// `[[repo]] events` ("push", "pull_request"). Empty = ["push"].
+    pub events: Vec<String>,
 }
 
 impl bupha_trigger::ForgeAdmin for GitHubAdmin {
     fn register_hook(&self, url: &str, secret: &str, token: &str) -> Result<String, String> {
-        register_webhook(token, &self.repo, url, secret, &self.api_base).map_err(|e| e.to_string())
+        let events: Vec<&str> = if self.events.is_empty() {
+            vec!["push"]
+        } else {
+            self.events.iter().map(String::as_str).collect()
+        };
+        register_webhook_events(token, &self.repo, url, secret, &self.api_base, &events)
+            .map_err(|e| e.to_string())
     }
     fn remove_hook(&self, url: &str, token: &str) -> Result<String, String> {
         unregister_webhook(token, &self.repo, url, &self.api_base).map_err(|e| e.to_string())

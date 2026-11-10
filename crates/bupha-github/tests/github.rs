@@ -57,7 +57,7 @@ fn parse_push_extracts_repo_ref_sha() {
     let t = GitHubTrigger;
     let sha40 = "a".repeat(40);
     let body = BODY.replace("abc123def456", &sha40);
-    match t.parse_push(body.as_bytes()).unwrap() {
+    match t.parse_push(body.as_bytes(), &[]).unwrap() {
         PushOutcome::Push(bupha_trigger::Push {
             repo, git_ref, sha, ..
         }) => assert_eq!(
@@ -66,8 +66,8 @@ fn parse_push_extracts_repo_ref_sha() {
         ),
         PushOutcome::Skip => panic!("expected Push"),
     }
-    assert!(t.parse_push(b"{}").is_none());
-    assert!(t.parse_push(b"not json").is_none());
+    assert!(t.parse_push(b"{}", &[]).is_none());
+    assert!(t.parse_push(b"not json", &[]).is_none());
 }
 
 #[test]
@@ -78,7 +78,7 @@ fn parse_push_skips_deleted_branch() {
       "after":"0000000000000000000000000000000000000000",
       "repository":{"full_name":"o/r"}}"#;
     assert!(matches!(
-        t.parse_push(body.as_bytes()),
+        t.parse_push(body.as_bytes(), &[]),
         Some(PushOutcome::Skip)
     ));
     // zero sha without deleted flag also skips
@@ -86,7 +86,7 @@ fn parse_push_skips_deleted_branch() {
       "after":"0000000000000000000000000000000000000000",
       "repository":{"full_name":"o/r"}}"#;
     assert!(matches!(
-        t.parse_push(body.as_bytes()),
+        t.parse_push(body.as_bytes(), &[]),
         Some(PushOutcome::Skip)
     ));
 }
@@ -98,10 +98,10 @@ fn parse_push_rejects_non_sha() {
     // contract -> None (the watcher answers 400), never enqueued
     let body = r#"{"ref":"refs/heads/main","after":"../../etc",
       "repository":{"full_name":"o/r"}}"#;
-    assert!(t.parse_push(body.as_bytes()).is_none());
+    assert!(t.parse_push(body.as_bytes(), &[]).is_none());
     let body = r#"{"ref":"refs/heads/main","after":"zzzz",
       "repository":{"full_name":"o/r"}}"#;
-    assert!(t.parse_push(body.as_bytes()).is_none());
+    assert!(t.parse_push(body.as_bytes(), &[]).is_none());
 }
 
 #[test]
@@ -110,4 +110,74 @@ fn delivery_id_header() {
     let h = vec![("X-GitHub-Delivery".to_string(), "guid-7".to_string())];
     assert_eq!(t.delivery_id(&h).as_deref(), Some("guid-7"));
     assert_eq!(t.delivery_id(&[]), None);
+}
+
+const PR_HEADERS: &[(&str, &str)] = &[("X-GitHub-Event", "pull_request")];
+
+fn pr_headers() -> Vec<(String, String)> {
+    PR_HEADERS
+        .iter()
+        .map(|(k, v)| (k.to_string(), v.to_string()))
+        .collect()
+}
+
+fn pr_body(action: &str, draft: bool) -> String {
+    let sha = "b".repeat(40);
+    format!(
+        r#"{{"action":"{action}","number":7,
+  "pull_request":{{"draft":{draft},"head":{{"sha":"{sha}","ref":"feature"}},
+    "base":{{"ref":"main"}},"user":{{"login":"alice"}}}},
+  "sender":{{"login":"alice"}},
+  "repository":{{"full_name":"o/r"}}}}"#
+    )
+}
+
+#[test]
+fn is_event_accepts_pull_request() {
+    let t = GitHubTrigger;
+    assert!(t.is_event(&pr_headers()));
+    assert!(!t.is_event(&[("X-GitHub-Event".into(), "issues".into())]));
+}
+
+#[test]
+fn parse_pull_request_maps_base_ref_and_head_sha() {
+    let t = GitHubTrigger;
+    for action in ["opened", "synchronize", "reopened"] {
+        match t
+            .parse_push(pr_body(action, false).as_bytes(), &pr_headers())
+            .unwrap()
+        {
+            PushOutcome::Push(p) => {
+                assert_eq!(p.repo, "o/r");
+                assert_eq!(p.git_ref, "refs/heads/main");
+                assert_eq!(p.sha, "b".repeat(40));
+                assert_eq!(p.sender, "alice");
+                assert_eq!(p.event, "pull_request");
+            }
+            PushOutcome::Skip => panic!("{action} should enqueue"),
+        }
+    }
+}
+
+#[test]
+fn parse_pull_request_skips_drafts_and_other_actions() {
+    let t = GitHubTrigger;
+    for action in ["edited", "labeled", "closed", "ready_for_review"] {
+        assert!(matches!(
+            t.parse_push(pr_body(action, false).as_bytes(), &pr_headers()),
+            Some(PushOutcome::Skip)
+        ));
+    }
+    assert!(matches!(
+        t.parse_push(pr_body("opened", true).as_bytes(), &pr_headers()),
+        Some(PushOutcome::Skip)
+    ));
+}
+
+#[test]
+fn parse_pull_request_rejects_malformed() {
+    let t = GitHubTrigger;
+    assert!(t.parse_push(b"{}", &pr_headers()).is_none());
+    let bad = pr_body("opened", false).replace(&"b".repeat(40), "../x");
+    assert!(t.parse_push(bad.as_bytes(), &pr_headers()).is_none());
 }

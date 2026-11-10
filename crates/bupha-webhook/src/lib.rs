@@ -143,7 +143,7 @@ impl Source for WebhookSource {
                 let (code, msg) = if trigger.is_ping(&headers) {
                     (200, "pong")
                 } else if !trigger.is_event(&headers) {
-                    (400, "not a push event")
+                    (400, "not a CI event")
                 } else {
                     // repo_hint is untrusted until verify passes — it
                     // only picks which watched repo (and secret)
@@ -174,7 +174,7 @@ impl Source for WebhookSource {
                             // replayed signed payload: same delivery id
                             (200, "duplicate delivery")
                         }
-                        Some(_) => match trigger.parse_push(&body) {
+                        Some(_) => match trigger.parse_push(&body, &headers) {
                             Some(PushOutcome::Skip) => (200, "ignored: no-op event"),
                             Some(PushOutcome::Push(p)) => match emit(&p) {
                                 Verdict::NoMatch => (200, "ignored: not the watched branch"),

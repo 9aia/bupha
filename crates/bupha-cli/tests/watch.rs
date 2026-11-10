@@ -322,7 +322,7 @@ dir = "{repo}"
 
     // Not a push event / unsigned / no-hint / malformed-body pushes.
     let (c, m) = post(port, "/hook", Some(&sign("s3cr3t", "{}")), "{}", "issues");
-    assert_eq!((c, m.as_str()), (400, "not a push event"));
+    assert_eq!((c, m.as_str()), (400, "not a CI event"));
     let (c, m) = post(
         port,
         "/hook",

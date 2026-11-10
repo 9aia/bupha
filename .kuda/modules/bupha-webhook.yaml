@@ -62,7 +62,7 @@ provenance:
   - crates/bupha-webhook/src/lib.rs
   hashes:
   - cd8e10b771c3960ae45a2b6f7705fa9f1cdc6344
-  - ac8edecec513f7c4b7bd1af9b29df8f952e4e0e9
-  commit_sha: 2a6dcebac3778d8c539075212ef7514729e6a60a
-  generated_at: '1793687787'
+  - 5cfd2de3d35dca438983fe310eae1e704b921acf
+  commit_sha: 08bbbf393f27729578afc140c1d0c3cad4a40673
+  generated_at: '1794336962'
   generator: kuda-template/0.1.2

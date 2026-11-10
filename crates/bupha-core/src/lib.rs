@@ -486,6 +486,11 @@ pub struct RepoEntry {
     /// every job inherits it (branch filters still apply).
     #[serde(default)]
     pub sturn: bool,
+    /// Source event kinds this repo runs on — "push" and/or
+    /// "pull_request" (GitHub webhook deliveries). Empty = ["push"]
+    /// (today's behavior). Repo-level: every job inherits it.
+    #[serde(default)]
+    pub events: Vec<String>,
     /// Pipelines within this repo (`[[repo.jobs]]`). Each job gets
     /// its own branch filter, queue policy, runner and status
     /// context — one webhook feeds them all. Empty = the repo
@@ -577,6 +582,9 @@ pub struct WatchedRepo {
     /// Repo-level `[trigger.sturn]` opt-in (jobs share the clone's
     /// WAL — the flag is per repo, not per job).
     pub sturn: bool,
+    /// Resolved event kinds — the repo's `events`, or ["push"] when
+    /// unset. Ingest matches a delivery's event against this list.
+    pub events: Vec<String>,
 }
 
 impl Config {
@@ -657,6 +665,16 @@ impl Config {
                     ));
                 }
             }
+            // Event kinds are a closed set — a typo'd "pullrequest"
+            // would silently never fire.
+            for e in &r.events {
+                if !matches!(e.as_str(), "push" | "pull_request") {
+                    return Err(format!(
+                        "repo {}: unknown event {e:?} — use \"push\" or \"pull_request\"",
+                        r.name
+                    ));
+                }
+            }
             if r.jobs.is_empty() {
                 out.push(self.watch_one(r, None, &canon)?);
                 continue;
@@ -733,6 +751,11 @@ impl Config {
                 n
             },
             sturn: r.sturn,
+            events: if r.events.is_empty() {
+                vec!["push".into()]
+            } else {
+                r.events.clone()
+            },
         })
     }
 }
