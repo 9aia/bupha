@@ -22,6 +22,8 @@ one repo needing several pipelines declares `[[repo.jobs]]`.
 | `secret_env` | `trigger.secret_env` | Per-repo webhook-secret env-var NAME |
 | `runs_on` | `[]` | Worker labels required to claim this repo (`["arch=arm64"]`) — fleet routing |
 | `retry` | `0` | Failed runs re-enqueue at the back, 0–3; superseded/claim-lost never retry |
+| `sturn` | `false` | Opt into the `[trigger.sturn]` WAL poller — jobs enqueue on `Op::Snapshot` events under `refs/sturn/wal/*`, no webhook |
+| `events` | `["push"]` | Source event kinds — `"push"` and/or `"pull_request"` (GitHub deliveries). PR deliveries map the head sha onto the *base* ref, so `branch`/`jobs[].branch` filters gate PRs unchanged. Repo-level: every job inherits it |
 | `[repo.runner]` | global `[runner]` | Per-repo runner — a full table replaces the global one |
 | `[[repo.jobs]]` | implicit single pipeline | Named pipelines sharing one webhook/secret/clone |
 
@@ -65,6 +67,7 @@ cancel_running = true
 | `dagger` | `function`, `shards`, `jobs`, `token_env`, `sccache_conf`, `extra_args`, `cli_source` | `dagger call` against the repo's module; extra flags must be declared by the function or the call rejects them |
 | `ssh` | `remote`, `remote_dir`, `cmd` | rsyncs the worktree to another box, runs `cmd` there (multi-arch path); the `.git` pointer is meaningless remotely |
 | `http` | `agent_url`, `secret_env` | Posts the spec to a `bupha agent` listener on another box, ships the tarred worktree |
+| `gha` | `workflow` | Executes the repo's own `.github/workflows/*.yml` natively — `on.push` workflows run sequentially in one local bash process; the supported subset + hard-error boundary live in `crates/bupha-gha/README.md`. `workflow = "ci.yml"` (or a list) pins files instead of discovering all |
 
 Shared fields: `token_env` (forge-token env-var NAME, default
 `BUPHA_TOKEN`), `cancel_running` (kill in-flight run on newer push —
