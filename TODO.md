@@ -6,3 +6,4 @@
 - [ ] T-044 rotate CARGO\_REGISTRY\_TOKEN — was at .env 0644 (now 600); treat as exposed · pri:high · created:2026-11-03
 - [ ] T-049 migrate queue/cache/lease impls out of bupha — redb/redis queue becomes hypha-side impl; bupha keeps thin port or none (ADR-0006) · pri:high · created:2026-11-10
 - [ ] T-050 gha self-hosted runner — speak GHA runner protocol so repos can runs-on: \[self-hosted, bupha\] (ADR-0006 bidirectional gha) · created:2026-11-10
+- [ ] T-051 ci-job entity kind + ops contract (ci.enqueue/ci.status/ci.cancel) — seam between bupha driver and peregrin campaigns · created:2026-11-10
