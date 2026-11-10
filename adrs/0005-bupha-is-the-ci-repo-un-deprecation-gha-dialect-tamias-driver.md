@@ -57,3 +57,12 @@ GitLab later — that also serves as a tamias content type.
 - `gha` fidelity is capped at the documented subset; widening it
   (setup-* actions, `if:`, parallel matrix, per-job statuses) is
   backlog T-048.
+
+## Amendment (2026-11-10, same day)
+
+**bupha is an integration, not a product — tamias is the product.**
+Distribution/lifecycle/positioning route entirely through tamias
+(`type: bupha` bundles, `tamias-driver-bupha`); crates.io publish is
+optional plumbing for the binary, not a product launch. Where
+orchestration/fleet is needed, hypha/peregrin remain the substrate —
+bupha stays thin.
