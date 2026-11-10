@@ -1,0 +1,16 @@
+[package]
+name = "bupha-gha"
+description = "Runner impl: .github/workflows/*.yml executed natively — GitHub Actions as CI dialect"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+keywords = ["ci", "bupha"]
+categories = ["development-tools"]
+
+[dependencies]
+bupha-runner.workspace = true
+bupha-core.workspace = true
+serde = { version = "1", features = ["derive"] }
+serde_norway = "0.9"
+toml = "0.8"

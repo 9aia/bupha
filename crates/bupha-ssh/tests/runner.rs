@@ -27,6 +27,7 @@ fn ctx(wd: &Path) -> RunCtx<'_> {
         token_env: "BUPHA_TOKEN",
         key: "o/r",
         sha: SHA,
+        git_ref: "refs/heads/main",
     }
 }
 

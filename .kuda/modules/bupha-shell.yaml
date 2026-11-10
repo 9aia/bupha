@@ -50,7 +50,7 @@ api:
 - name: failure_propagates
   kind: function
   file: crates/bupha-shell/tests/runner.rs
-  line: 23
+  line: 24
   module: bupha-shell
 - name: kill
   kind: function
@@ -85,7 +85,7 @@ api:
 - name: spawn_fails_without_bash
   kind: function
   file: crates/bupha-shell/tests/more.rs
-  line: 51
+  line: 52
   module: bupha-shell
 - name: try_wait
   kind: function
@@ -124,8 +124,8 @@ provenance:
   hashes:
   - 6dce52587f4d41a91e9f578dddf2fec383a2f3a2
   - d6e7c808b875dc618924a84d7c804a4a01ee37b4
-  - 830a73e28fadf772454d7cca3bcae90710936bab
-  - f512d2a60d91d59646fa1296631c65071811c869
-  commit_sha: 804e98a4c3563e04363c85c0957e703865ff33bb
-  generated_at: '1794198342'
+  - 1628d4093936fb85a6653dfca1aeea28a1c3f1ef
+  - fcf9b94fd7b06ea078c5a10e0ffd0d9d8f07e0e1
+  commit_sha: 08bbbf393f27729578afc140c1d0c3cad4a40673
+  generated_at: '1794337080'
   generator: kuda-template/0.1.2

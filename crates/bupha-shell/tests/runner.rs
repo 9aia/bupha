@@ -14,6 +14,7 @@ fn runs_cmd_in_worktree() {
             token_env: "BUPHA_TOKEN",
             key: "o/r",
             sha: "abc1234567890def",
+            git_ref: "refs/heads/main",
         })
         .unwrap();
     c.wait().map(|s| assert!(s.success())).unwrap();
@@ -32,6 +33,7 @@ fn failure_propagates() {
             token_env: "BUPHA_TOKEN",
             key: "o/r",
             sha: "abc1234567890def",
+            git_ref: "refs/heads/main",
         })
         .unwrap();
     c.wait().map(|s| assert!(!s.success())).unwrap();

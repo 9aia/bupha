@@ -37,6 +37,7 @@ bupha-http.workspace = true
 bupha-tunnel.workspace = true
 bupha-cloudflared.workspace = true
 bupha-github.workspace = true
+bupha-gha.workspace = true
 bupha-sturn.workspace = true
 bupha-webhook.workspace = true
 clap = { version = "4", features = ["derive"] }

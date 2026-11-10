@@ -42,7 +42,9 @@ statuses — on a Linux box with git, no CI server product.
   survives restarts; Redis-backed shared pull queue with lease
   renewal, `bupha worker` fleet claiming and label routing.
 - **Ports & impls** — every concern behind a port, impls as separate
-  crates: runner (`dagger` | `shell` | `ssh` | `http` | `container`),
+  crates: runner (`dagger` | `shell` | `ssh` | `http` | `container` |
+  `gha` — `.github/workflows` on.push execution, sequential local
+  bash; see `crates/bupha-gha/README.md` for the v1 subset),
   tunnel (`cloudflared` | `direct` | `none`), forge (`github`), VCS
   (`git`), queue store (`redb` | `redis`), service (`systemd`),
   secrets (`keyring` | `env` file), config (`toml`), cache (`sccache`

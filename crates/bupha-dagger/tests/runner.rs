@@ -86,6 +86,7 @@ fn all_args_emitted() {
             token_env: "BUPHA_TOKEN",
             key: "o/r",
             sha: "abc1234567890def",
+            git_ref: "refs/heads/main",
         })
         .unwrap();
     assert!(c.wait().unwrap().success());
@@ -130,6 +131,7 @@ fn minimal_args() {
             token_env: "BUPHA_TOKEN",
             key: "o/r",
             sha: "abc1234567890def",
+            git_ref: "refs/heads/main",
         })
         .unwrap();
     let _ = c.wait();
@@ -151,6 +153,7 @@ fn spawn_fails_without_dagger() {
             token_env: "T",
             key: "o/r",
             sha: "abc1234567890def",
+            git_ref: "refs/heads/main",
         })
         .is_err());
 }
@@ -168,6 +171,7 @@ fn failing_run_propagates_status() {
             token_env: "T",
             key: "o/r",
             sha: "abc1234567890def",
+            git_ref: "refs/heads/main",
         })
         .unwrap();
     assert!(!c.wait().unwrap().success());

@@ -50,6 +50,10 @@ pub struct RunCtx<'a> {
     pub key: &'a str,
     /// Sha under test — names per-run remote dirs/jobs.
     pub sha: &'a str,
+    /// The git ref whose push queued this run ("refs/heads/main") —
+    /// event-aware runners (gha workflow filters, github.ref)
+    /// need it. "" when the source can't say (remote fleet jobs).
+    pub git_ref: &'a str,
 }
 
 /// Job execution — runs a single sha's pipeline.

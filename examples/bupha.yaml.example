@@ -82,6 +82,13 @@ runner:
   kind: dagger                    # impl: bupha-runner-dagger
   # kind: shell                   # impl: bupha-runner-script (no containers)
   # cmd: ./ci.sh                  # shell runner only
+  # kind: gha                     # impl: bupha-gha — runs the repo's
+                                  # .github/workflows on.push workflows
+                                  # natively (sequential, local bash;
+                                  # see crates/bupha-gha/README.md)
+  # workflow: ci.yml              # gha only: pin workflow file(s)
+                                  # (string or list; default: discover
+                                  # all on.push-matching workflows)
   function: ci
   shards: "1"
   jobs: "2"

@@ -35,7 +35,7 @@ and status sinks never see the difference.
 - `bupha import <campaign>` — translate a peregrin campaign YAML
   (the ci-gate fleet shape) into a `bupha.yaml`
 - every concern behind a port: source (`github-webhook`,
-  `sturn-wal`), runner (`dagger` | `shell` | `ssh`),
+  `sturn-wal`), runner (`dagger` | `shell` | `ssh` | `gha`),
   tunnel (`cloudflared` | `direct` | `none`), forge
   (`github` today), VCS (`git`), queue store (`redb`), service
   (`systemd`), secrets (`keyring` | `env` file), config (`toml`),
