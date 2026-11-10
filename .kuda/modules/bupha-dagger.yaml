@@ -70,12 +70,12 @@ api:
 - name: failing_run_propagates_status
   kind: function
   file: crates/bupha-dagger/tests/runner.rs
-  line: 159
+  line: 162
   module: bupha-dagger
 - name: minimal_args
   kind: function
   file: crates/bupha-dagger/tests/runner.rs
-  line: 109
+  line: 110
   module: bupha-dagger
 - name: name
   kind: function
@@ -95,7 +95,7 @@ api:
 - name: spawn_fails_without_dagger
   kind: function
   file: crates/bupha-dagger/tests/runner.rs
-  line: 142
+  line: 144
   module: bupha-dagger
 - name: stub_dagger
   kind: function
@@ -122,7 +122,7 @@ provenance:
   hashes:
   - 6ebc856617d9589fc7fa9c6363696d2e543e5f0b
   - 1df6231881479c8c56a4ee2f99daf2c868d52794
-  - 1bbd0cbc18bc9f213ecd63b85e6ce85659eafa05
-  commit_sha: 804e98a4c3563e04363c85c0957e703865ff33bb
-  generated_at: '1794198342'
+  - 79a2600fe147dc322bb385ef27fe3476e149653b
+  commit_sha: 08bbbf393f27729578afc140c1d0c3cad4a40673
+  generated_at: '1794337080'
   generator: kuda-template/0.1.2

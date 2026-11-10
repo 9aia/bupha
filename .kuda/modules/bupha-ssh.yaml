@@ -40,7 +40,7 @@ api:
 - name: cfg
   kind: function
   file: crates/bupha-ssh/tests/runner.rs
-  line: 67
+  line: 68
   module: bupha-ssh
 - name: ctx
   kind: function
@@ -50,7 +50,7 @@ api:
 - name: defaults_and_exit_propagation
   kind: function
   file: crates/bupha-ssh/tests/runner.rs
-  line: 123
+  line: 124
   module: bupha-ssh
 - name: dir
   kind: function
@@ -70,7 +70,7 @@ api:
 - name: drop_orphans_cleanup_like_kill
   kind: function
   file: crates/bupha-ssh/tests/runner.rs
-  line: 204
+  line: 205
   module: bupha-ssh
 - name: failure_desc
   kind: function
@@ -90,7 +90,7 @@ api:
 - name: kill_cleans_up_remote_best_effort
   kind: function
   file: crates/bupha-ssh/tests/runner.rs
-  line: 179
+  line: 180
   module: bupha-ssh
 - name: leaf_components_are_shell_safe
   kind: function
@@ -100,7 +100,7 @@ api:
 - name: missing_remote_is_an_error_not_a_panic
   kind: function
   file: crates/bupha-ssh/tests/runner.rs
-  line: 252
+  line: 253
   module: bupha-ssh
 - name: name
   kind: function
@@ -115,7 +115,7 @@ api:
 - name: path_with
   kind: function
   file: crates/bupha-ssh/tests/runner.rs
-  line: 56
+  line: 57
   module: bupha-ssh
 - name: remote_rejects_option_injection
   kind: function
@@ -145,7 +145,7 @@ api:
 - name: ships_worktree_and_runs_remotely
   kind: function
   file: crates/bupha-ssh/tests/runner.rs
-  line: 76
+  line: 77
   module: bupha-ssh
 - name: spawn
   kind: function
@@ -160,27 +160,27 @@ api:
 - name: ssh_stage_spawn_failure_surfaces
   kind: function
   file: crates/bupha-ssh/tests/runner.rs
-  line: 224
+  line: 225
   module: bupha-ssh
 - name: ssh_transport_failure_reports_unreachable
   kind: function
   file: crates/bupha-ssh/tests/runner.rs
-  line: 160
+  line: 161
   module: bupha-ssh
 - name: stub
   kind: function
   file: crates/bupha-ssh/tests/runner.rs
-  line: 44
+  line: 45
   module: bupha-ssh
 - name: stub_body
   kind: function
   file: crates/bupha-ssh/tests/runner.rs
-  line: 33
+  line: 34
   module: bupha-ssh
 - name: sync_failure_reports_infra
   kind: function
   file: crates/bupha-ssh/tests/runner.rs
-  line: 145
+  line: 146
   module: bupha-ssh
 - name: tests
   kind: module
@@ -217,7 +217,7 @@ provenance:
   hashes:
   - 29f876e5787cf84ffefed9baa070cee30bda8972
   - 98aa284b10e83d21baac7c93f4201786124e47b1
-  - 2c4c511ec253d0164146f89f4c01f9b8c29c5b26
-  commit_sha: 804e98a4c3563e04363c85c0957e703865ff33bb
-  generated_at: '1794198342'
+  - bbb121d2d4e53689fbd900feb02eef03b9ec7fa5
+  commit_sha: 08bbbf393f27729578afc140c1d0c3cad4a40673
+  generated_at: '1794337080'
   generator: kuda-template/0.1.2

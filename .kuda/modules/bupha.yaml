@@ -1,6 +1,6 @@
 name: bupha
-path: Cargo.toml
-purpose: '*Queue engine for event-driven jobs — shipped as CI.*'
+path: crates/bupha-cli/Cargo.toml
+purpose: 'bupha — queue engine for event-driven jobs: shipped as CI'
 api:
 - name: Bupha
   kind: type
@@ -10,62 +10,62 @@ api:
 - name: ChildSlot
   kind: type
   file: crates/bupha-cli/src/main.rs
-  line: 366
+  line: 374
   module: bupha
 - name: Cli
   kind: type
   file: crates/bupha-cli/src/main.rs
-  line: 57
+  line: 58
   module: bupha
 - name: Cmd
   kind: type
   file: crates/bupha-cli/src/main.rs
-  line: 68
+  line: 69
   module: bupha
 - name: DELEGATE_TEMPLATE
   kind: const
   file: crates/bupha-cli/src/main.rs
-  line: 1545
+  line: 1554
   module: bupha
 - name: DeploySub
   kind: type
   file: crates/bupha-cli/src/main.rs
-  line: 139
+  line: 140
   module: bupha
 - name: DestroySub
   kind: type
   file: crates/bupha-cli/src/main.rs
-  line: 168
+  line: 169
   module: bupha
 - name: DocOut
   kind: type
   file: crates/bupha-cli/src/main.rs
-  line: 1571
+  line: 1580
   module: bupha
 - name: FailWait
   kind: type
   file: crates/bupha-cli/src/main.rs
-  line: 274
+  line: 282
   module: bupha
 - name: FailWaitRunner
   kind: type
   file: crates/bupha-cli/src/main.rs
-  line: 272
+  line: 280
   module: bupha
 - name: Ingest
   kind: type
   file: crates/bupha-cli/src/main.rs
-  line: 567
+  line: 576
   module: bupha
 - name: JobEnd
   kind: type
   file: crates/bupha-cli/src/main.rs
-  line: 389
+  line: 397
   module: bupha
 - name: MODULE_REF
   kind: const
   file: crates/bupha-cli/src/main.rs
-  line: 1543
+  line: 1552
   module: bupha
 - name: N
   kind: const
@@ -75,7 +75,7 @@ api:
 - name: Poll
   kind: type
   file: crates/bupha-cli/src/main.rs
-  line: 455
+  line: 464
   module: bupha
 - name: Rec
   kind: type
@@ -85,12 +85,12 @@ api:
 - name: ServiceSub
   kind: type
   file: crates/bupha-cli/src/main.rs
-  line: 182
+  line: 183
   module: bupha
 - name: Shared
   kind: type
   file: crates/bupha-cli/src/main.rs
-  line: 539
+  line: 548
   module: bupha
 - name: Svc
   kind: type
@@ -100,7 +100,7 @@ api:
 - name: Worker
   kind: type
   file: crates/bupha-cli/src/main.rs
-  line: 369
+  line: 377
   module: bupha
 - name: agent_error_exits
   kind: function
@@ -115,37 +115,32 @@ api:
 - name: build_attest
   kind: function
   file: crates/bupha-cli/src/main.rs
-  line: 721
+  line: 730
   module: bupha
 - name: build_audit
   kind: function
   file: crates/bupha-cli/src/main.rs
-  line: 751
+  line: 760
   module: bupha
 - name: build_runner
   kind: function
   file: crates/bupha-cli/src/main.rs
-  line: 200
+  line: 201
   module: bupha
 - name: build_runners
   kind: function
   file: crates/bupha-cli/src/main.rs
-  line: 793
+  line: 802
   module: bupha
 - name: build_sinks
   kind: function
   file: crates/bupha-cli/src/main.rs
-  line: 766
+  line: 775
   module: bupha
 - name: build_telemetry
   kind: function
   file: crates/bupha-cli/src/main.rs
-  line: 702
-  module: bupha
-- name: bupha
-  kind: module
-  file: Cargo.toml
-  line: 1
+  line: 711
   module: bupha
 - name: bupha
   kind: module
@@ -180,7 +175,7 @@ api:
 - name: cfg_dir
   kind: function
   file: crates/bupha-cli/src/main.rs
-  line: 308
+  line: 316
   module: bupha
 - name: cfg_repo
   kind: function
@@ -195,14 +190,19 @@ api:
 - name: check
   kind: function
   file: crates/bupha-cli/src/main.rs
-  line: 1577
+  line: 1586
   module: bupha
 - name: cmd_agent
   kind: function
   file: crates/bupha-cli/src/main.rs
-  line: 1405
+  line: 1414
   module: bupha
-api_omitted: 125
+- name: cmd_deploy
+  kind: function
+  file: crates/bupha-cli/src/main.rs
+  line: 1992
+  module: bupha
+api_omitted: 124
 deps:
 - dagger-io
 - bupha-access
@@ -221,6 +221,7 @@ deps:
 - bupha-core
 - bupha-dagger
 - bupha-dotenv
+- bupha-gha
 - bupha-git
 - bupha-github
 - bupha-history
@@ -273,6 +274,7 @@ deps:
 - bupha-core
 - bupha-dagger
 - bupha-dotenv
+- bupha-gha
 - bupha-git
 - bupha-github
 - bupha-history
@@ -295,19 +297,17 @@ deps:
 - dagger
 notes: ''
 verify:
-- Cargo.toml
 - crates/bupha-cli/Cargo.toml
 - crates/bupha-cli/src/main.rs
-- modules/dagger/dagger/pyproject.toml
-- modules/dagger/dagger/src/bupha/__init__.py
 - crates/bupha-cli/tests/cli.rs
 - crates/bupha-cli/tests/e2e.rs
 - crates/bupha-cli/tests/sturn.rs
 - crates/bupha-cli/tests/watch.rs
+- modules/dagger/dagger/pyproject.toml
+- modules/dagger/dagger/src/bupha/__init__.py
 - modules/dagger/dagger/src/bupha/main.py
 provenance:
   files:
-  - Cargo.toml
   - crates/bupha-cli/Cargo.toml
   - crates/bupha-cli/src/main.rs
   - crates/bupha-cli/tests/cli.rs
@@ -317,11 +317,9 @@ provenance:
   - modules/dagger/dagger/pyproject.toml
   - modules/dagger/dagger/src/bupha/__init__.py
   - modules/dagger/dagger/src/bupha/main.py
-  - modules/dagger/tests/test_self_patch.py
   hashes:
-  - 8e5083a2ac0f96144cf0b5854887eedb0c757dcd
-  - c097e8565ff02fadefbe113d613a238cf8400bed
-  - ed9b2ac76ac8c6a195f388ea30d6767792ffeba4
+  - de6036f45fe89238ef7fe8dc9521403ca5a17646
+  - 8730cc349db45fe633ee0df51142aa5a8b672b39
   - 7b9643c47f2c7a05251aaa324b4a5b7d8a768e4e
   - e6680112289b06ae1e8d8d6659c60f2333c8ca23
   - 16a66bca9a602549e108d45e9d1233dbe2e7e34b
@@ -329,7 +327,6 @@ provenance:
   - a787b6af9e98fd8cae6ece92467308d34e49bbce
   - 297de02314bb3e68d56e2e8a33bcad4ba6c92465
   - b266b7f034f3d194f5cba16fd2bf6a51886ccf46
-  - 509a3147960f3aa59978a55730803da3c2ff0850
-  commit_sha: 804e98a4c3563e04363c85c0957e703865ff33bb
-  generated_at: '1794198342'
+  commit_sha: 08bbbf393f27729578afc140c1d0c3cad4a40673
+  generated_at: '1794337080'
   generator: kuda-template/0.1.2

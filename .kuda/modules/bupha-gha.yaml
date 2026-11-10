@@ -1,0 +1,238 @@
+name: bupha-gha
+path: crates/bupha-gha/Cargo.toml
+purpose: 'Runner impl: .github/workflows/*.yml executed natively — GitHub Actions as CI dialect'
+api:
+- name: Defaults
+  kind: type
+  file: crates/bupha-gha/src/plan.rs
+  line: 41
+  module: bupha-gha
+- name: Eval
+  kind: type
+  file: crates/bupha-gha/src/plan.rs
+  line: 488
+  module: bupha-gha
+- name: Event
+  kind: type
+  file: crates/bupha-gha/src/plan.rs
+  line: 10
+  module: bupha-gha
+- name: GhaCfg
+  kind: type
+  file: crates/bupha-gha/src/lib.rs
+  line: 25
+  module: bupha-gha
+- name: GhaContext
+  kind: type
+  file: crates/bupha-gha/src/plan.rs
+  line: 21
+  module: bupha-gha
+- name: GhaRunner
+  kind: type
+  file: crates/bupha-gha/src/lib.rs
+  line: 51
+  module: bupha-gha
+- name: Job
+  kind: type
+  file: crates/bupha-gha/src/plan.rs
+  line: 82
+  module: bupha-gha
+- name: PushFilters
+  kind: type
+  file: crates/bupha-gha/src/plan.rs
+  line: 47
+  module: bupha-gha
+- name: RawJob
+  kind: type
+  file: crates/bupha-gha/src/plan.rs
+  line: 56
+  module: bupha-gha
+- name: RawStep
+  kind: type
+  file: crates/bupha-gha/src/plan.rs
+  line: 67
+  module: bupha-gha
+- name: RunStep
+  kind: type
+  file: crates/bupha-gha/src/plan.rs
+  line: 104
+  module: bupha-gha
+- name: SIMPLE
+  kind: const
+  file: crates/bupha-gha/tests/gha.rs
+  line: 60
+  module: bupha-gha
+- name: ScriptCtx
+  kind: type
+  file: crates/bupha-gha/src/script.rs
+  line: 9
+  module: bupha-gha
+- name: Step
+  kind: type
+  file: crates/bupha-gha/src/plan.rs
+  line: 99
+  module: bupha-gha
+- name: Workflow
+  kind: type
+  file: crates/bupha-gha/src/plan.rs
+  line: 31
+  module: bupha-gha
+- name: WorkflowSel
+  kind: type
+  file: crates/bupha-gha/src/lib.rs
+  line: 37
+  module: bupha-gha
+- name: any_glob
+  kind: function
+  file: crates/bupha-gha/src/plan.rs
+  line: 306
+  module: bupha-gha
+- name: as_map
+  kind: function
+  file: crates/bupha-gha/src/plan.rs
+  line: 116
+  module: bupha-gha
+- name: branch_filter_selects
+  kind: function
+  file: crates/bupha-gha/tests/gha.rs
+  line: 236
+  module: bupha-gha
+- name: branch_filter_skips_other_branch
+  kind: function
+  file: crates/bupha-gha/tests/gha.rs
+  line: 248
+  module: bupha-gha
+- name: build_job
+  kind: function
+  file: crates/bupha-gha/src/plan.rs
+  line: 387
+  module: bupha-gha
+- name: build_step
+  kind: function
+  file: crates/bupha-gha/src/plan.rs
+  line: 494
+  module: bupha-gha
+- name: bupha-gha
+  kind: module
+  file: crates/bupha-gha/Cargo.toml
+  line: 1
+  module: bupha-gha
+- name: cd_target
+  kind: function
+  file: crates/bupha-gha/src/script.rs
+  line: 24
+  module: bupha-gha
+- name: changed_files
+  kind: function
+  file: crates/bupha-gha/src/lib.rs
+  line: 119
+  module: bupha-gha
+- name: check_keys
+  kind: function
+  file: crates/bupha-gha/src/plan.rs
+  line: 149
+  module: bupha-gha
+- name: checkout_is_verified_noop
+  kind: function
+  file: crates/bupha-gha/tests/gha.rs
+  line: 217
+  module: bupha-gha
+- name: entries
+  kind: function
+  file: crates/bupha-gha/src/lib.rs
+  line: 43
+  module: bupha-gha
+- name: env_flows_to_run_and_expressions
+  kind: function
+  file: crates/bupha-gha/tests/gha.rs
+  line: 170
+  module: bupha-gha
+- name: env_map
+  kind: function
+  file: crates/bupha-gha/src/plan.rs
+  line: 187
+  module: bupha-gha
+- name: expand
+  kind: function
+  file: crates/bupha-gha/src/plan.rs
+  line: 364
+  module: bupha-gha
+- name: exports
+  kind: function
+  file: crates/bupha-gha/src/script.rs
+  line: 31
+  module: bupha-gha
+- name: failed_need_skips_dependent_but_runs_independent
+  kind: function
+  file: crates/bupha-gha/tests/gha.rs
+  line: 119
+  module: bupha-gha
+- name: failing_step_fails_run
+  kind: function
+  file: crates/bupha-gha/tests/gha.rs
+  line: 79
+  module: bupha-gha
+- name: get
+  kind: function
+  file: crates/bupha-gha/src/plan.rs
+  line: 121
+  module: bupha-gha
+- name: git
+  kind: function
+  file: crates/bupha-gha/tests/gha.rs
+  line: 17
+  module: bupha-gha
+- name: github_contexts_in_run
+  kind: function
+  file: crates/bupha-gha/tests/gha.rs
+  line: 198
+  module: bupha-gha
+- name: glob_match
+  kind: function
+  file: crates/bupha-gha/src/plan.rs
+  line: 287
+  module: bupha-gha
+- name: heredoc_delim
+  kind: function
+  file: crates/bupha-gha/src/script.rs
+  line: 40
+  module: bupha-gha
+- name: interpolate
+  kind: function
+  file: crates/bupha-gha/src/plan.rs
+  line: 585
+  module: bupha-gha
+api_omitted: 44
+deps:
+- bupha-core
+- bupha-runner
+- serde
+- serde_norway
+- toml
+- bupha-runner
+- serde_norway
+- plan
+- serde
+notes: ''
+verify:
+- crates/bupha-gha/Cargo.toml
+- crates/bupha-gha/src/lib.rs
+- crates/bupha-gha/src/plan.rs
+- crates/bupha-gha/src/script.rs
+- crates/bupha-gha/tests/gha.rs
+provenance:
+  files:
+  - crates/bupha-gha/Cargo.toml
+  - crates/bupha-gha/src/lib.rs
+  - crates/bupha-gha/src/plan.rs
+  - crates/bupha-gha/src/script.rs
+  - crates/bupha-gha/tests/gha.rs
+  hashes:
+  - 130920aec2d9f32d6f8c6d16b35230ba63ddc04f
+  - 790e28beeef64c9449a92fe68760ac9fe537ef00
+  - 359293f0c2b152a7c654b71f67e1216df3e33a8e
+  - 1d8c3f09857cd79878ba8ef4a71708e15b739166
+  - 609fc730c66da8286f5e40f0f1c80d03080b79a9
+  commit_sha: 08bbbf393f27729578afc140c1d0c3cad4a40673
+  generated_at: '1794337080'
+  generator: kuda-template/0.1.2

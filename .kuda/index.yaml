@@ -22,6 +22,7 @@ modules:
 - bupha-dagger
 - bupha-dotenv
 - bupha-driver
+- bupha-gha
 - bupha-git
 - bupha-github
 - bupha-history
@@ -76,6 +77,7 @@ provenance:
   - crates/bupha-dagger/Cargo.toml
   - crates/bupha-dotenv/Cargo.toml
   - crates/bupha-driver/Cargo.toml
+  - crates/bupha-gha/Cargo.toml
   - crates/bupha-git/Cargo.toml
   - crates/bupha-github/Cargo.toml
   - crates/bupha-history/Cargo.toml
