@@ -1,6 +1,6 @@
 name: bupha
 root: /home/luis/GitHub/9aia/workspace/repos/bupha
-purpose: '*Queue engine for event-driven jobs — shipped as CI.*'
+purpose: '*CI for your own forge — GitHub first, GitLab later; GHA workflows'
 modules:
 - bupha
 - bupha-access
@@ -50,8 +50,8 @@ modules:
 commands:
 - cargo check
 - cargo test --workspace
-tree_digest: 1a62fd72dde39df56cbac0bbde676410dba39618
-files_total: 181
+tree_digest: 4f64f0c1807d3964e384ee1ae1acbf65254718de
+files_total: 184
 provenance:
   files:
   - Cargo.toml
@@ -102,7 +102,7 @@ provenance:
   - modules/dagger/dagger/pyproject.toml
   hashes:
   - 8e5083a2ac0f96144cf0b5854887eedb0c757dcd
-  - a166155f92dac6af1203098e1315f9295ed0a2f8
+  - 93b005cb414e7e03fd13751732ffe98e5051fae0
   - faa9d3e3b2e30ebed8aecf8da83c4683f33024c8
   - d3b36ada9a99ed7e36e96e47a7beb1f5bf3fe348
   - 977aa09725741778eef33809aaf4414e789e3f02
@@ -112,7 +112,7 @@ provenance:
   - d46021a5cc4e28ee9eed1d7ca349dd222a5d8306
   - 1e8b72c77e68157b0bceb70cbb4e3ea5c6b4868e
   - 1ce58c0ddf98f4e695cbd71d19541ac6dc19034a
-  - c097e8565ff02fadefbe113d613a238cf8400bed
+  - f36edf69ee160527c8b71881130d25d43533deba
   - c6468e2b1603699af53234b1fa10040bc21f84b9
   - b1c0f26fe1cf3ded47e08fa677971c448489f47a
   - 90556965fe774768db42f410ce6430ce8dd30f55
@@ -122,7 +122,7 @@ provenance:
   - 2949c06c8e71ef5da170506ce9cd8dfbb7312ce3
   - 6ebc856617d9589fc7fa9c6363696d2e543e5f0b
   - 65cf007ad2f3d1e6517719d11469bc6e97b7326d
-  - 0cb069be8e5bad503667abce5da53a744c4cffcf
+  - db3eef6c7af5e559b2ee7618785672397a6de744
   - 15329f105dd770552bcd21afd4cba3ac3467cded
   - 9a8bdeb02a9e8896e60f63d221a83f115d8a5980
   - bd3c49c8020bf9cc448326c4af9bd71df1191fb1
@@ -147,6 +147,6 @@ provenance:
   - 634f96eb54a20f970a3488c4356ca2c51ffefa70
   - cd8e10b771c3960ae45a2b6f7705fa9f1cdc6344
   - a787b6af9e98fd8cae6ece92467308d34e49bbce
-  commit_sha: 80938ecf9a24972c0f4b3366766ccb4a1561f4d3
-  generated_at: '1794248229'
+  commit_sha: 0e834547a43c398b6dd783cda815f8a7b1d7b5ad
+  generated_at: '1794337106'
   generator: kuda/0.1.0

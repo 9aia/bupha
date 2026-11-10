@@ -1,6 +1,6 @@
 name: bupha
-path: crates/bupha-cli/Cargo.toml
-purpose: 'bupha — queue engine for event-driven jobs: shipped as CI'
+path: Cargo.toml
+purpose: '*CI for your own forge — GitHub first, GitLab later; GHA workflows'
 api:
 - name: Bupha
   kind: type
@@ -154,6 +154,11 @@ api:
   module: bupha
 - name: bupha
   kind: module
+  file: Cargo.toml
+  line: 1
+  module: bupha
+- name: bupha
+  kind: module
   file: crates/bupha-cli/Cargo.toml
   line: 1
   module: bupha
@@ -197,12 +202,7 @@ api:
   file: crates/bupha-cli/src/main.rs
   line: 327
   module: bupha
-- name: cfg_repo
-  kind: function
-  file: crates/bupha-cli/tests/cli.rs
-  line: 139
-  module: bupha
-api_omitted: 140
+api_omitted: 141
 deps:
 - dagger-io
 - bupha-access
@@ -297,18 +297,19 @@ deps:
 - dagger
 notes: ''
 verify:
+- Cargo.toml
 - crates/bupha-cli/Cargo.toml
-- crates/bupha-cli/src/campaign_import.rs
 - crates/bupha-cli/src/main.rs
+- modules/dagger/dagger/pyproject.toml
+- modules/dagger/dagger/src/bupha/__init__.py
+- crates/bupha-cli/src/campaign_import.rs
 - crates/bupha-cli/tests/cli.rs
 - crates/bupha-cli/tests/e2e.rs
 - crates/bupha-cli/tests/sturn.rs
 - crates/bupha-cli/tests/watch.rs
-- modules/dagger/dagger/pyproject.toml
-- modules/dagger/dagger/src/bupha/__init__.py
-- modules/dagger/dagger/src/bupha/main.py
 provenance:
   files:
+  - Cargo.toml
   - crates/bupha-cli/Cargo.toml
   - crates/bupha-cli/src/campaign_import.rs
   - crates/bupha-cli/src/main.rs
@@ -319,7 +320,9 @@ provenance:
   - modules/dagger/dagger/pyproject.toml
   - modules/dagger/dagger/src/bupha/__init__.py
   - modules/dagger/dagger/src/bupha/main.py
+  - modules/dagger/tests/test_self_patch.py
   hashes:
+  - 8e5083a2ac0f96144cf0b5854887eedb0c757dcd
   - f36edf69ee160527c8b71881130d25d43533deba
   - 4102762337a49a25a35bd6da2202b6c0536fe273
   - 65df3925767ec579abdf39262d1f6e3df2ab1e04
@@ -330,6 +333,7 @@ provenance:
   - a787b6af9e98fd8cae6ece92467308d34e49bbce
   - 297de02314bb3e68d56e2e8a33bcad4ba6c92465
   - b266b7f034f3d194f5cba16fd2bf6a51886ccf46
-  commit_sha: 08bbbf393f27729578afc140c1d0c3cad4a40673
-  generated_at: '1794336962'
+  - 509a3147960f3aa59978a55730803da3c2ff0850
+  commit_sha: 0e834547a43c398b6dd783cda815f8a7b1d7b5ad
+  generated_at: '1794337106'
   generator: kuda-template/0.1.2

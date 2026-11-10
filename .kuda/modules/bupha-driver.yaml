@@ -12,15 +12,70 @@ api:
   file: crates/bupha-driver/src/views.rs
   line: 186
   module: bupha-driver
+- name: FLEET_FILE
+  kind: const
+  file: crates/bupha-driver/src/ops.rs
+  line: 39
+  module: bupha-driver
+- name: Flags
+  kind: type
+  file: crates/bupha-driver/src/ops.rs
+  line: 54
+  module: bupha-driver
+- name: HOOK_PATH
+  kind: const
+  file: crates/bupha-driver/src/ops.rs
+  line: 46
+  module: bupha-driver
+- name: Hook
+  kind: type
+  file: crates/bupha-driver/src/ops.rs
+  line: 173
+  module: bupha-driver
+- name: HookTarget
+  kind: type
+  file: crates/bupha-driver/src/ops.rs
+  line: 449
+  module: bupha-driver
+- name: Ingress
+  kind: type
+  file: crates/bupha-driver/src/ops.rs
+  line: 161
+  module: bupha-driver
+- name: MANIFEST
+  kind: const
+  file: crates/bupha-driver/src/ops.rs
+  line: 969
+  module: bupha-driver
+- name: MANIFEST_NAMES
+  kind: const
+  file: crates/bupha-driver/src/ops.rs
+  line: 42
+  module: bupha-driver
 - name: MIN_CONFIG
   kind: const
   file: crates/bupha-driver/src/data.rs
   line: 259
   module: bupha-driver
+- name: MIN_FLEET
+  kind: const
+  file: crates/bupha-driver/src/ops.rs
+  line: 956
+  module: bupha-driver
+- name: Manifest
+  kind: type
+  file: crates/bupha-driver/src/ops.rs
+  line: 136
+  module: bupha-driver
 - name: Plane
   kind: type
   file: crates/bupha-driver/src/data.rs
   line: 50
+  module: bupha-driver
+- name: Provider
+  kind: type
+  file: crates/bupha-driver/src/ops.rs
+  line: 146
   module: bupha-driver
 - name: QUEUE_COLS
   kind: const
@@ -36,6 +91,11 @@ api:
   kind: type
   file: crates/bupha-driver/tests/serve.rs
   line: 19
+  module: bupha-driver
+- name: Service
+  kind: type
+  file: crates/bupha-driver/src/ops.rs
+  line: 156
   module: bupha-driver
 - name: UNIT_COLS
   kind: const
@@ -54,18 +114,43 @@ api:
   module: bupha-driver
 - name: bin
   kind: function
+  file: crates/bupha-driver/tests/ops.rs
+  line: 9
+  module: bupha-driver
+- name: bin
+  kind: function
   file: crates/bupha-driver/tests/verbs.rs
   line: 7
+  module: bupha-driver
+- name: bundle
+  kind: function
+  file: crates/bupha-driver/src/ops.rs
+  line: 992
+  module: bupha-driver
+- name: bundle
+  kind: function
+  file: crates/bupha-driver/tests/ops.rs
+  line: 22
+  module: bupha-driver
+- name: bundle_config_path
+  kind: function
+  file: crates/bupha-driver/src/ops.rs
+  line: 263
   module: bupha-driver
 - name: bupha-driver
   kind: module
   file: crates/bupha-driver/Cargo.toml
   line: 1
   module: bupha-driver
+- name: capabilities_advertises_both_surfaces
+  kind: function
+  file: crates/bupha-driver/tests/ops.rs
+  line: 68
+  module: bupha-driver
 - name: capabilities_value
   kind: function
   file: crates/bupha-driver/src/lib.rs
-  line: 40
+  line: 45
   module: bupha-driver
 - name: capabilities_verb_reports_pavo
   kind: function
@@ -82,6 +167,26 @@ api:
   file: crates/bupha-driver/src/views.rs
   line: 34
   module: bupha-driver
+- name: config_dir
+  kind: function
+  file: crates/bupha-driver/src/ops.rs
+  line: 246
+  module: bupha-driver
+- name: config_schema
+  kind: function
+  file: crates/bupha-driver/src/ops.rs
+  line: 784
+  module: bupha-driver
+- name: config_schema_is_draft_2020_12
+  kind: function
+  file: crates/bupha-driver/src/ops.rs
+  line: 1178
+  module: bupha-driver
+- name: config_schema_prints_json_schema
+  kind: function
+  file: crates/bupha-driver/tests/ops.rs
+  line: 169
+  module: bupha-driver
 - name: ctx
   kind: function
   file: crates/bupha-driver/src/data.rs
@@ -97,124 +202,29 @@ api:
   file: crates/bupha-driver/src/lib.rs
   line: 26
   module: bupha-driver
-- name: degraded_and_unknown_ops_answer_honestly
-  kind: function
-  file: crates/bupha-driver/tests/serve.rs
-  line: 120
-  module: bupha-driver
-- name: dispatch
-  kind: function
-  file: crates/bupha-driver/src/lib.rs
-  line: 48
-  module: bupha-driver
-- name: driver_passes_pavo_conformance
-  kind: function
-  file: crates/bupha-driver/tests/conformance.rs
-  line: 20
-  module: bupha-driver
-- name: drop
-  kind: function
-  file: crates/bupha-driver/tests/serve.rs
-  line: 53
-  module: bupha-driver
-- name: empty_lines_are_skipped
-  kind: function
-  file: crates/bupha-driver/tests/serve.rs
-  line: 142
-  module: bupha-driver
-- name: every_binding_is_a_known_query
-  kind: function
-  file: crates/bupha-driver/src/views.rs
-  line: 390
-  module: bupha-driver
-- name: expand_tilde
-  kind: function
-  file: crates/bupha-driver/src/data.rs
-  line: 70
-  module: bupha-driver
-- name: expand_tilde_branches
-  kind: function
-  file: crates/bupha-driver/src/data.rs
-  line: 262
-  module: bupha-driver
-- name: history_path
-  kind: function
-  file: crates/bupha-driver/src/data.rs
-  line: 113
-  module: bupha-driver
-- name: history_records
-  kind: function
-  file: crates/bupha-driver/src/data.rs
-  line: 126
-  module: bupha-driver
-- name: history_records_missing_file_is_empty
-  kind: function
-  file: crates/bupha-driver/src/data.rs
-  line: 321
-  module: bupha-driver
-- name: history_records_skips_corrupt_lines
-  kind: function
-  file: crates/bupha-driver/src/data.rs
-  line: 327
-  module: bupha-driver
-- name: home_dir
-  kind: function
-  file: crates/bupha-driver/src/data.rs
-  line: 80
-  module: bupha-driver
-- name: known_query
-  kind: function
-  file: crates/bupha-driver/src/views.rs
-  line: 166
-  module: bupha-driver
-- name: kv
-  kind: function
-  file: crates/bupha-driver/src/views.rs
-  line: 38
-  module: bupha-driver
-- name: latest_by_repo
-  kind: function
-  file: crates/bupha-driver/src/views.rs
-  line: 279
-  module: bupha-driver
-- name: latest_by_repo_last_write_wins
-  kind: function
-  file: crates/bupha-driver/src/views.rs
-  line: 446
-  module: bupha-driver
-- name: load_config
-  kind: function
-  file: crates/bupha-driver/src/data.rs
-  line: 91
-  module: bupha-driver
-- name: main
-  kind: function
-  file: crates/bupha-driver/src/main.rs
-  line: 18
-  module: bupha-driver
-- name: manifest
-  kind: function
-  file: crates/bupha-driver/src/views.rs
-  line: 142
-  module: bupha-driver
-- name: manifest_advertises_pavo_and_lists_every_view
-  kind: function
-  file: crates/bupha-driver/src/views.rs
-  line: 372
-  module: bupha-driver
-api_omitted: 62
+api_omitted: 130
 deps:
 - bupha-config
 - bupha-config-file
 - bupha-core
+- bupha-dotenv
+- bupha-github
+- bupha-keyring
 - bupha-queue
 - bupha-queue-redb
+- bupha-secret
 - bupha-systemd
 - pavo-driver-kit
 - pavo-protocol
+- serde
 - serde_json
+- serde_norway
+- toml
+- ureq
 - pavo-testkit
 - serde_json
+- serde
+- bupha-secret
 - bupha-config
 - bupha-config-file
 - bupha-core
@@ -227,8 +237,10 @@ verify:
 - crates/bupha-driver/src/data.rs
 - crates/bupha-driver/src/lib.rs
 - crates/bupha-driver/src/main.rs
+- crates/bupha-driver/src/ops.rs
 - crates/bupha-driver/src/views.rs
 - crates/bupha-driver/tests/conformance.rs
+- crates/bupha-driver/tests/ops.rs
 - crates/bupha-driver/tests/serve.rs
 - crates/bupha-driver/tests/verbs.rs
 provenance:
@@ -237,19 +249,23 @@ provenance:
   - crates/bupha-driver/src/data.rs
   - crates/bupha-driver/src/lib.rs
   - crates/bupha-driver/src/main.rs
+  - crates/bupha-driver/src/ops.rs
   - crates/bupha-driver/src/views.rs
   - crates/bupha-driver/tests/conformance.rs
+  - crates/bupha-driver/tests/ops.rs
   - crates/bupha-driver/tests/serve.rs
   - crates/bupha-driver/tests/verbs.rs
   hashes:
-  - 0cb069be8e5bad503667abce5da53a744c4cffcf
+  - db3eef6c7af5e559b2ee7618785672397a6de744
   - 292745af60a6bc6c289a0f5c534dbfea4fd7bdc7
-  - 7eee1155ec1d8f54e83a9b7f3459c13887d1292a
-  - 60c5a429cde47facc7cb7a21d89bac8deb6a56c0
+  - 472e6962ca7b21c829c4f6ab2fcb71fe701fbc25
+  - 9014b76881b97157ad254e2c1ddcd2c2d844aa89
+  - 99e21146a29a4ea4cdace87477ea072633e14489
   - 5a924260e98929cd9f196b60c255bb99e4a4d567
   - 39c206d85acc5c3cc6a666f4b3547eb240197a0a
+  - 25b42183bc613660d87be46684ed38bd1c2e4b6f
   - eef1d35d7cd370db4426fbaca5c7f364f73510a3
   - 8e7de3f9f70d0fa8a2b8d56c947130e03c4b25da
-  commit_sha: 80938ecf9a24972c0f4b3366766ccb4a1561f4d3
-  generated_at: '1794248229'
+  commit_sha: 0e834547a43c398b6dd783cda815f8a7b1d7b5ad
+  generated_at: '1794337106'
   generator: kuda-template/0.1.2
