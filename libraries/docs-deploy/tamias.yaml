@@ -1,0 +1,66 @@
+# docs-deploy — docs-site deployment as a tamias `bupha` bundle.
+#
+# `tamias install <ref>` fetches this payload; `tamias deploy
+# docs-deploy` renders the provider unit (`bupha-watch-docs.service`
+# running `bupha watch --config
+# ~/.config/bupha/bundles/docs-deploy.toml`) and
+# `tamias-driver-bupha deploy` writes that operator config from
+# `fleet.toml` + this manifest's `provider.ingress` block.
+# `tamias driver exec docs-deploy hooks register` points the declared
+# GitHub webhooks at the public URL.
+#
+# This is a SECOND watcher, deliberately separate from ci-gate's
+# `bupha-watch.service`: different listen port, different bundle
+# config, different branch filter. Both receive every push to a
+# watched repo — each keeps only the refs its [[repo]] entries name
+# (docs branch here, main there), so the overlap costs a filtered
+# delivery, not a double run.
+name: docs-deploy
+version: "0.1.0"
+type: bupha
+description: >-
+  Push to refs/heads/docs → detached worktree at the pushed sha →
+  the repo's own deploy script (vitepress build → gh-pages) →
+  docs/deploy commit status. Latest-wins supersede per repo,
+  HMAC-verified deliveries, secrets by env-var NAME only. The
+  bupha-native replacement for the deleted GHA deploy.yml
+  workflows.
+
+# The declarative runtime spec — `tamias deploy` renders each
+# `services[]` entry as a per-user systemd unit named
+# `<provider.name>-<service>` (here `bupha-watch-docs.service` —
+# NOT `bupha-watch.service`, which belongs to the ci-gate bundle;
+# the service name is what keeps the two watchers distinct).
+provider:
+  name: bupha
+  services:
+    # The watcher: one listener + queue + runner for the docs
+    # fleet. `--config` points at the per-bundle operator config the
+    # deploy driver generates — the fleet itself lives in the
+    # payload's fleet.toml, never in this unit file.
+    - name: watch-docs
+      exec: >-
+        ~/.cargo/bin/bupha watch --config ~/.config/bupha/bundles/docs-deploy.toml
+      env_file: "~/.config/bupha/env"
+      workdir: "~"
+      restart: on-failure
+  ingress:
+    # Declarative only — forge-hook *registration* is the deploy
+    # driver's job (`tamias driver exec docs-deploy hooks register`);
+    # nothing here performs live registration. `public_url` is also
+    # what deploy writes into `tunnel.public_url`, and `listen` into
+    # `trigger.listen` — the manifest is the single source of truth
+    # for the wiring. `path` must be `/hook` (the only route
+    # bupha-webhook serves). The port is deliberately NOT ci-gate's
+    # 29173 — two watchers, two listeners.
+    - public_url: https://docs-deploy.luisfuturist.com
+      listen: 127.0.0.1:29174
+      path: /hook
+      hooks:
+        - forge: github
+          repo: 9aia/bupha
+          events: [push]
+        # Add one hooks[] entry per [[repo]] you enable in
+        # fleet.toml — `hooks register` manages exactly this set.
+  # Advisory verb hints for `tamias provider list`/`tamias run`.
+  verbs: [run, logs, health]
