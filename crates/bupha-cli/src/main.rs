@@ -23,6 +23,7 @@ use bupha_container::{ContainerCfg, ContainerRunner};
 use bupha_core::{Config, EnqueueResult, Queue};
 use bupha_dagger::DaggerRunner;
 use bupha_dotenv::DotenvSecrets;
+use bupha_gha::GhaRunner;
 use bupha_git::GitVcs;
 use bupha_github::{GitHubAdmin, GitHubStatus, GitHubTrigger, LogStatus};
 use bupha_history::RunRecord;
@@ -246,6 +247,13 @@ fn build_runner(rc: &bupha_core::RunnerCfg, cache: &bupha_core::CacheCfg) -> Arc
             });
             Arc::new(ContainerRunner::new(cc))
         }
+        "gha" => {
+            let gc: bupha_gha::GhaCfg = table.clone().try_into().unwrap_or_else(|e| {
+                eprintln!("runner config (gha): {e}");
+                std::process::exit(2)
+            });
+            Arc::new(GhaRunner::new(gc))
+        }
         "http" => {
             let hc: bupha_http::HttpCfg = table.clone().try_into().unwrap_or_else(|e| {
                 eprintln!("runner config (http): {e}");
@@ -262,7 +270,7 @@ fn build_runner(rc: &bupha_core::RunnerCfg, cache: &bupha_core::CacheCfg) -> Arc
         #[cfg(coverage)]
         "cov-fail-wait" => Arc::new(FailWaitRunner),
         other => {
-            eprintln!("unknown runner kind '{other}' (dagger|shell|ssh|container)");
+            eprintln!("unknown runner kind '{other}' (dagger|shell|ssh|container|http|gha)");
             std::process::exit(2);
         }
     }
@@ -449,6 +457,7 @@ fn run_job(
         token_env: &repo.runner.token_env,
         key: &repo.key,
         sha,
+        git_ref: &repo.branch,
     };
     /// One poll of the run handle — kept scoped so the child lock
     /// isn't held across the claim renew or the sleep.
@@ -1662,6 +1671,28 @@ fn cmd_doctor(cfg: &Config, json: bool) {
                 &mut out,
             );
         }
+        "gha" => {
+            check(
+                "bash",
+                Command::new("bash")
+                    .arg("--version")
+                    .output()
+                    .map(|o| o.status.success())
+                    .unwrap_or(false),
+                "gha runner executes workflows via bash",
+                &mut out,
+            );
+            check(
+                "git",
+                Command::new("git")
+                    .arg("--version")
+                    .output()
+                    .map(|o| o.status.success())
+                    .unwrap_or(false),
+                "gha runner diffs HEAD^ for paths filters",
+                &mut out,
+            );
+        }
         "ssh" => {
             for tool in ["rsync", "ssh"] {
                 check(
@@ -1840,6 +1871,7 @@ fn cmd_run(cfg: &Config, function: Option<String>) {
         token_env: &repo.runner.token_env,
         key: &repo.key,
         sha: "local",
+        git_ref: &repo.branch,
     };
     match runner.spawn(&ctx).and_then(|mut c| c.wait()) {
         Ok(s) if s.success() => println!("run passed"),

@@ -68,6 +68,7 @@ fn ctx<'a>(wd: &'a Path) -> RunCtx<'a> {
         token_env: "BUPHA_TOKEN",
         key: "o/r",
         sha: "abc1234567890def",
+        git_ref: "refs/heads/main",
     }
 }
 

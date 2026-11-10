@@ -111,6 +111,7 @@ dependencies = [
  "bupha-core",
  "bupha-dagger",
  "bupha-dotenv",
+ "bupha-gha",
  "bupha-git",
  "bupha-github",
  "bupha-history",
@@ -294,6 +295,17 @@ dependencies = [
  "pavo-protocol",
  "pavo-testkit",
  "serde_json",
+]
+
+[[package]]
+name = "bupha-gha"
+version = "0.1.0"
+dependencies = [
+ "bupha-core",
+ "bupha-runner",
+ "serde",
+ "serde_norway",
+ "toml",
 ]
 
 [[package]]

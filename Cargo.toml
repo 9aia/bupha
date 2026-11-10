@@ -20,6 +20,7 @@ members = [
     "crates/bupha-trigger",
     "crates/bupha-vcs",
     "crates/bupha-git",
+    "crates/bupha-gha",
     "crates/bupha-queue",
     "crates/bupha-queue-redb",
     "crates/bupha-service",
@@ -76,6 +77,7 @@ bupha-core = { path = "crates/bupha-core", version = "0.1.0" }
 bupha-trigger = { path = "crates/bupha-trigger", version = "0.1.0" }
 bupha-vcs = { path = "crates/bupha-vcs", version = "0.1.0" }
 bupha-git = { path = "crates/bupha-git", version = "0.1.0" }
+bupha-gha = { path = "crates/bupha-gha", version = "0.1.0" }
 bupha-queue = { path = "crates/bupha-queue", version = "0.1.0" }
 bupha-queue-redb = { path = "crates/bupha-queue-redb", version = "0.1.0" }
 bupha-service = { path = "crates/bupha-service", version = "0.1.0" }

@@ -37,7 +37,7 @@ and status sinks never see the difference.
 - multi-repo webhook fan-in, HMAC-verified, repo-routed — plus a
   sturn-native WAL source for webhook-free ingest
 - every concern behind a port: source (`github-webhook`,
-  `sturn-wal`), runner (`dagger` | `shell` | `ssh`),
+  `sturn-wal`), runner (`dagger` | `shell` | `ssh` | `gha`),
   tunnel (`cloudflared` | `direct` | `none`), forge
   (`github` today), VCS (`git`), queue store (`redb`), service
   (`systemd`), secrets (`keyring` | `env` file), config (`toml`),

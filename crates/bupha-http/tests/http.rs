@@ -53,6 +53,7 @@ fn ctx<'a>(dir: &'a Path, sha: &'a str) -> RunCtx<'a> {
         token_env: "BUPHA_TOKEN",
         key: "o/r",
         sha,
+        git_ref: "refs/heads/main",
     }
 }
 

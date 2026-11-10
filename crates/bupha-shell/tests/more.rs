@@ -42,6 +42,7 @@ fn name_and_default_cmd() {
             token_env: "T",
             key: "o/r",
             sha: "abc1234567890def",
+            git_ref: "refs/heads/main",
         })
         .unwrap();
     assert_eq!(c.wait().unwrap().code(), Some(127));
@@ -66,6 +67,7 @@ fn spawn_fails_without_bash() {
             token_env: "T",
             key: "o/r",
             sha: "abc1234567890def",
+            git_ref: "refs/heads/main",
         })
         .is_err());
 }

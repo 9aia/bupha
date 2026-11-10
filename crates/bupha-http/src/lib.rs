@@ -81,6 +81,7 @@ impl HttpRunner {
 struct JobSpec<'a> {
     key: &'a str,
     sha: &'a str,
+    git_ref: &'a str,
     cmd: &'a str,
     env_names: Vec<&'a str>,
 }
@@ -126,6 +127,7 @@ impl Runner for HttpRunner {
         let spec = serde_json::to_string(&JobSpec {
             key: ctx.key,
             sha: ctx.sha,
+            git_ref: ctx.git_ref,
             cmd: &self.cmd,
             env_names: vec![ctx.token_env],
         })
@@ -232,6 +234,7 @@ pub mod agent {
     struct RemoteJob {
         key: String,
         sha: String,
+        git_ref: String,
         handle: Mutex<Option<Box<dyn RunHandle>>>,
         status: Mutex<String>,
         desc: Mutex<Option<String>>,
@@ -328,6 +331,8 @@ pub mod agent {
                         key: String,
                         sha: String,
                         #[serde(default)]
+                        git_ref: String,
+                        #[serde(default)]
                         cmd: String,
                         #[serde(default)]
                         env_names: Vec<String>,
@@ -361,6 +366,7 @@ pub mod agent {
                     let job = Arc::new(RemoteJob {
                         key: spec.key.clone(),
                         sha: spec.sha.clone(),
+                        git_ref: spec.git_ref.clone(),
                         handle: Mutex::new(None),
                         status: Mutex::new(format!("pending:{}", spec.cmd)),
                         desc: Mutex::new(if spec.env_names.is_empty() {
@@ -399,6 +405,7 @@ pub mod agent {
                             token_env: env_names.split(',').next().unwrap_or(""),
                             key: &job.key,
                             sha: &job.sha,
+                            git_ref: job.git_ref.as_str(),
                         };
                         let h = runner.spawn(&ctx)?;
                         *job.handle.lock().unwrap() = Some(h);
