@@ -19,3 +19,4 @@
 - T-065 gha-runner CLI surface — wire bupha-gha-runner's Agent::from\_config into a bupha verb (or runner.kind) so the crate is reachable; today it is lib-only · created:2026-11-11 · links:T-050
 - T-069 gha: wire step outputs to consumers — gha-runner JobOutcome.outputs is stored but unsent (no completejob field; ${{ }} exprs are service-precompiled); bupha-gha dialect collects $GITHUB\_OUTPUT raw to $BUPHA\_GHA\_TMP/outputs.txt. Both need a path to needs.\*.outputs / steps.\*.outputs (T-048 follow-up) · created:2026-11-11
 - T-071 adopt hypha submit\_op\_result in entity worker — ci.claim fence from op body · created:2026-11-11
+- T-072 ci-job plane rehydrate — on node boot, rebuild pending/running ci-job state from hub entity index (hypha-sync SQLite projection) instead of local persistence; verify hub→node entity restore path exists · pri:high · owner:devin · created:2026-11-11
