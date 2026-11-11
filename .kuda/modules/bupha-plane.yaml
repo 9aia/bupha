@@ -47,6 +47,11 @@ api:
   file: crates/bupha-plane/src/job.rs
   line: 27
   module: bupha-plane
+- name: RehydrateReport
+  kind: type
+  file: crates/bupha-plane/src/plane.rs
+  line: 881
+  module: bupha-plane
 - name: SNAPSHOT_FORMAT
   kind: const
   file: crates/bupha-plane/src/job.rs
@@ -55,7 +60,7 @@ api:
 - name: advance
   kind: function
   file: crates/bupha-plane/src/plane.rs
-  line: 1024
+  line: 1106
   module: bupha-plane
 - name: all_plus_cancel_running_conflicts
   kind: function
@@ -65,7 +70,7 @@ api:
 - name: all_policy_fifo_and_bound
   kind: function
   file: crates/bupha-plane/src/plane.rs
-  line: 1178
+  line: 1260
   module: bupha-plane
 - name: as_str
   kind: function
@@ -80,42 +85,42 @@ api:
 - name: cancel_pending_running_terminal
   kind: function
   file: crates/bupha-plane/src/plane.rs
-  line: 1404
+  line: 1486
   module: bupha-plane
 - name: check_holder
   kind: function
   file: crates/bupha-plane/src/plane.rs
-  line: 893
+  line: 975
   module: bupha-plane
 - name: claim_auth
   kind: function
   file: crates/bupha-plane/src/plane.rs
-  line: 881
+  line: 963
   module: bupha-plane
 - name: claim_is_cas_with_fence_and_lease
   kind: function
   file: crates/bupha-plane/src/plane.rs
-  line: 1202
+  line: 1284
   module: bupha-plane
 - name: claim_label_gate_with_advertised_labels
   kind: function
   file: crates/bupha-plane/src/plane.rs
-  line: 1275
+  line: 1357
   module: bupha-plane
 - name: clone_for_retry
   kind: function
   file: crates/bupha-plane/src/plane.rs
-  line: 809
+  line: 891
   module: bupha-plane
 - name: complete_failure_retries_as_new_attempt
   kind: function
   file: crates/bupha-plane/src/plane.rs
-  line: 1360
+  line: 1442
   module: bupha-plane
 - name: complete_success_is_terminal
   kind: function
   file: crates/bupha-plane/src/plane.rs
-  line: 1328
+  line: 1410
   module: bupha-plane
 - name: compute_id
   kind: function
@@ -125,12 +130,12 @@ api:
 - name: create
   kind: function
   file: crates/bupha-plane/src/plane.rs
-  line: 972
+  line: 1054
   module: bupha-plane
 - name: create
   kind: function
   file: crates/bupha-plane/src/plane.rs
-  line: 1043
+  line: 1125
   module: bupha-plane
 - name: create_job
   kind: function
@@ -140,7 +145,7 @@ api:
 - name: create_validates_and_derives_id
   kind: function
   file: crates/bupha-plane/src/plane.rs
-  line: 1130
+  line: 1212
   module: bupha-plane
 - name: default
   kind: function
@@ -165,7 +170,7 @@ api:
 - name: delete
   kind: function
   file: crates/bupha-plane/src/plane.rs
-  line: 976
+  line: 1058
   module: bupha-plane
 - name: delete_job
   kind: function
@@ -175,7 +180,7 @@ api:
 - name: delete_rules
   kind: function
   file: crates/bupha-plane/src/plane.rs
-  line: 1491
+  line: 1573
   module: bupha-plane
 - name: dispatch_op
   kind: function
@@ -190,19 +195,14 @@ api:
 - name: enqueue_requeues_terminal_with_attempt_bump
   kind: function
   file: crates/bupha-plane/src/plane.rs
-  line: 1454
+  line: 1536
   module: bupha-plane
 - name: entity_doc
   kind: function
   file: crates/bupha-plane/src/plane.rs
-  line: 932
+  line: 1014
   module: bupha-plane
-- name: expired_lease_with_cancel_requested_cancels
-  kind: function
-  file: crates/bupha-plane/src/plane.rs
-  line: 1441
-  module: bupha-plane
-api_omitted: 64
+api_omitted: 71
 deps:
 - async-trait
 - axum
@@ -233,8 +233,8 @@ provenance:
   hashes:
   - fcdab77747a105b6a9ccd61f0074664e7efb925d
   - 8bcb7b0a43ea382ecebb0704171ff874d91bfe1f
-  - 5a1c57b9a0b181a0aa6f0f2b8b0c54cd0ebe1717
-  - 1e328d4ede8856e32b4ce843f00e2dff818926da
-  commit_sha: 5f560dabfe367ad7ed676eedc0a5f24236c101da
-  generated_at: '1794372592'
+  - 409f9b08259a8c9df4c68fbc4e6714b3a81a7b06
+  - c8c4f761c35e1e8addf792e8391dea425a25bb21
+  commit_sha: aa4b6e3560ec28cf5c069664873f78069aa216ae
+  generated_at: '1794373314'
   generator: kuda-template/0.1.2

@@ -801,6 +801,88 @@ impl CiJobPlane {
             }))
         })
     }
+
+    /// Rebuild plane state from entity-index docs — the hub's durable
+    /// `hypha-sync` projection is the store; this plane is the working
+    /// set (T-072). Each `doc` is a ci-job `indexDoc` — the inner doc
+    /// of the `{id,kind,indexDoc,…}` entity wrap (a wrapped doc is
+    /// unwrapped when present).
+    ///
+    /// State is preserved verbatim: a `running` job keeps its claim,
+    /// `fence`, and `leaseExpiresAt`, so the lazy sweep requeues
+    /// exactly the claims whose lease already lapsed and leaves live
+    /// ones held until expiry — the same semantics as if the node had
+    /// never restarted. `pending` lanes are rebuilt in `enqueuedAt`
+    /// order (id tiebreak), matching FIFO enqueue order. Existing ids
+    /// are left untouched — rehydration is idempotent and safe to
+    /// re-run.
+    ///
+    /// Runs outside [`Self::transact`]: it is a boot-time bulk load,
+    /// not an op, and takes the write lock directly.
+    #[must_use]
+    pub fn rehydrate(&self, docs: impl IntoIterator<Item = Value>) -> RehydrateReport {
+        let mut report = RehydrateReport::default();
+        let now = self.now();
+        let Ok(mut inner) = self.inner.write() else {
+            return report;
+        };
+        for doc in docs {
+            // Accept both the bare indexDoc and the entity wrap —
+            // `entity.indexDoc` when it's an object wins.
+            let doc = match doc.get("indexDoc") {
+                Some(inner_doc) if inner_doc.is_object() => inner_doc.clone(),
+                _ => doc,
+            };
+            let Ok(job) = CiJob::from_index_doc(&doc, &now.to_rfc3339()) else {
+                report.skipped += 1;
+                continue;
+            };
+            if inner.entities.contains_key(&job.id) {
+                report.skipped += 1;
+                continue;
+            }
+            inner.entities.insert(job.id.clone(), job);
+            report.inserted += 1;
+        }
+        // Sweep first so expired leases land `pending` (or `cancelled`
+        // on a pending cancel) BEFORE lanes rebuild — the requeued
+        // jobs' fresh `enqueuedAt` then sorts them to lane back, same
+        // as a runtime expiry.
+        Self::sweep_expired(&mut inner, &now);
+        // Rebuild every lane from entity state — pending jobs ordered
+        // by `enqueuedAt` then id. Rebuilding (rather than appending)
+        // keeps order correct even when the plane wasn't empty.
+        let mut pending: Vec<CiJob> = inner
+            .entities
+            .values()
+            .filter(|j| j.state == JobState::Pending)
+            .cloned()
+            .collect();
+        pending.sort_by(|a, b| {
+            a.enqueued_at
+                .cmp(&b.enqueued_at)
+                .then_with(|| a.id.cmp(&b.id))
+        });
+        let mut lanes: HashMap<String, VecDeque<String>> = HashMap::new();
+        for job in pending {
+            lanes
+                .entry(job.key.clone())
+                .or_default()
+                .push_back(job.id.clone());
+        }
+        inner.lanes = lanes;
+        report
+    }
+}
+
+/// What [`CiJobPlane::rehydrate`] did — logged at boot, asserted in
+/// tests.
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+pub struct RehydrateReport {
+    /// Entities inserted from the index.
+    pub inserted: usize,
+    /// Docs skipped — already present or failed validation.
+    pub skipped: usize,
 }
 
 /// Clone a finished entity's spec into its retry — same job, next
@@ -1546,5 +1628,179 @@ mod tests {
         // unknown op → 501
         let err = p.dispatch_op(&id_b, "ci.bogus", json!({})).unwrap_err();
         assert_eq!(err.status, StatusCode::NOT_IMPLEMENTED);
+    }
+
+    /* ---- rehydrate (T-072) ---------------------------------------- */
+
+    /// Snapshot the plane's entity docs the way the hub's entity index
+    /// would carry them — the `{id,kind,indexDoc}` wrap's inner doc.
+    fn index_docs(p: &CiJobPlane) -> Vec<Value> {
+        p.list_docs()
+            .iter()
+            .map(|d| d["indexDoc"].clone())
+            .collect()
+    }
+
+    #[test]
+    fn rehydrate_restores_pending_lanes_in_order() {
+        let (p, _) = plane();
+        // Two `all`-queue jobs on one key + one `latest` on another.
+        let mut a = init("o/n", "aaaa111");
+        a["queue"] = json!("all");
+        p.create_job(a).unwrap();
+        let mut b = init("o/n", "bbbb222");
+        b["queue"] = json!("all");
+        p.create_job(b).unwrap();
+        create(&p, "o/n:g", "cccc333");
+
+        // "Restart": a fresh plane rehydrates from the index docs.
+        let (p2, _) = plane();
+        let report = p2.rehydrate(index_docs(&p));
+        assert_eq!(report.inserted, 3);
+        assert_eq!(report.skipped, 0);
+
+        // Lane order preserved — a is front, b behind.
+        let st = p2
+            .dispatch_op(
+                &id_of("o/n", "bbbb222", 1),
+                "ci.status",
+                json!({"queuePosition": true}),
+            )
+            .unwrap();
+        assert_eq!(st["queuePosition"], 1);
+        assert_eq!(st["laneDepth"], 2);
+        let st = p2
+            .dispatch_op(
+                &id_of("o/n", "aaaa111", 1),
+                "ci.status",
+                json!({"queuePosition": true}),
+            )
+            .unwrap();
+        assert_eq!(st["queuePosition"], 0);
+        // The latest-queue job claims normally.
+        let won = p2
+            .dispatch_op(
+                &id_of("o/n:g", "cccc333", 1),
+                "ci.claim",
+                json!({"worker": "w"}),
+            )
+            .unwrap();
+        assert_eq!(won["claimed"], true);
+    }
+
+    #[test]
+    fn rehydrate_preserves_running_claim_and_sweeps_expired() {
+        let (p, now) = plane();
+        let (_, b1) = create(&p, "o/n", "aaaa111");
+        let id_live = b1["id"].as_str().unwrap().to_string();
+        p.dispatch_op(
+            &id_live,
+            "ci.claim",
+            json!({"worker": "w1", "leaseSecs": 300}),
+        )
+        .unwrap();
+        // A second job claimed with a lease that will be expired at
+        // rehydrate time — different key so `latest` doesn't supersede.
+        create(&p, "o/n:dead", "dddd444");
+        let id_dead = id_of("o/n:dead", "dddd444", 1);
+        p.dispatch_op(
+            &id_dead,
+            "ci.claim",
+            json!({"worker": "w2", "leaseSecs": 10}),
+        )
+        .unwrap();
+        // Snapshot the index BEFORE the clock moves — `list_docs`
+        // lazy-sweeps, so reading after `advance` would already show
+        // the dead job pending. The hub's projection carries the doc
+        // as last written: `running` with the now-lapsed lease.
+        let docs = index_docs(&p);
+        advance(&now, 20);
+
+        let (p2, now2) = plane();
+        // Rehydrate at the post-expiry instant — the sweep inside
+        // `rehydrate` is what requeues the dead claim.
+        *now2.lock().unwrap() = *now.lock().unwrap();
+        let report = p2.rehydrate(docs);
+        assert_eq!(report.inserted, 2);
+
+        // Live lease: still running, claim intact — a second claim 409s.
+        let doc = p2.get_doc(&id_live).unwrap();
+        assert_eq!(doc["indexDoc"]["state"], "running");
+        assert_eq!(doc["indexDoc"]["claimedBy"], "w1");
+        assert_eq!(doc["indexDoc"]["fence"], 1);
+        let err = p2
+            .dispatch_op(&id_live, "ci.claim", json!({"worker": "w9"}))
+            .unwrap_err();
+        assert_eq!(err.status, StatusCode::CONFLICT);
+        assert_eq!(err.body["heldBy"], "w1");
+
+        // Expired lease: swept back to pending at rehydrate — claimable.
+        let doc = p2.get_doc(&id_dead).unwrap();
+        assert_eq!(doc["indexDoc"]["state"], "pending");
+        assert_eq!(doc["indexDoc"]["claimedBy"], Value::Null);
+        let won = p2
+            .dispatch_op(&id_dead, "ci.claim", json!({"worker": "w3"}))
+            .unwrap();
+        assert_eq!(won["claimed"], true);
+        // fence kept counting — the re-claim bumped it to 2.
+        assert_eq!(won["fence"], 2);
+    }
+
+    #[test]
+    fn rehydrate_is_idempotent_and_skips_bad_docs() {
+        let (p, _) = plane();
+        create(&p, "o/n", "aaaa111");
+        let docs = index_docs(&p);
+
+        let (p2, _) = plane();
+        assert_eq!(p2.rehydrate(docs.clone()).inserted, 1);
+        // Second run: everything already present → all skipped.
+        let report = p2.rehydrate(docs);
+        assert_eq!(report.inserted, 0);
+        assert_eq!(report.skipped, 1);
+        assert_eq!(p2.list_docs().len(), 1);
+
+        // Hostile/garbage docs skip, never panic.
+        let report = p2.rehydrate(vec![
+            json!({"bogus": true}),
+            json!("not even an object".to_string()),
+            Value::Null,
+        ]);
+        assert_eq!(report.inserted, 0);
+        assert_eq!(report.skipped, 3);
+    }
+
+    #[test]
+    fn rehydrate_accepts_entity_wrap_and_terminal_states() {
+        let (p, _) = plane();
+        let (_, b) = create(&p, "o/n", "aaaa111");
+        let id = b["id"].as_str().unwrap().to_string();
+        p.dispatch_op(&id, "ci.claim", json!({"worker": "w"}))
+            .unwrap();
+        let doc = p.get_doc(&id).unwrap();
+        let fence = doc["indexDoc"]["fence"].as_u64().unwrap();
+        p.dispatch_op(
+            &id,
+            "ci.complete",
+            json!({"worker": "w", "fence": fence, "result": "success"}),
+        )
+        .unwrap();
+        // Re-read — the earlier `doc` still shows `running`.
+        let doc = p.get_doc(&id).unwrap();
+        assert_eq!(doc["indexDoc"]["state"], "success");
+
+        // Feed the full entity WRAP (`{id,kind,indexDoc}`) — the
+        // rehydrate unwraps `indexDoc` itself.
+        let (p2, _) = plane();
+        let report = p2.rehydrate(vec![doc]);
+        assert_eq!(report.inserted, 1);
+        let restored = p2.get_doc(&id).unwrap();
+        assert_eq!(restored["indexDoc"]["state"], "success");
+        assert_eq!(restored["indexDoc"]["result"], "success");
+        // Terminal jobs hold no lane slot.
+        let st = p2
+            .dispatch_op(&id, "ci.status", json!({"queuePosition": true}))
+            .unwrap();
+        assert_eq!(st["laneDepth"], 0);
     }
 }

@@ -35,4 +35,4 @@ pub mod plane;
 
 pub use bupha_core::WatchedRepo;
 pub use job::{CiJob, JobState, CI_JOB_KIND, DEFAULT_LEASE_SECS, MAX_ATTEMPTS, SNAPSHOT_FORMAT};
-pub use plane::CiJobPlane;
+pub use plane::{CiJobPlane, RehydrateReport};
