@@ -446,7 +446,10 @@ pub struct Config {
     /// Queue persistence backend (`[queue]`). Absent = redb.
     #[serde(default)]
     pub queue: QueueCfg,
-    /// Fleet worker labels (`[worker]`). Absent = no labels.
+    /// Entity-plane worker endpoint + fleet routing labels
+    /// (`[worker]`) — `node`/`node_token_env` for the ci-job
+    /// consumer, `labels` for queue-job filtering. Absent =
+    /// defaults (no node, no labels).
     #[serde(default)]
     pub worker: WorkerCfg,
     /// Remote-run agent (`[agent]`). Absent = no agent listener.

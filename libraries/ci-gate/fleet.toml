@@ -72,6 +72,32 @@ kind = "redb"
 [worktree]
 base = "~/.local/share/bupha/worktrees"
 
+# --- entity-plane worker (P-002/T-064) -----------------------------------------
+#
+# Read only by `tamias-driver-bupha worker` — the bundle's second
+# service (`bupha-worker.service`), which claims `kind="ci-job"`
+# entities on the hypha/peregrin node and runs them through the same
+# pipeline `host` uses. `host` ignores this section, so it is safe
+# to keep in the shared operator config. Both services consume the
+# same generated bundles/ci-gate.toml.
+[worker]
+# Hypha/peregrin node base URL — where the ci-ingress campaign's
+# enqueued ci-job entities live. The org node is `peregrin serve`
+# on :18787 (PEREGRIN_NODE_URL default; matches the live
+# peregrin-node.service). `BUPHA_WORKER_NODE`/`--node` override.
+node = "http://127.0.0.1:18787"
+# Env-var NAME holding the node's bearer credential — the VALUE
+# never lands here; it resolves through the usual chain (env →
+# cuora `cuora://bupha/PEREGRIN_TOKEN` → keyring →
+# ~/.config/bupha/env). `peregrin pair`/`hypha pair` mints the
+# token. The live node binds 0.0.0.0 and requires it; a loopback
+# dev node may drop this line (unauthenticated).
+node_token_env = "PEREGRIN_TOKEN"
+# Fleet routing labels this worker advertises — a ci-job whose
+# `runs_on` requirements aren't all listed here is never claimed.
+# Empty = claim every job whose key this fleet covers.
+# labels = []
+
 # `tunnel.public_url`, `trigger.listen`, `trigger.kind` are written
 # by `tamias deploy` from provider.ingress — do not set them here.
 # `tunnel.provider` stays "none": the public URL is fronted by the

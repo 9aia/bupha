@@ -50,7 +50,7 @@ api:
 - name: JobEntry
   kind: type
   file: crates/bupha-core/src/lib.rs
-  line: 522
+  line: 525
   module: bupha-core
 - name: MAX_PENDING
   kind: const
@@ -75,12 +75,12 @@ api:
 - name: RepoEntry
   kind: type
   file: crates/bupha-core/src/lib.rs
-  line: 463
+  line: 466
   module: bupha-core
 - name: RunnerCfg
   kind: type
   file: crates/bupha-core/src/lib.rs
-  line: 844
+  line: 847
   module: bupha-core
 - name: Seen
   kind: type
@@ -90,12 +90,12 @@ api:
 - name: StatusCfg
   kind: type
   file: crates/bupha-core/src/lib.rs
-  line: 866
+  line: 869
   module: bupha-core
 - name: SturnTriggerCfg
   kind: type
   file: crates/bupha-core/src/lib.rs
-  line: 786
+  line: 789
   module: bupha-core
 - name: TelemetryCfg
   kind: type
@@ -105,17 +105,17 @@ api:
 - name: TriggerCfg
   kind: type
   file: crates/bupha-core/src/lib.rs
-  line: 808
+  line: 811
   module: bupha-core
 - name: TunnelCfg
   kind: type
   file: crates/bupha-core/src/lib.rs
-  line: 880
+  line: 883
   module: bupha-core
 - name: WatchedRepo
   kind: type
   file: crates/bupha-core/src/lib.rs
-  line: 570
+  line: 573
   module: bupha-core
 - name: WorkerCfg
   kind: type
@@ -125,7 +125,7 @@ api:
 - name: WorktreeCfg
   kind: type
   file: crates/bupha-core/src/lib.rs
-  line: 908
+  line: 911
   module: bupha-core
 - name: bupha-core
   kind: module
@@ -145,7 +145,7 @@ api:
 - name: cycle_errors
   kind: function
   file: crates/bupha-core/src/lib.rs
-  line: 1029
+  line: 1032
   module: bupha-core
 - name: default
   kind: function
@@ -185,17 +185,17 @@ api:
 - name: default
   kind: function
   file: crates/bupha-core/src/lib.rs
-  line: 832
+  line: 835
   module: bupha-core
 - name: default
   kind: function
   file: crates/bupha-core/src/lib.rs
-  line: 896
+  line: 899
   module: bupha-core
 - name: default
   kind: function
   file: crates/bupha-core/src/lib.rs
-  line: 916
+  line: 919
   module: bupha-core
 - name: default_access_kind
   kind: function
@@ -222,9 +222,9 @@ provenance:
   - crates/bupha-core/tests/domain.rs
   hashes:
   - 2949c06c8e71ef5da170506ce9cd8dfbb7312ce3
-  - d47ed859e777ada44cd219a6b8c9d31e5d30e8b6
+  - 97c222ae973b0ef1d7fa5eed45f4a37b094ea0c5
   - eaf5e74313b7393277e9a2bb3b2fa036cdfc2d3f
   - e507aff33522cac687b6bb04b9f5d4789f3d3d4a
-  commit_sha: ceddf855321fb0281909afbe0dbb2eef826eb1c9
-  generated_at: '1794361685'
+  commit_sha: ce95ba09664347c2e2c4c302e82fb082140a3df9
+  generated_at: '1794366290'
   generator: kuda-template/0.1.2

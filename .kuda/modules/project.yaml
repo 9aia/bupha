@@ -202,10 +202,8 @@ api:
   file: project/TODO.md
   line: 5
   module: project
-api_omitted: 28
+api_omitted: 36
 deps: []
-warnings:
-- 'project/issues/issue-0003-unvalidated-sha-on-non-webhook-paths-worktree-path-traversal-git-option-injection.md: schema: "critical" is not one of "low", "med" or 3 other candidates'
 notes: ''
 verify:
 - project/BACKLOG.md
@@ -237,7 +235,11 @@ provenance:
   - project/handoffs/T-055.md
   - project/handoffs/T-056.md
   - project/handoffs/T-057.md
+  - project/handoffs/T-058.md
+  - project/handoffs/T-061.md
   - project/handoffs/T-062.md
+  - project/handoffs/T-063.md
+  - project/handoffs/T-067.md
   - project/handoffs/archive/T-029.md
   - project/index.md
   - project/issues/issue-0001-ci-jobs-run-in-the-watcher-cgroup-oom-kills-the-watcher-and-re-runs-forever.md
@@ -256,10 +258,10 @@ provenance:
   - project/proposals/proposal-0002-ci-job-ops-contract-bupha-hypha-peregrin-seam.md
   hashes:
   - e9f311a05504d185a4ac87e46e8809255cbd13a7
-  - e4f8b157f23fb3866d9f06cad149b04305a01121
-  - f74b7d1a30dc340b2c7fbe438e1c2d83f5a3212d
-  - 2dc7665583c806fc5a5a09d8c2ad485b2888aa4b
-  - 83ad74c3b209b9f10a7edd820fd31e8d583e5489
+  - 75c619b4a802dc48d58827ae8a818d0059f57d9b
+  - 9e9656b9a5598469aa79fb9cddcfbd4c3475d14b
+  - 2369700a1a6e99c56d28b0d38e76ab053b37bd6d
+  - c29950d6fd46cd166cee477e9f1bd125ac1b283a
   - 5d22a78ab0e5a33a834acb59d44080bc09bceefd
   - e52d9fd7026b90c3f3eb17b03dea333b80260688
   - afef3694073ef806a08826c8bf767f3f6c7bca08
@@ -272,23 +274,27 @@ provenance:
   - 678cc4caeea0ae0c3f584b6476659e15f00e1942
   - 5eee48b375491542cd1f2f0b6f0c82e5a981d5be
   - 030266a05129ead5166404626da034b1a8ce960b
+  - d628941212152daf4fb46d0901eda2da6c0c97cc
+  - d0b9810781a6be18e18ddfae4664a4daea7819e2
   - 9db8abb85bfcc987d7d80d67cb1344a379a3dd4b
+  - 8beb096a8090242c6736d3abba9882368c110ee2
+  - 733c19131ea5e23fffe5be1ef735bee98e851741
   - d3f12670f3e871b0c2a499668a4cd1e3bb3d7815
   - 3091ed43775d9ade33d06ad35e6b788b98afa4d5
   - 52d8d4834c8a14b6d2a45689e9dd401b65bb7c95
-  - 5a935f315ece34dedaec75e5e07cada1fdc93103
-  - 8f20548325f4bfe69bfb6723f90a0173f5506c98
+  - 09fe14203c7c82a361e7dd7b8710d3109e790f1f
+  - 72154b4269aa1da560837f4001da21bd71630dce
   - 11ffe90cea4b3482cce4696c921911494c8cf40e
   - 84ad14974b3ec06b018331aed31813e325f211ca
   - 74908a4927c0bf1e323f5e3c1c4d0e8674c9d0f1
-  - 6ba18f804cd65c3dccacaca0d2c0cd43543a7293
-  - 97b8d5f6747cdf212b2364864005c8a17f7768d1
+  - dd55eb6fc8077b932b7bbcbd39790360db6cb62a
+  - fbdc863ebacda68d470d1e5e717b4a3ea6a3ecb4
   - f8f2f0a5b788dc9ed240b0c37e4fe282a1365cd3
   - db06b54cc69617ee7e987f1adb265464dbdcebe6
-  - 754f2219f7c59af7eb3add454d07669932d45edd
+  - 97d2c9430c8dc38a92481dd849d48472215cf082
   - 002b0049113c3dc274fc3c858e2ec68c97a8b63d
-  - df3eb22a6b42fbc7a4353c8d160b5b4387205b8f
+  - d7ce1cb6d95ae71a26ec4c6bdabdc5f318d8a21f
   - 64bb8eeec2c83135075727fb9aec32780e212939
-  commit_sha: ceddf855321fb0281909afbe0dbb2eef826eb1c9
-  generated_at: '1794361784'
+  commit_sha: ce95ba09664347c2e2c4c302e82fb082140a3df9
+  generated_at: '1794366132'
   generator: kuda-template/0.1.2

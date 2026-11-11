@@ -1,8 +1,10 @@
 # ci-gate — the org CI gate as a tamias `bupha` bundle.
 #
 # `tamias install <ref>` fetches this payload; `tamias deploy ci-gate`
-# renders the provider unit (`bupha-watch.service` running
-# `tamias-driver-bupha host --config ~/.config/bupha/bundles/ci-gate.toml`) and
+# renders the provider units (`bupha-watch.service` running
+# `tamias-driver-bupha host --config ~/.config/bupha/bundles/ci-gate.toml`
+# for standalone mode, `bupha-worker.service` running the `worker`
+# verb against the same config for the peregrin substrate path) and
 # `tamias-driver-bupha deploy` writes that operator config from
 # `fleet.toml` + this manifest's `provider.ingress` block.
 # `tamias driver exec ci-gate hooks register` points the declared
@@ -18,20 +20,21 @@ description: >-
 
 # The declarative runtime spec — `tamias deploy` renders each
 # `services[]` entry as a per-user systemd unit named
-# `<provider.name>-<service>` (here `bupha-watch.service`, the same
-# unit name `bupha deploy service` writes by hand).
+# `<provider.name>-<service>` (`bupha-watch.service`,
+# `bupha-worker.service`). TWO services, one per ingress mode
+# (ADR-0007):
+#   * `watch`  — the standalone/dev watcher: bupha's own webhook
+#     listener (`provider.ingress`) → queue → pipeline. Enable this
+#     on hosts with no peregrin.
+#   * `worker` — the substrate/production consumer (P-002): polls
+#     `kind="ci-job"` entities on the hypha/peregrin node
+#     (`[worker] node` + `node_token_env` in fleet.toml) and runs
+#     them through the same pipeline. Enable this where the
+#     ci-ingress campaign owns webhook ingress — do NOT enable both
+#     (the watcher's listener would fight the campaign's for the
+#     same port, and a push would run twice).
 provider:
   name: bupha
-  # NOTE (P-002/T-062): `tamias-driver-bupha worker` is a SECOND
-  # service a fleet deployment can run — it polls `kind="ci-job"`
-  # entities on a hypha/peregrin node (`[worker] node` +
-  # `node_token_env` in fleet.toml, or --node/--node-token-env) and
-  # executes them through the same pipeline `host` runs. Deliberately
-  # NOT wired into services[] yet — this bundle is standalone-mode
-  # (bupha webhook ingress, ADR-0007); the entity-plane worker
-  # belongs to peregrin-hosted deployments where the ci-job plane
-  # lives on the node. Follow-up tracks wiring a `worker` service
-  # entry + `[worker] node`/`node_token_env` in fleet.toml.
   services:
     # The watcher: one listener + queue + runner for the whole fleet.
     # `--config` points at the per-bundle operator config the deploy
@@ -52,6 +55,18 @@ provider:
       # Once every secret lives in cuora this line can go; the
       # watcher still needs `cuora` on PATH (systemd's minimal
       # PATH — same caveat as the driver binary above).
+      env_file: "~/.config/bupha/env"
+      workdir: "~"
+      restart: on-failure
+    # The entity-plane worker (T-064): claims pending `ci-job`
+    # entities whose keys this fleet's [[repo]] set covers, runs
+    # them through the same pipeline `host` uses, and reports
+    # ci.complete back to the node. Same operator config, same
+    # secret chain — `[worker] node`/`node_token_env` in fleet.toml
+    # point it at the peregrin node.
+    - name: worker
+      exec: >-
+        ~/.local/share/tamias/drivers/tamias-driver-bupha worker --config ~/.config/bupha/bundles/ci-gate.toml
       env_file: "~/.config/bupha/env"
       workdir: "~"
       restart: on-failure

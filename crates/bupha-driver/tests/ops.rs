@@ -185,6 +185,81 @@ fn lifecycle_verbs_require_dir_and_name() {
 }
 
 #[test]
+fn shipped_bundles_declare_worker_service_and_worker_config() {
+    // T-064: both libraries declare a second `services[]` entry for
+    // the entity-plane worker, and their fleet.toml carries the
+    // `[worker]` node endpoint `deploy` must pass through verbatim.
+    for (name, worker_unit) in [
+        ("ci-gate", "bupha-worker.service"),
+        ("docs-deploy", "bupha-worker-docs.service"),
+    ] {
+        let dir = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../libraries")
+            .join(name);
+        let manifest: serde_norway::Value =
+            serde_norway::from_str(&std::fs::read_to_string(dir.join("tamias.yaml")).unwrap())
+                .unwrap();
+        let services = manifest["provider"]["services"].as_sequence().unwrap();
+        let execs: Vec<&str> = services
+            .iter()
+            .map(|s| s["exec"].as_str().unwrap())
+            .collect();
+        assert!(
+            execs.iter().any(|e| e.contains(" worker --config")),
+            "{name}: no worker service exec in {execs:?}"
+        );
+        assert!(
+            execs.iter().any(|e| e.contains(" host --config")),
+            "{name}: no host service exec in {execs:?}"
+        );
+        // Unit name is <provider>-<service> — the worker service name
+        // must not collide across bundles.
+        let worker_name = services
+            .iter()
+            .find(|s| s["exec"].as_str().unwrap().contains(" worker "))
+            .unwrap()["name"]
+            .as_str()
+            .unwrap();
+        assert_eq!(
+            format!("bupha-{worker_name}.service"),
+            worker_unit,
+            "{name}: worker unit name"
+        );
+
+        // deploy merges [worker] through to the operator config.
+        let out_path = dir.join("target-out").join(format!("{name}.toml"));
+        let _ = std::fs::remove_file(&out_path);
+        let out = run(&[
+            "deploy",
+            "--dir",
+            dir.to_str().unwrap(),
+            "--name",
+            name,
+            "--config",
+            out_path.to_str().unwrap(),
+        ]);
+        assert!(
+            out.status.success(),
+            "{name} deploy: {}",
+            String::from_utf8_lossy(&out.stderr)
+        );
+        let cfg: toml::Value =
+            toml::from_str(&std::fs::read_to_string(&out_path).unwrap()).unwrap();
+        assert_eq!(
+            cfg["worker"]["node"].as_str(),
+            Some("http://127.0.0.1:18787"),
+            "{name}: [worker] node did not survive deploy"
+        );
+        assert_eq!(
+            cfg["worker"]["node_token_env"].as_str(),
+            Some("PEREGRIN_TOKEN"),
+            "{name}: [worker] node_token_env did not survive deploy"
+        );
+        let _ = std::fs::remove_file(&out_path);
+    }
+}
+
+#[test]
 fn health_and_status_answer_json_for_the_shipped_bundle() {
     // The shipped bundle's provider declares listen+services; on a
     // box without the listener the probes report ok:false — the verb

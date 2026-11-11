@@ -17,15 +17,17 @@
 //! from `provider.ingress[]` (the same values `hooks register`
 //! points GitHub at — one source of truth, no drift). `deploy`
 //! writes the merged doc to `~/.config/bupha/bundles/<name>.toml`;
-//! the provider unit's `tamias-driver-bupha host --config <that
-//! path>` consumes it (the `host` verb runs the watcher engine
-//! in-process via `bupha-watch` — ADR-0006: units exec the driver
-//! binary, not a cargo-installed `bupha`). That whole listener path
-//! — `host`, `hooks`, `provider.ingress[]` — is **standalone/dev
-//! mode** (ADR-0007): production webhook/forge ingress is a
-//! peregrin campaign listener that normalizes deliveries through
-//! bupha's `Trigger` semantics and enqueues `ci-job` via
-//! `ci.enqueue`; use these verbs only where no peregrin runs.
+//! the provider units' `tamias-driver-bupha host|worker --config
+//! <that path>` consume it (`host` runs the watcher engine
+//! in-process via `bupha-watch`, `worker` polls `ci-job` entities
+//! on the `[worker] node` — both through the same merged config;
+//! ADR-0006: units exec the driver binary, not a cargo-installed
+//! `bupha`). The `host`/`hooks`/`provider.ingress[]` path is
+//! **standalone/dev mode** (ADR-0007): production webhook/forge
+//! ingress is a peregrin campaign listener that normalizes
+//! deliveries through bupha's `Trigger` semantics and enqueues
+//! `ci-job` via `ci.enqueue`, consumed by the `worker` service —
+//! use the listener verbs only where no peregrin runs.
 //! Per-bundle files beat
 //! merging into `bupha.yaml`: the config
 //! loader (`bupha-config-file`) has no include mechanism and a
@@ -353,7 +355,7 @@ fn table_mut<'a>(root: &'a mut toml::Table, key: &str) -> Result<&'a mut toml::T
 }
 
 /// `deploy` — write the operator config
-/// `tamias-driver-bupha host --config` consumes: `fleet.toml` with
+/// `tamias-driver-bupha host|worker --config` consumes: `fleet.toml` with
 /// `tunnel.public_url` and
 /// `trigger.listen`/`kind` filled from `provider.ingress[]` (the
 /// manifest wins those fields — they're the same values the forge
@@ -1445,7 +1447,10 @@ base = "{}"
         let units = provider_units(&manifest, "ci-gate");
         assert_eq!(
             units,
-            vec![("watch".to_string(), "bupha-watch.service".to_string())]
+            vec![
+                ("watch".to_string(), "bupha-watch.service".to_string()),
+                ("worker".to_string(), "bupha-worker.service".to_string()),
+            ]
         );
     }
 
@@ -1466,6 +1471,10 @@ base = "{}"
         .unwrap();
         assert_eq!(cfg.tunnel.public_url, "https://ci.luisfuturist.com");
         assert_eq!(cfg.trigger.listen, "127.0.0.1:29173");
+        // T-064: fleet.toml's [worker] block flows through deploy
+        // verbatim — the worker service reads it from this config.
+        assert_eq!(cfg.worker.node.as_deref(), Some("http://127.0.0.1:18787"));
+        assert_eq!(cfg.worker.node_token_env.as_deref(), Some("PEREGRIN_TOKEN"));
         assert!(!cfg.repos.is_empty());
         for r in &cfg.repos {
             assert!(r.secret_env.is_some(), "{}: secret_env", r.name);
