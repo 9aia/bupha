@@ -8,5 +8,3 @@
 - [ ] T-067 ci-ingress live e2e + normalization gaps — fire a real forge push through webhook→ci.enqueue→worker ci.claim→ci.complete on a deployed node; pull\_request lanes; per-repo indexDoc spec resolution (Config::watched → queue/runsOn/runner/context/maxAttempts); X-GitHub-Delivery passthrough; enqueue retry on http.failed · pri:high · owner:devin · created:2026-11-11 · links:T-058,T-061,T-063
 
 ## open
-
-- [ ] T-069 gha: wire step outputs to consumers — gha-runner JobOutcome.outputs is stored but unsent (no completejob field; ${{ }} exprs are service-precompiled); bupha-gha dialect collects $GITHUB\_OUTPUT raw to $BUPHA\_GHA\_TMP/outputs.txt. Both need a path to needs.\*.outputs / steps.\*.outputs (T-048 follow-up) · status:in-progress · created:2026-11-11
