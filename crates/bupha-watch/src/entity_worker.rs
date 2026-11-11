@@ -29,9 +29,9 @@ use bupha_queue::{Fence, TryClaim};
 use bupha_runner::Runner;
 use bupha_status::StatusSink;
 use bupha_telemetry::{RunEvent, Telemetry};
-use hypha_node_api::api::EntityApi;
+use hypha_node_api::api::{EntityApi, OpResult};
 use hypha_node_api::dto::{EntityDto, EntityOp};
-use serde_json::json;
+use serde_json::{json, Value};
 
 use crate::{
     build_attest, build_audit, build_runners, build_sinks, build_telemetry, run_job, secret,
@@ -163,6 +163,18 @@ impl EntityJobApi {
     }
 
     fn submit(&self, id: &str, kind: &str, payload: serde_json::Value) -> io::Result<()> {
+        self.submit_result(id, kind, payload).map(|_| ())
+    }
+
+    /// `submit_op_result` — same op, but the node's response body
+    /// (or `Queued`) survives the hop. `ci.claim` is the one op whose
+    /// body carries state the caller needs (`fence`).
+    fn submit_result(
+        &self,
+        id: &str,
+        kind: &str,
+        payload: serde_json::Value,
+    ) -> io::Result<OpResult> {
         let api = Arc::clone(&self.api);
         let id = id.to_string();
         let op = EntityOp {
@@ -170,7 +182,7 @@ impl EntityJobApi {
             payload,
         };
         self.rt
-            .block_on(async move { api.submit_op(&id, &op).await })
+            .block_on(async move { api.submit_op_result(&id, &op).await })
             .map_err(io::Error::other)
     }
 
@@ -181,6 +193,54 @@ impl EntityJobApi {
         let msg = e.to_string();
         msg.contains("HTTP 409") || msg.contains("HTTP 404")
     }
+
+    /// The pre-`submit_op_result` claim path — re-read the entity doc
+    /// the claim just wrote. Ops serialize node-side, so the read is
+    /// consistent; kept as the fallback for body-less responses.
+    fn claim_from_doc(&self, id: &str, worker: &str) -> io::Result<ClaimOutcome> {
+        match self.get_job(id)? {
+            Some(ej)
+                if ej.job.state == JobState::Running
+                    && ej.job.claimed_by.as_deref() == Some(worker) =>
+            {
+                Ok(ClaimOutcome::Won(HeldClaim {
+                    id: id.to_string(),
+                    worker: worker.to_string(),
+                    fence: ej.job.fence,
+                }))
+            }
+            // Claim accepted but the doc disagrees — treat as
+            // lost rather than run unfenced.
+            _ => Ok(ClaimOutcome::Lost),
+        }
+    }
+}
+
+/// `ci.claim`'s op body → `HeldClaim` — `{claimed, fence, job}` where
+/// `job` is the post-claim indexDoc (P-002 §1). Returns `None` when
+/// the body doesn't prove a won claim for `worker` — the caller falls
+/// back to the entity re-read rather than running unfenced.
+fn claim_from_body(id: &str, worker: &str, body: &Value) -> Option<HeldClaim> {
+    if body.get("claimed").and_then(Value::as_bool) != Some(true) {
+        return None;
+    }
+    // Top-level `fence` must agree with the doc's — they come from
+    // the same transaction; a mismatch means a foreign body.
+    let doc_fence = body.pointer("/job/fence").and_then(Value::as_u64);
+    let body_fence = body.get("fence").and_then(Value::as_u64);
+    if doc_fence.is_none() || body_fence.is_none() || doc_fence != body_fence {
+        return None;
+    }
+    let now = chrono::Utc::now().to_rfc3339();
+    let job = CiJob::from_index_doc(body.get("job")?, &now).ok()?;
+    if job.state != JobState::Running || job.claimed_by.as_deref() != Some(worker) {
+        return None;
+    }
+    Some(HeldClaim {
+        id: id.to_string(),
+        worker: worker.to_string(),
+        fence: job.fence,
+    })
 }
 
 /// `EntityDto.index_doc` → `EntityJob` — the same validation the
@@ -222,28 +282,23 @@ impl JobApi for EntityJobApi {
 
     fn claim(&self, id: &str, worker: &str, lease_secs: u64) -> io::Result<ClaimOutcome> {
         let payload = json!({ "worker": worker, "leaseSecs": lease_secs });
-        match self.submit(id, "ci.claim", payload) {
-            Ok(()) => {
-                // `submit_op` discards the op's response body, so the
-                // fence comes from the entity doc the claim just
-                // wrote — ops serialize node-side, the re-read is
-                // consistent.
-                match self.get_job(id)? {
-                    Some(ej)
-                        if ej.job.state == JobState::Running
-                            && ej.job.claimed_by.as_deref() == Some(worker) =>
-                    {
-                        Ok(ClaimOutcome::Won(HeldClaim {
-                            id: id.to_string(),
-                            worker: worker.to_string(),
-                            fence: ej.job.fence,
-                        }))
-                    }
-                    // Claim accepted but the doc disagrees — treat as
-                    // lost rather than run unfenced.
-                    _ => Ok(ClaimOutcome::Lost),
+        match self.submit_result(id, "ci.claim", payload) {
+            Ok(OpResult::Applied(Some(body))) => {
+                // Fast path: the op body is `{claimed, fence, job}` —
+                // the post-claim indexDoc, no entity re-read needed.
+                if let Some(held) = claim_from_body(id, worker, &body) {
+                    return Ok(ClaimOutcome::Won(held));
                 }
+                // Body didn't prove the win (non-ci-job plane, older
+                // node, opaque response) — fall back to the re-read.
+                self.claim_from_doc(id, worker)
             }
+            Ok(OpResult::Applied(None)) => self.claim_from_doc(id, worker),
+            // Hub outbox-parked the claim — no node response exists
+            // yet, so the win can't be proven. Report Lost: the next
+            // poll resubmits (the CAS makes the replay idempotent)
+            // and the claim settles once the owning node is back.
+            Ok(OpResult::Queued) => Ok(ClaimOutcome::Lost),
             Err(e) if Self::is_conflict(&e) => Ok(ClaimOutcome::Lost),
             Err(e) => Err(e),
         }
@@ -1159,6 +1214,106 @@ branch = "refs/heads/docs"
         let filter = filter_for(&["o/n"]);
         assert_eq!(step(&filter, &api, &exec, &|| true), Step::Shutdown);
         assert!(exec.ran.lock().unwrap().is_empty());
+    }
+
+    /// The `job` field of a `ci.claim` op body — the post-claim
+    /// indexDoc (`to_index_doc` shape, P-002 §1).
+    fn claimed_job_doc(worker: &str, fence: u64) -> Value {
+        let mut job = pending("o/n", "abc1234def56", 1);
+        job.state = JobState::Running;
+        job.claimed_by = Some(worker.to_string());
+        job.fence = fence;
+        job.to_index_doc()
+    }
+
+    /// A `ci-job` entity fixture for the re-read fallback paths.
+    fn claimed_entity(worker: &str, fence: u64) -> EntityDto {
+        let mut job = pending("o/n", "abc1234def56", 1);
+        job.state = JobState::Running;
+        job.claimed_by = Some(worker.to_string());
+        job.fence = fence;
+        EntityDto {
+            id: job.id.clone(),
+            kind: CI_JOB_KIND.to_string(),
+            index_doc: job.to_index_doc(),
+            ..EntityDto::default()
+        }
+    }
+
+    fn entity_api(op_result: OpResult, entities: Vec<EntityDto>) -> io::Result<EntityJobApi> {
+        EntityJobApi::new(
+            hypha_node_api::testing::FakeEntityApi::seeded()
+                .with_entities(entities)
+                .with_op_result(op_result)
+                .shared(),
+        )
+    }
+
+    #[test]
+    fn claim_uses_op_body_without_entity_reread() {
+        // The op body carries {claimed, fence, job} — the fence comes
+        // straight from it. Proof there's no re-read: the fixture
+        // holds no ci-job entity, so a GET would error the claim.
+        let api = entity_api(
+            OpResult::Applied(Some(json!({
+                "claimed": true,
+                "fence": 7,
+                "job": claimed_job_doc("w/1", 7),
+            }))),
+            Vec::new(),
+        )
+        .unwrap();
+        match api.claim("ci:o/n:abc1234def56:1", "w/1", 300).unwrap() {
+            ClaimOutcome::Won(held) => {
+                assert_eq!(held.fence, 7);
+                assert_eq!(held.worker, "w/1");
+                assert_eq!(held.id, "ci:o/n:abc1234def56:1");
+            }
+            ClaimOutcome::Lost => panic!("op body should prove the win"),
+        }
+    }
+
+    #[test]
+    fn claim_unproven_body_falls_back_to_entity_reread() {
+        // `claimed: false` / mismatched fence / foreign body — none
+        // prove the win, so the entity doc decides (fence 3 there).
+        for body in [
+            json!({ "claimed": false }),
+            json!({ "claimed": true, "fence": 9, "job": claimed_job_doc("w/1", 7) }),
+            json!({ "claimed": true, "fence": 7, "job": claimed_job_doc("other/9", 7) }),
+        ] {
+            let api = entity_api(
+                OpResult::Applied(Some(body)),
+                vec![claimed_entity("w/1", 3)],
+            )
+            .unwrap();
+            match api.claim("ci:o/n:abc1234def56:1", "w/1", 300).unwrap() {
+                ClaimOutcome::Won(held) => assert_eq!(held.fence, 3),
+                ClaimOutcome::Lost => panic!("fallback re-read should win"),
+            }
+        }
+    }
+
+    #[test]
+    fn claim_without_body_falls_back_to_entity_reread() {
+        // Applied(None) — empty/non-JSON response — same fallback.
+        let api = entity_api(OpResult::Applied(None), vec![claimed_entity("w/1", 3)]).unwrap();
+        match api.claim("ci:o/n:abc1234def56:1", "w/1", 300).unwrap() {
+            ClaimOutcome::Won(held) => assert_eq!(held.fence, 3),
+            ClaimOutcome::Lost => panic!("fallback re-read should win"),
+        }
+    }
+
+    #[test]
+    fn claim_queued_reports_lost_for_next_poll() {
+        // Hub outbox-parked the claim — no node response exists, so
+        // the win can't be proven. Lost = rescan next poll; the CAS
+        // makes the replayed claim idempotent.
+        let api = entity_api(OpResult::Queued, Vec::new()).unwrap();
+        assert!(matches!(
+            api.claim("ci:o/n:abc1234def56:1", "w/1", 300).unwrap(),
+            ClaimOutcome::Lost
+        ));
     }
 
     #[test]

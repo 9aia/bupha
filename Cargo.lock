@@ -1743,7 +1743,7 @@ dependencies = [
 [[package]]
 name = "hypha-http"
 version = "0.1.0"
-source = "git+https://github.com/9aia/hypha.git?branch=main#069ea20735b6b70a682089450ab9bbd817c2bedd"
+source = "git+https://github.com/9aia/hypha.git?branch=main#07cc44625df43cb8537ef78c9234c828410cb0d1"
 dependencies = [
  "async-trait",
  "axum",
@@ -1767,7 +1767,7 @@ dependencies = [
 [[package]]
 name = "hypha-node-api"
 version = "0.1.0"
-source = "git+https://github.com/9aia/hypha.git?branch=main#069ea20735b6b70a682089450ab9bbd817c2bedd"
+source = "git+https://github.com/9aia/hypha.git?branch=main#07cc44625df43cb8537ef78c9234c828410cb0d1"
 dependencies = [
  "async-trait",
  "serde",
@@ -1779,7 +1779,7 @@ dependencies = [
 [[package]]
 name = "hypha-push"
 version = "0.1.0"
-source = "git+https://github.com/9aia/hypha.git?branch=main#069ea20735b6b70a682089450ab9bbd817c2bedd"
+source = "git+https://github.com/9aia/hypha.git?branch=main#07cc44625df43cb8537ef78c9234c828410cb0d1"
 dependencies = [
  "base64 0.22.1",
  "futures",
@@ -1794,7 +1794,7 @@ dependencies = [
 [[package]]
 name = "hypha-telemetry"
 version = "0.1.0"
-source = "git+https://github.com/9aia/hypha.git?branch=main#069ea20735b6b70a682089450ab9bbd817c2bedd"
+source = "git+https://github.com/9aia/hypha.git?branch=main#07cc44625df43cb8537ef78c9234c828410cb0d1"
 dependencies = [
  "http 1.5.0",
  "opentelemetry",
