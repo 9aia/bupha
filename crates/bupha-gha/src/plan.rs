@@ -199,7 +199,13 @@ fn env_map(m: &serde_norway::Mapping, what: &str) -> Result<Vec<(String, String)
         if !valid {
             return Err(format!("{what}: invalid env name `{key}`"));
         }
-        out.push((key.to_string(), scalar(v, &format!("{what}.{key}"))?));
+        // `KEY:` with no value is YAML null — GitHub coerces it to
+        // the empty string, so do the same.
+        let value = match v {
+            Value::Null => String::new(),
+            _ => scalar(v, &format!("{what}.{key}"))?,
+        };
+        out.push((key.to_string(), value));
     }
     Ok(out)
 }
@@ -441,7 +447,10 @@ impl Workflow {
         };
         Ok(Job {
             workflow: self.name.clone(),
-            label: j.name.clone().unwrap_or_else(|| j.id.clone()),
+            label: match &j.name {
+                Some(n) => interpolate(n, &eval, &format!("{what}.name"))?,
+                None => j.id.clone(),
+            },
             runs_on: j
                 .runs_on
                 .iter()
@@ -829,6 +838,7 @@ fn parse_job(m: &serde_norway::Mapping, id: &str, source: &str) -> Result<RawJob
                 "name",
                 "run",
                 "uses",
+                "with",
                 "working-directory",
                 "env",
                 "shell",
@@ -844,6 +854,9 @@ fn parse_job(m: &serde_norway::Mapping, id: &str, source: &str) -> Result<RawJob
             }
             (None, None) => return Err(format!("{sw}: step needs `run` or `uses`")),
             (Some(rv), None) => {
+                if get(sm, "with").is_some() {
+                    return Err(format!("{sw}: `with` requires `uses`"));
+                }
                 let Value::String(script) = rv else {
                     return Err(format!("{sw}.run: expected a string"));
                 };

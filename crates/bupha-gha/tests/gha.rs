@@ -195,6 +195,30 @@ jobs:
 }
 
 #[test]
+fn null_env_value_is_empty_string() {
+    // `KEY:` (YAML null) is legal in GHA env maps — it means "".
+    let (d, sha) = repo("envnull");
+    workflow(
+        &d,
+        "ci.yml",
+        r#"
+on: push
+env:
+  EMPTY:
+jobs:
+  t:
+    env:
+      ALSO_EMPTY:
+    steps:
+      - run: |
+          [ -z "$EMPTY" ] && [ -z "$ALSO_EMPTY" ] && echo ok > n.txt
+"#,
+    );
+    assert!(run(&d, &sha).success());
+    assert!(d.join("n.txt").exists());
+}
+
+#[test]
 fn github_contexts_in_run() {
     let (d, sha) = repo("ghctx");
     let body = r#"
@@ -326,6 +350,119 @@ fn unknown_expression_fails() {
     };
     let err = r.spawn(&ctx).err().unwrap();
     assert!(err.to_string().contains("secrets"), "{err}");
+}
+
+#[test]
+fn checkout_with_inputs_is_accepted() {
+    // `with:` on actions/checkout is valid GHA — only `path` is
+    // unsupported (the worktree root is fixed).
+    let (d, sha) = repo("checkoutwith");
+    workflow(
+        &d,
+        "ci.yml",
+        r#"
+on: push
+jobs:
+  t:
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - run: echo ok > ok.txt
+"#,
+    );
+    assert!(run(&d, &sha).success());
+    assert!(d.join("ok.txt").exists());
+}
+
+#[test]
+fn checkout_with_path_fails() {
+    let (d, sha) = repo("checkoutpath");
+    workflow(
+        &d,
+        "ci.yml",
+        r#"
+on: push
+jobs:
+  t:
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: subdir
+"#,
+    );
+    let r = GhaRunner::new(GhaCfg { workflow: None });
+    let ctx = RunCtx {
+        workdir: &d,
+        token_env: "BUPHA_TOKEN",
+        key: "o/r",
+        sha: &sha,
+        git_ref: "refs/heads/main",
+    };
+    let err = r.spawn(&ctx).err().unwrap();
+    assert!(err.to_string().contains("path"), "{err}");
+}
+
+#[test]
+fn with_on_run_step_fails() {
+    let (d, sha) = repo("withrun");
+    workflow(
+        &d,
+        "ci.yml",
+        "on: push\njobs:\n  t:\n    steps:\n      - run: echo hi\n        with:\n          x: y\n",
+    );
+    let r = GhaRunner::new(GhaCfg { workflow: None });
+    let ctx = RunCtx {
+        workdir: &d,
+        token_env: "BUPHA_TOKEN",
+        key: "o/r",
+        sha: &sha,
+        git_ref: "refs/heads/main",
+    };
+    assert!(r.spawn(&ctx).is_err());
+}
+
+#[test]
+fn matrix_job_name_is_interpolated() {
+    let (d, sha) = repo("jobname");
+    workflow(
+        &d,
+        "ci.yml",
+        r#"
+on: push
+jobs:
+  t:
+    name: "build ${{ matrix.target }} on ${{ github.ref_name }}"
+    strategy:
+      matrix:
+        target: [x86_64, aarch64]
+    steps:
+      - run: echo ok > "${{ matrix.target }}.txt"
+"#,
+    );
+    assert!(run(&d, &sha).success());
+    assert!(d.join("x86_64.txt").exists());
+    assert!(d.join("aarch64.txt").exists());
+}
+
+#[test]
+fn unsupported_expression_in_name_fails() {
+    let (d, sha) = repo("jobnamebad");
+    workflow(
+        &d,
+        "ci.yml",
+        "on: push\njobs:\n  t:\n    name: \"${{ matrix.os == 'x' }}\"\n    steps:\n      - run: echo hi\n",
+    );
+    let r = GhaRunner::new(GhaCfg { workflow: None });
+    let ctx = RunCtx {
+        workdir: &d,
+        token_env: "BUPHA_TOKEN",
+        key: "o/r",
+        sha: &sha,
+        git_ref: "refs/heads/main",
+    };
+    assert!(r.spawn(&ctx).is_err());
 }
 
 #[test]

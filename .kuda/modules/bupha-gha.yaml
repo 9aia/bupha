@@ -10,7 +10,7 @@ api:
 - name: Eval
   kind: type
   file: crates/bupha-gha/src/plan.rs
-  line: 488
+  line: 497
   module: bupha-gha
 - name: Event
   kind: type
@@ -75,7 +75,7 @@ api:
 - name: W
   kind: type
   file: crates/bupha-gha/tests/gha.rs
-  line: 376
+  line: 513
   module: bupha-gha
 - name: Workflow
   kind: type
@@ -90,7 +90,7 @@ api:
 - name: any_glob
   kind: function
   file: crates/bupha-gha/src/plan.rs
-  line: 306
+  line: 312
   module: bupha-gha
 - name: as_map
   kind: function
@@ -100,22 +100,22 @@ api:
 - name: branch_filter_selects
   kind: function
   file: crates/bupha-gha/tests/gha.rs
-  line: 236
+  line: 260
   module: bupha-gha
 - name: branch_filter_skips_other_branch
   kind: function
   file: crates/bupha-gha/tests/gha.rs
-  line: 248
+  line: 272
   module: bupha-gha
 - name: build_job
   kind: function
   file: crates/bupha-gha/src/plan.rs
-  line: 387
+  line: 393
   module: bupha-gha
 - name: build_step
   kind: function
   file: crates/bupha-gha/src/plan.rs
-  line: 494
+  line: 503
   module: bupha-gha
 - name: bupha-gha
   kind: module
@@ -130,7 +130,7 @@ api:
 - name: cfg_deserializes_workflow_pin
   kind: function
   file: crates/bupha-gha/tests/gha.rs
-  line: 374
+  line: 511
   module: bupha-gha
 - name: changed_files
   kind: function
@@ -145,7 +145,17 @@ api:
 - name: checkout_is_verified_noop
   kind: function
   file: crates/bupha-gha/tests/gha.rs
-  line: 217
+  line: 241
+  module: bupha-gha
+- name: checkout_with_inputs_is_accepted
+  kind: function
+  file: crates/bupha-gha/tests/gha.rs
+  line: 356
+  module: bupha-gha
+- name: checkout_with_path_fails
+  kind: function
+  file: crates/bupha-gha/tests/gha.rs
+  line: 380
   module: bupha-gha
 - name: entries
   kind: function
@@ -165,7 +175,7 @@ api:
 - name: expand
   kind: function
   file: crates/bupha-gha/src/plan.rs
-  line: 364
+  line: 370
   module: bupha-gha
 - name: exports
   kind: function
@@ -192,17 +202,7 @@ api:
   file: crates/bupha-gha/tests/gha.rs
   line: 17
   module: bupha-gha
-- name: github_contexts_in_run
-  kind: function
-  file: crates/bupha-gha/tests/gha.rs
-  line: 198
-  module: bupha-gha
-- name: glob_match
-  kind: function
-  file: crates/bupha-gha/src/plan.rs
-  line: 287
-  module: bupha-gha
-api_omitted: 46
+api_omitted: 52
 deps:
 - bupha-core
 - bupha-runner
@@ -230,9 +230,9 @@ provenance:
   hashes:
   - 130920aec2d9f32d6f8c6d16b35230ba63ddc04f
   - 988a157312320aba84149b73f3c717a7634a0b47
-  - 359293f0c2b152a7c654b71f67e1216df3e33a8e
+  - 135961462864e84c998d1671d5c1c538e90d9524
   - 1d8c3f09857cd79878ba8ef4a71708e15b739166
-  - deef7e88cfe0bbd09ad2063e2c1a873b017ddbe3
-  commit_sha: 2f6a69fdfa390c713e11cb1bcefed0ebb5824dba
-  generated_at: '1794356385'
+  - ad479f813b91cb515c815cc1b34cf7c8690538d8
+  commit_sha: 3a9dbc0efc914ea9c52c2fb02a980c12b4b2debe
+  generated_at: '1794358295'
   generator: kuda-template/0.1.2

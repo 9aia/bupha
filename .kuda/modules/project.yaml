@@ -202,7 +202,7 @@ api:
   file: project/TODO.md
   line: 5
   module: project
-api_omitted: 21
+api_omitted: 23
 deps: []
 warnings:
 - 'project/issues/issue-0003-unvalidated-sha-on-non-webhook-paths-worktree-path-traversal-git-option-injection.md: schema: "critical" is not one of "low", "med" or 3 other candidates'
@@ -236,6 +236,7 @@ provenance:
   - project/handoffs/T-054.md
   - project/handoffs/T-055.md
   - project/handoffs/T-056.md
+  - project/handoffs/T-057.md
   - project/handoffs/archive/T-029.md
   - project/index.md
   - project/issues/issue-0001-ci-jobs-run-in-the-watcher-cgroup-oom-kills-the-watcher-and-re-runs-forever.md
@@ -254,8 +255,8 @@ provenance:
   - project/proposals/proposal-0002-ci-job-ops-contract-bupha-hypha-peregrin-seam.md
   hashes:
   - e9f311a05504d185a4ac87e46e8809255cbd13a7
-  - a00dac4b140551cff8b6361033fbd1196669b350
-  - 2652a62fbff2498a49e5eae35f138f10cf57b237
+  - 86d7b0717cd038c793555f1cd2079e9a8ce3de48
+  - 83a248c73f968e9d3a70a382b2432b4ae0ec37ef
   - 2dc7665583c806fc5a5a09d8c2ad485b2888aa4b
   - 83ad74c3b209b9f10a7edd820fd31e8d583e5489
   - 5d22a78ab0e5a33a834acb59d44080bc09bceefd
@@ -269,6 +270,7 @@ provenance:
   - 98d71f0ca1795ef48b4bc7a9e2ff8e94263784fe
   - 678cc4caeea0ae0c3f584b6476659e15f00e1942
   - 5eee48b375491542cd1f2f0b6f0c82e5a981d5be
+  - 030266a05129ead5166404626da034b1a8ce960b
   - d3f12670f3e871b0c2a499668a4cd1e3bb3d7815
   - 3091ed43775d9ade33d06ad35e6b788b98afa4d5
   - 52d8d4834c8a14b6d2a45689e9dd401b65bb7c95
@@ -285,6 +287,6 @@ provenance:
   - 002b0049113c3dc274fc3c858e2ec68c97a8b63d
   - df3eb22a6b42fbc7a4353c8d160b5b4387205b8f
   - 64bb8eeec2c83135075727fb9aec32780e212939
-  commit_sha: aa68d7e5d8324589f2e1ce8ddc3b2b7204fa46ac
-  generated_at: '1794357802'
+  commit_sha: 3a9dbc0efc914ea9c52c2fb02a980c12b4b2debe
+  generated_at: '1794358295'
   generator: kuda-template/0.1.2
