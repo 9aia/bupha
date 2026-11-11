@@ -52,6 +52,7 @@ bupha-attest.workspace = true
 bupha-attest-file.workspace = true
 bupha-attest-sigstore.workspace = true
 toml.workspace = true
+ureq = { version = "3", features = ["json"] }
 
 # cargo-llvm-cov compiles with `--cfg coverage` (see coverage-gated
 # test hooks in lib.rs) — declare it for check-cfg.

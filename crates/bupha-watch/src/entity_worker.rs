@@ -119,6 +119,12 @@ pub trait JobApi: Send + Sync {
     /// `ci.release {worker, fence, reason?}` — graceful
     /// `running→pending` (shutdown path).
     fn release(&self, claim: &HeldClaim, reason: &str) -> io::Result<()>;
+    /// Best-effort terminal notification — the worker POSTs a typed
+    /// `ci.job.completed` event to the node's event-ingest route so
+    /// campaigns can react (pr-heal). Called only after a successful
+    /// `ci.complete`; failures are logged, never propagated — the
+    /// settle already happened. Default no-op.
+    fn emit_completed(&self, _job: &EntityJob, _result: &str) {}
 }
 
 // --- EntityApi adapter ---------------------------------------------------
@@ -135,6 +141,10 @@ pub trait JobApi: Send + Sync {
 pub struct EntityJobApi {
     api: Arc<dyn EntityApi>,
     rt: tokio::runtime::Runtime,
+    /// Node origin + credential for the event-ingest route — set by
+    /// [`EntityJobApi::http`], `None` for `new` (non-HTTP planes have
+    /// no ingest endpoint to call).
+    emit: Option<(String, Option<String>)>,
 }
 
 impl EntityJobApi {
@@ -147,19 +157,27 @@ impl EntityJobApi {
             .enable_all()
             .build()
             .map_err(io::Error::other)?;
-        Ok(Self { api, rt })
+        Ok(Self {
+            api,
+            rt,
+            emit: None,
+        })
     }
 
     /// Convenience for the common case — ureq `HttpEntityApi`
     /// against `base` (e.g. `http://127.0.0.1:18787`) with an
-    /// optional bearer token (paired node credential).
+    /// optional bearer token (paired node credential). The base +
+    /// token are kept for [`JobApi::emit_completed`].
     ///
     /// # Errors
     /// Fails if the runtime can't be built.
     pub fn http(base: &str, token: Option<String>) -> io::Result<Self> {
-        Self::new(Arc::new(hypha_node_api::api::HttpEntityApi::new(
-            base, token,
-        )))
+        let mut api = Self::new(Arc::new(hypha_node_api::api::HttpEntityApi::new(
+            base,
+            token.clone(),
+        )))?;
+        api.emit = Some((base.trim_end_matches('/').to_string(), token));
+        Ok(api)
     }
 
     fn submit(&self, id: &str, kind: &str, payload: serde_json::Value) -> io::Result<()> {
@@ -352,6 +370,42 @@ impl JobApi for EntityJobApi {
             "reason": reason,
         });
         self.submit(&claim.id, "ci.release", payload)
+    }
+
+    fn emit_completed(&self, job: &EntityJob, result: &str) {
+        let Some((base, token)) = &self.emit else {
+            return;
+        };
+        let j = &job.job;
+        let body = json!({
+            "type": "ci.job.completed",
+            "payload": {
+                "job": job.id,
+                "key": j.key,
+                "repo": j.repo,
+                "ref": j.git_ref,
+                "sha": j.sha,
+                "event": j.event,
+                "sender": j.sender,
+                "deliveryId": j.delivery_id,
+                "result": result,
+                "attempt": j.attempt,
+            },
+            // Settle is once-per-(job,fence-epoch); the key dedups a
+            // retried emit without masking a genuine re-run (new
+            // attempt = new entity id).
+            "idempotencyKey": format!("{}:{}", job.id, result),
+        });
+        let url = format!("{base}/api/events/inject");
+        let res = match token {
+            Some(t) => ureq::post(&url)
+                .header("authorization", &format!("Bearer {t}"))
+                .send_json(&body),
+            None => ureq::post(&url).send_json(&body),
+        };
+        if let Err(e) = res {
+            eprintln!("ci.job.completed emit {}: {e}", job.id);
+        }
     }
 }
 
@@ -662,6 +716,8 @@ fn settle(api: &dyn JobApi, exec: &dyn JobExec, ej: &EntityJob, held: HeldClaim)
                 // settle now; anything else is a transport problem.
                 // Either way there is nothing safe to retry here.
                 eprintln!("ci.complete {}: {e} — abandoning", held.id);
+            } else {
+                api.emit_completed(ej, result);
             }
         }
         ExecEnd::ClaimLost => {
@@ -679,6 +735,8 @@ fn settle(api: &dyn JobApi, exec: &dyn JobExec, ej: &EntityJob, held: HeldClaim)
             if cancel_pending {
                 if let Err(e) = api.complete(&held, "cancelled", Some("ci cancelled")) {
                     eprintln!("ci.complete {}: {e} — claim lost, abandoning", held.id);
+                } else {
+                    api.emit_completed(ej, "cancelled");
                 }
             }
         }
@@ -758,6 +816,8 @@ mod tests {
         /// When set, `complete` fails — simulates a fence that moved
         /// under us between claim and settle.
         fail_complete: Mutex<bool>,
+        /// `(job id, result)` pairs `emit_completed` was called with.
+        emitted: Mutex<Vec<(String, String)>>,
     }
 
     impl FakeApi {
@@ -765,6 +825,7 @@ mod tests {
             Self {
                 jobs: Mutex::new(BTreeMap::new()),
                 fail_complete: Mutex::new(false),
+                emitted: Mutex::new(Vec::new()),
             }
         }
 
@@ -890,6 +951,13 @@ mod tests {
             }
             Ok(())
         }
+
+        fn emit_completed(&self, job: &EntityJob, result: &str) {
+            self.emitted
+                .lock()
+                .unwrap()
+                .push((job.id.clone(), result.to_string()));
+        }
     }
 
     /// Scripted executor — records what it ran, returns a canned end
@@ -966,6 +1034,22 @@ mod tests {
             exec.ran.lock().unwrap().as_slice(),
             &[("o/n".into(), "abc1234def56".into())]
         );
+        assert_eq!(
+            api.emitted.lock().unwrap().as_slice(),
+            &[("ci:o/n:abc1234def56:1".to_string(), "success".to_string())]
+        );
+    }
+
+    #[test]
+    fn failed_complete_emits_nothing() {
+        let api = FakeApi::new();
+        api.insert(pending("o/n", "abc1234def56", 1));
+        *api.fail_complete.lock().unwrap() = true;
+        let exec = FakeExec::new(ExecEnd::Finished(true));
+        let filter = filter_for(&["o/n"]);
+
+        assert_eq!(step(&filter, &api, &exec, &never), Step::Ran);
+        assert!(api.emitted.lock().unwrap().is_empty());
     }
 
     #[test]

@@ -738,6 +738,7 @@ dependencies = [
  "serde_json",
  "tokio",
  "toml",
+ "ureq",
 ]
 
 [[package]]
