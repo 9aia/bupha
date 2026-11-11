@@ -12,4 +12,3 @@
 - [ ] T-055 webhook ingress ownership — driver hooks register vs peregrin campaign listeners; decide single owner per ADR-0006 · pri:high · created:2026-11-10
 - [ ] T-056 secrets consolidation — pick one story: cuora broker vs BUPHA\_\* env names vs ~/.config/bupha/env file · pri:high · created:2026-11-10
 - [ ] T-057 docs/README/skill sweep — drop bupha CLI story (watch/deploy/run/doctor/import) per ADR-0006 amendment · pri:high · created:2026-11-10
-- [ ] T-051 ci-job entity kind + ops contract (ci.enqueue/ci.status/ci.cancel) — seam between bupha driver and peregrin campaigns · status:in-progress · pri:high · created:2026-11-10
