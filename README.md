@@ -114,6 +114,57 @@ runs the watcher engine in-process. Full walkthrough:
 [docs/how-to/tamias-bundles.md](docs/how-to/tamias-bundles.md)
 (docs branch) and `crates/bupha-driver/README.md`.
 
+## Use as a GitHub Action
+
+`uses: 9aia/bupha` runs a composite action (bash + curl/jq — no build
+step, no bupha listener needed) that reads the forge's commit-status
+API. It answers the question a workflow actually asks: *what did
+bupha's gate say about this sha?*
+
+```yaml
+permissions:
+  contents: read
+  statuses: read        # private repos; harmless on public ones
+
+jobs:
+  bupha-gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4   # only if later steps need the tree
+
+      - name: Wait for bupha verdict
+        uses: 9aia/bupha@main       # pin to a tag/SHA in production
+        with:
+          mode: wait                # status | wait
+          sha: ${{ github.sha }}    # default
+          context: ci/bupha         # default — match your bundle's
+                                    # [status].context if overridden
+          timeout: "900"            # seconds (default 600)
+          interval: "15"            # poll cadence (default 15)
+```
+
+`wait` polls until the status is terminal and **fails the step** on
+`failure`, `error`, or timeout — the step is a drop-in gate. `status`
+fetches once and always succeeds; use its outputs to branch:
+
+```yaml
+- uses: 9aia/bupha@main
+  id: bupha
+  with:
+    mode: status
+- run: echo "verdict=${{ steps.bupha.outputs.state }}"
+```
+
+Outputs: `state` (`pending|success|failure|error|none|timeout`),
+`description`, `target-url`. `none` means bupha hasn't posted a status
+for that sha/context yet (e.g. webhook not delivered, repo not
+watched). Other inputs: `repo` (default `${{ github.repository }}`),
+`token` (default `${{ github.token }}`), `api-base` (GHES override).
+
+Triggering a bupha *run* from GHA is intentionally not in this action
+— production ingress is webhook/peregrin-owned (ADR-0007); use the
+bundle's hooks or a peregrin campaign for that.
+
 ## Dev harness (not the product surface)
 
 The `bupha` binary remains for local debugging and one-shot

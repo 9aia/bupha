@@ -1,0 +1,80 @@
+name: bupha
+description: >-
+  Read or wait for a bupha commit status on a sha. bupha reports CI
+  verdicts as forge commit statuses (default context "ci/bupha");
+  this action queries the forge status API — no bupha listener or
+  checkout required.
+author: 9aia
+branding:
+  icon: check-circle
+  color: blue
+
+inputs:
+  mode:
+    description: >-
+      "status" fetches the current state once; "wait" polls until the
+      status reaches a terminal state (success/failure/error) or the
+      timeout elapses.
+    required: false
+    default: "wait"
+  sha:
+    description: Commit sha to inspect.
+    required: false
+    default: ${{ github.sha }}
+  context:
+    description: >-
+      Commit-status context to match. bupha's default sink context is
+      "ci/bupha"; per-bundle configs may override it.
+    required: false
+    default: "ci/bupha"
+  repo:
+    description: owner/repo the commit status lives on.
+    required: false
+    default: ${{ github.repository }}
+  token:
+    description: >-
+      Token for the forge API. The workflow's GITHUB_TOKEN works on
+      github.com (needs `statuses: read` for private repos).
+    required: false
+    default: ${{ github.token }}
+  api-base:
+    description: Forge API base URL — override for GitHub Enterprise.
+    required: false
+    default: "https://api.github.com"
+  timeout:
+    description: Max seconds to poll in wait mode.
+    required: false
+    default: "600"
+  interval:
+    description: Seconds between polls in wait mode.
+    required: false
+    default: "15"
+
+outputs:
+  state:
+    description: >-
+      Latest state for the context: pending | success | failure |
+      error | none (nothing posted yet) | timeout.
+    value: ${{ steps.status.outputs.state }}
+  description:
+    description: Status description posted by bupha.
+    value: ${{ steps.status.outputs.description }}
+  target-url:
+    description: Status target_url (e.g. run/log link).
+    value: ${{ steps.status.outputs.target-url }}
+
+runs:
+  using: composite
+  steps:
+    - id: status
+      shell: bash
+      env:
+        BUPHA_MODE: ${{ inputs.mode }}
+        BUPHA_SHA: ${{ inputs.sha }}
+        BUPHA_CONTEXT: ${{ inputs.context }}
+        BUPHA_REPO: ${{ inputs.repo }}
+        BUPHA_TOKEN: ${{ inputs.token }}
+        BUPHA_API_BASE: ${{ inputs.api-base }}
+        BUPHA_TIMEOUT: ${{ inputs.timeout }}
+        BUPHA_INTERVAL: ${{ inputs.interval }}
+      run: bash "${{ github.action_path }}/scripts/gha-status.sh"
