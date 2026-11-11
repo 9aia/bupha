@@ -294,12 +294,14 @@ fn paths_filter() {
 }
 
 #[test]
-fn unsupported_syntax_fails_loudly() {
+fn unsupported_if_expression_fails_loudly() {
+    // `if:` is supported — but only the documented subset. An
+    // unknown function must still hard-error naming the expression.
     let (d, sha) = repo("unsupported");
     workflow(
         &d,
         "ci.yml",
-        "on: push\njobs:\n  t:\n    if: github.ref == 'x'\n    steps:\n      - run: echo hi\n",
+        "on: push\njobs:\n  t:\n    if: hashFiles('**') == 'x'\n    steps:\n      - run: echo hi\n",
     );
     let r = GhaRunner::new(GhaCfg { workflow: None });
     let ctx = RunCtx {
@@ -310,7 +312,7 @@ fn unsupported_syntax_fails_loudly() {
         git_ref: "refs/heads/main",
     };
     let err = r.spawn(&ctx).err().unwrap();
-    assert!(err.to_string().contains("if"), "{err}");
+    assert!(err.to_string().contains("hashfiles"), "{err}");
 }
 
 #[test]
@@ -718,14 +720,26 @@ jobs:
 }
 
 #[test]
-fn needs_result_and_step_meta_still_error() {
-    // Only `.outputs.<name>` refs defer — needs.*.result,
-    // steps.*.conclusion etc. remain hard errors.
+fn needs_result_and_step_meta_resolve_at_runtime() {
+    // needs.*.result / steps.*.conclusion defer to runtime and
+    // resolve against tracked job/step state.
     let (d, sha) = repo("outbad");
     workflow(
         &d,
         "ci.yml",
-        "on: push\njobs:\n  a:\n    steps:\n      - run: echo 1\n  b:\n    needs: a\n    steps:\n      - run: echo \"${{ needs.a.result }}\"\n",
+        r#"
+on: push
+jobs:
+  a:
+    steps:
+      - id: gen
+        run: echo "${{ steps.gen.conclusion }}" > stepmeta.txt
+  b:
+    needs: a
+    if: needs.a.result == 'success'
+    steps:
+      - run: '[ "${{ needs.a.result }}" = success ] && echo ok > ok.txt'
+"#,
     );
     let r = GhaRunner::new(GhaCfg { workflow: None });
     let ctx = RunCtx {
@@ -735,6 +749,284 @@ fn needs_result_and_step_meta_still_error() {
         sha: &sha,
         git_ref: "refs/heads/main",
     };
-    let err = r.spawn(&ctx).err().unwrap();
-    assert!(err.to_string().contains("outputs"), "{err}");
+    let mut h = r.spawn(&ctx).unwrap();
+    assert!(h.wait().unwrap().success());
+    assert!(d.join("stepmeta.txt").exists());
+    assert!(d.join("ok.txt").exists());
+}
+
+#[test]
+fn step_meta_ref_resolves_within_same_job() {
+    let (d, sha) = repo("stepmeta");
+    workflow(
+        &d,
+        "ci.yml",
+        r#"
+on: push
+jobs:
+  t:
+    steps:
+      - id: gen
+        run: echo ok
+      - run: '[ "${{ steps.gen.conclusion }}" = success ] && echo ok > ok.txt'
+"#,
+    );
+    assert!(run(&d, &sha).success());
+    assert!(d.join("ok.txt").exists());
+}
+
+// --- `if:` conditions -------------------------------------------------
+
+#[test]
+fn job_if_condition_gates_execution() {
+    let (d, sha) = repo("if-job");
+    workflow(
+        &d,
+        "ci.yml",
+        r#"
+on: push
+jobs:
+  skipme:
+    if: 'false'
+    steps:
+      - run: echo nope > nope.txt
+  runme:
+    if: github.ref_name == 'main' && contains(github.repository, 'r')
+    steps:
+      - run: echo yep > yep.txt
+"#,
+    );
+    assert!(run(&d, &sha).success());
+    assert!(!d.join("nope.txt").exists());
+    assert!(d.join("yep.txt").exists());
+}
+
+#[test]
+fn step_if_condition_skips_only_that_step() {
+    let (d, sha) = repo("if-step");
+    workflow(
+        &d,
+        "ci.yml",
+        r#"
+on: push
+jobs:
+  t:
+    steps:
+      - run: echo one > one.txt
+      - if: 0 == 1
+        run: echo two > two.txt
+      - if: startsWith(github.ref_name, 'ma') || endsWith('xmain', 'in')
+        run: echo three > three.txt
+"#,
+    );
+    assert!(run(&d, &sha).success());
+    assert!(d.join("one.txt").exists());
+    assert!(!d.join("two.txt").exists());
+    assert!(d.join("three.txt").exists());
+}
+
+#[test]
+fn status_functions_see_prior_jobs() {
+    // failure() on a dependent of a failed job; always() runs
+    // regardless; success() does not.
+    let (d, sha) = repo("if-status");
+    workflow(
+        &d,
+        "ci.yml",
+        r#"
+on: push
+jobs:
+  bad:
+    steps:
+      - run: exit 1
+  onfail:
+    needs: bad
+    if: failure()
+    steps:
+      - run: echo fail > fail.txt
+  onsuccess:
+    needs: bad
+    if: success()
+    steps:
+      - run: echo suc > suc.txt
+  alwaysjob:
+    needs: bad
+    if: always()
+    steps:
+      - run: echo alw > alw.txt
+"#,
+    );
+    let s = run(&d, &sha);
+    assert!(!s.success(), "bad job must fail the run");
+    assert!(d.join("fail.txt").exists());
+    assert!(!d.join("suc.txt").exists());
+    assert!(d.join("alw.txt").exists());
+}
+
+#[test]
+fn cancelled_function_sees_fail_fast_cancel() {
+    let (d, sha) = repo("if-cancel");
+    workflow(
+        &d,
+        "ci.yml",
+        r#"
+on: push
+jobs:
+  a:
+    strategy:
+      fail-fast: true
+      matrix:
+        leg: [1, 2, 3]
+    steps:
+      - run: |
+          [ "${{ matrix.leg }}" = 2 ] && exit 1
+          sleep 0.2
+  b:
+    needs: a
+    if: cancelled()
+    steps:
+      - run: echo c > c.txt
+"#,
+    );
+    let s = run(&d, &sha);
+    assert!(!s.success());
+    assert!(d.join("c.txt").exists());
+}
+
+#[test]
+fn needs_result_flows_into_if_and_run() {
+    let (d, sha) = repo("if-result");
+    workflow(
+        &d,
+        "ci.yml",
+        r#"
+on: push
+jobs:
+  a:
+    steps:
+      - run: echo ok
+  b:
+    needs: a
+    if: needs.a.result == 'success' && needs.a.result != 'failure'
+    steps:
+      - run: '[ "${{ needs.a.result }}" = success ] && echo ok > ok.txt'
+"#,
+    );
+    assert!(run(&d, &sha).success());
+    assert!(d.join("ok.txt").exists());
+}
+
+#[test]
+fn env_and_matrix_refs_in_if() {
+    let (d, sha) = repo("if-env");
+    workflow(
+        &d,
+        "ci.yml",
+        r#"
+on: push
+env:
+  FLAG: yes
+jobs:
+  t:
+    strategy:
+      matrix:
+        os: [linux, mac]
+    steps:
+      - if: env.FLAG == 'yes' && matrix.os == 'linux'
+        run: echo hit > hit.txt
+      - if: matrix.os == 'mac'
+        run: echo miss > miss.txt
+"#,
+    );
+    assert!(run(&d, &sha).success());
+    assert!(d.join("hit.txt").exists());
+    assert!(d.join("miss.txt").exists());
+}
+
+// --- `timeout-minutes` -----------------------------------------------
+
+#[test]
+fn step_timeout_kills_runaway_step() {
+    let (d, sha) = repo("tmo-step");
+    workflow(
+        &d,
+        "ci.yml",
+        r#"
+on: push
+jobs:
+  t:
+    steps:
+      - timeout-minutes: 0.02
+        run: sleep 30
+"#,
+    );
+    let s = run(&d, &sha);
+    assert!(!s.success(), "timed-out step must fail the job");
+}
+
+#[test]
+fn job_timeout_kills_runaway_job() {
+    let (d, sha) = repo("tmo-job");
+    workflow(
+        &d,
+        "ci.yml",
+        r#"
+on: push
+jobs:
+  t:
+    timeout-minutes: 0.02
+    steps:
+      - run: sleep 30
+"#,
+    );
+    let s = run(&d, &sha);
+    assert!(!s.success(), "timed-out job must fail the run");
+}
+
+#[test]
+fn quick_job_under_timeout_passes() {
+    let (d, sha) = repo("tmo-ok");
+    workflow(
+        &d,
+        "ci.yml",
+        r#"
+on: push
+jobs:
+  t:
+    timeout-minutes: 5
+    steps:
+      - timeout-minutes: 1
+        run: echo ok > ok.txt
+"#,
+    );
+    assert!(run(&d, &sha).success());
+    assert!(d.join("ok.txt").exists());
+}
+
+// --- multi-commit path filters ---------------------------------------
+
+#[test]
+fn paths_filter_covers_multi_commit_push() {
+    // Two commits: the second touches src/, the first touched
+    // docs/. With origin/main still at the first commit (the
+    // fetch-skipped shape), the inferred before-sha makes the
+    // paths filter see both commits' files.
+    let (d, _) = repo("paths-multi");
+    git(&d, &["update-ref", "refs/remotes/origin/main", "HEAD"]);
+    std::fs::create_dir_all(d.join("docs")).unwrap();
+    std::fs::write(d.join("docs/d.md"), "doc\n").unwrap();
+    git(&d, &["add", "."]);
+    git(&d, &["commit", "-qm", "docs"]);
+    std::fs::create_dir_all(d.join("src")).unwrap();
+    std::fs::write(d.join("src/lib.rs"), "fn x() {}\n").unwrap();
+    git(&d, &["add", "."]);
+    git(&d, &["commit", "-qm", "src"]);
+    let sha = git(&d, &["rev-parse", "HEAD"]);
+    workflow(
+        &d,
+        "ci.yml",
+        "on:\n  push:\n    paths: ['src/**']\njobs:\n  t:\n    steps:\n      - run: echo ok > ok.txt\n",
+    );
+    assert!(run(&d, &sha).success());
+    assert!(d.join("ok.txt").exists());
 }

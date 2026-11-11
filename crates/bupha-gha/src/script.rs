@@ -1,9 +1,11 @@
 //! script — render expanded [`Job`]s into one bash program. Pure
 //! string building; the runner spawns it with `bash -c` in the
 //! worktree. Jobs run sequentially in topo order; matrix combos are
-//! sequential expanded jobs (parallel matrix is a later refinement).
+//! sequential expanded jobs (parallel matrix is a documented
+//! deferral — each leg would need its own workspace like a real
+//! runner provides).
 
-use crate::plan::{Job, Step};
+use crate::plan::{BinOp, Cond, DynRef, Job, Step};
 use std::collections::HashMap;
 
 /// Everything the generated program needs from the run context.
@@ -77,9 +79,121 @@ fn shell_cmd(shell: Option<&str>) -> Result<&'static str, String> {
     }
 }
 
+/// Everything a condition needs at render time: the expanded-job
+/// index (for `steps.*` refs of the current job), the job's `needs`
+/// indices (for the status-check functions) and the id → index map
+/// (for `needs.*` refs).
+struct CondCx<'a> {
+    ji: usize,
+    needs: &'a [usize],
+    job_ji: &'a HashMap<String, usize>,
+}
+
+/// Compile a [`Cond`] to a bash and-or list whose exit status is
+/// the truth value (0 = true). Used directly in `if …; then`.
+fn cond_bool(c: &Cond, cx: &CondCx) -> Result<String, String> {
+    Ok(match c {
+        Cond::Lit(s) => format!("bupha_truthy {}", sq(s)),
+        Cond::Dyn(d) => format!("bupha_truthy {}", dyn_word(d, cx)?),
+        Cond::Call { name, args } => match name.as_str() {
+            "success" => format!("bupha_needs_ok{}", idx_args(cx.needs)),
+            "failure" => format!("bupha_needs_failed{}", idx_args(cx.needs)),
+            "cancelled" => format!("bupha_needs_cancelled{}", idx_args(cx.needs)),
+            "always" => ":".to_string(),
+            "contains" | "startswith" | "endswith" => {
+                let (a, b) = (&args[0], &args[1]);
+                // GHA's contains/startsWith/endsWith are
+                // case-insensitive — `${var,,}` lowercases.
+                let pat = match name.as_str() {
+                    "contains" => "*\"${_b_i,,}\"*",
+                    "startswith" => "\"${_b_i,,}\"*",
+                    _ => "*\"${_b_i,,}\"",
+                };
+                format!(
+                    "( _b_s={}; _b_i={}; [[ \"${{_b_s,,}}\" == {pat} ]] )",
+                    cond_word(a, cx)?,
+                    cond_word(b, cx)?
+                )
+            }
+            _ => return Err(format!("unsupported `if` function `{name}()`")),
+        },
+        Cond::Bin { op, l, r } => match op {
+            BinOp::And => format!("( {} ) && ( {} )", cond_bool(l, cx)?, cond_bool(r, cx)?),
+            BinOp::Or => format!("( {} ) || ( {} )", cond_bool(l, cx)?, cond_bool(r, cx)?),
+            BinOp::Eq | BinOp::Ne => {
+                let cmp = if *op == BinOp::Eq { "==" } else { "!=" };
+                format!(
+                    "( _b_a={}; _b_b={}; [[ \"${{_b_a,,}}\" {cmp} \"${{_b_b,,}}\" ]] )",
+                    cond_word(l, cx)?,
+                    cond_word(r, cx)?
+                )
+            }
+        },
+        Cond::Not(inner) => format!("! ( {} )", cond_bool(inner, cx)?),
+    })
+}
+
+/// Compile a [`Cond`] to a bash *word* evaluating to its string
+/// value. Boolean-valued nodes yield `true`/`false` — matching how
+/// GHA stringifies booleans in comparisons.
+fn cond_word(c: &Cond, cx: &CondCx) -> Result<String, String> {
+    Ok(match c {
+        Cond::Lit(s) => sq(s),
+        Cond::Dyn(d) => dyn_word(d, cx)?,
+        _ => format!(
+            "\"$(if {}; then echo true; else echo false; fi)\"",
+            cond_bool(c, cx)?
+        ),
+    })
+}
+
+/// ` needs` indices as ` 0 1 2` for the `bupha_needs_*` helpers.
+fn idx_args(needs: &[usize]) -> String {
+    needs.iter().map(|i| format!(" {i}")).collect::<String>()
+}
+
+/// A deferred [`DynRef`] as a quoted bash word.
+fn dyn_word(d: &DynRef, cx: &CondCx) -> Result<String, String> {
+    Ok(match d {
+        DynRef::NeedOutput { job, name } => output_lookup(
+            &format!("needs.{job}.outputs.{name}"),
+            cx.ji,
+            cx.job_ji,
+            true,
+        )?,
+        DynRef::StepOutput { step, name } => output_lookup(
+            &format!("steps.{step}.outputs.{name}"),
+            cx.ji,
+            cx.job_ji,
+            true,
+        )?,
+        DynRef::NeedResult { job } => {
+            format!(
+                "\"$(cat \"$BUPHA_GHA_TMP/jobresult/{}\" 2>/dev/null || :)\"",
+                job
+            )
+        }
+        DynRef::StepConclusion { step } => {
+            // Step `run:` scripts execute in a child `bash` fed by
+            // a heredoc — shell functions don't cross that boundary,
+            // so conclusions live in files like outputs do.
+            format!(
+                "\"$(cat \"$BUPHA_GHA_TMP/stepconcl/{}/{}\" 2>/dev/null || :)\"",
+                cx.ji, step
+            )
+        }
+    })
+}
+
 /// Render all jobs into one bash script. Job order is the input
 /// order (already topo-sorted per workflow by the caller).
 pub fn render(jobs: &[Job], ctx: &ScriptCtx) -> Result<String, String> {
+    // job id → every expanded index (matrix legs) — `needs.<job>.*`
+    // aggregates over all of them.
+    let mut job_idx: HashMap<String, Vec<usize>> = HashMap::new();
+    for (i, j) in jobs.iter().enumerate() {
+        job_idx.entry(j.id.clone()).or_default().push(i);
+    }
     // job id → expanded-job index, last matrix leg wins (legs run in
     // order, so the last to finish has the freshest outputs). This
     // is how `needs.<job>.outputs.*` resolves to a concrete path.
@@ -87,11 +201,18 @@ pub fn render(jobs: &[Job], ctx: &ScriptCtx) -> Result<String, String> {
     for (i, j) in jobs.iter().enumerate() {
         job_ji.insert(j.id.clone(), i);
     }
+    // Job-level `timeout-minutes` runs the body under a watchdog —
+    // monitor mode gives each background job its own process group
+    // so `kill -- -$pid` takes the whole tree down.
+    let any_job_timeout = jobs.iter().any(|j| j.timeout_seconds.is_some());
 
     let mut out = String::with_capacity(4096);
     out.push_str("#!/usr/bin/env bash\n");
     out.push_str("# Generated by bupha gha runner — .github/workflows as CI.\n");
     out.push_str("set -uo pipefail\n");
+    if any_job_timeout {
+        out.push_str("set -m\n");
+    }
     out.push_str(&format!("export GITHUB_EVENT_NAME={}\n", sq("push")));
     out.push_str(&format!("export GITHUB_SHA={}\n", sq(ctx.sha)));
     out.push_str(&format!("export GITHUB_REF={}\n", sq(ctx.git_ref)));
@@ -105,6 +226,15 @@ pub fn render(jobs: &[Job], ctx: &ScriptCtx) -> Result<String, String> {
     ));
     out.push_str(&format!("export BUPHA_WORKDIR={}\n", sq(ctx.workdir)));
     out.push_str("declare -a BUPHA_GHA_STATUS=()\n");
+    out.push_str("declare -A BUPHA_GHA_JOBIDX=()\n");
+    for (id, idxs) in &job_idx {
+        let list = idxs
+            .iter()
+            .map(usize::to_string)
+            .collect::<Vec<_>>()
+            .join(" ");
+        out.push_str(&format!("BUPHA_GHA_JOBIDX[{}]={}\n", sq(id), sq(&list)));
+    }
     out.push_str("BUPHA_GHA_FAILS=0\n");
     // Per-run scratch for the $GITHUB_* command files — the dialect
     // equivalent of the runner's per-job temp dir. One tmp dir for
@@ -112,6 +242,7 @@ pub fn render(jobs: &[Job], ctx: &ScriptCtx) -> Result<String, String> {
     // scope to the job like on GitHub.
     out.push_str("BUPHA_GHA_TMP=$(mktemp -d)\n");
     out.push_str("export BUPHA_GHA_TMP\n");
+    out.push_str("mkdir -p \"$BUPHA_GHA_TMP/jobstatus\" \"$BUPHA_GHA_TMP/stepconcl\" \"$BUPHA_GHA_TMP/jobresult\"\n");
     out.push_str("trap 'rm -rf \"$BUPHA_GHA_TMP\"' EXIT\n");
     out.push_str("export BUPHA_GHA_OUTPUTS=\"$BUPHA_GHA_TMP/outputs.txt\"\n");
     out.push_str(": > \"$BUPHA_GHA_OUTPUTS\"\n");
@@ -126,29 +257,64 @@ pub fn render(jobs: &[Job], ctx: &ScriptCtx) -> Result<String, String> {
             "echo {}\n",
             shq_exprs(&format!("gha: job '{label}' starting"), i, &job_ji)?
         ));
-        let needs_check = if j.needs.is_empty() {
-            String::new()
-        } else {
-            let conds = j
-                .needs
-                .iter()
-                .map(|&d| format!("[ \"${{BUPHA_GHA_STATUS[{d}]:-2}}\" -ne 0 ]"))
-                .collect::<Vec<_>>()
-                .join(" || ");
-            format!("if {conds}; then\n")
-        };
-        if !needs_check.is_empty() {
-            out.push_str(&needs_check);
+        if let Some(mp) = j.max_parallel {
             out.push_str(&format!(
-                "  BUPHA_GHA_STATUS[{i}]=2\n  echo {}\n",
+                "echo {}\n",
                 shq_exprs(
-                    &format!("gha: job '{label}' skipped — needs did not pass"),
+                    &format!("gha: job '{label}' max-parallel {mp} ignored — matrix legs run sequentially"),
                     i,
                     &job_ji
                 )?
             ));
-            out.push_str("else\n");
         }
+
+        // The run gate: `if:` when present (it already carries the
+        // implicit success() when the author didn't name a status
+        // function), else the implicit all-needs-passed check.
+        let gate: Option<(String, &'static str)> = if let Some(cond) = &j.cond {
+            let cx = CondCx {
+                ji: i,
+                needs: &j.needs,
+                job_ji: &job_ji,
+            };
+            Some((cond_bool(cond, &cx)?, "if condition false"))
+        } else if !j.needs.is_empty() {
+            let conds = j
+                .needs
+                .iter()
+                .map(|&d| format!("[ \"${{BUPHA_GHA_STATUS[{d}]:-2}}\" -eq 0 ]"))
+                .collect::<Vec<_>>()
+                .join(" && ");
+            Some((conds, "needs did not pass"))
+        } else {
+            None
+        };
+        let fail_fast = j.fail_fast;
+
+        // Gate opening — three shapes: fail-fast cancel outermost,
+        // then the run gate, else unconditional.
+        if fail_fast {
+            out.push_str(&format!(
+                "if bupha_job_failed {}; then\n  bupha_set_status {i} 3\n  echo {}\n",
+                sq(&j.id),
+                shq_exprs(
+                    &format!("gha: job '{label}' cancelled — fail-fast"),
+                    i,
+                    &job_ji
+                )?
+            ));
+            if let Some((g, _)) = &gate {
+                out.push_str(&format!("elif {g}; then\n"));
+            } else {
+                out.push_str("else\n");
+            }
+        } else if let Some((g, _)) = &gate {
+            out.push_str(&format!("if {g}; then\n"));
+        }
+
+        // Job body — the same `( set -e; … )` + status + outputs
+        // block as before, optionally under a timeout watchdog.
+        let timed = j.timeout_seconds;
         out.push_str("  (\n    set -e\n");
         out.push_str(&format!("    export GITHUB_WORKFLOW={}\n", sq(&j.workflow)));
         // $GITHUB_* file commands: point each at a per-job scratch
@@ -169,8 +335,23 @@ pub fn render(jobs: &[Job], ctx: &ScriptCtx) -> Result<String, String> {
         for (si, s) in j.steps.iter().enumerate() {
             out.push_str(&render_step(s, i, si, j, ctx, &job_ji)?);
         }
-        out.push_str("  )\n");
-        out.push_str(&format!("  BUPHA_GHA_STATUS[{i}]=$?\n"));
+        if let Some(secs) = timed {
+            // Watchdog: the job body runs in a background process
+            // group (set -m); the killer sleeps N seconds then
+            // TERMs the whole group. `wait` still reports the real
+            // exit status — 143 when killed.
+            out.push_str(&format!(
+                "  ) &\n  bupha_pid=$!\n  ( sleep {secs}; touch \"$BUPHA_GHA_TMP/timeout_{i}\"; kill -TERM -- -\"$bupha_pid\" 2>/dev/null ) &\n  bupha_wd=$!\n  wait \"$bupha_pid\"\n  bupha_set_status {i} \"$?\"\n  kill \"$bupha_wd\" 2>/dev/null\n  wait \"$bupha_wd\" 2>/dev/null\n  if [ -f \"$BUPHA_GHA_TMP/timeout_{i}\" ]; then rm -f \"$BUPHA_GHA_TMP/timeout_{i}\"; echo {}; fi\n",
+                shq_exprs(
+                    &format!("gha: job '{label}' timed out"),
+                    i,
+                    &job_ji
+                )?
+            ));
+        } else {
+            out.push_str("  )\n");
+            out.push_str(&format!("  bupha_set_status {i} \"$?\"\n"));
+        }
         // Job `outputs:` evaluate once the job's steps are done —
         // steps.*.outputs files are already on disk, needs.*.outputs
         // read the producers' jobouts/ dirs. Skipped/failed jobs
@@ -191,8 +372,29 @@ pub fn render(jobs: &[Job], ctx: &ScriptCtx) -> Result<String, String> {
             "  if [ \"${{BUPHA_GHA_STATUS[{i}]}}\" -eq 0 ]; then\n{pass}  else\n    echo {}\n    BUPHA_GHA_FAILS=$((BUPHA_GHA_FAILS+1))\n  fi\n",
             shq_exprs(&format!("gha: job '{label}' failed"), i, &job_ji)?,
         ));
-        if !needs_check.is_empty() {
+        if let Some((_, reason)) = &gate {
+            out.push_str(&format!(
+                "else\n  bupha_set_status {i} 2\n  echo {}\nfi\n",
+                shq_exprs(
+                    &format!("gha: job '{label}' skipped — {reason}"),
+                    i,
+                    &job_ji
+                )?
+            ));
+        } else if fail_fast {
             out.push_str("fi\n");
+        }
+        // Refresh needs.<id>.result now that this leg's status is
+        // final — downstream jobs and steps read the aggregate file.
+        // Legs of one id run adjacently, so the aggregate converges
+        // once the last leg settles.
+        if let Some(legs) = job_idx.get(&j.id) {
+            let list = legs
+                .iter()
+                .map(usize::to_string)
+                .collect::<Vec<_>>()
+                .join(" ");
+            out.push_str(&format!("bupha_agg_result {} {list}\n", sq(&j.id)));
         }
     }
     out.push_str("if [ \"$BUPHA_GHA_FAILS\" -gt 0 ]; then\n  echo \"gha: workflow(s) failed\"\n  exit 1\nfi\necho \"gha: all jobs passed\"\n");
@@ -207,6 +409,17 @@ fn step_key(id: Option<&str>, si: usize) -> String {
         .unwrap_or_else(|| format!("__auto{si}"))
 }
 
+/// Record a step's conclusion — `$BUPHA_GHA_TMP/stepconcl/<job>/<key>`
+/// holds `success`/`skipped`; `steps.<id>.conclusion` reads it back.
+/// Files, not shell state: `run:` scripts execute in a child `bash`
+/// fed by a heredoc and can't see parent functions or arrays.
+fn step_concl_write(ji: usize, key: &str, value: &str) -> String {
+    format!(
+        "    mkdir -p \"$BUPHA_GHA_TMP/stepconcl/{ji}\"; printf '%s' {value} > \"$BUPHA_GHA_TMP/stepconcl/{ji}/{key}\"\n",
+        value = sq(value)
+    )
+}
+
 fn render_step(
     s: &Step,
     ji: usize,
@@ -217,7 +430,12 @@ fn render_step(
 ) -> Result<String, String> {
     let mut out = String::new();
     match s {
-        Step::Checkout { .. } => {
+        Step::Checkout { id, cond } => {
+            let key = step_key(id.as_deref(), si);
+            let gate = step_gate(cond, ji, job, job_ji)?;
+            if let Some(g) = &gate {
+                out.push_str(&format!("    if {g}; then\n"));
+            }
             out.push_str("    (\n      set -eo pipefail\n");
             out.push_str(&format!(
                 "      cd {}\n",
@@ -233,6 +451,21 @@ fn render_step(
             out.push_str(
                 "      echo \"gha: actions/checkout — worktree already at pushed sha\"\n    )\n",
             );
+            out.push_str(&step_concl_write(ji, &key, "success"));
+            if gate.is_some() {
+                out.push_str(&format!(
+                    "    else\n{}    echo {}\n    fi\n",
+                    step_concl_write(ji, &key, "skipped"),
+                    shq_exprs(
+                        &format!(
+                            "gha: step '{}' skipped — if condition false",
+                            step_label(id.as_deref(), si)
+                        ),
+                        ji,
+                        job_ji
+                    )?
+                ));
+            }
         }
         Step::Run(r) => {
             let shell = shell_cmd(r.shell.as_deref().or(job.shell.as_deref()))?;
@@ -244,6 +477,11 @@ fn render_step(
                 return Err(format!(
                     "absolute working-directory `{wd:?}` is unsupported"
                 ));
+            }
+            let key = step_key(r.id.as_deref(), si);
+            let gate = step_gate(&r.cond, ji, job, job_ji)?;
+            if let Some(g) = &gate {
+                out.push_str(&format!("    if {g}; then\n"));
             }
             out.push_str("    (\n      set -eo pipefail\n");
             out.push_str(&format!(
@@ -257,7 +495,14 @@ fn render_step(
                 ));
             }
             let delim = heredoc_delim(&r.script, &format!("BUPHA_EOF_{ji}_{si}"));
-            out.push_str(&format!("      {shell} <<'{delim}'\n"));
+            // `timeout-minutes` wraps the step's shell — GNU
+            // timeout signals the child's whole process group, so
+            // grandchildren (cargo, npm, …) die with it.
+            let timeout = r
+                .timeout_seconds
+                .map(|s| format!("timeout --kill-after=5 {s} "))
+                .unwrap_or_default();
+            out.push_str(&format!("      {timeout}{shell} <<'{delim}'\n"));
             out.push_str(&script_body(&r.script, ji, job_ji)?);
             if !r.script.ends_with('\n') {
                 out.push('\n');
@@ -275,11 +520,52 @@ fn render_step(
             out.push_str(&format!(
                 "    bupha_absorb_output_file \"$GITHUB_OUTPUT\" {} {}\n",
                 ji,
-                sq(&step_key(r.id.as_deref(), si))
+                sq(&key)
             ));
+            out.push_str(&step_concl_write(ji, &key, "success"));
+            if gate.is_some() {
+                out.push_str(&format!(
+                    "    else\n{}    echo {}\n    fi\n",
+                    step_concl_write(ji, &key, "skipped"),
+                    shq_exprs(
+                        &format!(
+                            "gha: step '{}' skipped — if condition false",
+                            step_label(r.id.as_deref(), si)
+                        ),
+                        ji,
+                        job_ji
+                    )?
+                ));
+            }
         }
     }
     Ok(out)
+}
+
+/// Display name for a step in skip messages — its `id:` when set.
+fn step_label(id: Option<&str>, si: usize) -> String {
+    id.map(str::to_string).unwrap_or_else(|| format!("#{si}"))
+}
+
+/// Compile a step's `if:` — `None` when the step is unconditional.
+fn step_gate(
+    cond: &Option<Cond>,
+    ji: usize,
+    job: &Job,
+    job_ji: &HashMap<String, usize>,
+) -> Result<Option<String>, String> {
+    cond.as_ref()
+        .map(|c| {
+            cond_bool(
+                c,
+                &CondCx {
+                    ji,
+                    needs: &job.needs,
+                    job_ji,
+                },
+            )
+        })
+        .transpose()
 }
 
 /// A deferred `${{ needs.*.outputs.* }}` / `${{ steps.*.outputs.* }}`
@@ -294,43 +580,66 @@ fn output_lookup(
     job_ji: &HashMap<String, usize>,
     quoted: bool,
 ) -> Result<String, String> {
-    let path = if let Some(rest) = inner.strip_prefix("needs.") {
-        let Some((job, name)) = rest.split_once(".outputs.") else {
-            return Err(format!(
-                "unsupported deferred expression `${{{{ {inner} }}}}`"
-            ));
-        };
-        if job.is_empty() || name.is_empty() {
+    let sub = if let Some(rest) = inner.strip_prefix("needs.") {
+        if let Some((job, name)) = rest.split_once(".outputs.") {
+            if job.is_empty() || name.is_empty() {
+                return Err(format!(
+                    "unsupported deferred expression `${{{{ {inner} }}}}`"
+                ));
+            }
+            // Unknown job ids read an impossible path → empty, like
+            // an output the producer never declared.
+            let target = job_ji
+                .get(job)
+                .map(|i| i.to_string())
+                .unwrap_or_else(|| "_".to_string());
+            format!("$(cat \"$BUPHA_GHA_TMP/jobouts/{target}/{name}\" 2>/dev/null || :)")
+        } else if let Some(job) = rest.strip_suffix(".result") {
+            if job.is_empty() {
+                return Err(format!(
+                    "unsupported deferred expression `${{{{ {inner} }}}}`"
+                ));
+            }
+            needs_result_lookup(job)
+        } else {
             return Err(format!(
                 "unsupported deferred expression `${{{{ {inner} }}}}`"
             ));
         }
-        // Unknown job ids read an impossible path → empty, like an
-        // output the producer never declared.
-        let target = job_ji
-            .get(job)
-            .map(|i| i.to_string())
-            .unwrap_or_else(|| "_".to_string());
-        format!("jobouts/{target}/{name}")
     } else if let Some(rest) = inner.strip_prefix("steps.") {
-        let Some((sid, name)) = rest.split_once(".outputs.") else {
-            return Err(format!(
-                "unsupported deferred expression `${{{{ {inner} }}}}`"
-            ));
-        };
-        if sid.is_empty() || name.is_empty() {
+        if let Some((sid, name)) = rest.split_once(".outputs.") {
+            if sid.is_empty() || name.is_empty() {
+                return Err(format!(
+                    "unsupported deferred expression `${{{{ {inner} }}}}`"
+                ));
+            }
+            format!("$(cat \"$BUPHA_GHA_TMP/stepouts/{ji}/{sid}/{name}\" 2>/dev/null || :)")
+        } else if let Some(sid) = rest.strip_suffix(".conclusion") {
+            if sid.is_empty() {
+                return Err(format!(
+                    "unsupported deferred expression `${{{{ {inner} }}}}`"
+                ));
+            }
+            format!("$(cat \"$BUPHA_GHA_TMP/stepconcl/{ji}/{sid}\" 2>/dev/null || :)")
+        } else {
             return Err(format!(
                 "unsupported deferred expression `${{{{ {inner} }}}}`"
             ));
         }
-        format!("stepouts/{ji}/{sid}/{name}")
     } else {
         return Err(format!(
             "unsupported deferred expression `${{{{ {inner} }}}}`"
         ));
     };
-    let sub = format!("$(cat \"$BUPHA_GHA_TMP/{path}\" 2>/dev/null || :)");
     Ok(if quoted { format!("\"{sub}\"") } else { sub })
+}
+
+/// `needs.<job>.result` as a `cat` of the aggregate file
+/// `bupha_agg_result` maintains — self-contained, so it works inside
+/// step `run:` scripts (child `bash`, no helper functions). An
+/// unknown job id reads an impossible path → empty.
+fn needs_result_lookup(job: &str) -> String {
+    format!("$(cat \"$BUPHA_GHA_TMP/jobresult/{job}\" 2>/dev/null || :)")
 }
 
 /// Turn an expanded template into a bash word for positions outside
@@ -490,5 +799,109 @@ bupha_job_out() {
   local d="$BUPHA_GHA_TMP/jobouts/$1"
   mkdir -p "$d"
   printf '%s' "$3" > "$d/$2"
+}
+
+# Record an expanded job's final status: $1 = index, $2 = exit
+# code. Mirrors GHA's conclusion vocabulary into
+# $BUPHA_GHA_TMP/jobstatus/<i> so `needs.*.result` resolves inside
+# step `run:` scripts too — those execute in a child `bash` that
+# can't see this process's arrays or functions.
+bupha_set_status() {
+  local w
+  BUPHA_GHA_STATUS[$1]=$2
+  case "$2" in
+    0) w=success ;;
+    2) w=skipped ;;
+    3) w=cancelled ;;
+    *) w=failure ;;
+  esac
+  printf '%s' "$w" > "$BUPHA_GHA_TMP/jobstatus/$1"
+}
+
+# --- `if:` conditions -------------------------------------------------
+# GHA truthiness, close enough for CI: "", "0", "false" (any case)
+# and "null" are falsy; everything else is truthy.
+bupha_truthy() {
+  case "$1" in
+    ''|0|[fF][aA][lL][sS][eE]|[nN][uU][lL][lL]) return 1 ;;
+    *) return 0 ;;
+  esac
+}
+
+# Status-check functions over a job's `needs` indices. Status codes:
+# 0 pass, 2 skipped, 3 cancelled (fail-fast), anything else failed.
+bupha_needs_ok() {
+  local i st
+  for i in "$@"; do
+    st=${BUPHA_GHA_STATUS[$i]:-2}
+    [ "$st" -eq 0 ] || return 1
+  done
+  return 0
+}
+
+bupha_needs_failed() {
+  local i st
+  for i in "$@"; do
+    st=${BUPHA_GHA_STATUS[$i]:-2}
+    if [ "$st" -ne 0 ] && [ "$st" -ne 2 ] && [ "$st" -ne 3 ]; then
+      return 0
+    fi
+  done
+  return 1
+}
+
+bupha_needs_cancelled() {
+  local i st
+  for i in "$@"; do
+    st=${BUPHA_GHA_STATUS[$i]:-2}
+    [ "$st" -eq 3 ] && return 0
+  done
+  return 1
+}
+
+# Any leg of job id $1 failed → fail-fast cancels its remaining legs.
+bupha_job_failed() {
+  local id="$1" i st
+  for i in ${BUPHA_GHA_JOBIDX[$id]:-}; do
+    st=${BUPHA_GHA_STATUS[$i]:-2}
+    if [ "$st" -ne 0 ] && [ "$st" -ne 2 ] && [ "$st" -ne 3 ]; then
+      return 0
+    fi
+  done
+  return 1
+}
+
+# Recompute needs.<id>.result after a job's legs settle: $1 = job
+# id, rest = expanded indices. Aggregation matches GHA — any
+# failure → failure, else any cancellation → cancelled, else all
+# skipped → skipped, else success — and lands in
+# $BUPHA_GHA_TMP/jobresult/<id> so `needs.*.result` resolves with a
+# plain `cat` even inside step `run:` scripts (child `bash`, no
+# access to this process's arrays or functions).
+bupha_agg_result() {
+  local id="$1"; shift
+  local i st seen=0 allskip=1 anyfail=0 anycancel=0 res
+  for i in "$@"; do
+    seen=1
+    st=$(cat "$BUPHA_GHA_TMP/jobstatus/$i" 2>/dev/null)
+    case "$st" in
+      success) allskip=0 ;;
+      ""|skipped) ;;
+      cancelled) anycancel=1; allskip=0 ;;
+      *) anyfail=1; allskip=0 ;;
+    esac
+  done
+  if [ "$seen" -eq 0 ]; then
+    res=""
+  elif [ "$anyfail" -eq 1 ]; then
+    res=failure
+  elif [ "$anycancel" -eq 1 ]; then
+    res=cancelled
+  elif [ "$allskip" -eq 1 ]; then
+    res=skipped
+  else
+    res=success
+  fi
+  printf '%s' "$res" > "$BUPHA_GHA_TMP/jobresult/$id"
 }
 "#;

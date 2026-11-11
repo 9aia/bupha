@@ -5,17 +5,42 @@ api:
 - name: ABSORB_FNS
   kind: const
   file: crates/bupha-gha/src/script.rs
-  line: 390
+  line: 699
+  module: bupha-gha
+- name: BinOp
+  kind: type
+  file: crates/bupha-gha/src/plan.rs
+  line: 227
+  module: bupha-gha
+- name: Cond
+  kind: type
+  file: crates/bupha-gha/src/plan.rs
+  line: 187
+  module: bupha-gha
+- name: CondCx
+  kind: type
+  file: crates/bupha-gha/src/script.rs
+  line: 86
+  module: bupha-gha
+- name: CondParser
+  kind: type
+  file: crates/bupha-gha/src/plan.rs
+  line: 1649
   module: bupha-gha
 - name: Defaults
   kind: type
   file: crates/bupha-gha/src/plan.rs
   line: 41
   module: bupha-gha
+- name: DynRef
+  kind: type
+  file: crates/bupha-gha/src/plan.rs
+  line: 211
+  module: bupha-gha
 - name: Eval
   kind: type
   file: crates/bupha-gha/src/plan.rs
-  line: 529
+  line: 662
   module: bupha-gha
 - name: Event
   kind: type
@@ -40,7 +65,12 @@ api:
 - name: Job
   kind: type
   file: crates/bupha-gha/src/plan.rs
-  line: 89
+  line: 117
+  module: bupha-gha
+- name: PExpr
+  kind: type
+  file: crates/bupha-gha/src/plan.rs
+  line: 1634
   module: bupha-gha
 - name: PushFilters
   kind: type
@@ -55,12 +85,12 @@ api:
 - name: RawStep
   kind: type
   file: crates/bupha-gha/src/plan.rs
-  line: 71
+  line: 83
   module: bupha-gha
 - name: RunStep
   kind: type
   file: crates/bupha-gha/src/plan.rs
-  line: 119
+  line: 162
   module: bupha-gha
 - name: SIMPLE
   kind: const
@@ -70,17 +100,32 @@ api:
 - name: ScriptCtx
   kind: type
   file: crates/bupha-gha/src/script.rs
-  line: 10
+  line: 12
   module: bupha-gha
 - name: Step
   kind: type
   file: crates/bupha-gha/src/plan.rs
-  line: 114
+  line: 154
+  module: bupha-gha
+- name: Strategy
+  kind: type
+  file: crates/bupha-gha/src/plan.rs
+  line: 1416
+  module: bupha-gha
+- name: Tok
+  kind: type
+  file: crates/bupha-gha/src/plan.rs
+  line: 1527
+  module: bupha-gha
+- name: UsesKind
+  kind: type
+  file: crates/bupha-gha/src/plan.rs
+  line: 1349
   module: bupha-gha
 - name: W
   kind: type
   file: crates/bupha-gha/tests/gha.rs
-  line: 513
+  line: 515
   module: bupha-gha
 - name: Workflow
   kind: type
@@ -95,12 +140,22 @@ api:
 - name: any_glob
   kind: function
   file: crates/bupha-gha/src/plan.rs
-  line: 330
+  line: 451
   module: bupha-gha
 - name: as_map
   kind: function
   file: crates/bupha-gha/src/plan.rs
-  line: 134
+  line: 255
+  module: bupha-gha
+- name: bash_sq
+  kind: function
+  file: crates/bupha-gha/src/plan.rs
+  line: 839
+  module: bupha-gha
+- name: before_sha
+  kind: function
+  file: crates/bupha-gha/src/lib.rs
+  line: 219
   module: bupha-gha
 - name: branch_filter_selects
   kind: function
@@ -115,94 +170,39 @@ api:
 - name: build_job
   kind: function
   file: crates/bupha-gha/src/plan.rs
-  line: 411
+  line: 532
   module: bupha-gha
 - name: build_step
   kind: function
   file: crates/bupha-gha/src/plan.rs
-  line: 535
+  line: 668
   module: bupha-gha
 - name: bupha-gha
   kind: module
   file: crates/bupha-gha/Cargo.toml
   line: 1
   module: bupha-gha
+- name: cancelled_function_sees_fail_fast_cancel
+  kind: function
+  file: crates/bupha-gha/tests/gha.rs
+  line: 867
+  module: bupha-gha
 - name: cd_target
   kind: function
   file: crates/bupha-gha/src/script.rs
-  line: 27
+  line: 29
   module: bupha-gha
 - name: cfg_deserializes_workflow_pin
   kind: function
   file: crates/bupha-gha/tests/gha.rs
-  line: 511
+  line: 513
   module: bupha-gha
 - name: changed_files
   kind: function
   file: crates/bupha-gha/src/lib.rs
-  line: 127
+  line: 134
   module: bupha-gha
-- name: check_keys
-  kind: function
-  file: crates/bupha-gha/src/plan.rs
-  line: 167
-  module: bupha-gha
-- name: checkout_is_verified_noop
-  kind: function
-  file: crates/bupha-gha/tests/gha.rs
-  line: 241
-  module: bupha-gha
-- name: checkout_with_inputs_is_accepted
-  kind: function
-  file: crates/bupha-gha/tests/gha.rs
-  line: 356
-  module: bupha-gha
-- name: checkout_with_path_fails
-  kind: function
-  file: crates/bupha-gha/tests/gha.rs
-  line: 380
-  module: bupha-gha
-- name: entries
-  kind: function
-  file: crates/bupha-gha/src/lib.rs
-  line: 51
-  module: bupha-gha
-- name: env_flows_to_run_and_expressions
-  kind: function
-  file: crates/bupha-gha/tests/gha.rs
-  line: 170
-  module: bupha-gha
-- name: env_map
-  kind: function
-  file: crates/bupha-gha/src/plan.rs
-  line: 205
-  module: bupha-gha
-- name: eval
-  kind: function
-  file: crates/bupha-gha/src/plan.rs
-  line: 1123
-  module: bupha-gha
-- name: expand
-  kind: function
-  file: crates/bupha-gha/src/plan.rs
-  line: 388
-  module: bupha-gha
-- name: exports
-  kind: function
-  file: crates/bupha-gha/src/script.rs
-  line: 41
-  module: bupha-gha
-- name: failed_need_skips_dependent_but_runs_independent
-  kind: function
-  file: crates/bupha-gha/tests/gha.rs
-  line: 119
-  module: bupha-gha
-- name: failing_step_fails_run
-  kind: function
-  file: crates/bupha-gha/tests/gha.rs
-  line: 79
-  module: bupha-gha
-api_omitted: 71
+api_omitted: 129
 deps:
 - bupha-core
 - bupha-runner
@@ -229,10 +229,10 @@ provenance:
   - crates/bupha-gha/tests/gha.rs
   hashes:
   - 130920aec2d9f32d6f8c6d16b35230ba63ddc04f
-  - 988a157312320aba84149b73f3c717a7634a0b47
-  - 06caebbf0729599fac263176f5cdbc7608844561
-  - 4960f7e57f2b7f1c40d74e372c110370170ff875
-  - 0b8d487a0a796402d9de5e692f096c094cf8b8a7
-  commit_sha: c7c717d31078804377f809e965a5acde710694c3
-  generated_at: '1794371148'
+  - 19046de398ae95931fb879f0f8b0181625fd06b0
+  - e9038c63bcb11d4edeee1becd92a229aea2f35ac
+  - 1c6e9fb9e23e1563cf8d6c24cfb9f42bc687901c
+  - cd902a779249bc8147c37b10c0d1f4440089889f
+  commit_sha: de1419f620c1c982a4556a697ed928f8b9dd181a
+  generated_at: '1794375270'
   generator: kuda-template/0.1.2

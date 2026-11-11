@@ -56,11 +56,23 @@ struct PushFilters {
 struct RawJob {
     id: String,
     name: Option<String>,
+    /// Raw `if:` text — parsed + folded in `build_job`.
+    cond: Option<String>,
     needs: Vec<String>,
     runs_on: Vec<String>,
     env: Vec<(String, String)>,
     defaults: Defaults,
     matrix: Vec<(String, Vec<String>)>,
+    /// `strategy.fail-fast` (GHA default: true when a matrix
+    /// exists) — later legs of the same job id are cancelled after
+    /// the first failure.
+    fail_fast: bool,
+    /// `strategy.max-parallel` — recorded; execution stays
+    /// sequential (parallel matrix is a documented deferral).
+    max_parallel: Option<u32>,
+    /// `timeout-minutes` — enforced by the renderer (job watchdog /
+    /// step `timeout` wrapper), stored as whole seconds.
+    timeout_seconds: Option<u64>,
     /// `outputs:` — output name → value template (usually a single
     /// `${{ steps.<id>.outputs.<name> }}`). Interpolated at expand;
     /// `needs.*`/`steps.*` refs stay deferred for the renderer.
@@ -73,6 +85,10 @@ enum RawStep {
         /// `id:` — the handle `steps.<id>.outputs.*` references.
         /// `None` steps are unreachable from expressions.
         id: Option<String>,
+        /// Raw `if:` text.
+        cond: Option<String>,
+        /// `timeout-minutes` in whole seconds.
+        timeout_seconds: Option<u64>,
         shell: Option<String>,
         working_directory: Option<String>,
         env: Vec<(String, String)>,
@@ -80,7 +96,19 @@ enum RawStep {
     },
     /// `uses: actions/checkout` — verification no-op (the worktree
     /// is already at the pushed sha).
-    Checkout { id: Option<String> },
+    Checkout {
+        id: Option<String>,
+        cond: Option<String>,
+    },
+    /// `uses: dtolnay/rust-toolchain` — raw `with:` pairs (each
+    /// value a list: scalars are one entry, YAML lists flatten),
+    /// interpolated in `build_step`.
+    RustToolchain {
+        id: Option<String>,
+        cond: Option<String>,
+        timeout_seconds: Option<u64>,
+        with: Vec<(String, Vec<String>)>,
+    },
 }
 
 /// One runnable job after matrix fan-out, `${{ }}` interpolation and
@@ -108,23 +136,116 @@ pub struct Job {
     /// which resolves them against collected step outputs once the
     /// job has run.
     pub outputs: Vec<(String, String)>,
+    /// `if:` — parsed + folded (env/github/matrix resolved, needs/
+    /// steps refs deferred). `None` → the implicit needs gate.
+    pub cond: Option<Cond>,
+    /// `timeout-minutes` in whole seconds — the renderer enforces
+    /// it with a watchdog around the job body.
+    pub timeout_seconds: Option<u64>,
+    /// `strategy.fail-fast` (default true with a matrix): after a
+    /// leg of this job id fails, remaining legs are cancelled.
+    pub fail_fast: bool,
+    /// `strategy.max-parallel` — honored as a logged no-op; legs
+    /// still run sequentially.
+    pub max_parallel: Option<u32>,
     pub steps: Vec<Step>,
 }
 
 pub enum Step {
     Run(RunStep),
-    Checkout { id: Option<String> },
+    Checkout {
+        id: Option<String>,
+        cond: Option<Cond>,
+    },
 }
 
 pub struct RunStep {
     /// `id:` — `steps.<id>.outputs.*` handle; `None` when the step
     /// declared no id (its `$GITHUB_OUTPUT` writes stay unreferenced).
     pub id: Option<String>,
+    /// `if:` — same semantics as the job-level condition.
+    pub cond: Option<Cond>,
+    /// `timeout-minutes` in whole seconds — rendered as a `timeout`
+    /// wrapper around the step's shell.
+    pub timeout_seconds: Option<u64>,
     pub shell: Option<String>,
     pub working_directory: Option<String>,
     /// Step-level env only (job env is exported by the job block).
     pub env: Vec<(String, String)>,
     pub script: String,
+}
+
+// ------------------------------------------------------------------
+// `if:` expressions — parsed AST, literals folded at expand time
+// ------------------------------------------------------------------
+
+/// A parsed `if:` condition. `env.*`/`github.*`/`matrix.*` fold to
+/// [`Cond::Lit`] during expand; `needs.*`/`steps.*` stay deferred —
+/// the renderer turns them into lookups against the run's status
+/// arrays and output stores.
+#[derive(Debug)]
+pub enum Cond {
+    /// A folded scalar — truthiness applies (`""`, `"0"`, `"false"`,
+    /// `"null"` are falsy, matching GHA's loose rules closely
+    /// enough for CI conditions).
+    Lit(String),
+    /// A runtime-resolved reference.
+    Dyn(DynRef),
+    /// A builtin function call (name lowercased).
+    Call {
+        name: String,
+        args: Vec<Cond>,
+    },
+    Bin {
+        op: BinOp,
+        l: Box<Cond>,
+        r: Box<Cond>,
+    },
+    Not(Box<Cond>),
+}
+
+/// The deferred half of a condition — resolved by the renderer
+/// against the run's `jobstatus/`+`jobresult/`+`stepconcl/`+
+/// `stepouts/`+`jobouts/` stores under `$BUPHA_GHA_TMP`.
+#[derive(Debug)]
+pub enum DynRef {
+    /// `needs.<job>.outputs.<name>` — the producer job's published
+    /// output (last matrix leg wins, like job outputs generally).
+    NeedOutput { job: String, name: String },
+    /// `steps.<id>.outputs.<name>` — an earlier step's
+    /// `$GITHUB_OUTPUT` entry in the same job.
+    StepOutput { step: String, name: String },
+    /// `needs.<job>.result` — `success`/`failure`/`cancelled`/
+    /// `skipped` aggregated over the job's expanded legs.
+    NeedResult { job: String },
+    /// `steps.<id>.conclusion` — `success`/`skipped` (`failure` is
+    /// unobservable: a failed step ends the job first).
+    StepConclusion { step: String },
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum BinOp {
+    Eq,
+    Ne,
+    And,
+    Or,
+}
+
+impl Cond {
+    /// Does the tree contain a status-check function anywhere?
+    /// GHA implicitly ANDs `success()` onto an `if:` that lacks
+    /// one — the parser applies that wrap.
+    fn has_status_fn(&self) -> bool {
+        match self {
+            Cond::Lit(_) | Cond::Dyn(_) => false,
+            Cond::Call { name, .. } => matches!(
+                name.as_str(),
+                "success" | "failure" | "cancelled" | "always"
+            ),
+            Cond::Bin { l, r, .. } => l.has_status_fn() || r.has_status_fn(),
+            Cond::Not(inner) => inner.has_status_fn(),
+        }
+    }
 }
 
 // ------------------------------------------------------------------
@@ -442,6 +563,14 @@ impl Workflow {
             env: Some(&job_env),
         };
 
+        // `if:` evaluates in job context — env.* sees the merged
+        // workflow+job env (step env doesn't exist yet), github.*/
+        // matrix.* fold, needs.*/steps.* defer to the renderer.
+        let cond = j
+            .cond
+            .as_deref()
+            .map(|raw| parse_cond(raw, &eval, &format!("{what}.if")))
+            .transpose()?;
         let mut steps = Vec::with_capacity(j.steps.len());
         for (si, s) in j.steps.iter().enumerate() {
             steps.push(build_step(
@@ -492,6 +621,10 @@ impl Workflow {
             working_directory: defaults.working_directory,
             shell: defaults.shell,
             outputs,
+            cond,
+            timeout_seconds: j.timeout_seconds,
+            fail_fast: j.fail_fast,
+            max_parallel: j.max_parallel,
             steps,
         })
     }
@@ -540,9 +673,49 @@ fn build_step(
     what: &str,
 ) -> Result<Step, String> {
     match s {
-        RawStep::Checkout { id } => Ok(Step::Checkout { id: id.clone() }),
+        RawStep::Checkout { id, cond } => Ok(Step::Checkout {
+            id: id.clone(),
+            cond: cond
+                .as_deref()
+                .map(|raw| parse_cond(raw, eval, &format!("{what}.if")))
+                .transpose()?,
+        }),
+        RawStep::RustToolchain {
+            id,
+            cond,
+            timeout_seconds,
+            with,
+        } => {
+            // Lower to a synthesized run step: interpolate the
+            // `with:` inputs, then emit the rustup script. The
+            // script itself contains no `${{ }}` — interpolation
+            // already happened — so it goes through verbatim.
+            let mut pairs = Vec::with_capacity(with.len());
+            for (k, vals) in with {
+                let mut out = Vec::with_capacity(vals.len());
+                for v in vals {
+                    out.push(interpolate(v, eval, &format!("{what}.with.{k}"))?);
+                }
+                pairs.push((k.clone(), out));
+            }
+            let script = rust_toolchain_script(&pairs, what)?;
+            Ok(Step::Run(RunStep {
+                id: id.clone(),
+                cond: cond
+                    .as_deref()
+                    .map(|raw| parse_cond(raw, eval, &format!("{what}.if")))
+                    .transpose()?,
+                timeout_seconds: *timeout_seconds,
+                shell: None,
+                working_directory: None,
+                env: Vec::new(),
+                script,
+            }))
+        }
         RawStep::Run {
             id,
+            cond,
+            timeout_seconds,
             shell,
             working_directory,
             env,
@@ -559,6 +732,11 @@ fn build_step(
             };
             Ok(Step::Run(RunStep {
                 id: id.clone(),
+                cond: cond
+                    .as_deref()
+                    .map(|raw| parse_cond(raw, &step_eval, &format!("{what}.if")))
+                    .transpose()?,
+                timeout_seconds: *timeout_seconds,
                 shell: shell
                     .as_ref()
                     .map(|s| interpolate(s, &step_eval, &format!("{what}.shell")))
@@ -572,6 +750,94 @@ fn build_step(
             }))
         }
     }
+}
+
+/// `dtolnay/rust-toolchain` lowered to bash: install the toolchain
+/// via rustup (minimal profile + requested components/targets),
+/// then make it win for later steps — the toolchain's bin dir goes
+/// on `$GITHUB_PATH` (last line front-most after absorb) and
+/// `RUSTUP_TOOLCHAIN` on `$GITHUB_ENV` so rustup proxies agree.
+/// With no `toolchain:` input the channel comes from
+/// `rust-toolchain.toml`/`rust-toolchain` in the worktree, else
+/// `stable` — mirroring the action.
+fn rust_toolchain_script(pairs: &[(String, Vec<String>)], what: &str) -> Result<String, String> {
+    let mut toolchain = None;
+    let mut components = Vec::new();
+    let mut targets = Vec::new();
+    for (k, vals) in pairs {
+        match k.as_str() {
+            "toolchain" => {
+                if vals.len() != 1 {
+                    return Err(format!("{what}.with.toolchain: expected a single value"));
+                }
+                toolchain = Some(vals[0].clone());
+            }
+            "components" | "targets" => {
+                let flat: Vec<String> = vals
+                    .iter()
+                    .flat_map(|v| {
+                        v.split(',')
+                            .map(str::trim)
+                            .filter(|s| !s.is_empty())
+                            .map(str::to_string)
+                            .collect::<Vec<_>>()
+                    })
+                    .collect();
+                if k == "components" {
+                    components = flat;
+                } else {
+                    targets = flat;
+                }
+            }
+            other => {
+                return Err(format!(
+                    "{what}.with.{other}: unsupported input for \
+                     dtolnay/rust-toolchain — supported: toolchain, \
+                     components, targets"
+                ))
+            }
+        }
+    }
+    let tc = toolchain.unwrap_or_default();
+    let mut script = String::new();
+    script.push_str("set -e\n");
+    script.push_str(&format!("tc={}\n", bash_sq(&tc)));
+    script.push_str(
+        "if [ -z \"$tc\" ]; then\n\
+         \x20 if [ -f rust-toolchain.toml ]; then\n\
+         \x20   tc=$(sed -n 's/.*channel[[:space:]]*=[[:space:]]*\"\\([^\"]*\\)\".*/\\1/p' rust-toolchain.toml | head -1)\n\
+         \x20 elif [ -f rust-toolchain ]; then\n\
+         \x20   tc=$(head -1 rust-toolchain | tr -d '[:space:]')\n\
+         \x20 fi\n\
+         \x20 tc=${tc:-stable}\n\
+         fi\n\
+         args=(toolchain install \"$tc\" --profile minimal)\n",
+    );
+    if !components.is_empty() {
+        script.push_str(&format!(
+            "args+=(--component {})\n",
+            bash_sq(&components.join(","))
+        ));
+    }
+    if !targets.is_empty() {
+        script.push_str(&format!(
+            "args+=(--target {})\n",
+            bash_sq(&targets.join(","))
+        ));
+    }
+    script.push_str(
+        "rustup \"${args[@]}\"\n\
+         tcbin=$(dirname \"$(rustup which --toolchain \"$tc\" cargo 2>/dev/null)\" 2>/dev/null || :)\n\
+         if [ -n \"$tcbin\" ] && [ -d \"$tcbin\" ]; then echo \"$tcbin\" >> \"$GITHUB_PATH\"; fi\n\
+         printf 'RUSTUP_TOOLCHAIN=%s\\n' \"$tc\" >> \"$GITHUB_ENV\"\n",
+    );
+    Ok(script)
+}
+
+/// Single-quote a literal for embedding in the synthesized bash —
+/// same escaping rule as the renderer's `sq`.
+fn bash_sq(s: &str) -> String {
+    format!("'{}'", s.replace('\'', "'\\''"))
 }
 
 /// Kahn topo sort, declaration order breaking ties. Indices in
@@ -641,11 +907,27 @@ pub fn interpolate(tpl: &str, eval: &Eval, what: &str) -> Result<String, String>
     Ok(out)
 }
 
-/// Is `inner` a `needs.<job>.outputs.<name>` or
-/// `steps.<id>.outputs.<name>` ref — the only expressions deferred
-/// to runtime? The split is at the FIRST `.outputs.`: the middle is
-/// the job/step id, everything after is the output name (dots
-/// allowed).
+/// Is `inner` a runtime-deferred ref — `needs.<job>.outputs.<name>`,
+/// `steps.<id>.outputs.<name>`, `needs.<job>.result` or
+/// `steps.<id>.conclusion`? These resolve while the generated
+/// program runs (status arrays + output stores), so the `${{ … }}`
+/// survives expand verbatim for the renderer. The output split is
+/// at the FIRST `.outputs.`: the middle is the job/step id,
+/// everything after is the output name (dots allowed).
+fn is_deferred_ref(inner: &str) -> bool {
+    if is_output_ref(inner) {
+        return true;
+    }
+    for (prefix, suffix) in [("needs.", ".result"), ("steps.", ".conclusion")] {
+        if let Some(rest) = inner.strip_prefix(prefix) {
+            if let Some(id) = rest.strip_suffix(suffix) {
+                return !id.is_empty();
+            }
+        }
+    }
+    false
+}
+
 fn is_output_ref(inner: &str) -> bool {
     for prefix in ["needs.", "steps."] {
         if let Some(rest) = inner.strip_prefix(prefix) {
@@ -724,18 +1006,19 @@ fn resolve(inner: &str, eval: &Eval, what: &str) -> Result<String, String> {
                 .ok_or_else(|| format!("{what}: matrix has no `{rest}` binding"))
         }
         "needs" | "steps" => {
-            // Output refs can't resolve at expand time — the values
+            // Runtime refs can't resolve at expand time — the values
             // are produced while the generated program runs. Keep the
             // `${{ … }}` source verbatim; the renderer turns it into
-            // a lookup against the collected $GITHUB_OUTPUT files.
+            // a lookup against the status arrays / output stores.
             // Everything else under these contexts stays unsupported.
-            if is_output_ref(inner) {
+            if is_deferred_ref(inner) {
                 Ok(format!("${{{{ {inner} }}}}"))
             } else {
                 Err(format!(
                     "{what}: unsupported expression `${{{{ {inner} }}}}` — \
-                     under `needs`/`steps` only `.outputs.<name>` refs are \
-                     supported (needs.*.result, steps.*.conclusion, … are not)"
+                     under `needs`/`steps` only `.outputs.<name>`, \
+                     `needs.*.result` and `steps.*.conclusion` refs are \
+                     supported (steps.*.outcome and friends are not)"
                 ))
             }
         }
@@ -855,6 +1138,7 @@ fn parse_job(m: &serde_norway::Mapping, id: &str, source: &str) -> Result<RawJob
         m,
         &[
             "name",
+            "if",
             "needs",
             "runs-on",
             "env",
@@ -863,12 +1147,11 @@ fn parse_job(m: &serde_norway::Mapping, id: &str, source: &str) -> Result<RawJob
             "strategy",
             "permissions",
             "outputs",
-        ],
-        // The v1 boundary, loudly: conditions, containers,
-        // services, timeouts, concurrency.
-        &[
-            "if",
             "timeout-minutes",
+        ],
+        // The v1 boundary, loudly: containers, services,
+        // environment, concurrency, reusable-workflow calls.
+        &[
             "services",
             "container",
             "environment",
@@ -881,6 +1164,12 @@ fn parse_job(m: &serde_norway::Mapping, id: &str, source: &str) -> Result<RawJob
     )?;
     let name = get(m, "name")
         .map(|n| scalar(n, &format!("{what}.name")))
+        .transpose()?;
+    let cond = get(m, "if")
+        .map(|v| scalar(v, &format!("{what}.if")))
+        .transpose()?;
+    let timeout_seconds = get(m, "timeout-minutes")
+        .map(|v| timeout_minutes(v, &format!("{what}.timeout-minutes")))
         .transpose()?;
     let needs = match get(m, "needs") {
         Some(v) => string_list(v, &format!("{what}.needs"))?,
@@ -896,7 +1185,7 @@ fn parse_job(m: &serde_norway::Mapping, id: &str, source: &str) -> Result<RawJob
         None => Vec::new(),
     };
     let defaults = parse_defaults(get(m, "defaults"), &format!("{what}.defaults"))?;
-    let matrix = parse_matrix(get(m, "strategy"), &what)?;
+    let strategy = parse_strategy(get(m, "strategy"), &what)?;
     let outputs = match get(m, "outputs") {
         Some(Value::Mapping(om)) => {
             let mut out = Vec::with_capacity(om.len());
@@ -959,16 +1248,24 @@ fn parse_job(m: &serde_norway::Mapping, id: &str, source: &str) -> Result<RawJob
             &[
                 "id",
                 "name",
+                "if",
                 "run",
                 "uses",
                 "with",
                 "working-directory",
                 "env",
                 "shell",
+                "timeout-minutes",
             ],
-            &["if", "timeout-minutes", "continue-on-error"],
+            &["continue-on-error"],
             &sw,
         )?;
+        let cond = get(sm, "if")
+            .map(|v| scalar(v, &format!("{sw}.if")))
+            .transpose()?;
+        let timeout_seconds = get(sm, "timeout-minutes")
+            .map(|v| timeout_minutes(v, &format!("{sw}.timeout-minutes")))
+            .transpose()?;
         let run = get(sm, "run");
         let uses = get(sm, "uses");
         match (run, uses) {
@@ -992,6 +1289,8 @@ fn parse_job(m: &serde_norway::Mapping, id: &str, source: &str) -> Result<RawJob
                 };
                 steps.push(RawStep::Run {
                     id,
+                    cond,
+                    timeout_seconds,
                     shell: get(sm, "shell")
                         .map(|s| scalar(s, &format!("{sw}.shell")))
                         .transpose()?,
@@ -1004,72 +1303,171 @@ fn parse_job(m: &serde_norway::Mapping, id: &str, source: &str) -> Result<RawJob
             }
             (None, Some(uv)) => {
                 let uses = scalar(uv, &format!("{sw}.uses"))?;
-                parse_uses(&uses, sm, &sw)?;
-                steps.push(RawStep::Checkout { id });
+                match parse_uses(&uses, sm, &sw)? {
+                    UsesKind::Checkout => steps.push(RawStep::Checkout { id, cond }),
+                    UsesKind::RustToolchain(with) => steps.push(RawStep::RustToolchain {
+                        id,
+                        cond,
+                        timeout_seconds,
+                        with,
+                    }),
+                }
             }
         }
     }
     Ok(RawJob {
         id: id.to_string(),
         name,
+        cond,
         needs,
         runs_on,
         env,
         defaults,
-        matrix,
+        matrix: strategy.matrix,
+        fail_fast: strategy.fail_fast,
+        max_parallel: strategy.max_parallel,
+        timeout_seconds,
         outputs,
         steps,
     })
 }
 
-/// `uses:` — only `actions/checkout` exists in v1 (a verification
-/// no-op: the worktree is already at the pushed sha). Everything
+/// `timeout-minutes:` → whole seconds. GitHub accepts floats
+/// (0.5 = 30s); non-positive or non-numeric values are errors.
+fn timeout_minutes(v: &Value, what: &str) -> Result<u64, String> {
+    let s = scalar(v, what)?;
+    let mins: f64 = s
+        .trim()
+        .parse()
+        .map_err(|_| format!("{what}: expected a number of minutes, got `{s}`"))?;
+    if !mins.is_finite() || mins <= 0.0 {
+        return Err(format!("{what}: must be a positive number of minutes"));
+    }
+    Ok((mins * 60.0).ceil() as u64)
+}
+
+enum UsesKind {
+    Checkout,
+    /// `with:` pairs normalized to value lists.
+    RustToolchain(Vec<(String, Vec<String>)>),
+}
+
+/// `uses:` — `actions/checkout` is a verification no-op (the
+/// worktree is already at the pushed sha) and
+/// `dtolnay/rust-toolchain` lowers to rustup calls. Everything
 /// else, `actions/setup-*` included, is an explicit error.
-fn parse_uses(uses: &str, sm: &serde_norway::Mapping, what: &str) -> Result<(), String> {
+fn parse_uses(uses: &str, sm: &serde_norway::Mapping, what: &str) -> Result<UsesKind, String> {
     let unsupported = || {
         format!(
-            "{what}: unsupported `uses: {uses}` — v1 supports only \
-             `actions/checkout` (`actions/setup-*` is a later milestone)"
+            "{what}: unsupported `uses: {uses}` — v1 supports \
+             `actions/checkout` and `dtolnay/rust-toolchain` \
+             (`actions/setup-*` is a later milestone)"
         )
     };
     let body = uses.split('@').next().unwrap_or(uses);
     if body.starts_with("docker://") || body.starts_with("./") || body.starts_with('/') {
         return Err(unsupported());
     }
-    if !body.eq_ignore_ascii_case("actions/checkout") {
+    let is_checkout = body.eq_ignore_ascii_case("actions/checkout");
+    let is_rust_toolchain = body.eq_ignore_ascii_case("dtolnay/rust-toolchain");
+    if !is_checkout && !is_rust_toolchain {
         return Err(unsupported());
     }
-    match get(sm, "with") {
-        Some(Value::Mapping(w)) => {
-            if get(w, "path").is_some() {
-                return Err(format!(
-                    "{what}: `with.path` on actions/checkout is unsupported — \
-                     the worktree root is fixed"
-                ));
-            }
-            // Other checkout inputs (ref, fetch-depth, token, …)
-            // don't change local semantics: the sha is checked out.
-        }
+    let with = match get(sm, "with") {
+        Some(Value::Mapping(w)) => w,
         Some(_) => return Err(format!("{what}.with: expected a mapping")),
-        None => {}
+        None => {
+            if is_checkout {
+                return Ok(UsesKind::Checkout);
+            }
+            return Ok(UsesKind::RustToolchain(Vec::new()));
+        }
+    };
+    if is_checkout {
+        if get(with, "path").is_some() {
+            return Err(format!(
+                "{what}: `with.path` on actions/checkout is unsupported — \
+                 the worktree root is fixed"
+            ));
+        }
+        // Other checkout inputs (ref, fetch-depth, token, …)
+        // don't change local semantics: the sha is checked out.
+        return Ok(UsesKind::Checkout);
     }
-    Ok(())
+    // dtolnay/rust-toolchain — normalize `with:` values to lists
+    // (scalar → one entry, sequence of scalars → many).
+    let mut out = Vec::with_capacity(with.len());
+    for (k, v) in with {
+        let key = k
+            .as_str()
+            .ok_or_else(|| format!("{what}.with: input names must be strings"))?;
+        let vals = match v {
+            Value::Sequence(seq) => seq
+                .iter()
+                .map(|i| scalar(i, &format!("{what}.with.{key}")))
+                .collect::<Result<Vec<_>, _>>()?,
+            _ => vec![scalar(v, &format!("{what}.with.{key}"))?],
+        };
+        out.push((key.to_string(), vals));
+    }
+    Ok(UsesKind::RustToolchain(out))
 }
 
-fn parse_matrix(v: Option<&Value>, what: &str) -> Result<Vec<(String, Vec<String>)>, String> {
-    let Some(v) = v else { return Ok(Vec::new()) };
+struct Strategy {
+    matrix: Vec<(String, Vec<String>)>,
+    /// GHA default: fail-fast is on when a matrix exists.
+    fail_fast: bool,
+    max_parallel: Option<u32>,
+}
+
+fn parse_strategy(v: Option<&Value>, what: &str) -> Result<Strategy, String> {
+    let Some(v) = v else {
+        return Ok(Strategy {
+            matrix: Vec::new(),
+            fail_fast: false,
+            max_parallel: None,
+        });
+    };
     let m = as_map(v, &format!("{what}.strategy"))?;
     check_keys(
         m,
-        &["matrix"],
-        &["fail-fast", "max-parallel"],
+        &["matrix", "fail-fast", "max-parallel"],
+        &[],
         &format!("{what}.strategy"),
     )?;
+    let mut fail_fast = None;
+    let mut max_parallel = None;
+    if let Some(fv) = get(m, "fail-fast") {
+        fail_fast = Some(match fv {
+            Value::Bool(b) => *b,
+            Value::String(s) => s == "true",
+            _ => {
+                return Err(format!(
+                    "{what}.strategy.fail-fast: expected a bool, got {}",
+                    kind(fv)
+                ))
+            }
+        });
+    }
+    if let Some(pv) = get(m, "max-parallel") {
+        let s = scalar(pv, &format!("{what}.strategy.max-parallel"))?;
+        let n: u32 = s.parse().map_err(|_| {
+            format!("{what}.strategy.max-parallel: expected a positive integer, got `{s}`")
+        })?;
+        if n == 0 {
+            return Err(format!("{what}.strategy.max-parallel: must be >= 1"));
+        }
+        max_parallel = Some(n);
+    }
     let Some(mv) = get(m, "matrix") else {
-        return Ok(Vec::new());
+        return Ok(Strategy {
+            matrix: Vec::new(),
+            fail_fast: false,
+            max_parallel,
+        });
     };
     let mm = as_map(mv, &format!("{what}.strategy.matrix"))?;
-    let mut out = Vec::with_capacity(mm.len());
+    let mut matrix = Vec::with_capacity(mm.len());
     for (k, vv) in mm {
         let key = k
             .as_str()
@@ -1077,7 +1475,7 @@ fn parse_matrix(v: Option<&Value>, what: &str) -> Result<Vec<(String, Vec<String
         let Value::Sequence(seq) = vv else {
             return Err(format!(
                 "{what}.strategy.matrix.{key}: expected a list — \
-                 `include`/`exclude` are not supported in v1"
+                 `include`/`exclude` are not supported"
             ));
         };
         if seq.is_empty() {
@@ -1087,9 +1485,14 @@ fn parse_matrix(v: Option<&Value>, what: &str) -> Result<Vec<(String, Vec<String
             .iter()
             .map(|i| scalar(i, &format!("{what}.strategy.matrix.{key}")))
             .collect::<Result<Vec<_>, _>>()?;
-        out.push((key.to_string(), vals));
+        matrix.push((key.to_string(), vals));
     }
-    Ok(out)
+    // fail-fast only has meaning with a matrix; GHA defaults it on.
+    Ok(Strategy {
+        fail_fast: fail_fast.unwrap_or(true),
+        matrix,
+        max_parallel,
+    })
 }
 
 /// Cartesian product of matrix axes; no matrix → one empty combo.
@@ -1113,6 +1516,459 @@ fn matrix_combos(
         return Err(format!("{what}: matrix produced zero combinations"));
     }
     Ok(combos)
+}
+
+// ------------------------------------------------------------------
+// `if:` expression parsing — recursive descent over a small GHA
+// expression subset, then context folding via `Eval`
+// ------------------------------------------------------------------
+
+#[derive(Debug, Clone, PartialEq)]
+enum Tok {
+    LParen,
+    RParen,
+    Not,
+    And,
+    Or,
+    Eq,
+    Ne,
+    Comma,
+    /// 'single' or "double" quoted literal contents.
+    Str(String),
+    /// Bare word — dotted path, call name, number, true/false/null.
+    Word(String),
+}
+
+fn lex_cond(src: &str, what: &str) -> Result<Vec<Tok>, String> {
+    let b = src.as_bytes();
+    let mut i = 0;
+    let mut out = Vec::new();
+    while i < b.len() {
+        let c = b[i] as char;
+        if c.is_whitespace() {
+            i += 1;
+            continue;
+        }
+        match c {
+            '(' => {
+                out.push(Tok::LParen);
+                i += 1;
+            }
+            ')' => {
+                out.push(Tok::RParen);
+                i += 1;
+            }
+            '!' => {
+                if b.get(i + 1) == Some(&b'=') {
+                    out.push(Tok::Ne);
+                    i += 2;
+                } else {
+                    out.push(Tok::Not);
+                    i += 1;
+                }
+            }
+            '&' => {
+                if b.get(i + 1) == Some(&b'&') {
+                    out.push(Tok::And);
+                    i += 2;
+                } else {
+                    return Err(format!("{what}: bare `&` in `if` expression"));
+                }
+            }
+            '|' => {
+                if b.get(i + 1) == Some(&b'|') {
+                    out.push(Tok::Or);
+                    i += 2;
+                } else {
+                    return Err(format!("{what}: bare `|` in `if` expression"));
+                }
+            }
+            '=' => {
+                if b.get(i + 1) == Some(&b'=') {
+                    out.push(Tok::Eq);
+                    i += 2;
+                } else {
+                    return Err(format!("{what}: bare `=` in `if` expression"));
+                }
+            }
+            ',' => {
+                out.push(Tok::Comma);
+                i += 1;
+            }
+            '\'' | '"' => {
+                let quote = b[i];
+                i += 1;
+                let start = i;
+                while i < b.len() && b[i] != quote {
+                    i += 1;
+                }
+                if i >= b.len() {
+                    return Err(format!("{what}: unterminated string in `if`"));
+                }
+                out.push(Tok::Str(src[start..i].to_string()));
+                i += 1;
+            }
+            _ => {
+                let start = i;
+                while i < b.len() {
+                    let c = b[i] as char;
+                    if c.is_whitespace()
+                        || matches!(c, '(' | ')' | '!' | '&' | '|' | '=' | ',' | '\'' | '"')
+                    {
+                        break;
+                    }
+                    i += 1;
+                }
+                if start == i {
+                    return Err(format!("{what}: unexpected character `{c}` in `if`"));
+                }
+                out.push(Tok::Word(src[start..i].to_string()));
+            }
+        }
+    }
+    Ok(out)
+}
+
+/// Pre-fold AST — paths and calls still raw; `fold` resolves
+/// env/github/matrix and builds [`Cond`].
+enum PExpr {
+    Str(String),
+    Path(String),
+    Call {
+        name: String,
+        args: Vec<PExpr>,
+    },
+    Bin {
+        op: BinOp,
+        l: Box<PExpr>,
+        r: Box<PExpr>,
+    },
+    Not(Box<PExpr>),
+}
+
+struct CondParser<'a> {
+    toks: &'a [Tok],
+    pos: usize,
+    what: &'a str,
+}
+
+impl CondParser<'_> {
+    fn peek(&self) -> Option<&Tok> {
+        self.toks.get(self.pos)
+    }
+
+    fn next(&mut self) -> Option<Tok> {
+        let t = self.toks.get(self.pos).cloned();
+        if t.is_some() {
+            self.pos += 1;
+        }
+        t
+    }
+
+    fn err(&self, msg: &str) -> String {
+        format!("{}: {msg} in `if` expression", self.what)
+    }
+
+    /// or := and ('||' and)*
+    fn parse_or(&mut self) -> Result<PExpr, String> {
+        let mut l = self.parse_and()?;
+        while matches!(self.peek(), Some(Tok::Or)) {
+            self.next();
+            let r = self.parse_and()?;
+            l = PExpr::Bin {
+                op: BinOp::Or,
+                l: Box::new(l),
+                r: Box::new(r),
+            };
+        }
+        Ok(l)
+    }
+
+    /// and := eq ('&&' eq)*
+    fn parse_and(&mut self) -> Result<PExpr, String> {
+        let mut l = self.parse_eq()?;
+        while matches!(self.peek(), Some(Tok::And)) {
+            self.next();
+            let r = self.parse_eq()?;
+            l = PExpr::Bin {
+                op: BinOp::And,
+                l: Box::new(l),
+                r: Box::new(r),
+            };
+        }
+        Ok(l)
+    }
+
+    /// eq := unary (('=='|'!=') unary)*
+    fn parse_eq(&mut self) -> Result<PExpr, String> {
+        let mut l = self.parse_unary()?;
+        loop {
+            let op = match self.peek() {
+                Some(Tok::Eq) => BinOp::Eq,
+                Some(Tok::Ne) => BinOp::Ne,
+                _ => break,
+            };
+            self.next();
+            let r = self.parse_unary()?;
+            l = PExpr::Bin {
+                op,
+                l: Box::new(l),
+                r: Box::new(r),
+            };
+        }
+        Ok(l)
+    }
+
+    /// unary := '!' unary | primary
+    fn parse_unary(&mut self) -> Result<PExpr, String> {
+        if matches!(self.peek(), Some(Tok::Not)) {
+            self.next();
+            return Ok(PExpr::Not(Box::new(self.parse_unary()?)));
+        }
+        self.parse_primary()
+    }
+
+    fn parse_primary(&mut self) -> Result<PExpr, String> {
+        match self.next() {
+            Some(Tok::LParen) => {
+                let e = self.parse_or()?;
+                match self.next() {
+                    Some(Tok::RParen) => Ok(e),
+                    _ => Err(self.err("missing `)`")),
+                }
+            }
+            Some(Tok::Str(s)) => Ok(PExpr::Str(s)),
+            Some(Tok::Word(w)) => {
+                if matches!(self.peek(), Some(Tok::LParen)) {
+                    self.parse_call(w)
+                } else {
+                    Ok(PExpr::Path(w))
+                }
+            }
+            Some(t) => Err(self.err(&format!("unexpected token {t:?}"))),
+            None => Err(self.err("unexpected end of expression")),
+        }
+    }
+
+    /// Word already consumed, `(` is next — a function call.
+    fn parse_call(&mut self, word: String) -> Result<PExpr, String> {
+        let name = word.to_lowercase();
+        self.next(); // consume '('
+        let mut args = Vec::new();
+        if !matches!(self.peek(), Some(Tok::RParen)) {
+            loop {
+                args.push(self.parse_or()?);
+                match self.next() {
+                    Some(Tok::Comma) => {}
+                    Some(Tok::RParen) => break,
+                    _ => return Err(self.err("expected `,` or `)` in call")),
+                }
+            }
+        } else {
+            self.next();
+        }
+        Ok(PExpr::Call { name, args })
+    }
+}
+
+/// Parse + fold one `if:` value. The raw text may be a bare
+/// expression or a single `${{ … }}` wrapper (mixed text errors).
+/// env/github/matrix fold via `eval`; needs/steps become `DynRef`s;
+/// an `if` without a status-check function gets `success()` ANDed
+/// on, like GitHub.
+fn parse_cond(raw: &str, eval: &Eval, what: &str) -> Result<Cond, String> {
+    let text = raw.trim();
+    let inner = if text.starts_with("${{") {
+        if !text.ends_with("}}") || text.matches("${{").count() != 1 {
+            return Err(format!(
+                "{what}: `if` must be a single `${{{{ … }}}}` expression or a bare expression"
+            ));
+        }
+        text[3..text.len() - 2].trim()
+    } else if text.contains("${{") {
+        return Err(format!(
+            "{what}: `${{{{` in `if` must wrap the whole expression"
+        ));
+    } else {
+        text
+    };
+    if inner.is_empty() {
+        return Err(format!("{what}: empty `if` expression"));
+    }
+    let toks = lex_cond(inner, what)?;
+    let mut p = CondParser {
+        toks: &toks,
+        pos: 0,
+        what,
+    };
+    let expr = p.parse_or()?;
+    if p.pos != toks.len() {
+        return Err(format!("{what}: trailing tokens in `if` expression"));
+    }
+    let mut cond = fold_cond(&expr, eval, what)?;
+    if !cond.has_status_fn() {
+        cond = Cond::Bin {
+            op: BinOp::And,
+            l: Box::new(Cond::Call {
+                name: "success".into(),
+                args: Vec::new(),
+            }),
+            r: Box::new(cond),
+        };
+    }
+    Ok(cond)
+}
+
+fn fold_cond(e: &PExpr, eval: &Eval, what: &str) -> Result<Cond, String> {
+    Ok(match e {
+        PExpr::Str(s) => Cond::Lit(s.clone()),
+        PExpr::Path(w) => fold_path(w, eval, what)?,
+        PExpr::Not(inner) => Cond::Not(Box::new(fold_cond(inner, eval, what)?)),
+        PExpr::Bin { op, l, r } => Cond::Bin {
+            op: *op,
+            l: Box::new(fold_cond(l, eval, what)?),
+            r: Box::new(fold_cond(r, eval, what)?),
+        },
+        PExpr::Call { name, args } => {
+            let arity = match name.as_str() {
+                "success" | "failure" | "cancelled" | "always" => 0,
+                "contains" | "startswith" | "endswith" => 2,
+                _ => {
+                    return Err(format!(
+                        "{what}: unsupported function `{name}()` in `if` — \
+                         supported: success, failure, cancelled, always, \
+                         contains, startsWith, endsWith"
+                    ))
+                }
+            };
+            if args.len() != arity {
+                return Err(format!(
+                    "{what}: `{name}()` expects {arity} argument(s), got {}",
+                    args.len()
+                ));
+            }
+            Cond::Call {
+                name: name.clone(),
+                args: args
+                    .iter()
+                    .map(|a| fold_cond(a, eval, what))
+                    .collect::<Result<_, _>>()?,
+            }
+        }
+    })
+}
+
+/// Fold a bare word: literals (numbers, true/false/null), env/
+/// github/matrix paths → `Cond::Lit`, needs/steps refs → `DynRef`.
+fn fold_path(w: &str, eval: &Eval, what: &str) -> Result<Cond, String> {
+    let bad = || {
+        format!(
+            "{what}: unsupported expression `{w}` in `if` — supported: \
+             literals, env.*, github.{{sha,ref,ref_name,repository,event_name}}, \
+             matrix.*, needs.<job>.{{result,outputs.<name>}}, \
+             steps.<id>.{{conclusion,outputs.<name>}}"
+        )
+    };
+    // Literals first — `true`/`false`/`null` and bare numbers.
+    if w == "true" {
+        return Ok(Cond::Lit("true".into()));
+    }
+    if w == "false" {
+        return Ok(Cond::Lit("false".into()));
+    }
+    if w == "null" {
+        return Ok(Cond::Lit(String::new()));
+    }
+    if !w.is_empty()
+        && w.chars()
+            .all(|c| c.is_ascii_digit() || c == '-' || c == '+' || c == '.')
+        && w.chars().any(|c| c.is_ascii_digit())
+    {
+        return Ok(Cond::Lit(w.to_string()));
+    }
+    let (root, rest) = w.split_once('.').unwrap_or((w, ""));
+    match root {
+        "env" => {
+            if rest.is_empty() {
+                return Err(bad());
+            }
+            let Some(env) = eval.env else {
+                return Err(format!("{what}: `env.*` is not available in this position"));
+            };
+            Ok(Cond::Lit(
+                env.iter()
+                    .rev()
+                    .find(|(k, _)| k == rest)
+                    .map(|(_, v)| v.clone())
+                    .unwrap_or_default(),
+            ))
+        }
+        "github" => {
+            let v = match rest {
+                "sha" => eval.ctx.sha,
+                "ref" => eval.ctx.git_ref,
+                "ref_name" => short_ref(eval.ctx.git_ref),
+                "repository" => eval.ctx.repository,
+                "event_name" => eval.ctx.event_name,
+                _ => return Err(bad()),
+            };
+            Ok(Cond::Lit(v.to_string()))
+        }
+        "matrix" => {
+            if rest.is_empty() {
+                return Err(bad());
+            }
+            eval.matrix
+                .iter()
+                .find(|(k, _)| k == rest)
+                .map(|(_, v)| Cond::Lit(v.clone()))
+                .ok_or_else(|| format!("{what}: matrix has no `{rest}` binding in `if`"))
+        }
+        "needs" => {
+            // `.outputs.` wins over `.result` — same precedence as
+            // `is_deferred_ref` (an output name may itself end in
+            // `.result`).
+            if let Some((job, name)) = rest.split_once(".outputs.") {
+                if !job.is_empty() && !name.is_empty() {
+                    return Ok(Cond::Dyn(DynRef::NeedOutput {
+                        job: job.to_string(),
+                        name: name.to_string(),
+                    }));
+                }
+                return Err(bad());
+            }
+            if let Some(job) = rest.strip_suffix(".result") {
+                if job.is_empty() {
+                    return Err(bad());
+                }
+                return Ok(Cond::Dyn(DynRef::NeedResult {
+                    job: job.to_string(),
+                }));
+            }
+            Err(bad())
+        }
+        "steps" => {
+            if let Some((id, name)) = rest.split_once(".outputs.") {
+                if !id.is_empty() && !name.is_empty() {
+                    return Ok(Cond::Dyn(DynRef::StepOutput {
+                        step: id.to_string(),
+                        name: name.to_string(),
+                    }));
+                }
+                return Err(bad());
+            }
+            if let Some(id) = rest.strip_suffix(".conclusion") {
+                if id.is_empty() {
+                    return Err(bad());
+                }
+                return Ok(Cond::Dyn(DynRef::StepConclusion {
+                    step: id.to_string(),
+                }));
+            }
+            Err(bad())
+        }
+        _ => Err(bad()),
+    }
 }
 
 #[cfg(test)]
@@ -1153,18 +2009,33 @@ mod tests {
         );
     }
 
-    /// Everything else under needs./steps. still errors loudly.
+    /// `needs.*.result` / `steps.*.conclusion` defer like output
+    /// refs — the renderer resolves them from runtime state; every
+    /// other needs./steps. path still errors loudly.
     #[test]
-    fn non_output_needs_and_steps_refs_error() {
+    fn status_and_output_refs_defer_to_runtime() {
         let e = eval(&[], None);
-        for bad in [
+        for ok in [
             "needs.build.result",
+            "steps.s1.conclusion",
+            "needs.build.outputs.sha",
+            "steps.s1.outputs.value",
+            "needs.a.outputs.b.result", // `.outputs.` wins over `.result`
+        ] {
+            assert_eq!(
+                interpolate(&format!("${{{{ {ok} }}}}"), &e, "t").unwrap(),
+                format!("${{{{ {ok} }}}}"),
+                "{ok} should defer"
+            );
+        }
+        for bad in [
             "needs.build.outputs",
             "needs..outputs.x",
-            "steps.s1.conclusion",
             "steps.s1.outputs",
             "steps..outputs.x",
             "steps.s1.outcome",
+            "needs.build.other",
+            "steps.s1.outputs.",
         ] {
             assert!(
                 interpolate(&format!("${{{{ {bad} }}}}"), &e, "t").is_err(),
@@ -1254,5 +2125,150 @@ jobs:
         run: echo x >> "$GITHUB_OUTPUT"
 "#;
         assert!(parse_workflow("ci.yml", bad_out).is_err());
+    }
+
+    // --- `if:` condition parser -------------------------------------
+
+    fn cond(raw: &str) -> Result<Cond, String> {
+        parse_cond(raw, &eval(&[], None), "t.if")
+    }
+
+    #[test]
+    fn cond_literals_and_paths_fold() {
+        // env/github/matrix fold to literals; needs/steps stay dyn.
+        assert!(matches!(cond("true").unwrap(), Cond::Bin { .. })); // implicit success() &&
+        let matrix = [("os".to_string(), "linux".to_string())];
+        let envv = [("FLAG".to_string(), "yes".to_string())];
+        let e = eval(&matrix, Some(&envv));
+        let c = parse_cond("env.FLAG == 'yes' && matrix.os == 'linux'", &e, "t.if").unwrap();
+        let s = format!("{c:?}");
+        assert!(
+            s.contains("Lit(\"yes\")") && s.contains("Lit(\"linux\")"),
+            "{s}"
+        );
+        let c = cond("github.ref_name == 'main'").unwrap();
+        assert!(format!("{c:?}").contains("Lit(\"main\")"));
+        let c = cond("needs.build.result == 'success'").unwrap();
+        assert!(format!("{c:?}").contains("NeedResult"));
+        let c = cond("steps.gen.conclusion == 'skipped'").unwrap();
+        assert!(format!("{c:?}").contains("StepConclusion"));
+        let c = cond("needs.a.outputs.sha != ''").unwrap();
+        assert!(format!("{c:?}").contains("NeedOutput"));
+    }
+
+    #[test]
+    fn cond_status_functions_and_operators() {
+        for raw in [
+            "success()",
+            "failure() || cancelled()",
+            "always() && !cancelled()",
+            "!(github.ref == 'x')",
+            "contains(github.ref_name, 'main')",
+            "startsWith(github.ref_name, 'ma')",
+            "endsWith(steps.s.outputs.v, '.txt')",
+            "${{ github.event_name == 'push' }}",
+        ] {
+            assert!(cond(raw).is_ok(), "{raw} should parse");
+        }
+    }
+
+    #[test]
+    fn cond_implicit_success_wrap() {
+        // An `if:` without a status function gets success() &&-ed on;
+        // one that names a status function doesn't.
+        let plain = cond("github.ref_name == 'main'").unwrap();
+        assert!(plain.has_status_fn());
+        let s = format!("{plain:?}");
+        assert!(s.starts_with("Bin { op: And"), "{s}");
+        let with_fn = cond("failure()").unwrap();
+        assert!(matches!(with_fn, Cond::Call { .. }));
+    }
+
+    #[test]
+    fn cond_errors_are_loud() {
+        for bad in [
+            "",
+            "${{ a }} ${{ b }}",
+            "hashFiles('**')",
+            "github.actor == 'x'",
+            "needs.a.outputs",
+            "contains('x')",
+            "success(1)",
+            "github.ref_name ==",
+            "env.FLAG == 'x' trailing",
+        ] {
+            assert!(cond(bad).is_err(), "{bad} should error");
+        }
+    }
+
+    #[test]
+    fn timeout_minutes_parse() {
+        assert_eq!(
+            timeout_minutes(&serde_norway::Value::from(5), "t").unwrap(),
+            300
+        );
+        assert_eq!(
+            timeout_minutes(&serde_norway::Value::from(0.5), "t").unwrap(),
+            30
+        );
+        assert!(timeout_minutes(&serde_norway::Value::from(0), "t").is_err());
+        assert!(timeout_minutes(&serde_norway::Value::from("x"), "t").is_err());
+    }
+
+    #[test]
+    fn rust_toolchain_lowers_to_rustup_script() {
+        let text = r#"
+on: push
+jobs:
+  t:
+    steps:
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: 1.85.0
+          components: clippy,rustfmt
+"#;
+        let wf = parse_workflow("ci.yml", text).unwrap();
+        let jobs = wf
+            .expand(GhaContext {
+                sha: "s",
+                git_ref: "refs/heads/main",
+                repository: "o/r",
+                event_name: "push",
+            })
+            .unwrap();
+        let Step::Run(r) = &jobs[0].steps[0] else {
+            panic!("expected run step");
+        };
+        assert!(r.script.contains("rustup"), "{}", r.script);
+        assert!(r.script.contains("1.85.0"), "{}", r.script);
+        assert!(r.script.contains("clippy"), "{}", r.script);
+    }
+
+    #[test]
+    fn strategy_fail_fast_and_max_parallel_parse() {
+        let text = r#"
+on: push
+jobs:
+  t:
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix:
+        os: [linux, mac]
+    steps:
+      - run: echo hi
+"#;
+        let wf = parse_workflow("ci.yml", text).unwrap();
+        let jobs = wf
+            .expand(GhaContext {
+                sha: "s",
+                git_ref: "refs/heads/main",
+                repository: "o/r",
+                event_name: "push",
+            })
+            .unwrap();
+        assert_eq!(jobs.len(), 2);
+        assert!(!jobs[0].fail_fast);
+        assert_eq!(jobs[0].max_parallel, Some(2));
     }
 }

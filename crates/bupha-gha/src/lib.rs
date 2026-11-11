@@ -120,11 +120,32 @@ impl GhaRunner {
     }
 }
 
-/// Files changed by the push — v1 diffs the tip commit against its
-/// first parent (`HEAD^`), falling back to the whole tree on a root
-/// commit. Multi-commit pushes undercount; a `before` sha in the
-/// queue is the follow-up (see README).
-fn changed_files(workdir: &Path) -> io::Result<Vec<String>> {
+/// Files changed by the push. The queue doesn't carry the push's
+/// `before` sha, so the diff base is *inferred*: the remote-tracking
+/// ref for the pushed branch when it still points behind HEAD (the
+/// fetch was skipped), its reflog's previous position (the fetch
+/// that delivered this push moved it before→after), the local
+/// branch, then a merge-base — first hit that is a strict ancestor
+/// of HEAD wins. When nothing qualifies (e.g. the remote ref
+/// already advanced past HEAD's history), fall back to the tip
+/// commit (`HEAD^..HEAD`), then the whole tree on a root commit.
+/// The inference can over-count on stale refs — paths filters err
+/// toward running, never toward skipping silently.
+fn changed_files(workdir: &Path, git_ref: &str) -> io::Result<Vec<String>> {
+    if let Some(base) = before_sha(workdir, git_ref) {
+        let diff = Command::new("git")
+            .arg("-C")
+            .arg(workdir)
+            .args(["diff", "--name-only", &base, "HEAD"])
+            .output()?;
+        if diff.status.success() {
+            return Ok(String::from_utf8_lossy(&diff.stdout)
+                .lines()
+                .map(str::to_string)
+                .filter(|l| !l.is_empty())
+                .collect());
+        }
+    }
     let diff = Command::new("git")
         .arg("-C")
         .arg(workdir)
@@ -144,7 +165,7 @@ fn changed_files(workdir: &Path) -> io::Result<Vec<String>> {
         .output()?;
     if !ls.status.success() {
         return Err(io::Error::other(
-            "gha: cannot list changed files (git diff HEAD^ HEAD and git ls-files both failed)",
+            "gha: cannot list changed files (git diff and git ls-files both failed)",
         ));
     }
     Ok(String::from_utf8_lossy(&ls.stdout)
@@ -152,6 +173,89 @@ fn changed_files(workdir: &Path) -> io::Result<Vec<String>> {
         .map(str::to_string)
         .filter(|l| !l.is_empty())
         .collect())
+}
+
+fn short_ref(git_ref: &str) -> &str {
+    git_ref
+        .strip_prefix("refs/heads/")
+        .or_else(|| git_ref.strip_prefix("refs/tags/"))
+        .unwrap_or(git_ref)
+}
+
+/// `git rev-parse --verify --quiet <rev>` → sha, or None.
+fn rev_parse(workdir: &Path, rev: &str) -> Option<String> {
+    let out = Command::new("git")
+        .arg("-C")
+        .arg(workdir)
+        .args(["rev-parse", "--verify", "--quiet", rev])
+        .output()
+        .ok()?;
+    if !out.status.success() {
+        return None;
+    }
+    let s = String::from_utf8_lossy(&out.stdout).trim().to_string();
+    (!s.is_empty()).then_some(s)
+}
+
+/// Is `anc` a strict ancestor of HEAD (and not HEAD itself)?
+fn strict_ancestor(workdir: &Path, anc: &str) -> bool {
+    let head = rev_parse(workdir, "HEAD");
+    if head.as_deref() == Some(anc) {
+        return false;
+    }
+    Command::new("git")
+        .arg("-C")
+        .arg(workdir)
+        .args(["merge-base", "--is-ancestor", anc, "HEAD"])
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false)
+}
+
+/// Candidate "before" shas for the pushed ref, most precise first:
+/// the remote-tracking branch (still at `before` when the fetch was
+/// skipped), its reflog's previous position (the delivering fetch
+/// moved it before→after), the local branch, then merge-bases.
+fn before_sha(workdir: &Path, git_ref: &str) -> Option<String> {
+    let short = short_ref(git_ref);
+    if short.is_empty() {
+        return None;
+    }
+    let mut candidates: Vec<String> = vec![
+        format!("refs/remotes/origin/{short}"),
+        format!("refs/remotes/origin/{short}@{{1}}"),
+        format!("refs/heads/{short}"),
+    ];
+    for rev in &candidates {
+        if let Some(sha) = rev_parse(workdir, rev) {
+            if strict_ancestor(workdir, &sha) {
+                return Some(sha);
+            }
+        }
+    }
+    // Merge-base fallbacks — covers PR-style events where the head
+    // isn't a descendant of the base tip.
+    candidates.clear();
+    candidates.push(format!("refs/remotes/origin/{short}"));
+    candidates.push(format!("refs/heads/{short}"));
+    for rev in &candidates {
+        let Ok(out) = Command::new("git")
+            .arg("-C")
+            .arg(workdir)
+            .args(["merge-base", "HEAD", rev])
+            .output()
+        else {
+            continue;
+        };
+        if !out.status.success() {
+            continue;
+        }
+        let mb = String::from_utf8_lossy(&out.stdout).trim().to_string();
+        if !mb.is_empty() && strict_ancestor(workdir, &mb) {
+            return Some(mb);
+        }
+    }
+    None
 }
 
 fn repository_of(key: &str) -> &str {
@@ -165,7 +269,7 @@ impl Runner for GhaRunner {
 
     fn spawn(&self, ctx: &RunCtx) -> io::Result<Box<dyn RunHandle>> {
         let files = self.workflow_files(ctx.workdir)?;
-        let changed = changed_files(ctx.workdir)?;
+        let changed = changed_files(ctx.workdir, ctx.git_ref)?;
         let ev = Event {
             git_ref: ctx.git_ref,
             changed_files: &changed,
