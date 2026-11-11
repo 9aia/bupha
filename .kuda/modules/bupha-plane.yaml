@@ -1,0 +1,240 @@
+name: bupha-plane
+path: crates/bupha-plane/Cargo.toml
+purpose: ci-job entity plane — hypha EntityPlane impl for the bupha↔hypha/peregrin seam (P-002)
+api:
+- name: CI_JOB_KIND
+  kind: const
+  file: crates/bupha-plane/src/job.rs
+  line: 17
+  module: bupha-plane
+- name: CiJob
+  kind: type
+  file: crates/bupha-plane/src/job.rs
+  line: 100
+  module: bupha-plane
+- name: CiJobPlane
+  kind: type
+  file: crates/bupha-plane/src/plane.rs
+  line: 83
+  module: bupha-plane
+- name: Clock
+  kind: type
+  file: crates/bupha-plane/src/plane.rs
+  line: 38
+  module: bupha-plane
+- name: DEFAULT_LEASE_SECS
+  kind: const
+  file: crates/bupha-plane/src/job.rs
+  line: 23
+  module: bupha-plane
+- name: Fault
+  kind: type
+  file: crates/bupha-plane/src/plane.rs
+  line: 55
+  module: bupha-plane
+- name: Inner
+  kind: type
+  file: crates/bupha-plane/src/plane.rs
+  line: 44
+  module: bupha-plane
+- name: JobState
+  kind: type
+  file: crates/bupha-plane/src/job.rs
+  line: 32
+  module: bupha-plane
+- name: MAX_ATTEMPTS
+  kind: const
+  file: crates/bupha-plane/src/job.rs
+  line: 27
+  module: bupha-plane
+- name: SNAPSHOT_FORMAT
+  kind: const
+  file: crates/bupha-plane/src/job.rs
+  line: 20
+  module: bupha-plane
+- name: advance
+  kind: function
+  file: crates/bupha-plane/src/plane.rs
+  line: 947
+  module: bupha-plane
+- name: all_plus_cancel_running_conflicts
+  kind: function
+  file: crates/bupha-plane/src/job.rs
+  line: 370
+  module: bupha-plane
+- name: all_policy_fifo_and_bound
+  kind: function
+  file: crates/bupha-plane/src/plane.rs
+  line: 1023
+  module: bupha-plane
+- name: as_str
+  kind: function
+  file: crates/bupha-plane/src/job.rs
+  line: 48
+  module: bupha-plane
+- name: bupha-plane
+  kind: module
+  file: crates/bupha-plane/Cargo.toml
+  line: 1
+  module: bupha-plane
+- name: cancel_pending_running_terminal
+  kind: function
+  file: crates/bupha-plane/src/plane.rs
+  line: 1249
+  module: bupha-plane
+- name: check_holder
+  kind: function
+  file: crates/bupha-plane/src/plane.rs
+  line: 816
+  module: bupha-plane
+- name: claim_auth
+  kind: function
+  file: crates/bupha-plane/src/plane.rs
+  line: 804
+  module: bupha-plane
+- name: claim_is_cas_with_fence_and_lease
+  kind: function
+  file: crates/bupha-plane/src/plane.rs
+  line: 1047
+  module: bupha-plane
+- name: claim_label_gate_with_advertised_labels
+  kind: function
+  file: crates/bupha-plane/src/plane.rs
+  line: 1120
+  module: bupha-plane
+- name: clone_for_retry
+  kind: function
+  file: crates/bupha-plane/src/plane.rs
+  line: 732
+  module: bupha-plane
+- name: complete_failure_retries_as_new_attempt
+  kind: function
+  file: crates/bupha-plane/src/plane.rs
+  line: 1205
+  module: bupha-plane
+- name: complete_success_is_terminal
+  kind: function
+  file: crates/bupha-plane/src/plane.rs
+  line: 1173
+  module: bupha-plane
+- name: compute_id
+  kind: function
+  file: crates/bupha-plane/src/job.rs
+  line: 204
+  module: bupha-plane
+- name: create
+  kind: function
+  file: crates/bupha-plane/src/plane.rs
+  line: 895
+  module: bupha-plane
+- name: create
+  kind: function
+  file: crates/bupha-plane/src/plane.rs
+  line: 966
+  module: bupha-plane
+- name: create_job
+  kind: function
+  file: crates/bupha-plane/src/plane.rs
+  line: 213
+  module: bupha-plane
+- name: create_validates_and_derives_id
+  kind: function
+  file: crates/bupha-plane/src/plane.rs
+  line: 975
+  module: bupha-plane
+- name: default
+  kind: function
+  file: crates/bupha-plane/src/plane.rs
+  line: 94
+  module: bupha-plane
+- name: default_event
+  kind: function
+  file: crates/bupha-plane/src/job.rs
+  line: 83
+  module: bupha-plane
+- name: default_one
+  kind: function
+  file: crates/bupha-plane/src/job.rs
+  line: 91
+  module: bupha-plane
+- name: default_queue
+  kind: function
+  file: crates/bupha-plane/src/job.rs
+  line: 87
+  module: bupha-plane
+- name: delete
+  kind: function
+  file: crates/bupha-plane/src/plane.rs
+  line: 899
+  module: bupha-plane
+- name: delete_job
+  kind: function
+  file: crates/bupha-plane/src/plane.rs
+  line: 302
+  module: bupha-plane
+- name: delete_rules
+  kind: function
+  file: crates/bupha-plane/src/plane.rs
+  line: 1336
+  module: bupha-plane
+- name: dispatch_op
+  kind: function
+  file: crates/bupha-plane/src/plane.rs
+  line: 324
+  module: bupha-plane
+- name: doc
+  kind: function
+  file: crates/bupha-plane/src/job.rs
+  line: 301
+  module: bupha-plane
+- name: enqueue_requeues_terminal_with_attempt_bump
+  kind: function
+  file: crates/bupha-plane/src/plane.rs
+  line: 1299
+  module: bupha-plane
+- name: entity_doc
+  kind: function
+  file: crates/bupha-plane/src/plane.rs
+  line: 855
+  module: bupha-plane
+- name: expired_lease_with_cancel_requested_cancels
+  kind: function
+  file: crates/bupha-plane/src/plane.rs
+  line: 1286
+  module: bupha-plane
+api_omitted: 59
+deps:
+- async-trait
+- axum
+- bupha-core
+- chrono
+- hypha-http
+- serde
+- serde_json
+- chrono
+- hypha_http
+- serde_json
+- bupha-core
+- serde
+- job
+- plane
+notes: ''
+verify:
+- crates/bupha-plane/Cargo.toml
+- crates/bupha-plane/src/job.rs
+- crates/bupha-plane/src/lib.rs
+- crates/bupha-plane/src/plane.rs
+provenance:
+  files:
+  - crates/bupha-plane/Cargo.toml
+  - crates/bupha-plane/src/job.rs
+  - crates/bupha-plane/src/lib.rs
+  - crates/bupha-plane/src/plane.rs
+  hashes:
+  - fcdab77747a105b6a9ccd61f0074664e7efb925d
+  - 7ac9e1b4b53d51238e74f7ceac1b9932a847c867
+  - 0aef1131dbda1bb8bd6d54ec52ebc4a6ee8ac1f7
+  - 78ab81b73c3f0bb433c65fabc43908eb26f9ee92
+  commit_sha: 1eed9cdd7160e0306c52075af01ef165ceb9f79b
+  generated_at: '1794358904'
+  generator: kuda-template/0.1.2

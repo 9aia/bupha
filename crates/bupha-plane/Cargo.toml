@@ -1,0 +1,21 @@
+[package]
+name = "bupha-plane"
+description = "ci-job entity plane — hypha EntityPlane impl for the bupha↔hypha/peregrin seam (P-002)"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+keywords = ["ci", "bupha"]
+categories = ["development-tools"]
+
+[dependencies]
+bupha-core.workspace = true
+# The EntityPlane port + KindRegistry live in hypha-http — git dep so
+# `cargo install --git` and CI work without a sibling ../hypha
+# checkout (same rule as bupha-driver's pavo deps).
+hypha-http = { git = "https://github.com/9aia/hypha.git", branch = "main" }
+serde = { version = "1", features = ["derive"] }
+serde_json.workspace = true
+chrono = { version = "0.4", features = ["serde"] }
+axum = "0.8"
+async-trait = "0.1"

@@ -34,7 +34,7 @@ api:
   module: docs
 - name: 'Dogfood: real GitHub Actions workflows through `runner.kind = "gha"`'
   kind: record
-  file: docs/how-to/gha-dogfood.md
+  file: docs/explanation/gha-dogfood.md
   line: 1
   module: docs
 - name: Getting started
@@ -89,24 +89,24 @@ verify:
 - docs/comparison.md
 - docs/explanation/architecture.md
 - docs/explanation/crate-scope-audit.md
+- docs/explanation/gha-dogfood.md
 - docs/explanation/release-model.md
 - docs/gen-api-index.py
 - docs/gen-config-docs.py
 - docs/gen-crate-map.py
 - docs/getting-started.md
-- docs/how-to/distributed-runners.md
 provenance:
   files:
   - docs/comparison.md
   - docs/explanation/architecture.md
   - docs/explanation/crate-scope-audit.md
+  - docs/explanation/gha-dogfood.md
   - docs/explanation/release-model.md
   - docs/gen-api-index.py
   - docs/gen-config-docs.py
   - docs/gen-crate-map.py
   - docs/getting-started.md
   - docs/how-to/distributed-runners.md
-  - docs/how-to/gha-dogfood.md
   - docs/how-to/gha-runner.md
   - docs/how-to/multi-repo.md
   - docs/how-to/sccache-backend.md
@@ -123,13 +123,13 @@ provenance:
   - 7359b1f8396d488dab45743b48a392e5184d19f7
   - 22111d5664d6c006d6e2fe0ddc377c44dd8f6dd4
   - 688acf9e6f5801f6cf68a1c04b7abd31cb0d8516
+  - 9c271dac9c7f98557c611b0ef68008f3a166dd34
   - 0f854754e80779fb233575ac82f5496a4e0ece85
   - 4190ba42e1402d3b750ddb42650ef4322a0ffda5
   - 2621167c7722b5c4dab0ecf7658a8669b26bd107
   - bbd5eb7406ea4575ec41ab702a951fc85f6c346d
   - 3bc3dd9320e4f8aca69087e82c83ca64008e72ca
   - 71520dc2f0e7081d138ccf39d70922134412b76c
-  - 9c271dac9c7f98557c611b0ef68008f3a166dd34
   - 0a2b9c93dfd76769efc2af75794aab32c1230be3
   - b7f0c6afcd42e1a420c4397323fb1f4d13d7b375
   - 4ee7f2b425b4393d662c8e6d54a59b6272e22a6a
@@ -142,6 +142,6 @@ provenance:
   - 01c9f072b1fd4512864b0c180c38cfb7718387af
   - de7f8889e1f2b79e930ce466daa26b7725956ddf
   - dc5b26c70ac2df3a63aa73c267db2f9cc7a192db
-  commit_sha: 3a9dbc0efc914ea9c52c2fb02a980c12b4b2debe
-  generated_at: '1794358295'
+  commit_sha: 1eed9cdd7160e0306c52075af01ef165ceb9f79b
+  generated_at: '1794358904'
   generator: kuda-template/0.1.2

@@ -284,7 +284,7 @@ provenance:
   - modules/dagger/dagger/src/bupha/main.py
   - modules/dagger/tests/test_self_patch.py
   hashes:
-  - 2bf7afa5355bbe6dbc66bcd138a8de1003fa4b94
+  - b4898a2d3ec8162ac7659d904772fc4422f30c8c
   - a44efaadc5db36f28ce62827f661ed3ad71fbecb
   - 4102762337a49a25a35bd6da2202b6c0536fe273
   - e874c1c493c116218614e58c47050db763afe4d6
@@ -296,6 +296,6 @@ provenance:
   - 297de02314bb3e68d56e2e8a33bcad4ba6c92465
   - b266b7f034f3d194f5cba16fd2bf6a51886ccf46
   - 509a3147960f3aa59978a55730803da3c2ff0850
-  commit_sha: aa68d7e5d8324589f2e1ce8ddc3b2b7204fa46ac
-  generated_at: '1794357802'
+  commit_sha: 1eed9cdd7160e0306c52075af01ef165ceb9f79b
+  generated_at: '1794358904'
   generator: kuda-template/0.1.2
