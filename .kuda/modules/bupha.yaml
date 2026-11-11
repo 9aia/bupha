@@ -209,7 +209,6 @@ deps:
 - bupha-config-file
 - bupha-core
 - bupha-gha-runner
-- bupha-git
 - bupha-github
 - bupha-http
 - bupha-keyring
@@ -221,10 +220,11 @@ deps:
 - bupha-systemd
 - bupha-telemetry
 - bupha-trigger
-- bupha-vcs
 - bupha-watch
 - clap
 - clap-markdown
+- lasius-vcs
+- lasius-vcs-git
 - serde_json
 - serde_norway
 - toml
@@ -238,7 +238,7 @@ deps:
 - bupha-config
 - bupha-config-file
 - bupha-core
-- bupha-git
+- lasius_vcs_git
 - bupha-github
 - bupha-keyring
 - bupha-runner
@@ -246,7 +246,7 @@ deps:
 - bupha-secret-cuora
 - bupha-service
 - bupha-trigger
-- bupha-vcs
+- lasius_vcs
 - clap
 - serde_json
 - asyncio
@@ -279,10 +279,10 @@ provenance:
   - modules/dagger/dagger/src/bupha/main.py
   - modules/dagger/tests/test_self_patch.py
   hashes:
-  - 6fe6da87a43867167a60d2fb134c95e057dcf6e0
-  - 23c5d6e446ddc38edf61cff80515ef7fc43134c6
+  - 7ca4367a7975593caec1dd6b005893c6ad2cfd60
+  - d9ab90efe4d27cced5f2dfcd36c0abd580aef6bd
   - 4102762337a49a25a35bd6da2202b6c0536fe273
-  - 2a66fcb53c22d428776604fcd3fc497b88ac1cd5
+  - 141b4b7628e21a4e97c45ce9ab5023a4ccf929bd
   - 42f089e301a1fa37c54fb268bd08a2be38db7e01
   - e6680112289b06ae1e8d8d6659c60f2333c8ca23
   - 16a66bca9a602549e108d45e9d1233dbe2e7e34b
@@ -291,6 +291,6 @@ provenance:
   - 297de02314bb3e68d56e2e8a33bcad4ba6c92465
   - b266b7f034f3d194f5cba16fd2bf6a51886ccf46
   - 509a3147960f3aa59978a55730803da3c2ff0850
-  commit_sha: 09033caa0fe4531fab316c8ce377f70bfaaedef5
-  generated_at: '1794369086'
+  commit_sha: c7c717d31078804377f809e965a5acde710694c3
+  generated_at: '1794371148'
   generator: kuda-template/0.1.2

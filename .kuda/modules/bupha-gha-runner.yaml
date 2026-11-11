@@ -35,7 +35,7 @@ api:
 - name: Auth
   kind: type
   file: crates/bupha-gha-runner/src/client.rs
-  line: 22
+  line: 23
   module: bupha-gha-runner
 - name: BrokerAgent
   kind: type
@@ -50,7 +50,7 @@ api:
 - name: Client
   kind: type
   file: crates/bupha-gha-runner/src/client.rs
-  line: 29
+  line: 30
   module: bupha-gha-runner
 - name: CompleteJobRequest
   kind: type
@@ -60,12 +60,12 @@ api:
 - name: CondParser
   kind: type
   file: crates/bupha-gha-runner/src/exec.rs
-  line: 553
+  line: 676
   module: bupha-gha-runner
 - name: Config
   kind: type
   file: crates/bupha-gha-runner/src/lib.rs
-  line: 70
+  line: 74
   module: bupha-gha-runner
 - name: Credentials
   kind: type
@@ -100,22 +100,22 @@ api:
 - name: Error
   kind: type
   file: crates/bupha-gha-runner/src/lib.rs
-  line: 246
+  line: 250
   module: bupha-gha-runner
 - name: JOB
   kind: const
   file: crates/bupha-gha-runner/src/types.rs
-  line: 727
+  line: 756
   module: bupha-gha-runner
 - name: JobEnv
   kind: type
   file: crates/bupha-gha-runner/src/exec.rs
-  line: 138
+  line: 140
   module: bupha-gha-runner
 - name: JobMessage
   kind: type
   file: crates/bupha-gha-runner/src/types.rs
-  line: 273
+  line: 278
   module: bupha-gha-runner
 - name: JobOffer
   kind: type
@@ -135,7 +135,7 @@ api:
 - name: JobStatus
   kind: type
   file: crates/bupha-gha-runner/src/exec.rs
-  line: 276
+  line: 399
   module: bupha-gha-runner
 - name: Label
   kind: type
@@ -145,7 +145,7 @@ api:
 - name: LogsMetadata
   kind: type
   file: crates/bupha-gha-runner/src/types.rs
-  line: 696
+  line: 725
   module: bupha-gha-runner
 - name: Migration
   kind: type
@@ -155,7 +155,7 @@ api:
 - name: Minted
   kind: type
   file: crates/bupha-gha-runner/src/client.rs
-  line: 338
+  line: 339
   module: bupha-gha-runner
 - name: NullProgress
   kind: type
@@ -165,12 +165,12 @@ api:
 - name: Outcome
   kind: type
   file: crates/bupha-gha-runner/src/types.rs
-  line: 627
+  line: 656
   module: bupha-gha-runner
 - name: PipelineStep
   kind: type
   file: crates/bupha-gha-runner/src/types.rs
-  line: 538
+  line: 567
   module: bupha-gha-runner
 - name: Pool
   kind: type
@@ -202,7 +202,7 @@ api:
   file: crates/bupha-gha-runner/src/agent.rs
   line: 31
   module: bupha-gha-runner
-api_omitted: 239
+api_omitted: 247
 deps:
 - aes
 - base64
@@ -255,16 +255,16 @@ provenance:
   - crates/bupha-gha-runner/tests/mock_broker.rs
   hashes:
   - 50261b87b50271a25bf73fe4037897a0d4e97a89
-  - 3b2fdc28deee7b1ad9f27d8c7490eadd0c0ce141
-  - 350091cd6a5a1c3c8fa75b72449a26791beaad40
+  - 1975489d21701318244a6b8bb5c6e3f0e27467b7
+  - 19719783661ac01bbd2be6335355c7cb6af0f82e
   - 42b374f93a3d78ca99476fc2a6ce15a4f06f6720
   - 31e16b6e60c8cc6ffcaa9f181b1694af69c73bc4
-  - d175797444562f16ba3a4a6ec9719aaa1483bb9f
-  - 047bd6fb616d3eff9e84120ee488123e84a1b344
+  - 3f1ee20f35ad3e584fadc11fa09cf23f74cd4eaa
+  - d8d67a2c65cc21797125d4b982511363c33331f8
   - ecca29b03e418a8d5cca8532aeb0b3f35130c29f
-  - 3453801d4b4ed450dc8097436f7eb96ba90b7b90
-  - 4a09634f41c600288b6f36c01e07a9153db89ddc
-  - 3d706d707729fc85228a89b572924f1d01cac3c4
-  commit_sha: bb515cea1a369ce4a282bc6ef7d5c0422279e988
-  generated_at: '1794367801'
+  - 5165047d12386960f29da94d1f68c1d22371387b
+  - e6732196d027016ecc8a72ae978735ec524c6fc7
+  - 1e00d8d03c7698760e9bf1e582c7a4b818873018
+  commit_sha: c7c717d31078804377f809e965a5acde710694c3
+  generated_at: '1794371148'
   generator: kuda-template/0.1.2

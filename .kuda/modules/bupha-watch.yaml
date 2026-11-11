@@ -219,7 +219,6 @@ deps:
 - bupha-dagger
 - bupha-dotenv
 - bupha-gha
-- bupha-git
 - bupha-github
 - bupha-history
 - bupha-http
@@ -237,10 +236,11 @@ deps:
 - bupha-telemetry-otel
 - bupha-trigger
 - bupha-tunnel
-- bupha-vcs
 - bupha-webhook
 - chrono
 - hypha-node-api
+- lasius-vcs
+- lasius-vcs-git
 - serde_json
 - tokio
 - toml
@@ -264,7 +264,7 @@ deps:
 - bupha-dagger
 - bupha-dotenv
 - bupha-gha
-- bupha-git
+- lasius_vcs_git
 - bupha-github
 - bupha-history
 - bupha-keyring
@@ -274,7 +274,7 @@ deps:
 - bupha-telemetry-otel
 - bupha-trigger
 - bupha-tunnel
-- bupha-vcs
+- lasius_vcs
 - bupha-webhook
 notes: ''
 verify:
@@ -287,9 +287,9 @@ provenance:
   - crates/bupha-watch/src/entity_worker.rs
   - crates/bupha-watch/src/lib.rs
   hashes:
-  - dc5cc2d35eabf9edafcf54b4961a649f58553ffd
+  - cd0626504ee09a80ca50247ea9047be7525928f4
   - 6a0e53d9a648f6b3381a2c2bfc261a7b9170b86a
-  - 89b260404a701fdb18ee2235520653e27a150611
-  commit_sha: 09033caa0fe4531fab316c8ce377f70bfaaedef5
-  generated_at: '1794369086'
+  - e9fa9817432ac5c80962f1442fcd6452cb25925a
+  commit_sha: c7c717d31078804377f809e965a5acde710694c3
+  generated_at: '1794371148'
   generator: kuda-template/0.1.2

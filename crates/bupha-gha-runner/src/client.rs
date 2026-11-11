@@ -8,6 +8,7 @@
 
 use serde::de::DeserializeOwned;
 use serde::Serialize;
+use std::collections::BTreeMap;
 
 use crate::crypto;
 use crate::types::*;
@@ -519,12 +520,15 @@ impl Client {
     }
 
     /// Report what became of the job. Until this lands the service
-    /// still counts the runner as busy.
+    /// still counts the runner as busy. `outputs` carries the
+    /// evaluated job `outputs:` map — the run service stores it so
+    /// `needs.<job>.outputs.*` resolves on dependent jobs.
     pub fn complete_job(
         &self,
         offer: Option<&JobOffer>,
         job: &JobMessage,
         outcome: Outcome,
+        outputs: &BTreeMap<String, Variable>,
         steps: &[StepResult],
     ) -> Result<(), Error> {
         let base = offer
@@ -547,6 +551,7 @@ impl Client {
                 job_id: &job.job_id,
                 conclusion: outcome.name(),
                 billing_owner_id: billing,
+                outputs,
                 step_results: steps,
             },
         )?;

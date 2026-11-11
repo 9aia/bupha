@@ -76,10 +76,12 @@ pub struct JobOutcome {
     /// step backend id → captured output, for log upload.
     pub step_logs: BTreeMap<String, String>,
     /// step id → the `$GITHUB_OUTPUT` name/value pairs that step
-    /// wrote. There is no `${{ steps.*.outputs }}` expression path
-    /// yet (the service pre-compiles expressions), so these are
-    /// stored for whoever needs them — `needs.*.outputs` included.
+    /// wrote — the raw material `steps.<id>.outputs.*` reads.
     pub outputs: BTreeMap<String, BTreeMap<String, String>>,
+    /// The job's `outputs:` map evaluated against `outputs` — what
+    /// `completejob` reports so `needs.<job>.outputs.*` resolves on
+    /// dependent jobs.
+    pub job_outputs: BTreeMap<String, String>,
     /// The concatenated job log.
     pub job_log: String,
 }
@@ -196,6 +198,7 @@ pub fn execute(
                 steps: results,
                 step_logs,
                 outputs: BTreeMap::new(),
+                job_outputs: BTreeMap::new(),
                 job_log: format!("gha-runner: cannot create scratch dir: {e}\n"),
             };
         }
@@ -263,12 +266,132 @@ pub fn execute(
         JobStatus::Failure => Outcome::Failed,
         JobStatus::Cancelled => Outcome::Cancelled,
     };
+    let job_outputs = resolve_job_outputs(job, &env.outputs, &env.vars);
     JobOutcome {
         conclusion,
         steps: results,
         step_logs,
         outputs: env.outputs,
+        job_outputs,
         job_log,
+    }
+}
+
+// ------------------------------------------------------------------
+// job outputs — the `outputs:` map evaluated against step outputs
+// ------------------------------------------------------------------
+
+/// Evaluate the job's `outputs:` templates (`job.job_outputs`) into
+/// the name→value map `completejob` reports. Supported refs:
+/// `steps.<id>.outputs.<name>` (collected `$GITHUB_OUTPUT` values),
+/// `needs.<job>.outputs.<name>` (the `needs` context the service
+/// pre-fills), `env.<NAME>` and `github.<key>` scalars. An output
+/// whose template uses anything else is left unset rather than
+/// reported wrong — the full `${{ }}` engine is the service's.
+fn resolve_job_outputs(
+    job: &JobMessage,
+    step_outputs: &BTreeMap<String, BTreeMap<String, String>>,
+    env: &BTreeMap<String, String>,
+) -> BTreeMap<String, String> {
+    let mut out = BTreeMap::new();
+    for (name, tmpl) in &job.job_outputs {
+        if let Some(v) = eval_output_template(tmpl, job, step_outputs, env) {
+            out.insert(name.clone(), v);
+        }
+    }
+    out
+}
+
+/// `${{ … }}` substitution over an outputs template. `None` when an
+/// expression falls outside the supported refs.
+fn eval_output_template(
+    tmpl: &str,
+    job: &JobMessage,
+    step_outputs: &BTreeMap<String, BTreeMap<String, String>>,
+    env: &BTreeMap<String, String>,
+) -> Option<String> {
+    let mut out = String::with_capacity(tmpl.len());
+    let mut rest = tmpl;
+    while let Some(start) = rest.find("${{") {
+        out.push_str(&rest[..start]);
+        let after = &rest[start + 3..];
+        let end = after.find("}}")?;
+        out.push_str(&eval_output_expr(
+            after[..end].trim(),
+            job,
+            step_outputs,
+            env,
+        )?);
+        rest = &after[end + 2..];
+    }
+    out.push_str(rest);
+    Some(out)
+}
+
+fn eval_output_expr(
+    inner: &str,
+    job: &JobMessage,
+    step_outputs: &BTreeMap<String, BTreeMap<String, String>>,
+    env: &BTreeMap<String, String>,
+) -> Option<String> {
+    // Same first-`.outputs.` split the dialect renderer uses.
+    if let Some(rest) = inner.strip_prefix("steps.") {
+        let (sid, name) = rest.split_once(".outputs.")?;
+        if sid.is_empty() || name.is_empty() {
+            return None;
+        }
+        return Some(
+            step_outputs
+                .get(sid)
+                .and_then(|m| m.get(name))
+                .cloned()
+                .unwrap_or_default(),
+        );
+    }
+    if let Some(rest) = inner.strip_prefix("needs.") {
+        let (job_id, name) = rest.split_once(".outputs.")?;
+        if job_id.is_empty() || name.is_empty() {
+            return None;
+        }
+        return Some(needs_output(job, job_id, name));
+    }
+    if let Some(name) = inner.strip_prefix("env.") {
+        if name.is_empty() {
+            return None;
+        }
+        return Some(env.get(name).cloned().unwrap_or_default());
+    }
+    if let Some(key) = inner.strip_prefix("github.") {
+        if key.is_empty() {
+            return None;
+        }
+        return Some(scalar_at(&job.context["github"], key));
+    }
+    None
+}
+
+/// `context.needs.<job>.outputs.<name>` — the service fills `needs`
+/// with each dependency's reported outputs (and `result`).
+fn needs_output(job: &JobMessage, job_id: &str, name: &str) -> String {
+    job.context
+        .get("needs")
+        .and_then(|n| n.get(job_id))
+        .and_then(|j| j.get("outputs"))
+        .and_then(|o| o.get(name))
+        .map(scalar_json)
+        .unwrap_or_default()
+}
+
+fn scalar_at(v: &Value, key: &str) -> String {
+    v.get(key).map(scalar_json).unwrap_or_default()
+}
+
+fn scalar_json(v: &Value) -> String {
+    match v {
+        Value::String(s) => s.clone(),
+        Value::Number(n) => n.to_string(),
+        Value::Bool(b) => b.to_string(),
+        _ => String::new(),
     }
 }
 
@@ -1494,6 +1617,78 @@ mod tests {
         assert!(outcome.job_log.contains("multi=hello\nworld"));
         assert!(outcome.job_log.contains("path-ok"));
         assert_eq!(outcome.outputs["s1"]["ver"], "1.2.3");
+    }
+
+    /// `jobOutputs` templates evaluate against collected step
+    /// outputs, the pre-filled `needs` context and env — and land on
+    /// `JobOutcome.job_outputs` for `completejob`.
+    #[test]
+    fn execute_evaluates_job_outputs() {
+        let job = JobMessage::decode(r#"{
+            "messageType": "PipelineAgentJobRequest",
+            "jobId": "exec-outputs",
+            "jobDisplayName": "x", "jobName": "x",
+            "requestId": 1, "billingOwnerId": "o",
+            "plan": {"planId": "p"}, "timeline": {"id": "t"},
+            "contextData": {"t": 2, "d": [
+                {"k": "needs", "v": {"t": 2, "d": [
+                    {"k": "up", "v": {"t": 2, "d": [
+                        {"k": "outputs", "v": {"t": 2, "d": [
+                            {"k": "token", "v": "sekret"}
+                        ]}}
+                    ]}}
+                ]}}
+            ]},
+            "variables": {}, "resources": {"endpoints": []},
+            "jobOutputs": {"type": 2, "map": [
+                {"Key": {"type": 0, "lit": "answer"},
+                 "Value": {"type": 3, "expr": "steps.s1.outputs.answer"}},
+                {"Key": {"type": 0, "lit": "from-need"},
+                 "Value": {"type": 3, "expr": "needs.up.outputs.token"}},
+                {"Key": {"type": 0, "lit": "env-val"},
+                 "Value": {"type": 3, "expr": "env.MY_VAR"}},
+                {"Key": {"type": 0, "lit": "static"},
+                 "Value": {"type": 0, "lit": "plain"}},
+                {"Key": {"type": 0, "lit": "unsupported"},
+                 "Value": {"type": 3, "expr": "matrix.nope"}}
+            ]},
+            "steps": [{
+                "type": "action", "id": "s1", "name": "run",
+                "displayNameToken": {"type": 0, "lit": "write"},
+                "reference": {"type": "script"},
+                "inputs": {"type": 2, "map": [
+                    {"Key": {"type": 0, "lit": "script"},
+                     "Value": {"type": 0, "lit": "echo \"MY_VAR=set-by-step\" >> \"$GITHUB_ENV\"\necho \"answer=42\" >> \"$GITHUB_OUTPUT\"\nexit 0"}},
+                    {"Key": {"type": 0, "lit": "shell"},
+                     "Value": {"type": 0, "lit": "sh"}}
+                ]}
+            }]
+        }"#)
+        .unwrap();
+        assert_eq!(job.job_outputs["answer"], "${{ steps.s1.outputs.answer }}");
+
+        let ws = std::env::temp_dir().join(format!(
+            "bupha-gha-runner-exec-out-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        std::fs::create_dir_all(&ws).unwrap();
+        let runner = JobRunner::new();
+        let mut progress = NullProgress;
+        let outcome = execute(&job, &ws, &runner, &mut progress);
+        let _ = std::fs::remove_dir_all(ws.parent().unwrap_or(&ws));
+
+        assert_eq!(outcome.conclusion, Outcome::Succeeded);
+        assert_eq!(outcome.job_outputs["answer"], "42");
+        assert_eq!(outcome.job_outputs["from-need"], "sekret");
+        // env.* sees the GITHUB_ENV write folded in after the step.
+        assert_eq!(outcome.job_outputs["env-val"], "set-by-step");
+        assert_eq!(outcome.job_outputs["static"], "plain");
+        // Unsupported exprs leave the output unset, not wrong.
+        assert!(!outcome.job_outputs.contains_key("unsupported"));
     }
 
     #[test]

@@ -102,6 +102,11 @@ api:
   file: project/proposals/proposal-0002-ci-job-ops-contract-bupha-hypha-peregrin-seam.md
   line: 2
   module: project
+- name: P-003
+  kind: record
+  file: project/proposals/proposal-0003-bupha-runner-port-is-load-bearing-keep-redundancy-is-queue-store-t-049-and-worktree-plumbing.md
+  line: 2
+  module: project
 - name: T-007
   kind: record
   file: project/BACKLOG.md
@@ -110,72 +115,72 @@ api:
 - name: T-008
   kind: record
   file: project/BACKLOG.md
-  line: 12
+  line: 14
   module: project
 - name: T-009
   kind: record
   file: project/BACKLOG.md
-  line: 16
+  line: 18
   module: project
 - name: T-010
   kind: record
   file: project/BACKLOG.md
-  line: 17
+  line: 19
   module: project
 - name: T-011
   kind: record
   file: project/BACKLOG.md
-  line: 18
+  line: 20
   module: project
 - name: T-012
   kind: record
   file: project/BACKLOG.md
-  line: 19
+  line: 21
   module: project
 - name: T-013
   kind: record
   file: project/BACKLOG.md
-  line: 20
+  line: 22
   module: project
 - name: T-014
   kind: record
   file: project/BACKLOG.md
-  line: 21
+  line: 23
   module: project
 - name: T-015
   kind: record
   file: project/BACKLOG.md
-  line: 22
+  line: 24
   module: project
 - name: T-016
   kind: record
   file: project/BACKLOG.md
-  line: 23
+  line: 25
   module: project
 - name: T-017
   kind: record
   file: project/BACKLOG.md
-  line: 24
+  line: 26
   module: project
 - name: T-018
   kind: record
   file: project/BACKLOG.md
-  line: 25
+  line: 27
   module: project
 - name: T-019
   kind: record
   file: project/BACKLOG.md
-  line: 29
+  line: 31
   module: project
 - name: T-020
   kind: record
   file: project/BACKLOG.md
-  line: 30
+  line: 32
   module: project
 - name: T-021
   kind: record
   file: project/BACKLOG.md
-  line: 31
+  line: 33
   module: project
 - name: T-027
   kind: record
@@ -197,12 +202,7 @@ api:
   file: project/TODO.md
   line: 4
   module: project
-- name: T-032
-  kind: record
-  file: project/TODO.md
-  line: 5
-  module: project
-api_omitted: 41
+api_omitted: 44
 deps: []
 notes: ''
 verify:
@@ -242,6 +242,7 @@ provenance:
   - project/handoffs/T-062.md
   - project/handoffs/T-063.md
   - project/handoffs/T-064.md
+  - project/handoffs/T-066.md
   - project/handoffs/T-067.md
   - project/handoffs/T-068.md
   - project/handoffs/archive/T-029.md
@@ -260,10 +261,11 @@ provenance:
   - project/issues/issue-0012-bupha-init-git-remote-url-interpolated-into-generated-python-patch-host.md
   - project/proposals/proposal-0001-status-signature-attestation-link-in-commit-status-body.md
   - project/proposals/proposal-0002-ci-job-ops-contract-bupha-hypha-peregrin-seam.md
+  - project/proposals/proposal-0003-bupha-runner-port-is-load-bearing-keep-redundancy-is-queue-store-t-049-and-worktree-plumbing.md
   hashes:
-  - e9f311a05504d185a4ac87e46e8809255cbd13a7
-  - 68cc95afa6f25d5f3ad1f02bf4c533c8f18fd302
-  - f167c7b5d7ee0e6ebf9254ca431227f838feb83d
+  - 755d5c381dec69083229644dea28d9726193ad50
+  - b0fdbebf704bb7e4e8a655a6a7557f7b1e86e140
+  - 8c7baee152240fdf8a2726bac46a6119b4c6625e
   - 2369700a1a6e99c56d28b0d38e76ab053b37bd6d
   - c29950d6fd46cd166cee477e9f1bd125ac1b283a
   - 5d22a78ab0e5a33a834acb59d44080bc09bceefd
@@ -285,6 +287,7 @@ provenance:
   - 9db8abb85bfcc987d7d80d67cb1344a379a3dd4b
   - 8beb096a8090242c6736d3abba9882368c110ee2
   - b11dbe5775b6ba867733a191024ef3778500002b
+  - 063ca31c199506697495c2e40e908dace00ad912
   - 733c19131ea5e23fffe5be1ef735bee98e851741
   - 37d569fa6a63a22d2e230d909da8b3ca5c17a980
   - d3f12670f3e871b0c2a499668a4cd1e3bb3d7815
@@ -303,6 +306,7 @@ provenance:
   - 002b0049113c3dc274fc3c858e2ec68c97a8b63d
   - d7ce1cb6d95ae71a26ec4c6bdabdc5f318d8a21f
   - 64bb8eeec2c83135075727fb9aec32780e212939
-  commit_sha: 09033caa0fe4531fab316c8ce377f70bfaaedef5
-  generated_at: '1794369086'
+  - 47479681f7ca7db300bbd8f998bd0918a4db0010
+  commit_sha: c7c717d31078804377f809e965a5acde710694c3
+  generated_at: '1794371148'
   generator: kuda-template/0.1.2

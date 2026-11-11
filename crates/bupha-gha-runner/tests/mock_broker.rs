@@ -117,6 +117,10 @@ fn agent_runs_a_job_end_to_end_against_a_mock_broker() {
                         "data": {}
                     }]},
                     "environmentVariables": {"t": 2, "d": []},
+                    "jobOutputs": {"type": 2, "map": [
+                        {"Key": {"type": 0, "lit": "answer"},
+                         "Value": {"type": 3, "expr": "steps.s1.outputs.answer"}}
+                    ]},
                     "steps": [{
                         "type": "action",
                         "id": "s1",
@@ -125,7 +129,7 @@ fn agent_runs_a_job_end_to_end_against_a_mock_broker() {
                         "reference": {"type": "script"},
                         "inputs": {"type": 2, "map": [
                             {"Key": {"type": 0, "lit": "script"},
-                             "Value": {"type": 0, "lit": "echo mock-broker-ok"}},
+                             "Value": {"type": 0, "lit": "echo mock-broker-ok\necho \"answer=42\" >> \"$GITHUB_OUTPUT\""}},
                             {"Key": {"type": 0, "lit": "shell"},
                              "Value": {"type": 0, "lit": "sh"}}
                         ]}
@@ -182,4 +186,7 @@ fn agent_runs_a_job_end_to_end_against_a_mock_broker() {
     assert_eq!(report["planId"], "plan-mock");
     assert_eq!(report["jobId"], "job-mock-1");
     assert_eq!(report["stepResults"][0]["conclusion"], "succeeded");
+    // The evaluated job `outputs:` map rides completejob — this is
+    // the channel `needs.*.outputs` consumers read back.
+    assert_eq!(report["outputs"]["answer"]["value"], "42");
 }

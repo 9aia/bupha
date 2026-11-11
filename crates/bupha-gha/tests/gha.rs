@@ -610,3 +610,131 @@ jobs:
     assert!(run(&d, &sha).success());
     assert!(d.join("scoped.txt").exists());
 }
+
+#[test]
+fn step_outputs_flow_to_later_steps() {
+    // steps.<id>.outputs.<name> inside the same job — the $GITHUB_OUTPUT
+    // write of step `first` resolves in step `second`.
+    let (d, sha) = repo("stepouts");
+    workflow(
+        &d,
+        "ci.yml",
+        r#"
+on: push
+jobs:
+  t:
+    steps:
+      - id: first
+        run: echo "v=step-value" >> "$GITHUB_OUTPUT"
+      - run: echo "got=${{ steps.first.outputs.v }}" > s.txt
+      - env:
+          FROM_ENV: ${{ steps.first.outputs.v }}
+        run: echo "env=$FROM_ENV" > e.txt
+"#,
+    );
+    assert!(run(&d, &sha).success());
+    assert_eq!(
+        std::fs::read_to_string(d.join("s.txt")).unwrap(),
+        "got=step-value\n"
+    );
+    assert_eq!(
+        std::fs::read_to_string(d.join("e.txt")).unwrap(),
+        "env=step-value\n"
+    );
+}
+
+#[test]
+fn job_outputs_flow_through_needs() {
+    // The full T-069 chain: step output → job `outputs:` →
+    // `needs.<job>.outputs.*` in a dependent job's run script, env,
+    // and a forwarded job output.
+    let (d, sha) = repo("jobouts");
+    workflow(
+        &d,
+        "ci.yml",
+        r#"
+on: push
+jobs:
+  produce:
+    outputs:
+      sha_out: ${{ steps.gen.outputs.value }}
+      literal: static-value
+    steps:
+      - id: gen
+        run: |
+          echo "value=hello-outputs" >> "$GITHUB_OUTPUT"
+          echo "multi<<EOF" >> "$GITHUB_OUTPUT"
+          echo "line1" >> "$GITHUB_OUTPUT"
+          echo "line2" >> "$GITHUB_OUTPUT"
+          echo "EOF" >> "$GITHUB_OUTPUT"
+  middle:
+    needs: produce
+    outputs:
+      forwarded: ${{ needs.produce.outputs.sha_out }}
+    steps:
+      - run: echo "mid=${{ needs.produce.outputs.sha_out }}" > mid.txt
+  consume:
+    needs: [produce, middle]
+    steps:
+      - run: echo "got=${{ needs.produce.outputs.sha_out }} lit=${{ needs.produce.outputs.literal }} fwd=${{ needs.middle.outputs.forwarded }}" > got.txt
+      - env:
+          VIA_ENV: ${{ needs.produce.outputs.sha_out }}
+        run: echo "env=$VIA_ENV" > env.txt
+"#,
+    );
+    assert!(run(&d, &sha).success());
+    assert_eq!(
+        std::fs::read_to_string(d.join("mid.txt")).unwrap(),
+        "mid=hello-outputs\n"
+    );
+    assert_eq!(
+        std::fs::read_to_string(d.join("got.txt")).unwrap(),
+        "got=hello-outputs lit=static-value fwd=hello-outputs\n"
+    );
+    assert_eq!(
+        std::fs::read_to_string(d.join("env.txt")).unwrap(),
+        "env=hello-outputs\n"
+    );
+}
+
+#[test]
+fn undeclared_output_reads_empty() {
+    // Referencing an output nobody declared expands empty, like
+    // GitHub — not an error.
+    let (d, sha) = repo("outempty");
+    workflow(
+        &d,
+        "ci.yml",
+        r#"
+on: push
+jobs:
+  t:
+    steps:
+      - run: '[ -z "${{ steps.nothing.outputs.x }}" ] && echo ok > ok.txt'
+"#,
+    );
+    assert!(run(&d, &sha).success());
+    assert!(d.join("ok.txt").exists());
+}
+
+#[test]
+fn needs_result_and_step_meta_still_error() {
+    // Only `.outputs.<name>` refs defer — needs.*.result,
+    // steps.*.conclusion etc. remain hard errors.
+    let (d, sha) = repo("outbad");
+    workflow(
+        &d,
+        "ci.yml",
+        "on: push\njobs:\n  a:\n    steps:\n      - run: echo 1\n  b:\n    needs: a\n    steps:\n      - run: echo \"${{ needs.a.result }}\"\n",
+    );
+    let r = GhaRunner::new(GhaCfg { workflow: None });
+    let ctx = RunCtx {
+        workdir: &d,
+        token_env: "BUPHA_TOKEN",
+        key: "o/r",
+        sha: &sha,
+        git_ref: "refs/heads/main",
+    };
+    let err = r.spawn(&ctx).err().unwrap();
+    assert!(err.to_string().contains("outputs"), "{err}");
+}

@@ -366,7 +366,7 @@ impl Agent {
         }
         *self.current.lock().unwrap() = None;
 
-        reporter.finish(job_outcome);
+        reporter.finish(&outcome);
         eprintln!(
             "gha-runner: job {} finished: {}",
             job.job_id,

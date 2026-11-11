@@ -32,7 +32,11 @@
 //!   files, `success()`/`failure()`/`cancelled()`/`always()`
 //!   conditions, job lease renewal, cancellation messages.
 //! * results — `WorkflowStepsUpdate`, signed-URL log upload
-//!   (append-blob + metadata), `completejob` with the outcome.
+//!   (append-blob + metadata), `completejob` with the outcome and
+//!   the evaluated job `outputs:` map (the `jobOutputs` templates
+//!   the service sends are resolved against collected
+//!   `$GITHUB_OUTPUT` values for `steps.*`/`needs.*`/`env.*`/
+//!   `github.*` refs — the channel `needs.*.outputs` reads back).
 //!
 //! Explicitly out of scope (fail loudly, never silently): node/docker
 //! actions other than `actions/checkout`, container jobs, service

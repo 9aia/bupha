@@ -80,9 +80,7 @@ enum RawStep {
     },
     /// `uses: actions/checkout` — verification no-op (the worktree
     /// is already at the pushed sha).
-    Checkout {
-        id: Option<String>,
-    },
+    Checkout { id: Option<String> },
 }
 
 /// One runnable job after matrix fan-out, `${{ }}` interpolation and
@@ -1115,4 +1113,146 @@ fn matrix_combos(
         return Err(format!("{what}: matrix produced zero combinations"));
     }
     Ok(combos)
+}
+
+#[cfg(test)]
+mod tests {
+    #![allow(clippy::unwrap_used)]
+    use super::*;
+
+    fn eval<'a>(matrix: &'a [(String, String)], env: Option<&'a [(String, String)]>) -> Eval<'a> {
+        Eval {
+            ctx: GhaContext {
+                sha: "abc123",
+                git_ref: "refs/heads/main",
+                repository: "o/r",
+                event_name: "push",
+            },
+            matrix,
+            env,
+        }
+    }
+
+    /// Output refs defer verbatim — the renderer resolves them once
+    /// the producing steps have run.
+    #[test]
+    fn output_refs_defer_to_runtime() {
+        let e = eval(&[], None);
+        assert_eq!(
+            interpolate("pre-${{ needs.build.outputs.sha }}-post", &e, "t").unwrap(),
+            "pre-${{ needs.build.outputs.sha }}-post"
+        );
+        assert_eq!(
+            interpolate("${{ steps.gen.outputs.value }}", &e, "t").unwrap(),
+            "${{ steps.gen.outputs.value }}"
+        );
+        // Mixed with resolvable contexts in one template.
+        assert_eq!(
+            interpolate("${{ github.sha }}:${{ steps.s.outputs.x }}", &e, "t").unwrap(),
+            "abc123:${{ steps.s.outputs.x }}"
+        );
+    }
+
+    /// Everything else under needs./steps. still errors loudly.
+    #[test]
+    fn non_output_needs_and_steps_refs_error() {
+        let e = eval(&[], None);
+        for bad in [
+            "needs.build.result",
+            "needs.build.outputs",
+            "needs..outputs.x",
+            "steps.s1.conclusion",
+            "steps.s1.outputs",
+            "steps..outputs.x",
+            "steps.s1.outcome",
+        ] {
+            assert!(
+                interpolate(&format!("${{{{ {bad} }}}}"), &e, "t").is_err(),
+                "{bad} should error"
+            );
+        }
+    }
+
+    /// Job `outputs:` parses, interpolates env/github now, and keeps
+    /// step refs deferred.
+    #[test]
+    fn job_outputs_parse_and_expand() {
+        let text = r#"
+on: push
+jobs:
+  produce:
+    outputs:
+      sha_out: ${{ steps.gen.outputs.value }}
+      repo: ${{ github.repository }}
+    steps:
+      - id: gen
+        run: echo "value=x" >> "$GITHUB_OUTPUT"
+  consume:
+    needs: produce
+    steps:
+      - run: echo "${{ needs.produce.outputs.sha_out }}"
+"#;
+        let wf = parse_workflow("ci.yml", text).unwrap();
+        let jobs = wf
+            .expand(GhaContext {
+                sha: "s",
+                git_ref: "refs/heads/main",
+                repository: "o/r",
+                event_name: "push",
+            })
+            .unwrap();
+        assert_eq!(jobs.len(), 2);
+        assert_eq!(jobs[0].id, "produce");
+        assert_eq!(
+            jobs[0].outputs,
+            vec![
+                (
+                    "sha_out".to_string(),
+                    "${{ steps.gen.outputs.value }}".to_string()
+                ),
+                ("repo".to_string(), "o/r".to_string()),
+            ]
+        );
+        let Step::Run(r) = &jobs[0].steps[0] else {
+            panic!("expected run step");
+        };
+        assert_eq!(r.id.as_deref(), Some("gen"));
+        assert_eq!(
+            jobs[1].needs,
+            vec![0],
+            "consume needs produce (expanded index 0)"
+        );
+        let Step::Run(c) = &jobs[1].steps[0] else {
+            panic!("expected run step");
+        };
+        assert_eq!(c.script, "echo \"${{ needs.produce.outputs.sha_out }}\"");
+    }
+
+    /// Duplicate step ids and unsafe output names are parse errors.
+    #[test]
+    fn outputs_and_step_ids_are_validated() {
+        let dup = r#"
+on: push
+jobs:
+  t:
+    steps:
+      - id: a
+        run: echo 1
+      - id: a
+        run: echo 2
+"#;
+        assert!(parse_workflow("ci.yml", dup).is_err());
+
+        let bad_out = r#"
+on: push
+jobs:
+  t:
+    outputs:
+      "bad/name": ${{ steps.a.outputs.x }}
+    steps:
+      - id: a
+        run: echo x >> "$GITHUB_OUTPUT"
+"#;
+        assert!(parse_workflow("ci.yml", bad_out).is_err());
+    }
 }

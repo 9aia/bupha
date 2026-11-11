@@ -62,6 +62,11 @@ api:
   file: docs/how-to/sccache-backend.md
   line: 1
   module: docs
+- name: 'How-to: use bupha as a GitHub Action'
+  kind: record
+  file: docs/how-to/gha-action.md
+  line: 1
+  module: docs
 - name: 'How-to: watch multiple repos'
   kind: record
   file: docs/how-to/multi-repo.md
@@ -107,6 +112,7 @@ provenance:
   - docs/gen-crate-map.py
   - docs/getting-started.md
   - docs/how-to/distributed-runners.md
+  - docs/how-to/gha-action.md
   - docs/how-to/gha-runner.md
   - docs/how-to/multi-repo.md
   - docs/how-to/sccache-backend.md
@@ -123,14 +129,15 @@ provenance:
   - 7359b1f8396d488dab45743b48a392e5184d19f7
   - ae839684483df29b0863c7fa4d25626aef5ca633
   - 688acf9e6f5801f6cf68a1c04b7abd31cb0d8516
-  - 9c271dac9c7f98557c611b0ef68008f3a166dd34
+  - 36879667eb13e86f4d7a94964b3f1305cc9176ca
   - 0f854754e80779fb233575ac82f5496a4e0ece85
   - 4190ba42e1402d3b750ddb42650ef4322a0ffda5
   - 466de7770b21fe5c2f198bce2e9daa88e0ed5dd2
   - bbd5eb7406ea4575ec41ab702a951fc85f6c346d
   - 3bc3dd9320e4f8aca69087e82c83ca64008e72ca
   - 71520dc2f0e7081d138ccf39d70922134412b76c
-  - e8452e6901ab9910c725f1238b9a1054db5c290e
+  - bc3849837d67d211002a31697cc13f66e6af95af
+  - c9c7159017eecf81e09041f19bc8e55be33fecb9
   - 43dd78f52318ba95b094066e8494c76d5643e40c
   - 4ee7f2b425b4393d662c8e6d54a59b6272e22a6a
   - 4831a71b4f2cf04bff365e8b1297a035f629ab5c
@@ -142,6 +149,6 @@ provenance:
   - 313190de8cbe0ea6c2ed509bc263060c9b74df96
   - 3f7cdeb8d65bfb7571d14ff52e5669bf3c72905c
   - f62328d9d99bf41471cd2222883166ed09e12ac4
-  commit_sha: 09033caa0fe4531fab316c8ce377f70bfaaedef5
-  generated_at: '1794369086'
+  commit_sha: c7c717d31078804377f809e965a5acde710694c3
+  generated_at: '1794371148'
   generator: kuda-template/0.1.2

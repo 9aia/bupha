@@ -62,6 +62,12 @@ fn heredoc_delim(script: &str, base: &str) -> String {
 /// The shell GitHub would use for a `run` step: `shell:` maps to a
 /// known template, default is bash with GH's flags.
 fn shell_cmd(shell: Option<&str>) -> Result<&'static str, String> {
+    // A `shell:` value can't carry a `$(cat …)` lookup — it names
+    // the interpreter, not a word. Deferred output refs here are a
+    // hard error rather than a silently literal `${{ … }}`.
+    if shell.map(|s| s.contains("${{")).unwrap_or(false) {
+        return Err("`shell:` cannot contain `${{ }}` expressions".to_string());
+    }
     match shell {
         None | Some("bash") => Ok("bash --noprofile --norc -eo pipefail"),
         Some("sh") => Ok("sh -e"),
@@ -331,11 +337,7 @@ fn output_lookup(
 /// `run:` scripts (env exports, echo args, cd targets): literal
 /// stretches single-quoted, deferred output refs as quoted `$(cat …)`
 /// pieces — adjacent pieces concatenate into one word.
-fn shq_exprs(
-    tpl: &str,
-    ji: usize,
-    job_ji: &HashMap<String, usize>,
-) -> Result<String, String> {
+fn shq_exprs(tpl: &str, ji: usize, job_ji: &HashMap<String, usize>) -> Result<String, String> {
     let mut out = String::new();
     let mut rest = tpl;
     while let Some(start) = rest.find("${{") {
@@ -356,11 +358,7 @@ fn shq_exprs(
 /// it literal for the step's own shell, so the substitution lands
 /// exactly where GitHub's pre-compiled expression would have put
 /// the value (inside the user's own quoting).
-fn script_body(
-    script: &str,
-    ji: usize,
-    job_ji: &HashMap<String, usize>,
-) -> Result<String, String> {
+fn script_body(script: &str, ji: usize, job_ji: &HashMap<String, usize>) -> Result<String, String> {
     let mut out = String::with_capacity(script.len());
     let mut rest = script;
     while let Some(start) = rest.find("${{") {
@@ -442,11 +440,55 @@ bupha_absorb_path_file() {
 }
 
 bupha_absorb_output_file() {
-  local f="$1" label="$2"
+  # $1 = the step's GITHUB_OUTPUT file, $2 = expanded-job index,
+  # $3 = step key (its `id:` or an auto name). Each NAME=VALUE /
+  # NAME<<DELIM entry becomes $BUPHA_GHA_TMP/stepouts/<job>/<step>/<name>
+  # — the store `steps.<id>.outputs.*` and job `outputs:` read — and
+  # the raw lines still append to the run's outputs.txt log.
+  local f="$1" jikey="$2" sid="$3"
   [ -f "$f" ] || return 0
   if [ -s "$f" ]; then
-    { printf '# step %s\n' "$label"; cat "$f"; } >> "$BUPHA_GHA_OUTPUTS"
+    { printf '# step %s/%s\n' "$jikey" "$sid"; cat "$f"; } >> "$BUPHA_GHA_OUTPUTS"
   fi
+  local dir="$BUPHA_GHA_TMP/stepouts/$jikey/$sid"
+  local line name val delim l
+  while IFS= read -r line || [ -n "$line" ]; do
+    case "$line" in ''|'#'*) continue ;; esac
+    if [[ "$line" == *'<<'* && "$line" != *=* ]]; then
+      name=$(bupha_rtrim "${line%%'<<'*}")
+      delim=$(bupha_rtrim "$(bupha_ltrim "${line#*'<<'}")")
+      delim="${delim//\'/}"
+      delim="${delim//\"/}"
+      val=""
+      while IFS= read -r l; do
+        if [ "$l" = "$delim" ]; then break; fi
+        val+="$l"$'\n'
+      done
+    elif [[ "$line" == *=* ]]; then
+      name=$(bupha_rtrim "${line%%=*}")
+      val="${line#*=}"
+    else
+      continue
+    fi
+    name=$(bupha_ltrim "$name")
+    # Path-component safety: the expression charset never produces
+    # `/`, but a hand-written GITHUB_OUTPUT could — skip rather than
+    # write outside stepouts/.
+    case "$name" in
+      ''|.|..|*[!A-Za-z0-9_.-]*) continue ;;
+    esac
+    mkdir -p "$dir"
+    printf '%s' "$val" > "$dir/$name"
+  done < "$f"
   : > "$f"
+}
+
+# Record one evaluated job `outputs:` entry: $1 = job index,
+# $2 = output name, $3 = value. Consumers read it as
+# $BUPHA_GHA_TMP/jobouts/<job>/<name>.
+bupha_job_out() {
+  local d="$BUPHA_GHA_TMP/jobouts/$1"
+  mkdir -p "$d"
+  printf '%s' "$3" > "$d/$2"
 }
 "#;

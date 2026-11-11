@@ -257,6 +257,11 @@ pub struct CompleteJobRequest<'a> {
     /// `succeeded`, `failed` or `canceled` — the service's spellings.
     pub conclusion: &'a str,
     pub billing_owner_id: &'a str,
+    /// Evaluated job `outputs:` — the channel `needs.*.outputs`
+    /// consumers read back on later jobs. Omitted when empty (the
+    /// service treats absent and empty the same).
+    #[serde(skip_serializing_if = "BTreeMap::is_empty")]
+    pub outputs: &'a BTreeMap<String, Variable>,
     #[serde(rename = "stepResults")]
     pub step_results: &'a [StepResult],
 }
@@ -291,6 +296,13 @@ pub struct JobMessage {
     pub resources: Value,
     /// Job-level environment after data-decoding (may be empty).
     pub environment_variables: BTreeMap<String, String>,
+    /// The job's `outputs:` mapping — output name → value template
+    /// (`${{ steps.<id>.outputs.<name> }}` source form), token-
+    /// decoded like step fields. The runner evaluates these against
+    /// the collected step outputs and reports the result on
+    /// `completejob`; the service then fills `needs.*.outputs` for
+    /// dependent jobs.
+    pub job_outputs: BTreeMap<String, String>,
     pub locked_until: Value,
 }
 
@@ -333,6 +345,7 @@ impl JobMessage {
             variables: decode_variables(obj.get("variables")),
             resources: obj.get("resources").cloned().unwrap_or(Value::Null),
             environment_variables: decode_env_map(obj.get("environmentVariables")),
+            job_outputs: decode_job_outputs(obj.get("jobOutputs")),
             locked_until: obj.get("lockedUntil").cloned().unwrap_or(Value::Null),
         })
     }
@@ -401,6 +414,22 @@ fn str_field(obj: &serde_json::Map<String, Value>, key: &str) -> String {
         .and_then(Value::as_str)
         .unwrap_or_default()
         .to_string()
+}
+
+/// `jobOutputs` is a compiled template map — token-encoded like
+/// step fields, so expressions arrive as `${{ … }}` source text.
+/// Decoded values that aren't strings are dropped.
+fn decode_job_outputs(raw: Option<&Value>) -> BTreeMap<String, String> {
+    let decoded = crate::encoding::read_token(raw.cloned().unwrap_or(Value::Null));
+    let mut out = BTreeMap::new();
+    if let Value::Object(map) = decoded {
+        for (k, v) in map {
+            if let Value::String(s) = v {
+                out.insert(k, s);
+            }
+        }
+    }
+    out
 }
 
 fn decode_variables(raw: Option<&Value>) -> BTreeMap<String, Variable> {

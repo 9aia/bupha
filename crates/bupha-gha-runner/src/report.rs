@@ -6,7 +6,7 @@
 use std::collections::BTreeMap;
 
 use crate::client::Client;
-use crate::exec::Progress;
+use crate::exec::{JobOutcome, Progress};
 use crate::types::*;
 
 /// Live reporter: implements [`Progress`] so the executor can push
@@ -43,9 +43,11 @@ impl<'a> Reporter<'a> {
     }
 
     /// After the job: upload per-step + whole-job logs, push the
-    /// final step states, and report the outcome. Best-effort —
-    /// errors go to stderr, never propagate (the job already ran).
-    pub fn finish(&mut self, outcome: Outcome) {
+    /// final step states, and report the outcome — including the
+    /// evaluated `outputs:` map, which is how `needs.*.outputs`
+    /// reaches dependent jobs. Best-effort — errors go to stderr,
+    /// never propagate (the job already ran).
+    pub fn finish(&mut self, outcome: &JobOutcome) {
         if let Some(url) = self.results_url.clone() {
             self.harvest_logs();
             for (step_id, log) in self.step_logs.clone() {
@@ -64,13 +66,29 @@ impl<'a> Reporter<'a> {
             }
         }
         self.push_steps();
-        if let Err(e) = self
-            .client
-            .complete_job(self.offer, self.job, outcome, &self.steps)
-        {
+        let outputs: BTreeMap<String, Variable> = outcome
+            .job_outputs
+            .iter()
+            .map(|(k, v)| {
+                (
+                    k.clone(),
+                    Variable {
+                        value: v.clone(),
+                        is_secret: false,
+                    },
+                )
+            })
+            .collect();
+        if let Err(e) = self.client.complete_job(
+            self.offer,
+            self.job,
+            outcome.conclusion,
+            &outputs,
+            &self.steps,
+        ) {
             eprintln!(
                 "gha-runner: cannot report job outcome ({:?}): {e}",
-                outcome.name()
+                outcome.conclusion.name()
             );
         }
     }
