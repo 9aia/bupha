@@ -13,3 +13,4 @@
 - T-058 peregrin ci-ingress: campaign listener normalizes forge webhook → ci.enqueue (generic forge-trigger → ci-job bridge) · pri:high · owner:devin · created:2026-11-11 · links:T-055,P-002,ADR-0007
 - T-063 ci-ingress normalization → POST /api/entities (T-058): forge webhook → bupha Trigger Push → ci-job indexDoc create; depends on T-061 plane registration · pri:high · created:2026-11-11 · links:T-049,T-058,P-002
 - T-064 wire tamias-driver-bupha worker as provider.services\[] entry + \[worker] node/node\_token\_env in fleet.toml (P-002/T-062 follow-up) · owner:devin · created:2026-11-11
+- T-059 cuora secrets migration ops + docs sweep — move live BUPHA\_\* values into cuora://bupha/\* (cuora put), drop ~/.config/bupha/env + env\_file once verified, update docs/ site pages (docs branch) that still describe env→keyring→file as canonical · created:2026-11-11 · links:T-056
