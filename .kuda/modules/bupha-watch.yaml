@@ -5,72 +5,72 @@ api:
 - name: ChildSlot
   kind: type
   file: crates/bupha-watch/src/lib.rs
-  line: 236
+  line: 247
   module: bupha-watch
 - name: FailWait
   kind: type
   file: crates/bupha-watch/src/lib.rs
-  line: 144
+  line: 150
   module: bupha-watch
 - name: FailWaitRunner
   kind: type
   file: crates/bupha-watch/src/lib.rs
-  line: 142
+  line: 148
   module: bupha-watch
 - name: Ingest
   kind: type
   file: crates/bupha-watch/src/lib.rs
-  line: 438
+  line: 449
   module: bupha-watch
 - name: JobEnd
   kind: type
   file: crates/bupha-watch/src/lib.rs
-  line: 259
+  line: 270
   module: bupha-watch
 - name: Poll
   kind: type
   file: crates/bupha-watch/src/lib.rs
-  line: 326
+  line: 337
   module: bupha-watch
 - name: Shared
   kind: type
   file: crates/bupha-watch/src/lib.rs
-  line: 410
+  line: 421
   module: bupha-watch
 - name: Worker
   kind: type
   file: crates/bupha-watch/src/lib.rs
-  line: 239
+  line: 250
   module: bupha-watch
 - name: build_attest
   kind: function
   file: crates/bupha-watch/src/lib.rs
-  line: 603
+  line: 614
   module: bupha-watch
 - name: build_audit
   kind: function
   file: crates/bupha-watch/src/lib.rs
-  line: 633
+  line: 644
   module: bupha-watch
 - name: build_runner
   kind: function
   file: crates/bupha-watch/src/lib.rs
-  line: 63
+  line: 65
   module: bupha-watch
 - name: build_runners
   kind: function
   file: crates/bupha-watch/src/lib.rs
-  line: 675
+  line: 686
   module: bupha-watch
 - name: build_sinks
   kind: function
   file: crates/bupha-watch/src/lib.rs
-  line: 648
+  line: 659
   module: bupha-watch
 - name: build_telemetry
   kind: function
   file: crates/bupha-watch/src/lib.rs
-  line: 584
+  line: 595
   module: bupha-watch
 - name: bupha-watch
   kind: module
@@ -80,87 +80,87 @@ api:
 - name: cfg_dir
   kind: function
   file: crates/bupha-watch/src/lib.rs
-  line: 178
+  line: 184
   module: bupha-watch
 - name: drop
   kind: function
   file: crates/bupha-watch/src/lib.rs
-  line: 173
+  line: 179
   module: bupha-watch
 - name: ingest_push
   kind: function
   file: crates/bupha-watch/src/lib.rs
-  line: 458
+  line: 469
   module: bupha-watch
 - name: kill
   kind: function
   file: crates/bupha-watch/src/lib.rs
-  line: 164
+  line: 170
   module: bupha-watch
 - name: name
   kind: function
   file: crates/bupha-watch/src/lib.rs
-  line: 148
+  line: 154
   module: bupha-watch
 - name: persist_queue
   kind: function
   file: crates/bupha-watch/src/lib.rs
-  line: 422
+  line: 433
   module: bupha-watch
 - name: renew_ticks
   kind: function
   file: crates/bupha-watch/src/lib.rs
-  line: 249
+  line: 260
   module: bupha-watch
 - name: run_job
   kind: function
   file: crates/bupha-watch/src/lib.rs
-  line: 266
+  line: 277
   module: bupha-watch
 - name: secret
   kind: function
   file: crates/bupha-watch/src/lib.rs
-  line: 199
+  line: 209
   module: bupha-watch
 - name: secret_names
   kind: function
   file: crates/bupha-watch/src/lib.rs
-  line: 225
+  line: 236
   module: bupha-watch
 - name: settle_run
   kind: function
   file: crates/bupha-watch/src/lib.rs
-  line: 696
+  line: 707
   module: bupha-watch
 - name: spawn
   kind: function
   file: crates/bupha-watch/src/lib.rs
-  line: 151
+  line: 157
   module: bupha-watch
 - name: try_wait
   kind: function
   file: crates/bupha-watch/src/lib.rs
-  line: 158
+  line: 164
   module: bupha-watch
 - name: wait
   kind: function
   file: crates/bupha-watch/src/lib.rs
-  line: 161
+  line: 167
   module: bupha-watch
 - name: watch
   kind: function
   file: crates/bupha-watch/src/lib.rs
-  line: 737
+  line: 748
   module: bupha-watch
 - name: webhook_secret_names
   kind: function
   file: crates/bupha-watch/src/lib.rs
-  line: 214
+  line: 225
   module: bupha-watch
 - name: worker_id
   kind: function
   file: crates/bupha-watch/src/lib.rs
-  line: 685
+  line: 696
   module: bupha-watch
 deps:
 - bupha-access
@@ -189,6 +189,7 @@ deps:
 - bupha-queue-redis
 - bupha-runner
 - bupha-secret
+- bupha-secret-cuora
 - bupha-shell
 - bupha-ssh
 - bupha-status
@@ -224,6 +225,7 @@ deps:
 - bupha-queue-redb
 - bupha-runner
 - bupha-secret
+- bupha-secret-cuora
 - bupha-shell
 - bupha-status
 - bupha-telemetry
@@ -241,8 +243,8 @@ provenance:
   - crates/bupha-watch/Cargo.toml
   - crates/bupha-watch/src/lib.rs
   hashes:
-  - 8cb3b54c35b78522f163e0104edfb89c73a0a0e3
-  - 351d5471a05342c4735a30ffb413d09c46c9984c
-  commit_sha: 199ab36e089df214b5b92b522f341b93377e8909
-  generated_at: '1794356288'
+  - 37b7a8c64fba8fb992cb55a4f20dcc67a65a35ae
+  - 5895066160b1373ed3c4eec387efe2bb6460033f
+  commit_sha: c93e2d87139265a3ead13096f2843b5569ef0cf7
+  generated_at: '1794357506'
   generator: kuda-template/0.1.2

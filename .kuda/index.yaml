@@ -34,6 +34,7 @@ modules:
 - bupha-queue-redis
 - bupha-runner
 - bupha-secret
+- bupha-secret-cuora
 - bupha-service
 - bupha-shell
 - bupha-ssh
@@ -52,8 +53,8 @@ modules:
 commands:
 - cargo check
 - cargo test --workspace
-tree_digest: 7bf6ef0e5f197d141b7cd0a70595d030dc877d58
-files_total: 204
+tree_digest: cbfd3dda429f33bb816dc709a734f1c238022dee
+files_total: 207
 provenance:
   files:
   - Cargo.toml
@@ -90,6 +91,7 @@ provenance:
   - crates/bupha-queue-redis/Cargo.toml
   - crates/bupha-runner/Cargo.toml
   - crates/bupha-secret/Cargo.toml
+  - crates/bupha-secret-cuora/Cargo.toml
   - crates/bupha-service/Cargo.toml
   - crates/bupha-shell/Cargo.toml
   - crates/bupha-ssh/Cargo.toml
@@ -105,7 +107,7 @@ provenance:
   - crates/bupha-webhook/Cargo.toml
   - modules/dagger/dagger/pyproject.toml
   hashes:
-  - 027dd92ed14acdb73338f54277fad3f4862bf723
+  - 2bf7afa5355bbe6dbc66bcd138a8de1003fa4b94
   - d36621e3f943dbd9d7f3722acc08142b7c8cba50
   - faa9d3e3b2e30ebed8aecf8da83c4683f33024c8
   - d3b36ada9a99ed7e36e96e47a7beb1f5bf3fe348
@@ -116,7 +118,7 @@ provenance:
   - d46021a5cc4e28ee9eed1d7ca349dd222a5d8306
   - 1e8b72c77e68157b0bceb70cbb4e3ea5c6b4868e
   - 1ce58c0ddf98f4e695cbd71d19541ac6dc19034a
-  - 00a396278233e3eabb344f56b77ece0c02207b83
+  - a44efaadc5db36f28ce62827f661ed3ad71fbecb
   - c6468e2b1603699af53234b1fa10040bc21f84b9
   - b1c0f26fe1cf3ded47e08fa677971c448489f47a
   - 90556965fe774768db42f410ce6430ce8dd30f55
@@ -126,7 +128,7 @@ provenance:
   - 2949c06c8e71ef5da170506ce9cd8dfbb7312ce3
   - 6ebc856617d9589fc7fa9c6363696d2e543e5f0b
   - 65cf007ad2f3d1e6517719d11469bc6e97b7326d
-  - f29aa72be25f9c9a3a17d9af454f9c87411252a9
+  - 0dc0f2638e8d3800b6167637ea4cd9bd5c4bfc48
   - 130920aec2d9f32d6f8c6d16b35230ba63ddc04f
   - 15329f105dd770552bcd21afd4cba3ac3467cded
   - 9a8bdeb02a9e8896e60f63d221a83f115d8a5980
@@ -139,6 +141,7 @@ provenance:
   - b2900c0993ad3c36bc7533acbf5bbf92e0f91265
   - 4fefe465ba6004fda1b42f7c3358502f9fdbbc1f
   - f77f1a255f54b328d61466935ed9b8845a61e3bc
+  - ab7b9515941ad8a9faf58f7ef5dbc93e453387b1
   - 43f0f610caa55dcf9977c38f161c802aebf66e06
   - 6dce52587f4d41a91e9f578dddf2fec383a2f3a2
   - 29f876e5787cf84ffefed9baa070cee30bda8972
@@ -150,9 +153,9 @@ provenance:
   - 5049aec6b8565aa211bac21b52c0f690c0509d63
   - 5e76ec1737eaa365ccdeadbb3706a163e1a97792
   - 634f96eb54a20f970a3488c4356ca2c51ffefa70
-  - 8cb3b54c35b78522f163e0104edfb89c73a0a0e3
+  - 37b7a8c64fba8fb992cb55a4f20dcc67a65a35ae
   - cd8e10b771c3960ae45a2b6f7705fa9f1cdc6344
   - a787b6af9e98fd8cae6ece92467308d34e49bbce
-  commit_sha: 2f6a69fdfa390c713e11cb1bcefed0ebb5824dba
-  generated_at: '1794356385'
+  commit_sha: c93e2d87139265a3ead13096f2843b5569ef0cf7
+  generated_at: '1794357506'
   generator: kuda/0.1.0

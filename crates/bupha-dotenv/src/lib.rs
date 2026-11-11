@@ -1,6 +1,13 @@
 //! Dotenv impl of `Secrets` — a `KEY=VAL` file, written 0600.
 //! Last store in the chain: headless boxes without a desktop
 //! keyring land here.
+//!
+//! **LEGACY (T-056).** The canonical secrets story is the cuora
+//! broker — `bupha-secret-cuora` resolves `cuora://bupha/<NAME>`
+//! through the `cuora` CLI ahead of this store in the chain. This
+//! impl (and the `~/.config/bupha/env` file the provider unit's
+//! `env_file` loads) stays as a fallback for hosts without cuora;
+//! plaintext-at-rest files are exactly what cuora exists to retire.
 
 use bupha_secret::Secrets;
 use std::io::{self, Write};

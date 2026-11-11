@@ -1134,9 +1134,8 @@ fn config_kind_rejections() {
             .output()
             .unwrap();
         assert_eq!(out.status.code(), Some(101));
-        assert!(
-            String::from_utf8_lossy(&out.stderr).contains("required (env, keyring or env file)")
-        );
+        assert!(String::from_utf8_lossy(&out.stderr)
+            .contains("required (env, cuora, keyring or env file)"));
     }
 
     let cfg = mk("").replacen("kind = \"github\"\nlisten", "kind = \"forge-x\"\nlisten", 1);

@@ -15,42 +15,42 @@ api:
 - name: FLEET_FILE
   kind: const
   file: crates/bupha-driver/src/ops.rs
-  line: 48
+  line: 49
   module: bupha-driver
 - name: Flags
   kind: type
   file: crates/bupha-driver/src/ops.rs
-  line: 63
+  line: 64
   module: bupha-driver
 - name: HOOK_PATH
   kind: const
   file: crates/bupha-driver/src/ops.rs
-  line: 55
+  line: 56
   module: bupha-driver
 - name: Hook
   kind: type
   file: crates/bupha-driver/src/ops.rs
-  line: 187
+  line: 188
   module: bupha-driver
 - name: HookTarget
   kind: type
   file: crates/bupha-driver/src/ops.rs
-  line: 464
+  line: 468
   module: bupha-driver
 - name: Ingress
   kind: type
   file: crates/bupha-driver/src/ops.rs
-  line: 175
+  line: 176
   module: bupha-driver
 - name: MANIFEST
   kind: const
   file: crates/bupha-driver/src/ops.rs
-  line: 1030
+  line: 1034
   module: bupha-driver
 - name: MANIFEST_NAMES
   kind: const
   file: crates/bupha-driver/src/ops.rs
-  line: 51
+  line: 52
   module: bupha-driver
 - name: MIN_CONFIG
   kind: const
@@ -60,12 +60,12 @@ api:
 - name: MIN_FLEET
   kind: const
   file: crates/bupha-driver/src/ops.rs
-  line: 1017
+  line: 1021
   module: bupha-driver
 - name: Manifest
   kind: type
   file: crates/bupha-driver/src/ops.rs
-  line: 145
+  line: 146
   module: bupha-driver
 - name: Plane
   kind: type
@@ -75,7 +75,7 @@ api:
 - name: Provider
   kind: type
   file: crates/bupha-driver/src/ops.rs
-  line: 155
+  line: 156
   module: bupha-driver
 - name: QUEUE_COLS
   kind: const
@@ -95,7 +95,7 @@ api:
 - name: Service
   kind: type
   file: crates/bupha-driver/src/ops.rs
-  line: 165
+  line: 166
   module: bupha-driver
 - name: UNIT_COLS
   kind: const
@@ -125,7 +125,7 @@ api:
 - name: bundle
   kind: function
   file: crates/bupha-driver/src/ops.rs
-  line: 1053
+  line: 1057
   module: bupha-driver
 - name: bundle
   kind: function
@@ -135,7 +135,7 @@ api:
 - name: bundle_config_path
   kind: function
   file: crates/bupha-driver/src/ops.rs
-  line: 277
+  line: 278
   module: bupha-driver
 - name: bupha-driver
   kind: module
@@ -170,17 +170,17 @@ api:
 - name: config_dir
   kind: function
   file: crates/bupha-driver/src/ops.rs
-  line: 260
+  line: 261
   module: bupha-driver
 - name: config_schema
   kind: function
   file: crates/bupha-driver/src/ops.rs
-  line: 806
+  line: 810
   module: bupha-driver
 - name: config_schema_is_draft_2020_12
   kind: function
   file: crates/bupha-driver/src/ops.rs
-  line: 1302
+  line: 1306
   module: bupha-driver
 - name: config_schema_prints_json_schema
   kind: function
@@ -213,6 +213,7 @@ deps:
 - bupha-queue
 - bupha-queue-redb
 - bupha-secret
+- bupha-secret-cuora
 - bupha-systemd
 - bupha-watch
 - pavo-driver-kit
@@ -257,16 +258,16 @@ provenance:
   - crates/bupha-driver/tests/serve.rs
   - crates/bupha-driver/tests/verbs.rs
   hashes:
-  - f29aa72be25f9c9a3a17d9af454f9c87411252a9
+  - 0dc0f2638e8d3800b6167637ea4cd9bd5c4bfc48
   - 292745af60a6bc6c289a0f5c534dbfea4fd7bdc7
   - 729a2b50eef77741e1cf05d371925fa545a2bd47
-  - 2996f053b9cf01098a1e55cdd9dba458896e485a
-  - 3db080dc72848eff0571dd12404ceb8ce74076c0
+  - 5afa254396d3ec9bf021073e7039c8a8e1098fc3
+  - eb2af25fe26e2fcbf7a392d1c1fe87a8cd414180
   - 5a924260e98929cd9f196b60c255bb99e4a4d567
   - 39c206d85acc5c3cc6a666f4b3547eb240197a0a
   - 25b42183bc613660d87be46684ed38bd1c2e4b6f
   - eef1d35d7cd370db4426fbaca5c7f364f73510a3
   - 8ce5e7c4945b8e101e682ddb26e6e76e470af9f7
-  commit_sha: 199ab36e089df214b5b92b522f341b93377e8909
-  generated_at: '1794356288'
+  commit_sha: c93e2d87139265a3ead13096f2843b5569ef0cf7
+  generated_at: '1794357506'
   generator: kuda-template/0.1.2

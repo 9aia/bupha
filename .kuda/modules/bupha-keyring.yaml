@@ -5,7 +5,7 @@ api:
 - name: KeyringSecrets
   kind: type
   file: crates/bupha-keyring/src/lib.rs
-  line: 9
+  line: 15
   module: bupha-keyring
 - name: LOCK
   kind: const
@@ -30,7 +30,7 @@ api:
 - name: default
   kind: function
   file: crates/bupha-keyring/src/lib.rs
-  line: 15
+  line: 21
   module: bupha-keyring
 - name: dir
   kind: function
@@ -45,7 +45,7 @@ api:
 - name: get
   kind: function
   file: crates/bupha-keyring/src/lib.rs
-  line: 23
+  line: 29
   module: bupha-keyring
 - name: lookup_hit_miss_and_empty
   kind: function
@@ -60,7 +60,7 @@ api:
 - name: set
   kind: function
   file: crates/bupha-keyring/src/lib.rs
-  line: 33
+  line: 39
   module: bupha-keyring
 - name: store_writes_stdin_and_failure_errors
   kind: function
@@ -87,8 +87,8 @@ provenance:
   - crates/bupha-keyring/tests/secrets.rs
   hashes:
   - 295c5fb2896a8e7a89dfabd77f0d1e85f22377b3
-  - 452536b62db04879d4827361d15a6f011be6dc57
+  - ae36d34af5d57f355a3db3d5915845750a4cd971
   - bd83477f3f83f99553e18c615d9a08d887295fa2
-  commit_sha: 804e98a4c3563e04363c85c0957e703865ff33bb
-  generated_at: '1794198342'
+  commit_sha: c93e2d87139265a3ead13096f2843b5569ef0cf7
+  generated_at: '1794357506'
   generator: kuda-template/0.1.2

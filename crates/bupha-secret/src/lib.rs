@@ -1,5 +1,7 @@
 //! Secret port — named-secret resolution from a backing store.
-//! Impls: `bupha-keyring` (OS keyring), `bupha-dotenv` (KEY=VAL file).
+//! Canonical impl: `bupha-secret-cuora` (T-056 — the org's cuora
+//! broker, `cuora://bupha/<NAME>`). LEGACY impls kept as fallbacks:
+//! `bupha-keyring` (OS keyring), `bupha-dotenv` (KEY=VAL file).
 
 /// A secret store. `get` returns the value or None (missing is not
 /// an error — the caller tries the next store in the chain).

@@ -1,6 +1,12 @@
 //! Keyring impl of `Secrets` — shells out to `secret-tool`
 //! (libsecret). Headless boxes without dbus simply miss every
 //! lookup and the caller falls through to the file store.
+//!
+//! **LEGACY (T-056).** The canonical secrets story is the cuora
+//! broker — `bupha-secret-cuora` resolves `cuora://bupha/<NAME>`
+//! through the `cuora` CLI ahead of this store in the chain. This
+//! impl stays as a fallback for hosts without cuora; new secrets
+//! belong in cuora, not the keyring.
 
 use bupha_secret::Secrets;
 use std::io::Write;

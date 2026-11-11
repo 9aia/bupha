@@ -108,6 +108,7 @@ dependencies = [
  "bupha-queue-redis",
  "bupha-runner",
  "bupha-secret",
+ "bupha-secret-cuora",
  "bupha-service",
  "bupha-systemd",
  "bupha-telemetry",
@@ -273,6 +274,7 @@ dependencies = [
  "bupha-queue",
  "bupha-queue-redb",
  "bupha-secret",
+ "bupha-secret-cuora",
  "bupha-systemd",
  "bupha-watch",
  "pavo-driver-kit",
@@ -385,6 +387,13 @@ name = "bupha-secret"
 version = "0.1.0"
 
 [[package]]
+name = "bupha-secret-cuora"
+version = "0.1.0"
+dependencies = [
+ "bupha-secret",
+]
+
+[[package]]
 name = "bupha-service"
 version = "0.1.0"
 
@@ -484,6 +493,7 @@ dependencies = [
  "bupha-queue-redis",
  "bupha-runner",
  "bupha-secret",
+ "bupha-secret-cuora",
  "bupha-shell",
  "bupha-ssh",
  "bupha-status",

@@ -34,8 +34,9 @@
 //! delete.
 //!
 //! Secrets are env-var NAMES only (`secret_env`, `token_env`) —
-//! values resolve env → OS keyring → `~/.config/bupha/env`, the same
-//! chain `bupha` itself uses, and are never printed or written.
+//! values resolve env → cuora → OS keyring → `~/.config/bupha/env`
+//! (cuora canonical per T-056), the same chain `bupha` itself uses,
+//! and are never printed or written.
 
 use std::path::{Path, PathBuf};
 
@@ -441,20 +442,23 @@ fn env_file() -> PathBuf {
     config_dir().join("env")
 }
 
-/// Secret resolution chain, mirroring `bupha`'s own `secret()`:
-/// env var → OS keyring → `~/.config/bupha/env`. Values are used
+/// Secret resolution chain, mirroring `bupha`'s own `secret()`
+/// (T-056 — cuora canonical): env var → cuora broker
+/// (`cuora://bupha/<NAME>` via the `cuora` CLI) → OS keyring →
+/// `~/.config/bupha/env` (both LEGACY fallbacks). Values are used
 /// in-flight only — never printed, never written to configs.
 fn secret(name: &str) -> Option<String> {
     use bupha_secret::Secrets;
     std::env::var(name)
         .ok()
         .filter(|v| !v.is_empty())
+        .or_else(|| bupha_secret_cuora::CuoraSecrets::default().get(name))
         .or_else(|| bupha_keyring::KeyringSecrets::default().get(name))
         .or_else(|| bupha_dotenv::DotenvSecrets { path: env_file() }.get(name))
 }
 
 fn missing_secret(name: &str) -> String {
-    format!("{name} required (env, keyring or ~/.config/bupha/env)")
+    format!("{name} required (env, cuora, keyring or ~/.config/bupha/env)")
 }
 
 // --- hooks -------------------------------------------------------------------
@@ -814,7 +818,7 @@ pub fn config_schema() -> Result<String, String> {
             "status_repo": {"type": "string"},
             "runner": {"type": "object", "description": "Per-repo runner override — a full [runner] table."},
             "queue": {"type": "string", "enum": ["latest", "all"], "default": "latest"},
-            "secret_env": {"type": "string", "description": "Webhook-secret env NAME for this repo (resolved env → keyring → ~/.config/bupha/env). Never a value."},
+            "secret_env": {"type": "string", "description": "Webhook-secret env NAME for this repo (resolved env → cuora → keyring → ~/.config/bupha/env (cuora canonical, T-056)). Never a value."},
             "runs_on": {"type": "array", "items": {"type": "string"}, "description": "Fleet labels a claiming worker must carry."},
             "retry": {"type": "integer", "minimum": 0, "maximum": 3},
             "sturn": {"type": "boolean", "description": "Opt into the [trigger.sturn] WAL poller."},

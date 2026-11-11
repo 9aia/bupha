@@ -41,8 +41,9 @@
 //! - `hooks register|uninstall [--dry-run] [--api-base <url>]
 //!   [--token-env <NAME>]` — upsert/remove the GitHub webhooks
 //!   `provider.ingress[].hooks[]` declare, via `bupha_github`'s REST
-//!   path. Secrets resolve by NAME (env → keyring →
-//!   `~/.config/bupha/env`); values are never printed.
+//!   path. Secrets resolve by NAME (env → cuora → keyring →
+//!   `~/.config/bupha/env`; cuora canonical per T-056); values are
+//!   never printed.
 //!   **Standalone mode** (ADR-0007): registers hooks at the bupha
 //!   listener — production ingress is peregrin campaigns, so use
 //!   this only for deployments with no peregrin.

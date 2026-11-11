@@ -28,9 +28,15 @@ fn stub(dir: &Path, name: &str, body: &str) {
     }
 }
 
+/// `BUPHA_CUORA_BIN` pinned to a guaranteed-missing path unless a
+/// test overrides it — keeps the cuora leg of the secret chain
+/// hermetic (a real `cuora` on PATH would read/write the dev
+/// vault). Tests exercising the cuora path pass their own stub.
+const NO_CUORA: &str = "/nonexistent-bupha-test-cuora";
+
 fn bupha(args: &[&str], envs: &[(&str, String)]) -> Output {
     let mut c = Command::new(env!("CARGO_BIN_EXE_bupha"));
-    c.args(args);
+    c.args(args).env("BUPHA_CUORA_BIN", NO_CUORA);
     for (k, v) in envs {
         c.env(k, v);
     }
@@ -39,7 +45,9 @@ fn bupha(args: &[&str], envs: &[(&str, String)]) -> Output {
 
 fn bupha_in(args: &[&str], cwd: &Path, envs: &[(&str, String)]) -> Output {
     let mut c = Command::new(env!("CARGO_BIN_EXE_bupha"));
-    c.args(args).current_dir(cwd);
+    c.args(args)
+        .current_dir(cwd)
+        .env("BUPHA_CUORA_BIN", NO_CUORA);
     for (k, v) in envs {
         c.env(k, v);
     }
@@ -650,6 +658,38 @@ fn deploy_env_variants() {
         cwd.join(".config/bupha/env").exists(),
         "fell back to ./.config"
     );
+}
+
+#[test]
+fn deploy_env_cuora_store() {
+    // T-056: cuora is the canonical store — `deploy env` migrates
+    // env values through `cuora put` (BUPHA_CUORA_BIN stub) before
+    // ever touching the keyring.
+    let t = tmp("dcua");
+    let cuora = t.join("cuora");
+    std::fs::write(&cuora, "#!/bin/bash\ncat > \"$STUB_OUT\"\nexit 0\n").unwrap();
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::set_permissions(&cuora, std::fs::Permissions::from_mode(0o755)).unwrap();
+    }
+    let put_log = t.join("put.log");
+    let home = t.join("home");
+    let cfgp = cfg(&t, "");
+    let o = bupha(
+        &["deploy", "env", "--config", cfgp.to_str().unwrap()],
+        &[
+            ("HOME", home.display().to_string()),
+            ("PATH", stubbed_path(&t)),
+            ("BUPHA_CUORA_BIN", cuora.display().to_string()),
+            ("STUB_OUT", put_log.display().to_string()),
+            ("BUPHA_WEBHOOK_SECRET", "sekrit".into()),
+        ],
+    );
+    assert!(o.status.success(), "{}", out_ok(&o));
+    assert!(out_ok(&o).contains("stored in cuora"));
+    // The value went to cuora's stdin — never argv, never the env file.
+    assert_eq!(std::fs::read_to_string(&put_log).unwrap(), "sekrit");
 }
 
 #[test]

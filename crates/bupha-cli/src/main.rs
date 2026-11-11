@@ -18,6 +18,7 @@ use bupha_queue_lease::TryClaim;
 use bupha_queue_redb::RedbQueueStore;
 use bupha_runner::RunCtx;
 use bupha_secret::Secrets;
+use bupha_secret_cuora::CuoraSecrets;
 use bupha_service::Service;
 use bupha_systemd as deploy;
 use bupha_telemetry::RunEvent;
@@ -335,7 +336,7 @@ fn cmd_worker(cfg: Arc<Config>) {
 fn cmd_agent(cfg: Arc<Config>) {
     let secret = bupha_watch::secret(&cfg.agent.token_env).unwrap_or_else(|| {
         panic!(
-            "{} required (env, keyring or env file)",
+            "{} required (env, cuora, keyring or env file)",
             cfg.agent.token_env
         )
     });
@@ -662,7 +663,7 @@ fn cmd_doctor(cfg: &Config, json: bool) {
                 .any(|l| l.starts_with(&format!("{name}=")) && l.len() > name.len() + 1)
     };
     // Global secret plus every per-repo override — each name must
-    // resolve (env, keyring, or the env file).
+    // resolve (env, cuora, keyring, or the env file).
     for name in bupha_watch::webhook_secret_names(cfg) {
         check("webhook secret", has(name), name, &mut out);
     }
@@ -957,7 +958,8 @@ fn cmd_deploy(cfg: &Config, sub: &DeploySub, cli_config: Option<String>) {
             let names: Vec<&str> = names.iter().map(String::as_str).collect();
             match deploy::write_env_skeleton(&cfg_dir, &names) {
                 Ok(p) => println!(
-                    "env file: {} (fill the secrets — or set them via secret-tool)",
+                    "env file: {} (fill the secrets — canonical store is cuora: \
+                     printf '%s' \"$VALUE\" | cuora put cuora://bupha/<NAME>)",
                     p.display()
                 ),
                 Err(e) => {
@@ -966,10 +968,16 @@ fn cmd_deploy(cfg: &Config, sub: &DeploySub, cli_config: Option<String>) {
                 }
             }
             // If values are already in the environment, migrate them
-            // into the OS keyring (resolution order: env > keyring > file).
+            // into the canonical store — cuora (T-056) — falling back
+            // to the OS keyring on hosts without it
+            // (resolution order: env > cuora > keyring > file).
             for name in names {
                 if let Ok(v) = std::env::var(name) {
                     if v.is_empty() {
+                        continue;
+                    }
+                    if CuoraSecrets::default().set(name, &v).is_ok() {
+                        println!("{name}: stored in cuora (cuora://bupha/{name})");
                         continue;
                     }
                     let ok = KeyringSecrets::default().set(name, &v).is_ok();
@@ -978,7 +986,7 @@ fn cmd_deploy(cfg: &Config, sub: &DeploySub, cli_config: Option<String>) {
                         if ok {
                             "stored in keyring"
                         } else {
-                            "keyring unavailable (env file is the fallback)"
+                            "cuora/keyring unavailable (env file is the fallback)"
                         }
                     );
                 }
@@ -1046,7 +1054,7 @@ fn cmd_deploy(cfg: &Config, sub: &DeploySub, cli_config: Option<String>) {
                     // repo's secret_env when set, else the global.
                     let env = r.secret_env.as_deref().unwrap_or(&cfg.trigger.secret_env);
                     let wh_secret = bupha_watch::secret(env).unwrap_or_else(|| {
-                        eprintln!("{env} required (env, keyring or env file)");
+                        eprintln!("{env} required (env, cuora, keyring or env file)");
                         std::process::exit(1);
                     });
                     let msg = (GitHubAdmin {

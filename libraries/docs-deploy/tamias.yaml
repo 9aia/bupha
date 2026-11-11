@@ -48,6 +48,11 @@ provider:
       # minimal PATH.
       exec: >-
         ~/.local/share/tamias/drivers/tamias-driver-bupha host --config ~/.config/bupha/bundles/docs-deploy.toml
+      # LEGACY fallback (T-056): secrets resolve env → cuora
+      # (`cuora://bupha/<NAME>`, canonical) → keyring → this file.
+      # Once every secret lives in cuora this line can go; the
+      # watcher still needs `cuora` on PATH (systemd's minimal
+      # PATH — same caveat as the driver binary above).
       env_file: "~/.config/bupha/env"
       workdir: "~"
       restart: on-failure

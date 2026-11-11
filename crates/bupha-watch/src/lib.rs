@@ -14,7 +14,8 @@
 //!
 //! Config arrives already loaded (`bupha_core::Config`); secret
 //! *values* resolve through the same chain the CLI uses — env →
-//! OS keyring → `~/.config/bupha/env` — by NAME only.
+//! cuora → OS keyring → `~/.config/bupha/env` (cuora canonical per
+//! T-056) — by NAME only.
 //!
 //! **Standalone/dev mode** (ADR-0007): the trigger-listener path
 //! (`trigger.kind` forge webhook, `[trigger.sturn]` poller) is the
@@ -48,6 +49,7 @@ use bupha_queue_lease::{LocalClaim, TryClaim};
 use bupha_queue_redb::RedbQueueStore;
 use bupha_runner::{RunCtx, RunHandle, Runner};
 use bupha_secret::Secrets;
+use bupha_secret_cuora::CuoraSecrets;
 use bupha_shell::ShellRunner;
 use bupha_status::StatusSink;
 use bupha_telemetry::{NoopTelemetry, RunEvent, Telemetry};
@@ -121,8 +123,12 @@ pub fn build_runner(rc: &bupha_core::RunnerCfg, cache: &bupha_core::CacheCfg) ->
                 eprintln!("runner config (http): {e}");
                 std::process::exit(2)
             });
-            let s = secret(&hc.secret_env)
-                .unwrap_or_else(|| panic!("{} required (env, keyring or env file)", hc.secret_env));
+            let s = secret(&hc.secret_env).unwrap_or_else(|| {
+                panic!(
+                    "{} required (env, cuora, keyring or env file)",
+                    hc.secret_env
+                )
+            });
             Arc::new(bupha_http::HttpRunner::new(hc, s))
         }
 
@@ -194,12 +200,17 @@ pub fn cfg_dir() -> PathBuf {
     base.join("bupha")
 }
 
-/// Secret resolution chain: env var → keyring → env file.
-/// Headless boxes without dbus/keyring fall through to the file.
+/// Secret resolution chain (T-056 — cuora is canonical):
+/// process env (explicit operator override, e.g. `cuora run` or a
+/// unit `EnvironmentFile`) → **cuora broker** (`cuora://bupha/<NAME>`
+/// via the `cuora` CLI) → OS keyring → `~/.config/bupha/env`.
+/// The last two legs are LEGACY fallbacks for hosts without cuora;
+/// a missing `cuora` binary or denied op is a miss, never an error.
 pub fn secret(name: &str) -> Option<String> {
     std::env::var(name)
         .ok()
         .filter(|v| !v.is_empty())
+        .or_else(|| CuoraSecrets::default().get(name))
         .or_else(|| KeyringSecrets::default().get(name))
         .or_else(|| {
             DotenvSecrets {
@@ -762,7 +773,7 @@ pub fn watch(cfg: Arc<Config>) {
     let (wh_secret, secrets) = if trigger.is_some() {
         let wh = secret(&cfg.trigger.secret_env).unwrap_or_else(|| {
             panic!(
-                "{} required (env, keyring or env file)",
+                "{} required (env, cuora, keyring or env file)",
                 cfg.trigger.secret_env
             )
         });
@@ -770,7 +781,7 @@ pub fn watch(cfg: Arc<Config>) {
         for r in watched.iter() {
             if let Some(name) = &r.secret_env {
                 let v = secret(name)
-                    .unwrap_or_else(|| panic!("{name} required (env, keyring or env file)"));
+                    .unwrap_or_else(|| panic!("{name} required (env, cuora, keyring or env file)"));
                 map.insert(r.name.clone(), v);
             }
         }

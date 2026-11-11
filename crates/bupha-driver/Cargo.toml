@@ -26,6 +26,7 @@ bupha-github.workspace = true
 # `host` verb — the watcher engine, shared verbatim with `bupha watch`.
 bupha-watch.workspace = true
 bupha-secret.workspace = true
+bupha-secret-cuora.workspace = true
 bupha-keyring.workspace = true
 bupha-dotenv.workspace = true
 serde = { version = "1", features = ["derive"] }

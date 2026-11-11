@@ -8,16 +8,23 @@
 # `--config` load needs is here; only the two manifest-owned
 # fields are absent.
 #
-# Secrets are env-var NAMES only — values resolve env → OS keyring →
-# ~/.config/bupha/env (the unit's EnvironmentFile). Never put a
-# value in this file.
+# Secrets are env-var NAMES only — never put a value in this file.
+# Canonical resolution (T-056): process env → cuora broker
+# (`cuora://bupha/<NAME>` via the `cuora` CLI — sealed, audited) →
+# OS keyring → ~/.config/bupha/env (both LEGACY fallbacks for hosts
+# without cuora). Migrate a value with
+#   printf '%s' "$VALUE" | cuora put cuora://bupha/<NAME>
+# then drop it from the env file; the env file + `env_file:` in
+# tamias.yaml stay only as the no-cuora fallback.
 #
 # v1 scope: one concrete repo (9aia/bupha — its docs branch carries
 # scripts/deploy-docs.sh) plus a commented template. The full
 # org-repo import is a separate workstream; uncomment + fill the
 # template block per repo when it lands. Every repo needs a
-# `hooks[]` entry in tamias.yaml AND a `BUPHA_WH_<OWNER>_<REPO>`
-# secret value in ~/.config/bupha/env before its pushes verify.
+# `hooks[]` entry in tamias.yaml AND a `cuora://bupha/BUPHA_WH_<OWNER>_<REPO>`
+# secret in the cuora vault (canonical, T-056) — or, on hosts without
+# cuora, a `BUPHA_WH_<OWNER>_<REPO>` value in ~/.config/bupha/env —
+# before its pushes verify.
 
 # --- fleet -------------------------------------------------------------------
 
