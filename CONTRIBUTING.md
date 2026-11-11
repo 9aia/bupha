@@ -11,16 +11,19 @@ config); ports are crates: `bupha-runner`, `bupha-tunnel`,
 `bupha-trigger`, `bupha-status`; impls: `bupha-github` (trigger +
 sink), `bupha-shell`/`bupha-dagger`/`bupha-ssh` (runners), `bupha-cloudflared`
 (tunnel), `bupha-systemd` (install helpers — `Service` port pending);
-`bupha` (cli) is the composition root and dev/debug harness —
-deployed fleets run the engine via `tamias-driver-bupha host`
-(ADR-0006: no user-facing `bupha` CLI). `modules/dagger/` is the
-shared pipeline module (Python SDK).
+`bupha` (package `bupha`, crate dir `bupha-cli`) is the engine
+lib — no `[[bin]]`: the `bupha` command ships as the tamias pack
+in `libraries/bupha` (`bins[]` shim → `tamias-driver-bupha cli` →
+`bupha::run_from`, T-012); deployed fleets run the engine via
+`tamias-driver-bupha host`/`worker` (ADR-0006). `modules/dagger/`
+is the shared pipeline module (Python SDK).
 
 ## Rules of thumb
 
 - New runner/tunnel/trigger = a new impl crate, not a core change.
 - `cargo build --workspace` and `cargo test --workspace` must stay green
-  (unit tests + the e2e in `crates/bupha-cli/tests/` — no docker needed).
+  (unit tests + the engine e2e in `crates/bupha-driver/tests/` —
+  no docker needed; they spawn `tamias-driver-bupha run`).
 - Coverage: `scripts/coverage.sh` — cargo-llvm-cov HTML report in
   `target/llvm-cov/html`; pass `--fail-under-lines 100` to gate.
 - Keep the binary dependency-light and sync; no async runtime.
@@ -31,8 +34,8 @@ shared pipeline module (Python SDK).
 
 Seed once with the dev CLI's `bupha deploy release` (publishes workspace crates,
 tags `{repo}-v{ver}`). Afterwards `scripts/release.sh` runs on each
-`main` push via bupha's own dogfood loop — bump, publish, tag, dist
-binaries. See `docs/explanation/release-model.md`.
+`main` push via bupha's own dogfood loop — bump, publish, tag.
+See `docs/explanation/release-model.md`.
 
 ## Docs
 

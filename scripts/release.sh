@@ -122,8 +122,11 @@ git commit -aqm "release: bump crate versions"
 for t in $tags; do git tag "$t"; done
 git push -q origin HEAD:main --tags
 
-# binaries: local dist build (host arch) → GitHub Release.
-# Other arches join when the remote-runner pair lands (TODO).
+# binaries: none — the `bupha` binary is retired (T-012); the
+# command ships as the libraries/bupha tamias pack's bins[] shim
+# over tamias-driver-bupha, staged by scripts/pack.sh. dist is
+# kept configured (installers = []) for when a shipped binary
+# returns.
 if command -v dist >/dev/null && command -v gh >/dev/null; then
     dist build --output-format=json > /tmp/dist-manifest.json 2>&1 || true
     gh release create "bupha-v${ver}" --generate-notes         --title "bupha ${ver}" 2>/dev/null || true

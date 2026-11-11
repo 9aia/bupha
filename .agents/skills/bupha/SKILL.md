@@ -65,10 +65,14 @@ on `PATH` or `$TAMIAS_HOME/drivers/`): `install`/`deploy`/
 (`manifest`/`capabilities`/`serve`). Orchestration is peregrin
 campaigns, not bupha verbs.
 
-## Dev harness — `bupha` binary (not the product surface)
+## Dev harness — `bupha` command (not the product surface)
 
-Build/run from this repo: `cargo install --git
-https://github.com/9aia/bupha bupha` (or `cargo run -p bupha --`).
+The `bupha` command is the `libraries/bupha` tamias pack's `bins[]`
+shim — `scripts/pack.sh` stages `tamias-driver-bupha`, then
+`tamias install --allow-drivers ./libraries/bupha` deploys the
+shim (`tamias-driver-bupha cli` → `bupha::run_from`, T-012 — no
+cargo-installed binary). From a driver build alone,
+`cargo run -p bupha-driver -- run <argv>` is the same engine.
 `watch`/`deploy service` need Linux + systemd; `run`, `runs`,
 `explain`, `log`, `service`, `import`, `doctor` work wherever git
 does. Everything below this section is dev-only — reproduce,

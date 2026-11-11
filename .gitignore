@@ -9,3 +9,6 @@ docs/
 
 # myco worktree mount point (created by `myco init`)
 project/
+
+# tamias pack driver payload — build artifact (`scripts/pack.sh`)
+/libraries/bupha/drivers/

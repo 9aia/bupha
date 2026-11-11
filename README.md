@@ -93,12 +93,16 @@ and status sinks never see the difference.
 Platform: **Linux + systemd** — provider units need systemd, the
 shell runner needs bash. macOS/Windows are unsupported for now.
 
-bupha ships as tamias `type: bupha` bundles — see
-[libraries/](libraries/) (`ci-gate`, `docs-deploy` are the shipped
-examples):
+bupha ships as tamias packages — see [libraries/](libraries/):
+`ci-gate`/`docs-deploy` are the `type: bupha` fleet bundles, and
+`bupha` is the command pack (`bins[]` shim → `tamias-driver-bupha
+cli` → the engine lib — there is no cargo-installed `bupha`
+binary, T-012):
 
 ```sh
-tamias install <ref>            # fetch + unpack the bundle payload
+scripts/pack.sh                                  # stage the driver payload
+tamias install --allow-drivers ./libraries/bupha   # deploys `bupha`
+tamias install <ref>            # fetch + unpack a fleet bundle payload
 tamias deploy <bundle>          # render the provider unit + write
                                 # ~/.config/bupha/bundles/<name>.toml
 tamias driver exec <bundle> hooks register   # upsert GitHub hooks
@@ -167,9 +171,10 @@ bundle's hooks or a peregrin campaign for that.
 
 ## Dev harness (not the product surface)
 
-The `bupha` binary remains for local debugging and one-shot
-migration — `bupha run` reproduces a red run in the watched `dir`,
-`bupha doctor` checks a box against a config,
+The `bupha` command (the `libraries/bupha` pack's `bins[]` shim —
+`tamias-driver-bupha cli` → `bupha::run_from`) remains for local
+debugging and one-shot migration — `bupha run` reproduces a red run
+in the watched `dir`, `bupha doctor` checks a box against a config,
 `bupha import <campaign.yaml>` translates a peregrin campaign into
 a `bupha.yaml`, `bupha watch` runs the engine standalone (no
 tamias, no peregrin — the ADR-0007 fallback ingress). Full verb

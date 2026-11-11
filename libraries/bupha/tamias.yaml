@@ -1,0 +1,41 @@
+# bupha — the CI engine as a tamias package (T-012: the replication
+# of the cuora P-023 pilot — a real product CLI riding `bins[]`, no
+# hand-rolled binary).
+#
+# `scripts/pack.sh` release-builds `tamias-driver-bupha` into
+# `drivers/bin/<host-triple>/` (gitignored — a build artifact) and
+# this manifest ships it as a bundled driver. `tamias install
+# ./libraries/bupha` (or the packed `.tgz` / a registry ref)
+# registers the driver into `<tamias-home>/drivers/` and deploys the
+# `bupha` bin below by default.
+#
+# The `bupha` shim is a generated script → `tamias bin exec` →
+# `tamias-driver-bupha cli --dir <pkg> --name bupha <argv>` → the
+# bupha engine lib's `run_from` in-process with inherited stdio.
+# That is full argv parity with the retired `bupha` binary:
+# `--help`, the `--config` global before/after the verb, and the
+# unbounded `watch`/`agent`/`gha-runner` surfaces all stream
+# end-to-end, plus every bounded verb (`doctor`/`runs`/`log`/
+# `explain`/`deploy`/`destroy`/`service`/`import`/`init`/`run`).
+# No `tools/bin/` payload bin: the surfaces are verbs, not second
+# binaries — they ride the same shim.
+#
+# NOTE: this pack is the *command* surface. The fleet bundles
+# (`libraries/ci-gate`, `libraries/docs-deploy`, `type: bupha`)
+# are a different thing — content packs the same driver consumes
+# via its tamias content-type verbs (`install`/`deploy`/`host`/
+# `worker`/`hooks`/`health`/`status`/`logs`). Installing this pack
+# does not deploy a fleet.
+name: bupha
+version: "0.1.0"
+type: files
+description: >-
+  Headless CI engine — push webhook → queue → detached worktree →
+  per-repo pipeline → commit status. Every verb rides the
+  tamias-driver-bupha engine passthrough; `watch`/`agent`/
+  `gha-runner` are the streaming surfaces.
+
+bins:
+  - name: bupha
+    shim: cli
+    driver: bupha

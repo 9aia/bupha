@@ -113,4 +113,6 @@ dual-surface binary: the pavo verbs (`manifest`/`capabilities`/
 `serve`) serve bupha's read-only CI views, while the tamias verbs
 above serve this bundle. tamias finds it on `PATH` or in
 `$TAMIAS_HOME/drivers/` — `cargo build --release -p bupha-driver`
-produces `target/release/tamias-driver-bupha`.
+produces `target/release/tamias-driver-bupha` (or install the
+`libraries/bupha` pack, which ships it as a bundled driver and
+deploys the `bupha` `bins[]` command shim — T-012).
