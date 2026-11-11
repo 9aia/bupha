@@ -1,0 +1,270 @@
+name: bupha-gha-runner
+path: crates/bupha-gha-runner/Cargo.toml
+purpose: 'GitHub Actions self-hosted runner — speaks the actions/runner broker protocol so repos can runs-on: [self-hosted, bupha]'
+api:
+- name: AcquireJobRequest
+  kind: type
+  file: crates/bupha-gha-runner/src/types.rs
+  line: 238
+  module: bupha-gha-runner
+- name: Agent
+  kind: type
+  file: crates/bupha-gha-runner/src/agent.rs
+  line: 39
+  module: bupha-gha-runner
+- name: Agent
+  kind: type
+  file: crates/bupha-gha-runner/src/types.rs
+  line: 92
+  module: bupha-gha-runner
+- name: AgentAuthorization
+  kind: type
+  file: crates/bupha-gha-runner/src/types.rs
+  line: 102
+  module: bupha-gha-runner
+- name: AgentReference
+  kind: type
+  file: crates/bupha-gha-runner/src/types.rs
+  line: 115
+  module: bupha-gha-runner
+- name: AgentRequest
+  kind: type
+  file: crates/bupha-gha-runner/src/types.rs
+  line: 58
+  module: bupha-gha-runner
+- name: Auth
+  kind: type
+  file: crates/bupha-gha-runner/src/client.rs
+  line: 22
+  module: bupha-gha-runner
+- name: BrokerAgent
+  kind: type
+  file: crates/bupha-gha-runner/src/types.rs
+  line: 151
+  module: bupha-gha-runner
+- name: BrokerSessionRequest
+  kind: type
+  file: crates/bupha-gha-runner/src/types.rs
+  line: 143
+  module: bupha-gha-runner
+- name: Client
+  kind: type
+  file: crates/bupha-gha-runner/src/client.rs
+  line: 29
+  module: bupha-gha-runner
+- name: CompleteJobRequest
+  kind: type
+  file: crates/bupha-gha-runner/src/types.rs
+  line: 254
+  module: bupha-gha-runner
+- name: CondParser
+  kind: type
+  file: crates/bupha-gha-runner/src/exec.rs
+  line: 547
+  module: bupha-gha-runner
+- name: Config
+  kind: type
+  file: crates/bupha-gha-runner/src/lib.rs
+  line: 70
+  module: bupha-gha-runner
+- name: Credentials
+  kind: type
+  file: crates/bupha-gha-runner/src/register.rs
+  line: 20
+  module: bupha-gha-runner
+- name: CryptoError
+  kind: type
+  file: crates/bupha-gha-runner/src/crypto.rs
+  line: 19
+  module: bupha-gha-runner
+- name: Decryptor
+  kind: type
+  file: crates/bupha-gha-runner/src/crypto.rs
+  line: 121
+  module: bupha-gha-runner
+- name: EncryptionKey
+  kind: type
+  file: crates/bupha-gha-runner/src/types.rs
+  line: 132
+  module: bupha-gha-runner
+- name: Encryptor
+  kind: type
+  file: crates/bupha-gha-runner/src/crypto.rs
+  line: 206
+  module: bupha-gha-runner
+- name: Envelope
+  kind: type
+  file: crates/bupha-gha-runner/src/types.rs
+  line: 167
+  module: bupha-gha-runner
+- name: Error
+  kind: type
+  file: crates/bupha-gha-runner/src/lib.rs
+  line: 246
+  module: bupha-gha-runner
+- name: JOB
+  kind: const
+  file: crates/bupha-gha-runner/src/types.rs
+  line: 727
+  module: bupha-gha-runner
+- name: JobEnv
+  kind: type
+  file: crates/bupha-gha-runner/src/exec.rs
+  line: 133
+  module: bupha-gha-runner
+- name: JobMessage
+  kind: type
+  file: crates/bupha-gha-runner/src/types.rs
+  line: 273
+  module: bupha-gha-runner
+- name: JobOffer
+  kind: type
+  file: crates/bupha-gha-runner/src/types.rs
+  line: 224
+  module: bupha-gha-runner
+- name: JobOutcome
+  kind: type
+  file: crates/bupha-gha-runner/src/exec.rs
+  line: 72
+  module: bupha-gha-runner
+- name: JobRunner
+  kind: type
+  file: crates/bupha-gha-runner/src/exec.rs
+  line: 43
+  module: bupha-gha-runner
+- name: JobStatus
+  kind: type
+  file: crates/bupha-gha-runner/src/exec.rs
+  line: 270
+  module: bupha-gha-runner
+- name: Label
+  kind: type
+  file: crates/bupha-gha-runner/src/types.rs
+  line: 71
+  module: bupha-gha-runner
+- name: LogsMetadata
+  kind: type
+  file: crates/bupha-gha-runner/src/types.rs
+  line: 696
+  module: bupha-gha-runner
+- name: Migration
+  kind: type
+  file: crates/bupha-gha-runner/src/types.rs
+  line: 194
+  module: bupha-gha-runner
+- name: Minted
+  kind: type
+  file: crates/bupha-gha-runner/src/client.rs
+  line: 338
+  module: bupha-gha-runner
+- name: NullProgress
+  kind: type
+  file: crates/bupha-gha-runner/src/exec.rs
+  line: 35
+  module: bupha-gha-runner
+- name: Outcome
+  kind: type
+  file: crates/bupha-gha-runner/src/types.rs
+  line: 627
+  module: bupha-gha-runner
+- name: PipelineStep
+  kind: type
+  file: crates/bupha-gha-runner/src/types.rs
+  line: 538
+  module: bupha-gha-runner
+- name: Pool
+  kind: type
+  file: crates/bupha-gha-runner/src/types.rs
+  line: 46
+  module: bupha-gha-runner
+- name: Pools
+  kind: type
+  file: crates/bupha-gha-runner/src/types.rs
+  line: 39
+  module: bupha-gha-runner
+- name: Progress
+  kind: trait
+  file: crates/bupha-gha-runner/src/exec.rs
+  line: 23
+  module: bupha-gha-runner
+- name: PublicKey
+  kind: type
+  file: crates/bupha-gha-runner/src/types.rs
+  line: 86
+  module: bupha-gha-runner
+- name: PublicKeyRequest
+  kind: type
+  file: crates/bupha-gha-runner/src/types.rs
+  line: 80
+  module: bupha-gha-runner
+- name: RENEW_EVERY
+  kind: const
+  file: crates/bupha-gha-runner/src/agent.rs
+  line: 31
+  module: bupha-gha-runner
+api_omitted: 228
+deps:
+- aes
+- base64
+- bupha-core
+- cbc
+- chrono
+- cipher
+- rand
+- rsa
+- serde
+- serde_json
+- serde_path_to_error
+- sha1
+- sha2
+- ureq
+- uuid
+- tiny_http
+- serde
+- serde_json
+- rsa
+- sha2
+- agent
+- client
+- register
+- types
+notes: ''
+verify:
+- crates/bupha-gha-runner/Cargo.toml
+- crates/bupha-gha-runner/src/lib.rs
+- crates/bupha-gha-runner/src/agent.rs
+- crates/bupha-gha-runner/src/client.rs
+- crates/bupha-gha-runner/src/crypto.rs
+- crates/bupha-gha-runner/src/encoding.rs
+- crates/bupha-gha-runner/src/exec.rs
+- crates/bupha-gha-runner/src/register.rs
+- crates/bupha-gha-runner/src/report.rs
+- crates/bupha-gha-runner/src/types.rs
+provenance:
+  files:
+  - crates/bupha-gha-runner/Cargo.toml
+  - crates/bupha-gha-runner/src/agent.rs
+  - crates/bupha-gha-runner/src/client.rs
+  - crates/bupha-gha-runner/src/crypto.rs
+  - crates/bupha-gha-runner/src/encoding.rs
+  - crates/bupha-gha-runner/src/exec.rs
+  - crates/bupha-gha-runner/src/lib.rs
+  - crates/bupha-gha-runner/src/register.rs
+  - crates/bupha-gha-runner/src/report.rs
+  - crates/bupha-gha-runner/src/types.rs
+  - crates/bupha-gha-runner/tests/mock_broker.rs
+  hashes:
+  - 50261b87b50271a25bf73fe4037897a0d4e97a89
+  - 3b2fdc28deee7b1ad9f27d8c7490eadd0c0ce141
+  - 350091cd6a5a1c3c8fa75b72449a26791beaad40
+  - 42b374f93a3d78ca99476fc2a6ce15a4f06f6720
+  - 31e16b6e60c8cc6ffcaa9f181b1694af69c73bc4
+  - 672bfb5d83ce55b7b835ceaf728f5603841dca75
+  - 047bd6fb616d3eff9e84120ee488123e84a1b344
+  - ecca29b03e418a8d5cca8532aeb0b3f35130c29f
+  - 3453801d4b4ed450dc8097436f7eb96ba90b7b90
+  - 4a09634f41c600288b6f36c01e07a9153db89ddc
+  - 3d706d707729fc85228a89b572924f1d01cac3c4
+  commit_sha: 2cdcafba23bea29a53d4f6ccdba8bedb8c5daaad
+  generated_at: '1794362816'
+  generator: kuda-template/0.1.2

@@ -23,6 +23,7 @@ modules:
 - bupha-dotenv
 - bupha-driver
 - bupha-gha
+- bupha-gha-runner
 - bupha-git
 - bupha-github
 - bupha-history
@@ -54,8 +55,8 @@ modules:
 commands:
 - cargo check
 - cargo test --workspace
-tree_digest: faf0a2fa8b310bb982b0dd5feb0b505d3979d64c
-files_total: 214
+tree_digest: 6d46d0d35a949533d4cef64f04bca1d7b831ba46
+files_total: 227
 provenance:
   files:
   - Cargo.toml
@@ -81,6 +82,7 @@ provenance:
   - crates/bupha-dotenv/Cargo.toml
   - crates/bupha-driver/Cargo.toml
   - crates/bupha-gha/Cargo.toml
+  - crates/bupha-gha-runner/Cargo.toml
   - crates/bupha-git/Cargo.toml
   - crates/bupha-github/Cargo.toml
   - crates/bupha-history/Cargo.toml
@@ -109,7 +111,7 @@ provenance:
   - crates/bupha-webhook/Cargo.toml
   - modules/dagger/dagger/pyproject.toml
   hashes:
-  - b4898a2d3ec8162ac7659d904772fc4422f30c8c
+  - dadff1032c75c419f526c842804a0a8372c66147
   - 031dff432bd443e7c67a1bb94ca0483c668a3c0b
   - faa9d3e3b2e30ebed8aecf8da83c4683f33024c8
   - d3b36ada9a99ed7e36e96e47a7beb1f5bf3fe348
@@ -132,6 +134,7 @@ provenance:
   - 65cf007ad2f3d1e6517719d11469bc6e97b7326d
   - 0dc0f2638e8d3800b6167637ea4cd9bd5c4bfc48
   - 130920aec2d9f32d6f8c6d16b35230ba63ddc04f
+  - 50261b87b50271a25bf73fe4037897a0d4e97a89
   - 15329f105dd770552bcd21afd4cba3ac3467cded
   - 9a8bdeb02a9e8896e60f63d221a83f115d8a5980
   - bd3c49c8020bf9cc448326c4af9bd71df1191fb1
@@ -156,9 +159,9 @@ provenance:
   - 5049aec6b8565aa211bac21b52c0f690c0509d63
   - 5e76ec1737eaa365ccdeadbb3706a163e1a97792
   - 634f96eb54a20f970a3488c4356ca2c51ffefa70
-  - 37b7a8c64fba8fb992cb55a4f20dcc67a65a35ae
+  - 270f8579f5af4f0503dd7c1bac00746506fa12b5
   - cd8e10b771c3960ae45a2b6f7705fa9f1cdc6344
   - a787b6af9e98fd8cae6ece92467308d34e49bbce
-  commit_sha: 1eed9cdd7160e0306c52075af01ef165ceb9f79b
-  generated_at: '1794358904'
+  commit_sha: 2cdcafba23bea29a53d4f6ccdba8bedb8c5daaad
+  generated_at: '1794362823'
   generator: kuda/0.1.0
