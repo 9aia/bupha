@@ -9,4 +9,4 @@
 
 ## open
 
-- [ ] T-069 gha: wire step outputs to consumers — gha-runner JobOutcome.outputs is stored but unsent (no completejob field; ${{ }} exprs are service-precompiled); bupha-gha dialect collects $GITHUB\_OUTPUT raw to $BUPHA\_GHA\_TMP/outputs.txt. Both need a path to needs.\*.outputs / steps.\*.outputs (T-048 follow-up) · created:2026-11-11
+- [ ] T-069 gha: wire step outputs to consumers — gha-runner JobOutcome.outputs is stored but unsent (no completejob field; ${{ }} exprs are service-precompiled); bupha-gha dialect collects $GITHUB\_OUTPUT raw to $BUPHA\_GHA\_TMP/outputs.txt. Both need a path to needs.\*.outputs / steps.\*.outputs (T-048 follow-up) · status:in-progress · created:2026-11-11
