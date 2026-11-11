@@ -42,6 +42,16 @@ dir = "~/GitHub/9aia/workspace/repos/myco"
 branch = "refs/heads/main"
 secret_env = "BUPHA_WH_9AIA_MYCO"
 
+# PL-015 spike target — disposable private repo exercising the
+# ci-job → agent-fix → merge loop. Runs ./ci.sh (root convention)
+# on push + pull_request.
+[[repo]]
+name = "luisfuturist/pr-heal-spike"
+dir = "~/GitHub/luisfuturist/pr-heal-spike"
+branch = "refs/heads/main"
+secret_env = "BUPHA_WH_LUISFUTURIST_PR_HEAL_SPIKE"
+events = ["push", "pull_request"]
+
 # --- pipeline ------------------------------------------------------------------
 
 # The zero-container path: `bash -c <cmd>` in a detached worktree.
