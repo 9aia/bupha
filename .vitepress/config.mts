@@ -54,6 +54,7 @@ export default defineConfig({
           { text: "Architecture", link: "/explanation/architecture" },
           { text: "Release model", link: "/explanation/release-model" },
           { text: "Crate scope audit", link: "/explanation/crate-scope-audit" },
+          { text: "gha dogfood parity", link: "/explanation/gha-dogfood" },
           { text: "vs hosted CI", link: "/comparison" },
         ],
       },
