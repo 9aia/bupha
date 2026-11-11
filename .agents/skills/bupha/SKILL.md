@@ -2,7 +2,7 @@
 name: bupha
 description: CI integration for tamias — GitHub webhooks (push + pull_request) → queue → run/report on a Linux box; GHA workflows as a runner dialect; fleets packaged as tamias `type: bupha` bundles. Trigger when checking gate status (ci/bupha, docs/deploy), reproducing a red run, wiring a repo's pipeline (bupha.yaml, ci.sh, .github/workflows), importing a peregrin campaign (bupha import), or managing watcher systemd units / tamias bundles.
 metadata:
-  version: "1.2.0"
+  version: "1.3.0"
 ---
 
 # bupha — CI on your own box
@@ -60,10 +60,16 @@ tamias uninstall <bundle>            # unit + deployed config
 
 Driver verbs live in `crates/bupha-driver` (`tamias-driver-bupha`,
 on `PATH` or `$TAMIAS_HOME/drivers/`): `install`/`deploy`/
-`uninstall`/`host`/`hooks register|uninstall`/`health`/`status`/
-`logs`/`config-schema`, plus the pavo view verbs
-(`manifest`/`capabilities`/`serve`). Orchestration is peregrin
-campaigns, not bupha verbs.
+`uninstall`/`host`/`worker`/`hooks register|uninstall`/`health`/
+`status`/`logs`/`config-schema`, plus the pavo view verbs
+(`manifest`/`capabilities`/`serve`) and the engine ops surface —
+`ops` answers the manifest of 20 bounded `cli.<verb>` wire queries
+derived from the clap tree, `run <argv>` re-execs the engine,
+`cli <argv>` is the `bins[]` shim passthrough, `mcp` (feature) the
+same ops as MCP tools. `watch`/`agent`/`gha-runner` are unbounded
+**surfaces**, never ops; `service logs --follow` streams via the
+surface while the bounded `service.logs` op drops `follow`.
+Orchestration is peregrin campaigns, not bupha verbs.
 
 ## Dev harness — `bupha` command (not the product surface)
 
@@ -73,9 +79,10 @@ shim — `scripts/pack.sh` stages `tamias-driver-bupha`, then
 shim (`tamias-driver-bupha cli` → `bupha::run_from`, T-012 — no
 cargo-installed binary). From a driver build alone,
 `cargo run -p bupha-driver -- run <argv>` is the same engine.
-`watch`/`deploy service` need Linux + systemd; `run`, `runs`,
-`explain`, `log`, `service`, `import`, `doctor` work wherever git
-does. Everything below this section is dev-only — reproduce,
+`watch`/`deploy service`/`service` need Linux + systemd;
+`run`, `runs`, `explain`, `log`, `import`, `doctor`, `init`,
+`agent`, `gha-runner` work wherever git/the deps do. Everything
+below this section is dev-only — reproduce,
 diagnose, migrate; the deployed path is the tamias section above.
 
 ## Discovery — prefer asking the CLI over reading docs
@@ -102,13 +109,13 @@ permanent).
 | Why did/didn't a sha run | `bupha explain <sha>` (history → queue → leftover worktree) |
 | Raw run history | `bupha log [-n N]` — last N lines of `history.jsonl` |
 | Reproduce the gate locally | `bupha run [function]` — first `[[repo]]`'s runner, in its `dir` |
-| Watcher unit (standalone) | `bupha service status` · `logs [-f]` · `restart` · `enable`/`disable` (`--worker` targets `bupha-worker.service`) — bundles use `tamias service`/`tamias driver exec … logs` instead |
+| Watcher unit (standalone) | `bupha service status` · `logs [-f]` · `restart` · `enable`/`disable` — bundles use `tamias service`/`tamias driver exec … logs` instead |
 | Config sanity | `bupha doctor [--json]` |
 | Wire a repo standalone | `bupha init` (stub `ci.sh` / dagger module) · `deploy env` · `deploy service` · `deploy webhook` · `deploy check` |
 | Migrate a peregrin campaign | `bupha import <campaign.yaml> [--out f] [--dir owner/name=path] [--pull-request]` |
 | Unwire standalone | `bupha destroy webhook` · `destroy service` · `destroy worktrees` |
 | Release seed (repo-local, no config) | `bupha deploy release [--dry-run]` — cargo publish + tag (maintainer flow) |
-| Daemons — standalone/dev | `bupha watch` (sources → queue → runner; same engine `tamias-driver-bupha host` runs) · `worker` (redis fleet puller) · `agent` (remote-run side of `kind="http"`) |
+| Daemons — standalone/dev | `bupha watch` (sources → queue → runner; same engine `tamias-driver-bupha host` runs) · `agent` (remote-run side of `kind="http"`) · `gha-runner <FILE>` (self-hosted runner, own config) · fleet workers are `tamias-driver-bupha worker` (ci-job entity plane — no dev verb, the redis pull queue is retired) |
 
 ## The daily loop
 

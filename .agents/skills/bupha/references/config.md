@@ -1,8 +1,9 @@
 # bupha.toml — the wiring model
 
 One config drives the watcher. Search order: `--config` →
-`$BUPHA_CONFIG` → `./bupha.toml` → `~/.config/bupha/bupha.toml`.
-A repo's committed `bupha.toml` is both a manifest and a valid
+`$BUPHA_CONFIG` → `./bupha.*` → `~/.config/bupha/bupha.*` —
+`bupha.yaml`/`.yml` preferred, `bupha.toml` permanent.
+A repo's committed `bupha.yaml` is both a manifest and a valid
 standalone config. Unknown fields are rejected
 (`deny_unknown_fields`) — typos fail loudly at load.
 
@@ -68,6 +69,7 @@ cancel_running = true
 | `ssh` | `remote`, `remote_dir`, `cmd` | rsyncs the worktree to another box, runs `cmd` there (multi-arch path); the `.git` pointer is meaningless remotely |
 | `http` | `agent_url`, `secret_env` | Posts the spec to a `bupha agent` listener on another box, ships the tarred worktree |
 | `gha` | `workflow` | Executes the repo's own `.github/workflows/*.yml` natively — `on.push` workflows run sequentially in one local bash process; the supported subset + hard-error boundary live in `crates/bupha-gha/README.md`. `workflow = "ci.yml"` (or a list) pins files instead of discovering all |
+| `container` | `image`, `cmd`, `engine`, `network` | Unprivileged container (podman/docker, network-off by default) |
 
 Shared fields: `token_env` (forge-token env-var NAME, default
 `BUPHA_TOKEN`), `cancel_running` (kill in-flight run on newer push —
@@ -81,10 +83,10 @@ rejected with `queue = "all"`).
 | `[trigger.sturn]` | `remote`, `poll_ms` — sturn WAL source; repos opt in with `sturn = true`. `kind` empty + this set = webhook-free watcher |
 | `[status]` | `kind = "github"|"log"|"none"`, `context` (default `ci/bupha`) |
 | `[tunnel]` | `provider = "none"|"cloudflared"|"direct"` — named tunnels give stable `public_url` for `deploy webhook` |
-| `[worktree]` | `base` — runs land at `<base>-<repo>[-<job>]-<sha12>`; `history.jsonl` and `queue.redb` live at `base` |
-| `[queue]` | `kind = "redb"` (embedded, default) · `"redis"` (shared pull queue for fleet workers) |
+| `[worktree]` | `base` — runs land at `<base>-<repo>[-<job>]-<sha12>`; `history.jsonl` and `queue.json` live at `base` |
+| `[queue]` | `kind = "json"` (default, dev single-box store — redb/redis retired, T-049/T-068) |
 | `[cache]` | artifact cache backend (`sccache`), `conf = "file:///dir" | "s3://…"` |
-| `[worker]` | `labels` this box claims with (`["arch=arm64"]`) |
+| `[worker]` | `labels` this box claims with (`["arch=arm64"]`) · `node`/`node_token_env` — the ci-job entity-plane endpoint `tamias-driver-bupha worker` polls (hypha/peregrin node; fleet workers, not the watcher) |
 | `[agent]` | `listen`, `token_env` — remote-run listener for `kind="http"` runners |
 | `[access]` | `kind = "all"` (open) · `"file"` + allowlist — who may trigger |
 | `[audit]` | `kind = "file"` + `path` — decision/outcome log |
@@ -111,7 +113,8 @@ a failure.
 ## Files the daemon owns
 
 Under `[worktree].base`: `history.jsonl` (one JSON result per
-finished run — `runs`/`log`/`explain` read it), `queue.redb`
-(persistent queue across restarts), `<base>-<repo>[-<job>]-<sha12>`
+finished run — `runs`/`log`/`explain` read it), `queue.json`
+(dev queue across restarts — the durable path is the ci-job
+entity plane), `<base>-<repo>[-<job>]-<sha12>`
 detached worktrees (removed after the run; a leftover = died
 mid-flight). The dev CLI's `bupha destroy worktrees` cleans them.

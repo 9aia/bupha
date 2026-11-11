@@ -42,5 +42,7 @@ See `docs/explanation/release-model.md`.
 Follow Diátaxis: `docs/tutorials/` (learn) · `docs/how-to/` (tasks) ·
 `docs/reference/` (lookup) · `docs/explanation/` (why). API reference
 is generated from doc comments with
-docs codegen: `docs/gen-*.py` renders cli/config/crate-map from source —
-keep `lib.rs` module docs accurate; they feed the generated docs.
+docs codegen: `docs/gen-*.py` renders config/crate-map/crate-api
+from source (`bupha gen-cli-docs` renders cli.md via
+clap-markdown) — keep `lib.rs` module docs accurate; they feed
+the generated docs.

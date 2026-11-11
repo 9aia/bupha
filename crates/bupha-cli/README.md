@@ -21,7 +21,8 @@ The lib surface (`Cli`/`command()`/`parse_from()`/`run_from()`/
 from — every bounded verb is a `cli.<verb>` wire query,
 `watch`/`agent`/`gha-runner` ride `surfaces`. The verbs exist for
 local reproduction (`run`, `runs`, `explain`, `log`), box checks
-(`doctor`), standalone/dev-mode watching (`watch`, `worker`,
-`agent`, `deploy`/`destroy`/`service` helpers), and one-shot
+(`doctor`), standalone/dev-mode watching (`watch`, `agent`,
+`gha-runner`, `deploy`/`destroy`/`service` helpers — fleet workers
+are the driver's `worker` verb, not a CLI verb), and one-shot
 migration (`import <campaign.yaml>`). Engine e2e tests live in
 `crates/bupha-driver/tests/` and spawn `tamias-driver-bupha run`.
