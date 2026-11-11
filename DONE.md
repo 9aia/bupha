@@ -5,3 +5,4 @@
 - T-052 driver host mode — tamias-driver-bupha gains engine-host verb so units exec the driver binary, not ~/.cargo/bin/bupha (ADR-0006 no-CLI); interim: bundle payload or documented cargo-install · pri:high · created:2026-11-10
 - T-055 webhook ingress ownership — driver hooks register vs peregrin campaign listeners; decide single owner per ADR-0006 · pri:high · created:2026-11-10
 - T-054 gha naming collision — runner.kind=gha (dialect) vs self-hosted GHA runner (T-050) are opposite directions; rename one · pri:high · created:2026-11-10
+- T-056 secrets consolidation — pick one story: cuora broker vs BUPHA\_\* env names vs ~/.config/bupha/env file · pri:high · created:2026-11-10

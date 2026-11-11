@@ -6,7 +6,6 @@
 - [ ] T-044 rotate CARGO\_REGISTRY\_TOKEN — was at .env 0644 (now 600); treat as exposed · pri:high · created:2026-11-03
 - [ ] T-049 migrate queue/cache/lease impls out of bupha — redb/redis queue becomes hypha-side impl; bupha keeps thin port or none (ADR-0006) · pri:high · created:2026-11-10
 - [ ] T-050 gha-runner: bupha as GitHub self-hosted runner — speak actions/runner broker protocol so repos can runs-on: \[self-hosted, bupha\]; name reserved by T-054 — dialect keeps runner.kind=gha (ADR-0006 bidirectional gha) · created:2026-11-10
-- [ ] T-056 secrets consolidation — pick one story: cuora broker vs BUPHA\_\* env names vs ~/.config/bupha/env file · pri:high · created:2026-11-10
 - [ ] T-057 docs/README/skill sweep — drop bupha CLI story (watch/deploy/run/doctor/import) per ADR-0006 amendment · pri:high · created:2026-11-10
 - [ ] T-058 peregrin ci-ingress: campaign listener normalizes forge webhook → ci.enqueue (generic forge-trigger → ci-job bridge) · pri:high · owner:devin · created:2026-11-11 · links:T-055,P-002,ADR-0007
 - [ ] T-059 cuora secrets migration ops + docs sweep — move live BUPHA\_\* values into cuora://bupha/\* (cuora put), drop ~/.config/bupha/env + env\_file once verified, update docs/ site pages (docs branch) that still describe env→keyring→file as canonical · created:2026-11-11 · links:T-056
