@@ -75,6 +75,11 @@ pub struct JobOutcome {
     pub steps: Vec<StepResult>,
     /// step backend id → captured output, for log upload.
     pub step_logs: BTreeMap<String, String>,
+    /// step id → the `$GITHUB_OUTPUT` name/value pairs that step
+    /// wrote. There is no `${{ steps.*.outputs }}` expression path
+    /// yet (the service pre-compiles expressions), so these are
+    /// stored for whoever needs them — `needs.*.outputs` included.
+    pub outputs: BTreeMap<String, BTreeMap<String, String>>,
     /// The concatenated job log.
     pub job_log: String,
 }
@@ -135,7 +140,6 @@ struct JobEnv {
     /// Extra PATH entries, most-recent first.
     path_dirs: Vec<PathBuf>,
     /// `GITHUB_OUTPUT` values per step — collected, keyed by step id.
-    #[allow(dead_code)]
     outputs: BTreeMap<String, BTreeMap<String, String>>,
 }
 
@@ -191,6 +195,7 @@ pub fn execute(
                 conclusion: Outcome::Failed,
                 steps: results,
                 step_logs,
+                outputs: BTreeMap::new(),
                 job_log: format!("gha-runner: cannot create scratch dir: {e}\n"),
             };
         }
@@ -262,6 +267,7 @@ pub fn execute(
         conclusion,
         steps: results,
         step_logs,
+        outputs: env.outputs,
         job_log,
     }
 }
@@ -1059,15 +1065,18 @@ fn checkout_repo(
 /// Supports `KEY=VALUE` lines and `KEY<<DELIM` heredocs — the two
 /// forms the runner contract documents.
 fn absorb_env_files(scratch: &Scratch, env: &mut JobEnv, step_id: &str) {
-    absorb_file(scratch.env_file(), |k, v| env.set(&k, &v));
+    absorb_file(scratch.env_file(), false, |k, v| env.set(&k, &v));
     let mut outputs = BTreeMap::new();
-    absorb_file(scratch.output_file(), |k, v| {
+    absorb_file(scratch.output_file(), true, |k, v| {
         outputs.insert(k, v);
     });
     if !outputs.is_empty() {
         env.outputs.insert(step_id.to_string(), outputs);
     }
-    // GITHUB_PATH is line-per-directory; prepends accumulate.
+    // GITHUB_PATH is line-per-directory; each line prepends to PATH,
+    // so within a file the LAST line wins and a later step's entries
+    // outrank earlier steps'. `path_dirs` is most-recent-first — the
+    // reversed block goes in front, not at the back.
     if let Ok(text) = std::fs::read_to_string(scratch.path_file()) {
         let mut dirs: Vec<PathBuf> = text
             .lines()
@@ -1076,7 +1085,8 @@ fn absorb_env_files(scratch: &Scratch, env: &mut JobEnv, step_id: &str) {
             .map(PathBuf::from)
             .collect();
         dirs.reverse();
-        env.path_dirs.extend(dirs);
+        dirs.extend(std::mem::take(&mut env.path_dirs));
+        env.path_dirs = dirs;
     }
     // Each step starts with clean command files — what a step wrote
     // has been folded in; appends *within* a step are preserved
@@ -1091,8 +1101,11 @@ fn absorb_env_files(scratch: &Scratch, env: &mut JobEnv, step_id: &str) {
 }
 
 /// Parse a GitHub env file: `NAME=VALUE`, `NAME<<DELIM` heredocs,
-/// comments. Calls `sink(name, value)` per entry.
-fn absorb_file(path: &Path, mut sink: impl FnMut(String, String)) {
+/// comments. Calls `sink(name, value)` per entry. `for_output` relaxes
+/// the name rule for `$GITHUB_OUTPUT`, where hyphens are legal
+/// (`steps.x.outputs.my-output` is a real workflow pattern); env
+/// names stay strict shell-identifier-shaped.
+fn absorb_file(path: &Path, for_output: bool, mut sink: impl FnMut(String, String)) {
     let Ok(text) = std::fs::read_to_string(path) else {
         return;
     };
@@ -1104,7 +1117,7 @@ fn absorb_file(path: &Path, mut sink: impl FnMut(String, String)) {
         }
         if let Some((name, rest)) = line.split_once("<<") {
             let name = name.trim();
-            if is_env_name(name) {
+            if valid_file_name(name, for_output) {
                 let delim = rest
                     .trim()
                     .trim_matches(|c| c == '\'' || c == '"')
@@ -1125,21 +1138,24 @@ fn absorb_file(path: &Path, mut sink: impl FnMut(String, String)) {
         }
         if let Some((name, value)) = line.split_once('=') {
             let name = name.trim();
-            if is_env_name(name) {
+            if valid_file_name(name, for_output) {
                 sink(name.to_string(), value.to_string());
             }
         }
     }
 }
 
-fn is_env_name(name: &str) -> bool {
-    !name.is_empty()
-        && name
-            .chars()
-            .next()
-            .map(|c| c.is_ascii_alphabetic() || c == '_')
-            .unwrap_or(false)
-        && name.chars().all(|c| c.is_ascii_alphanumeric() || c == '_')
+/// Env-file entry names: `[A-Za-z_][A-Za-z0-9_]*`, plus `-` when the
+/// file is `$GITHUB_OUTPUT` (output ids may be hyphenated).
+fn valid_file_name(name: &str, for_output: bool) -> bool {
+    let mut chars = name.chars();
+    let Some(first) = chars.next() else {
+        return false;
+    };
+    if !(first.is_ascii_alphabetic() || first == '_') {
+        return false;
+    }
+    chars.all(|c| c.is_ascii_alphanumeric() || c == '_' || (for_output && c == '-'))
 }
 
 #[cfg(test)]
@@ -1179,6 +1195,170 @@ mod tests {
         .is_err());
     }
 
+    fn absorb_str(text: &str) -> Vec<(String, String)> {
+        absorb_str_as(text, false)
+    }
+
+    fn absorb_str_as(text: &str, for_output: bool) -> Vec<(String, String)> {
+        let dir = std::env::temp_dir().join(format!(
+            "bupha-absorb-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        std::fs::create_dir_all(&dir).unwrap();
+        let f = dir.join("env");
+        std::fs::write(&f, text).unwrap();
+        let mut out = Vec::new();
+        absorb_file(&f, for_output, |k, v| out.push((k, v)));
+        let _ = std::fs::remove_dir_all(&dir);
+        out
+    }
+
+    #[test]
+    fn absorb_file_parses_name_value_and_skips_noise() {
+        let entries = absorb_str(
+            "# comment\n\
+             FOO=bar\n\
+             EMPTY=\n\
+             WITH_EQUALS=a=b=c\n\
+             NOT A NAME=x\n\
+             1BAD=x\n",
+        );
+        assert_eq!(
+            entries,
+            vec![
+                ("FOO".to_string(), "bar".to_string()),
+                ("EMPTY".to_string(), String::new()),
+                ("WITH_EQUALS".to_string(), "a=b=c".to_string()),
+            ]
+        );
+    }
+
+    #[test]
+    fn absorb_file_parses_multiline_heredocs() {
+        let entries = absorb_str(
+            "MSG<<EOF\nline one\nline two\nEOF\n\
+             QUOTED<<'END'\nraw $NOT_EXPANDED\nEND\n\
+             AFTER=still-parsed\n",
+        );
+        assert_eq!(entries.len(), 3);
+        assert_eq!(entries[0].0, "MSG");
+        assert_eq!(entries[0].1, "line one\nline two\n");
+        assert_eq!(entries[1].0, "QUOTED");
+        assert_eq!(entries[1].1, "raw $NOT_EXPANDED\n");
+        assert_eq!(
+            entries[2],
+            ("AFTER".to_string(), "still-parsed".to_string())
+        );
+    }
+
+    #[test]
+    fn absorb_file_last_write_wins() {
+        // `>>` appends: two entries for one name — the sink folds them
+        // into a map and the later wins, the semantics GitHub
+        // documents for env files.
+        let mut folded = BTreeMap::new();
+        let entries = absorb_str("K=first\nK=second\n");
+        for (k, v) in entries {
+            folded.insert(k, v);
+        }
+        assert_eq!(folded["K"], "second");
+    }
+
+    #[test]
+    fn absorb_file_output_names_allow_hyphens_env_names_do_not() {
+        let text = "my-output=ok\nbad-name=x\n";
+        let env_entries = absorb_str(text);
+        assert!(env_entries.is_empty());
+        let out_entries = absorb_str_as(text, true);
+        assert_eq!(
+            out_entries,
+            vec![
+                ("my-output".to_string(), "ok".to_string()),
+                ("bad-name".to_string(), "x".to_string()),
+            ]
+        );
+    }
+
+    /// Scratch + JobEnv pair for exercising absorb_env_files directly.
+    fn scratch_and_env() -> (Scratch, JobEnv, PathBuf) {
+        let root = std::env::temp_dir().join(format!(
+            "bupha-path-order-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        let ws = root.join("job");
+        std::fs::create_dir_all(&ws).unwrap();
+        let job = JobMessage::decode(
+            r#"{
+            "messageType": "PipelineAgentJobRequest",
+            "jobId": "path-order", "jobDisplayName": "x", "jobName": "x",
+            "requestId": 1, "billingOwnerId": "o",
+            "plan": {"planId": "p"}, "timeline": {"id": "t"},
+            "contextData": {"t": 2, "d": []},
+            "variables": {}, "resources": {"endpoints": []},
+            "steps": []
+        }"#,
+        )
+        .unwrap();
+        let scratch = Scratch::new(&ws, &job).unwrap();
+        let env = JobEnv {
+            vars: BTreeMap::new(),
+            path_dirs: Vec::new(),
+            outputs: BTreeMap::new(),
+        };
+        (scratch, env, root)
+    }
+
+    fn path_prefix(env: &JobEnv) -> Vec<String> {
+        let path = env
+            .for_step()
+            .into_iter()
+            .find(|(k, _)| k == "PATH")
+            .map(|(_, v)| v)
+            .unwrap_or_default();
+        path.split(':')
+            .filter(|s| !s.is_empty())
+            .map(str::to_string)
+            .collect()
+    }
+
+    #[test]
+    fn github_path_prepends_most_recent_first() {
+        let (scratch, mut env, root) = scratch_and_env();
+        // Step 1 writes two dirs — the LAST line takes precedence.
+        std::fs::write(scratch.path_file(), "/step1-a\n/step1-b\n").unwrap();
+        absorb_env_files(&scratch, &mut env, "s1");
+        // Step 2 writes one dir — it outranks everything from s1.
+        std::fs::write(scratch.path_file(), "/step2-a\n").unwrap();
+        absorb_env_files(&scratch, &mut env, "s2");
+
+        let dirs = path_prefix(&env);
+        assert_eq!(dirs[..3], ["/step2-a", "/step1-b", "/step1-a"]);
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn github_output_lands_in_step_outputs() {
+        let (scratch, mut env, root) = scratch_and_env();
+        std::fs::write(
+            scratch.output_file(),
+            "answer=42\nmulti<<EOF\nhello\nworld\nEOF\n",
+        )
+        .unwrap();
+        absorb_env_files(&scratch, &mut env, "s1");
+        let outs = &env.outputs["s1"];
+        assert_eq!(outs["answer"], "42");
+        assert_eq!(outs["multi"], "hello\nworld\n");
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
     /// Two script steps: the first exports through `$GITHUB_ENV`, the
     /// second must see it — exercises scratch wiring + env absorb.
     #[test]
@@ -1205,7 +1385,7 @@ mod tests {
                     "reference": {"type": "script"},
                     "inputs": {"type": 2, "map": [
                         {"Key": {"type": 0, "lit": "script"},
-                         "Value": {"type": 0, "lit": "echo EXPORTED=from-env >> \"$GITHUB_ENV\"\necho \"out-1\" >> \"$GITHUB_OUTPUT\""}},
+                         "Value": {"type": 0, "lit": "echo EXPORTED=from-env >> \"$GITHUB_ENV\"\necho \"out-1=yep\" >> \"$GITHUB_OUTPUT\""}},
                         {"Key": {"type": 0, "lit": "shell"},
                          "Value": {"type": 0, "lit": "sh"}}
                     ]}
@@ -1247,6 +1427,73 @@ mod tests {
             .all(|s| s.conclusion == Some("succeeded")));
         assert!(outcome.job_log.contains("got=from-env base=base"));
         assert!(outcome.step_logs.contains_key("s1"));
+        // The `>> $GITHUB_OUTPUT` line landed as a step output.
+        assert_eq!(outcome.outputs["s1"]["out-1"], "yep");
+    }
+
+    /// Multiline `<<EOF` env writes, `$GITHUB_PATH` prepends and
+    /// `$GITHUB_OUTPUT` all survive into the next step.
+    #[test]
+    fn execute_env_files_heredoc_path_and_outputs() {
+        let job = JobMessage::decode(r#"{
+            "messageType": "PipelineAgentJobRequest",
+            "jobId": "exec-files",
+            "jobDisplayName": "exec files", "jobName": "exec",
+            "requestId": 1, "billingOwnerId": "o",
+            "plan": {"planId": "p"}, "timeline": {"id": "t"},
+            "contextData": {"t": 2, "d": []},
+            "variables": {}, "resources": {"endpoints": []},
+            "environmentVariables": {"t": 2, "d": []},
+            "steps": [
+                {
+                    "type": "action", "id": "s1", "name": "run",
+                    "displayNameToken": {"type": 0, "lit": "write files"},
+                    "reference": {"type": "script"},
+                    "inputs": {"type": 2, "map": [
+                        {"Key": {"type": 0, "lit": "script"},
+                         "Value": {"type": 0, "lit": "mkdir -p \"$RUNNER_TEMP/bin\"\nprintf '#!/bin/sh\\necho from-mytool\\n' > \"$RUNNER_TEMP/bin/mytool\"\nchmod +x \"$RUNNER_TEMP/bin/mytool\"\necho \"$RUNNER_TEMP/bin\" >> \"$GITHUB_PATH\"\ncat >> \"$GITHUB_ENV\" <<'MYEOF'\nMULTI<<INNER\nhello\nworld\nINNER\nMYEOF\necho \"ver=1.2.3\" >> \"$GITHUB_OUTPUT\""}},
+                        {"Key": {"type": 0, "lit": "shell"},
+                         "Value": {"type": 0, "lit": "sh"}}
+                    ]}
+                },
+                {
+                    "type": "action", "id": "s2", "name": "run",
+                    "displayNameToken": {"type": 0, "lit": "verify"},
+                    "reference": {"type": "script"},
+                    "inputs": {"type": 2, "map": [
+                        {"Key": {"type": 0, "lit": "script"},
+                         "Value": {"type": 0, "lit": "echo \"tool says: $(mytool)\"\necho \"multi=$MULTI\"\ncase \"$PATH\" in *bin:*) echo \"path-ok\";; *) echo \"path-bad\"; exit 1;; esac"}},
+                        {"Key": {"type": 0, "lit": "shell"},
+                         "Value": {"type": 0, "lit": "sh"}}
+                    ]}
+                }
+            ]
+        }"#)
+        .unwrap();
+
+        let ws = std::env::temp_dir().join(format!(
+            "bupha-gha-runner-exec3-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        std::fs::create_dir_all(&ws).unwrap();
+        let runner = JobRunner::new();
+        let mut progress = NullProgress;
+        let outcome = execute(&job, &ws, &runner, &mut progress);
+        let _ = std::fs::remove_dir_all(ws.parent().unwrap_or(&ws));
+
+        assert_eq!(outcome.conclusion, Outcome::Succeeded);
+        assert!(
+            outcome.job_log.contains("tool says: from-mytool"),
+            "log: {}",
+            outcome.job_log
+        );
+        assert!(outcome.job_log.contains("multi=hello\nworld"));
+        assert!(outcome.job_log.contains("path-ok"));
+        assert_eq!(outcome.outputs["s1"]["ver"], "1.2.3");
     }
 
     #[test]

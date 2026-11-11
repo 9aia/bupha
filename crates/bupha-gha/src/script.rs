@@ -78,6 +78,15 @@ pub fn render(jobs: &[Job], ctx: &ScriptCtx) -> Result<String, String> {
     out.push_str(&format!("export BUPHA_WORKDIR={}\n", sq(ctx.workdir)));
     out.push_str("declare -a BUPHA_GHA_STATUS=()\n");
     out.push_str("BUPHA_GHA_FAILS=0\n");
+    // Per-run scratch for the $GITHUB_* command files — the dialect
+    // equivalent of the runner's per-job temp dir. One tmp dir for
+    // the whole run; each job gets its own subdir so env-file writes
+    // scope to the job like on GitHub.
+    out.push_str("BUPHA_GHA_TMP=$(mktemp -d)\n");
+    out.push_str("trap 'rm -rf \"$BUPHA_GHA_TMP\"' EXIT\n");
+    out.push_str("export BUPHA_GHA_OUTPUTS=\"$BUPHA_GHA_TMP/outputs.txt\"\n");
+    out.push_str(": > \"$BUPHA_GHA_OUTPUTS\"\n");
+    out.push_str(ABSORB_FNS);
 
     for (i, j) in jobs.iter().enumerate() {
         let mut label = format!("{} ({})", j.label, j.workflow);
@@ -109,6 +118,14 @@ pub fn render(jobs: &[Job], ctx: &ScriptCtx) -> Result<String, String> {
         }
         out.push_str("  (\n    set -e\n");
         out.push_str(&format!("    export GITHUB_WORKFLOW={}\n", sq(&j.workflow)));
+        // $GITHUB_* file commands: point each at a per-job scratch
+        // file. Steps append with `>>`; absorb helpers fold them
+        // back after every step (env → exports, path → PATH,
+        // output → collected raw for whoever wires needs.* later).
+        out.push_str(&format!(
+            "    BUPHA_JOB_TMP=\"$BUPHA_GHA_TMP/job_{i}\"\n    mkdir -p \"$BUPHA_JOB_TMP\"\n    export RUNNER_TEMP=\"$BUPHA_JOB_TMP\"\n    export GITHUB_WORKSPACE={}\n    export GITHUB_ENV=\"$BUPHA_JOB_TMP/github_env\"\n    export GITHUB_OUTPUT=\"$BUPHA_JOB_TMP/github_output\"\n    export GITHUB_PATH=\"$BUPHA_JOB_TMP/github_path\"\n    export GITHUB_STEP_SUMMARY=\"$BUPHA_JOB_TMP/step_summary.md\"\n    : > \"$GITHUB_ENV\"; : > \"$GITHUB_OUTPUT\"; : > \"$GITHUB_PATH\"; : > \"$GITHUB_STEP_SUMMARY\"\n",
+            sq(ctx.workdir)
+        ));
         if !j.env.is_empty() {
             out.push_str(&format!(
                 "    {}\n",
@@ -182,6 +199,17 @@ fn render_step(
                 out.push('\n');
             }
             out.push_str(&format!("{delim}\n    )\n"));
+            // Fold the step's $GITHUB_* file writes back: env
+            // entries export for later steps, PATH lines prepend,
+            // outputs collect under a step label. A failed step
+            // never reaches this — `set -e` ends the job first,
+            // matching the runner's stop-on-failure v1 semantics.
+            out.push_str("    bupha_absorb_env_file \"$GITHUB_ENV\"\n");
+            out.push_str("    bupha_absorb_path_file \"$GITHUB_PATH\"\n");
+            out.push_str(&format!(
+                "    bupha_absorb_output_file \"$GITHUB_OUTPUT\" {}\n",
+                sq(&format!("{ji}/{si}"))
+            ));
         }
     }
     Ok(out)
@@ -193,3 +221,71 @@ fn short_ref(git_ref: &str) -> &str {
         .or_else(|| git_ref.strip_prefix("refs/tags/"))
         .unwrap_or(git_ref)
 }
+
+/// Bash helpers emitted once per generated program. They implement
+/// the GitHub env-file contract the runner's `absorb_env_files`
+/// implements in Rust: `NAME=value` lines, `NAME<<DELIM` heredocs,
+/// `#` comments; each file is truncated after folding so the next
+/// step starts clean. Names must be shell identifiers — anything
+/// else is skipped rather than eval'd.
+const ABSORB_FNS: &str = r#"
+bupha_ltrim() { local s="$1"; printf '%s' "${s#"${s%%[![:space:]]*}"}"; }
+bupha_rtrim() { local s="$1"; printf '%s' "${s%"${s##*[![:space:]]}"}"; }
+
+bupha_absorb_env_file() {
+  local f="$1" line name val delim l
+  [ -f "$f" ] || return 0
+  while IFS= read -r line || [ -n "$line" ]; do
+    case "$line" in ''|'#'*) continue ;; esac
+    if [[ "$line" == *'<<'* && "$line" != *=* ]]; then
+      name=$(bupha_rtrim "${line%%'<<'*}")
+      delim=$(bupha_rtrim "$(bupha_ltrim "${line#*'<<'}")")
+      delim="${delim//\'/}"
+      delim="${delim//\"/}"
+      val=""
+      while IFS= read -r l; do
+        if [ "$l" = "$delim" ]; then break; fi
+        val+="$l"$'\n'
+      done
+    elif [[ "$line" == *=* ]]; then
+      name=$(bupha_rtrim "${line%%=*}")
+      val="${line#*=}"
+    else
+      continue
+    fi
+    name=$(bupha_ltrim "$name")
+    case "$name" in
+      ''|[0-9]*|*[!A-Za-z0-9_]*) continue ;;
+    esac
+    export "$name=$val"
+  done < "$f"
+  : > "$f"
+}
+
+bupha_absorb_path_file() {
+  local f="$1" line
+  [ -f "$f" ] || return 0
+  local -a dirs=()
+  while IFS= read -r line || [ -n "$line" ]; do
+    line=$(bupha_rtrim "$line")
+    if [ -n "$line" ]; then dirs+=("$line"); fi
+  done < "$f"
+  # GitHub prepends each line in file order, so the LAST line ends
+  # up front-most; later steps' entries outrank earlier ones
+  # because this runs after every step.
+  local i
+  for ((i = 0; i < ${#dirs[@]}; i++)); do
+    PATH="${dirs[$i]}:$PATH"
+  done
+  : > "$f"
+}
+
+bupha_absorb_output_file() {
+  local f="$1" label="$2"
+  [ -f "$f" ] || return 0
+  if [ -s "$f" ]; then
+    { printf '# step %s\n' "$label"; cat "$f"; } >> "$BUPHA_GHA_OUTPUTS"
+  fi
+  : > "$f"
+}
+"#;

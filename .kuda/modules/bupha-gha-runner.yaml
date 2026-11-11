@@ -60,7 +60,7 @@ api:
 - name: CondParser
   kind: type
   file: crates/bupha-gha-runner/src/exec.rs
-  line: 547
+  line: 553
   module: bupha-gha-runner
 - name: Config
   kind: type
@@ -110,7 +110,7 @@ api:
 - name: JobEnv
   kind: type
   file: crates/bupha-gha-runner/src/exec.rs
-  line: 133
+  line: 138
   module: bupha-gha-runner
 - name: JobMessage
   kind: type
@@ -135,7 +135,7 @@ api:
 - name: JobStatus
   kind: type
   file: crates/bupha-gha-runner/src/exec.rs
-  line: 270
+  line: 276
   module: bupha-gha-runner
 - name: Label
   kind: type
@@ -202,7 +202,7 @@ api:
   file: crates/bupha-gha-runner/src/agent.rs
   line: 31
   module: bupha-gha-runner
-api_omitted: 228
+api_omitted: 239
 deps:
 - aes
 - base64
@@ -259,12 +259,12 @@ provenance:
   - 350091cd6a5a1c3c8fa75b72449a26791beaad40
   - 42b374f93a3d78ca99476fc2a6ce15a4f06f6720
   - 31e16b6e60c8cc6ffcaa9f181b1694af69c73bc4
-  - 672bfb5d83ce55b7b835ceaf728f5603841dca75
+  - d175797444562f16ba3a4a6ec9719aaa1483bb9f
   - 047bd6fb616d3eff9e84120ee488123e84a1b344
   - ecca29b03e418a8d5cca8532aeb0b3f35130c29f
   - 3453801d4b4ed450dc8097436f7eb96ba90b7b90
   - 4a09634f41c600288b6f36c01e07a9153db89ddc
   - 3d706d707729fc85228a89b572924f1d01cac3c4
-  commit_sha: bded75ecc051d0d5dbf73a4d86f733ab028d2e1f
-  generated_at: '1794366338'
+  commit_sha: bb515cea1a369ce4a282bc6ef7d5c0422279e988
+  generated_at: '1794367801'
   generator: kuda-template/0.1.2

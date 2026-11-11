@@ -537,3 +537,76 @@ fn non_push_workflow_is_vacuous_success() {
     );
     assert!(run(&d, &sha).success());
 }
+
+#[test]
+fn github_env_files_flow_across_steps() {
+    // $GITHUB_ENV/$GITHUB_PATH/$GITHUB_OUTPUT — the file commands real
+    // workflows (ripgrep cross-step, RUSTFLAGS) depend on. Step 1
+    // writes all three; step 2 must see the env var, the PATH prepend
+    // and RUNNER_TEMP; outputs collect without a consumer yet.
+    let (d, sha) = repo("ghfiles");
+    workflow(
+        &d,
+        "ci.yml",
+        r#"
+on: push
+jobs:
+  t:
+    steps:
+      - run: |
+          mkdir -p "$RUNNER_TEMP/bin"
+          printf '#!/bin/sh\necho from-mytool\n' > "$RUNNER_TEMP/bin/mytool"
+          chmod +x "$RUNNER_TEMP/bin/mytool"
+          echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
+          cat >> "$GITHUB_ENV" <<'MYEOF'
+          MULTI<<INNER
+          hello
+          world
+          INNER
+          MYEOF
+          echo "ver=1.2.3" >> "$GITHUB_OUTPUT"
+      - run: |
+          echo "tool says: $(mytool)" > tool.txt
+          printf '%s' "$MULTI" > multi.txt
+          case "$PATH" in *"$RUNNER_TEMP/bin:"*) echo path-ok > path.txt;; *) exit 1;; esac
+"#,
+    );
+    assert!(run(&d, &sha).success());
+    assert_eq!(
+        std::fs::read_to_string(d.join("tool.txt")).unwrap(),
+        "tool says: from-mytool\n"
+    );
+    assert_eq!(
+        std::fs::read_to_string(d.join("multi.txt")).unwrap(),
+        "hello\nworld\n"
+    );
+    assert_eq!(
+        std::fs::read_to_string(d.join("path.txt")).unwrap(),
+        "path-ok\n"
+    );
+}
+
+#[test]
+fn github_env_does_not_leak_across_jobs() {
+    // GITHUB_ENV writes scope to the job — a second job must not see
+    // the first job's exports.
+    let (d, sha) = repo("ghscope");
+    workflow(
+        &d,
+        "ci.yml",
+        r#"
+on: push
+jobs:
+  a:
+    steps:
+      - run: echo "LEAKED=yes" >> "$GITHUB_ENV"
+  b:
+    steps:
+      - run: |
+          if [ "${LEAKED:-}" = "yes" ]; then exit 1; fi
+          echo scoped > scoped.txt
+"#,
+    );
+    assert!(run(&d, &sha).success());
+    assert!(d.join("scoped.txt").exists());
+}

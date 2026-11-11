@@ -31,6 +31,12 @@ is always local — there is no runner fleet inside a workflow.
 - `${{ }}` expressions — `env.*`, `github.{sha,ref,ref_name,
   repository,event_name}`, `matrix.*`. Anything else is an explicit
   error naming the expression.
+- `$GITHUB_*` file commands — `GITHUB_ENV` (`NAME=value` and
+  `NAME<<DELIM` heredocs, scoped to the job), `GITHUB_PATH` (prepends
+  to `PATH`, last line front-most), `GITHUB_OUTPUT` (collected per
+  step under `$BUPHA_GHA_TMP/outputs.txt` — there is no
+  `steps.*.outputs`/`needs.*.outputs` consumer yet), plus
+  `GITHUB_WORKSPACE`, `GITHUB_STEP_SUMMARY`, `RUNNER_TEMP`.
 - `matrix` — cartesian fan-out executed **sequentially** (each
   combination is a separate job run, in order).
 - `runner.workflow = "ci.yml"` (or a list) pins workflow files;
