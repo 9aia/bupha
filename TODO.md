@@ -13,3 +13,4 @@
 - [ ] T-063 ci-ingress normalization → POST /api/entities (T-058): forge webhook → bupha Trigger Push → ci-job indexDoc create; depends on T-061 plane registration · pri:high · created:2026-11-11 · links:T-049,T-058,P-002
 - [ ] T-064 wire tamias-driver-bupha worker as provider.services\[] entry + \[worker] node/node\_token\_env in fleet.toml (P-002/T-062 follow-up) · created:2026-11-11
 - [ ] T-065 gha-runner CLI surface — wire bupha-gha-runner's Agent::from\_config into a bupha verb (or runner.kind) so the crate is reachable; today it is lib-only · created:2026-11-11 · links:T-050
+- [ ] T-066 gha-runner live validation — run against a real repo's self-hosted runner (registration token → session → acquirejob → completejob → results service) on github.com; check GHES api-version drift · created:2026-11-11 · links:T-050
