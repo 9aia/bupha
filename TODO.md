@@ -8,7 +8,6 @@
 - [ ] T-065 gha-runner CLI surface — wire bupha-gha-runner's Agent::from\_config into a bupha verb (or runner.kind) so the crate is reachable; today it is lib-only · created:2026-11-11 · links:T-050
 - [ ] T-066 gha-runner live validation — run against a real repo's self-hosted runner (registration token → session → acquirejob → completejob → results service) on github.com; check GHES api-version drift · created:2026-11-11 · links:T-050
 - [ ] T-067 ci-ingress live e2e + normalization gaps — fire a real forge push through webhook→ci.enqueue→worker ci.claim→ci.complete on a deployed node; pull\_request lanes; per-repo indexDoc spec resolution (Config::watched → queue/runsOn/runner/context/maxAttempts); X-GitHub-Delivery passthrough; enqueue retry on http.failed · pri:high · owner:devin · created:2026-11-11 · links:T-058,T-061,T-063
-- [ ] T-068 ci-job worker ignores indexDoc ref — no branch filter in entity path (T-067 e2e finding): standalone ingest matches w.branch == git\_ref, but WatchExec::exec resolves repo by key only and run\_job runs whatever sha the entity carries; a push to any ref whose sha exists in repo.dir executes the pipeline. Either the plane/ingress must filter ref at enqueue, or the worker must check job.git\_ref against the watched repo's branch(es) before running. · owner:devin · created:2026-11-11 · links:T-067
 
 ## open
 
