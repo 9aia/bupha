@@ -289,7 +289,7 @@ provenance:
   hashes:
   - dc5cc2d35eabf9edafcf54b4961a649f58553ffd
   - 6a0e53d9a648f6b3381a2c2bfc261a7b9170b86a
-  - 93ba0eb3a022e4c60de9abc5c22bc288c8e0ef87
-  commit_sha: e0c60cad318e76742d903699c09b5cc59505d2a0
-  generated_at: '1794368528'
+  - 89b260404a701fdb18ee2235520653e27a150611
+  commit_sha: 09033caa0fe4531fab316c8ce377f70bfaaedef5
+  generated_at: '1794369086'
   generator: kuda-template/0.1.2
