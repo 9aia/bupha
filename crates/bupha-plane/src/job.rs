@@ -226,6 +226,11 @@ impl CiJob {
                 None => "ci/bupha".to_string(),
             };
         }
+        // An empty delivery id carries no information — store None
+        // so `deliveryId` stays absent-or-real on the wire.
+        if job.delivery_id.as_deref() == Some("") {
+            job.delivery_id = None;
+        }
         if job.enqueued_at.is_empty() {
             job.enqueued_at = now.to_string();
         }
@@ -247,7 +252,9 @@ impl CiJob {
 
     /// Create-time validation — mirrors `Config::watched`'s checks on
     /// the resolved spec, re-applied because the wire is hostile.
-    fn validate(&self) -> Result<(), String> {
+    /// `pub(crate)`: the plane re-runs it after fleet normalization
+    /// overwrites the resolved fields.
+    pub(crate) fn validate(&self) -> Result<(), String> {
         if !is_valid_key(&self.key) {
             return Err(format!("invalid job key '{}'", self.key));
         }

@@ -28,6 +28,27 @@ fn is_yaml(p: &Path) -> bool {
     )
 }
 
+/// Load one config file at an already-resolved path — the same
+/// extension dispatch [`FileSource`] applies per candidate. For
+/// callers that enumerate config files themselves (e.g. the
+/// `~/.config/bupha/bundles/` fleet dir a plane scans).
+///
+/// # Errors
+/// Read/parse/validation failures carry a readable message.
+pub fn load_file(path: &Path) -> Result<bupha_core::Config, String> {
+    if is_yaml(path) {
+        YamlSource {
+            path: path.to_path_buf(),
+        }
+        .load()
+    } else {
+        TomlSource {
+            path: path.to_path_buf(),
+        }
+        .load()
+    }
+}
+
 impl ConfigSource for FileSource {
     fn load(&self) -> Result<bupha_core::Config, String> {
         let candidates: Vec<PathBuf> = match self
@@ -53,11 +74,7 @@ impl ConfigSource for FileSource {
         };
         for p in candidates {
             if p.exists() {
-                return if is_yaml(&p) {
-                    YamlSource { path: p }.load()
-                } else {
-                    TomlSource { path: p }.load()
-                };
+                return load_file(&p);
             }
         }
         Err("no bupha.{yaml,yml,toml} found (search: $BUPHA_CONFIG, ., ~/.config/bupha/)".into())

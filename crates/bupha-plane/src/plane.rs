@@ -30,8 +30,8 @@ use chrono::{DateTime, Utc};
 use hypha_http::{EntityContext, EntityPlane};
 use serde_json::{json, Value};
 
-use crate::job::{CiJob, JobState, CI_JOB_KIND, DEFAULT_LEASE_SECS, SNAPSHOT_FORMAT};
-use bupha_core::MAX_PENDING;
+use crate::job::{CiJob, JobState, CI_JOB_KIND, DEFAULT_LEASE_SECS, MAX_ATTEMPTS, SNAPSHOT_FORMAT};
+use bupha_core::{QueuePolicy, WatchedRepo, MAX_PENDING};
 
 /// `kind → EntityPlane` clock — RFC3339 strings on the wire, `DateTime`
 /// inside for lease math. Injectable so tests control expiry.
@@ -87,6 +87,11 @@ pub struct CiJobPlane {
     /// `runs_on` fleet match). Empty = this node claims label
     /// requirements it cannot prove.
     labels: Vec<String>,
+    /// Resolved fleet specs (`Config::watched()` output) — matching
+    /// keys get their scheduling fields normalized at create. Empty
+    /// = wire-verbatim (the default; spec-less deployments and
+    /// hand-built producers are unaffected).
+    specs: Vec<WatchedRepo>,
     clock: Clock,
 }
 
@@ -102,6 +107,7 @@ impl CiJobPlane {
         Self {
             inner: RwLock::new(Inner::default()),
             labels: Vec::new(),
+            specs: Vec::new(),
             clock: Arc::new(Utc::now),
         }
     }
@@ -110,6 +116,21 @@ impl CiJobPlane {
     #[must_use]
     pub fn with_labels(mut self, labels: Vec<String>) -> Self {
         self.labels = labels;
+        self
+    }
+
+    /// Arm the plane with resolved fleet specs — `Config::watched()`
+    /// output (`bupha_plane::WatchedRepo`). A create whose `key`
+    /// matches a spec gets `queue`/`runsOn`/`runner`/`context`/
+    /// `maxAttempts`/`repo` overwritten with the fleet resolution —
+    /// the same source the worker resolves at exec time, so indexDoc
+    /// and execution can never disagree — and `ref`/`event` gated
+    /// against the spec's `branch`/`events`. This is how a webhook
+    /// ingress campaign hands per-repo `fleet.toml` configuration to
+    /// the entity plane without re-deriving it per node.
+    #[must_use]
+    pub fn with_watched(mut self, specs: Vec<WatchedRepo>) -> Self {
+        self.specs = specs;
         self
     }
 
@@ -178,6 +199,56 @@ impl CiJobPlane {
         }
     }
 
+    /// Fleet normalization (T-067): a create whose `key` matches a
+    /// `Config::watched()` spec gets the resolved scheduling fields —
+    /// `queue`/`runsOn`/`runner`/`context`/`maxAttempts`/`repo` —
+    /// overwritten from the fleet config (the same source the worker
+    /// resolves runner/sink/context from at exec time). `ref`/`event`
+    /// are gated, not rewritten: the job's ref must equal the spec's
+    /// `branch` and its event must be in the spec's `events` list —
+    /// an unclaimable job must not sit `pending` forever, so a
+    /// mismatch fails the create with 400. Keys with no spec pass
+    /// through untouched.
+    fn normalize_fleet(specs: &[WatchedRepo], job: &mut CiJob) -> Result<(), Fault> {
+        let Some(spec) = specs.iter().find(|s| s.key == job.key) else {
+            return Ok(());
+        };
+        if job.git_ref != spec.branch {
+            return Err(fault(
+                StatusCode::BAD_REQUEST,
+                format!(
+                    "ci-job ref '{}' does not match fleet branch '{}' for key '{}'",
+                    job.git_ref, spec.branch, job.key
+                ),
+            ));
+        }
+        if !spec.events.iter().any(|e| e == &job.event) {
+            return Err(fault(
+                StatusCode::BAD_REQUEST,
+                format!(
+                    "ci-job event '{}' not in fleet events {:?} for key '{}'",
+                    job.event, spec.events, job.key
+                ),
+            ));
+        }
+        job.repo = spec.status_repo.clone();
+        job.queue = match spec.policy {
+            QueuePolicy::Latest => "latest".to_string(),
+            QueuePolicy::All => "all".to_string(),
+        };
+        job.runs_on = spec.runs_on.clone();
+        job.runner = serde_json::to_value(&spec.runner).unwrap_or(Value::Null);
+        job.context = spec.context.clone();
+        // `retry` is already capped at 3 by `Config::watched()`;
+        // `saturating_add` + `min` keep the wire contract
+        // (`maxAttempts` 1..=MAX_ATTEMPTS) regardless.
+        job.max_attempts = spec.retry.saturating_add(1).min(MAX_ATTEMPTS);
+        // The overwrite can reintroduce a conflict the wire payload
+        // passed (e.g. `all` + `cancel_running`) — re-validate.
+        job.validate()
+            .map_err(|e| fault(StatusCode::BAD_REQUEST, e))
+    }
+
     // ---- EntityPlane surface (sync cores; the trait impl delegates) ----
 
     fn list_docs(&self) -> Vec<Value> {
@@ -226,6 +297,12 @@ impl CiJobPlane {
             job.superseded_by = None;
             job.started_at = None;
             job.finished_at = None;
+
+            // Fleet normalization BEFORE the idempotent-duplicate
+            // check: a spec-armed plane resolves scheduling fields
+            // from `Config::watched()` and gates ref/event, so a
+            // replayed delivery normalizes identically.
+            Self::normalize_fleet(&self.specs, &mut job)?;
 
             if let Some(existing) = inner.entities.get(&job.id) {
                 return Ok((
@@ -969,6 +1046,84 @@ mod tests {
 
     fn id_of(key: &str, sha: &str, attempt: u32) -> String {
         format!("ci:{key}:{sha}:{attempt}")
+    }
+
+    /// A resolved fleet spec — the shape `Config::watched()` emits.
+    fn spec(key: &str, branch: &str) -> WatchedRepo {
+        WatchedRepo {
+            name: key.split(':').next().unwrap().to_string(),
+            job: key
+                .split_once(':')
+                .map(|(_, j)| j.to_string())
+                .unwrap_or_default(),
+            key: key.to_string(),
+            dir: std::path::PathBuf::from("/tmp/clone"),
+            branch: branch.to_string(),
+            status_repo: key.split(':').next().unwrap().to_string(),
+            context: "ci/bupha/gate".to_string(),
+            runner: bupha_core::RunnerCfg {
+                kind: "shell".to_string(),
+                token_env: "BUPHA_TOKEN".to_string(),
+                cancel_running: false,
+                extra: Default::default(),
+            },
+            policy: QueuePolicy::Latest,
+            secret_env: None,
+            runs_on: vec!["arch=arm64".to_string()],
+            retry: 2,
+            sturn: false,
+            events: vec!["push".to_string()],
+        }
+    }
+
+    #[test]
+    fn fleet_spec_overwrites_resolved_fields() {
+        let (p, _) = plane();
+        let p = p.with_watched(vec![spec("o/n:g", "refs/heads/main")]);
+        // The wire payload carries WRONG resolved fields on purpose —
+        // the spec-armed plane must overwrite every one of them.
+        let mut d = init("o/n:g", "0123abcd4567");
+        d["repo"] = json!("o/other");
+        d["queue"] = json!("all");
+        d["runsOn"] = json!(["bogus=1"]);
+        d["runner"] = json!({"kind": "bogus"});
+        d["context"] = json!("ci/wrong");
+        d["maxAttempts"] = json!(4);
+        let (status, body) = p.create_job(d).unwrap();
+        assert_eq!(status, StatusCode::CREATED);
+        let doc = &body["entity"]["indexDoc"];
+        assert_eq!(doc["repo"], "o/n");
+        assert_eq!(doc["queue"], "latest");
+        assert_eq!(doc["runsOn"], json!(["arch=arm64"]));
+        assert_eq!(doc["runner"]["kind"], "shell");
+        assert_eq!(doc["context"], "ci/bupha/gate");
+        // retry 2 → maxAttempts 3 (wire's 4 overwritten).
+        assert_eq!(doc["maxAttempts"], 3);
+        // Wire-known fields survive untouched.
+        assert_eq!(doc["sha"], "0123abcd4567");
+        assert_eq!(doc["event"], "push");
+    }
+
+    #[test]
+    fn fleet_spec_gates_ref_and_event() {
+        let (p, _) = plane();
+        let p = p.with_watched(vec![spec("o/n", "refs/heads/main")]);
+        // Ref mismatch → 400 (would sit pending forever otherwise).
+        let mut d = init("o/n", "abc1234");
+        d["ref"] = json!("refs/heads/other");
+        assert_eq!(p.create_job(d).unwrap_err().status, StatusCode::BAD_REQUEST);
+        // Event not in the spec's `events` → 400.
+        let mut d = init("o/n", "abc1234");
+        d["event"] = json!("pull_request");
+        assert_eq!(p.create_job(d).unwrap_err().status, StatusCode::BAD_REQUEST);
+        // A key with NO spec passes through wire-verbatim.
+        let mut d = init("o/other", "ffff999");
+        d["queue"] = json!("all");
+        d["context"] = json!("ci/custom");
+        let (status, body) = p.create_job(d).unwrap();
+        assert_eq!(status, StatusCode::CREATED);
+        assert_eq!(body["entity"]["indexDoc"]["queue"], "all");
+        assert_eq!(body["entity"]["indexDoc"]["context"], "ci/custom");
     }
 
     #[test]

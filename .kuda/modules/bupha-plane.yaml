@@ -55,17 +55,17 @@ api:
 - name: advance
   kind: function
   file: crates/bupha-plane/src/plane.rs
-  line: 947
+  line: 1024
   module: bupha-plane
 - name: all_plus_cancel_running_conflicts
   kind: function
   file: crates/bupha-plane/src/job.rs
-  line: 370
+  line: 377
   module: bupha-plane
 - name: all_policy_fifo_and_bound
   kind: function
   file: crates/bupha-plane/src/plane.rs
-  line: 1023
+  line: 1100
   module: bupha-plane
 - name: as_str
   kind: function
@@ -80,42 +80,42 @@ api:
 - name: cancel_pending_running_terminal
   kind: function
   file: crates/bupha-plane/src/plane.rs
-  line: 1249
+  line: 1326
   module: bupha-plane
 - name: check_holder
   kind: function
   file: crates/bupha-plane/src/plane.rs
-  line: 816
+  line: 893
   module: bupha-plane
 - name: claim_auth
   kind: function
   file: crates/bupha-plane/src/plane.rs
-  line: 804
+  line: 881
   module: bupha-plane
 - name: claim_is_cas_with_fence_and_lease
   kind: function
   file: crates/bupha-plane/src/plane.rs
-  line: 1047
+  line: 1124
   module: bupha-plane
 - name: claim_label_gate_with_advertised_labels
   kind: function
   file: crates/bupha-plane/src/plane.rs
-  line: 1120
+  line: 1197
   module: bupha-plane
 - name: clone_for_retry
   kind: function
   file: crates/bupha-plane/src/plane.rs
-  line: 732
+  line: 809
   module: bupha-plane
 - name: complete_failure_retries_as_new_attempt
   kind: function
   file: crates/bupha-plane/src/plane.rs
-  line: 1205
+  line: 1282
   module: bupha-plane
 - name: complete_success_is_terminal
   kind: function
   file: crates/bupha-plane/src/plane.rs
-  line: 1173
+  line: 1250
   module: bupha-plane
 - name: compute_id
   kind: function
@@ -125,27 +125,27 @@ api:
 - name: create
   kind: function
   file: crates/bupha-plane/src/plane.rs
-  line: 895
+  line: 972
   module: bupha-plane
 - name: create
   kind: function
   file: crates/bupha-plane/src/plane.rs
-  line: 966
+  line: 1043
   module: bupha-plane
 - name: create_job
   kind: function
   file: crates/bupha-plane/src/plane.rs
-  line: 213
+  line: 284
   module: bupha-plane
 - name: create_validates_and_derives_id
   kind: function
   file: crates/bupha-plane/src/plane.rs
-  line: 975
+  line: 1052
   module: bupha-plane
 - name: default
   kind: function
   file: crates/bupha-plane/src/plane.rs
-  line: 94
+  line: 99
   module: bupha-plane
 - name: default_event
   kind: function
@@ -165,44 +165,44 @@ api:
 - name: delete
   kind: function
   file: crates/bupha-plane/src/plane.rs
-  line: 899
+  line: 976
   module: bupha-plane
 - name: delete_job
   kind: function
   file: crates/bupha-plane/src/plane.rs
-  line: 302
+  line: 379
   module: bupha-plane
 - name: delete_rules
   kind: function
   file: crates/bupha-plane/src/plane.rs
-  line: 1336
+  line: 1413
   module: bupha-plane
 - name: dispatch_op
   kind: function
   file: crates/bupha-plane/src/plane.rs
-  line: 324
+  line: 401
   module: bupha-plane
 - name: doc
   kind: function
   file: crates/bupha-plane/src/job.rs
-  line: 301
+  line: 308
   module: bupha-plane
 - name: enqueue_requeues_terminal_with_attempt_bump
   kind: function
   file: crates/bupha-plane/src/plane.rs
-  line: 1299
+  line: 1376
   module: bupha-plane
 - name: entity_doc
   kind: function
   file: crates/bupha-plane/src/plane.rs
-  line: 855
+  line: 932
   module: bupha-plane
 - name: expired_lease_with_cancel_requested_cancels
   kind: function
   file: crates/bupha-plane/src/plane.rs
-  line: 1286
+  line: 1363
   module: bupha-plane
-api_omitted: 59
+api_omitted: 61
 deps:
 - async-trait
 - axum
@@ -232,9 +232,9 @@ provenance:
   - crates/bupha-plane/src/plane.rs
   hashes:
   - fcdab77747a105b6a9ccd61f0074664e7efb925d
-  - 7ac9e1b4b53d51238e74f7ceac1b9932a847c867
-  - 5e884ae364a4dec2bb496c5553f24170b9d615ed
-  - 60f6161d2822ec8f79b32354f159de95d2923aff
-  commit_sha: e0c60cad318e76742d903699c09b5cc59505d2a0
-  generated_at: '1794368528'
+  - 8bcb7b0a43ea382ecebb0704171ff874d91bfe1f
+  - 5a1c57b9a0b181a0aa6f0f2b8b0c54cd0ebe1717
+  - 47186af9cb66ce73488ef0739641d003deb4bdd5
+  commit_sha: b924fd25eb07e8d671eae64ebd740d929762cbc7
+  generated_at: '1794372347'
   generator: kuda-template/0.1.2

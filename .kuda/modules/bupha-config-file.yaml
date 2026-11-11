@@ -60,12 +60,17 @@ api:
 - name: load
   kind: function
   file: crates/bupha-config-file/src/lib.rs
-  line: 32
+  line: 53
   module: bupha-config-file
 - name: load
   kind: function
   file: crates/bupha-config-file/tests/dispatch.rs
   line: 16
+  module: bupha-config-file
+- name: load_file
+  kind: function
+  file: crates/bupha-config-file/src/lib.rs
+  line: 38
   module: bupha-config-file
 - name: loads_via_env_var
   kind: function
@@ -116,10 +121,10 @@ provenance:
   - crates/bupha-config-file/tests/search.rs
   hashes:
   - 90556965fe774768db42f410ce6430ce8dd30f55
-  - c9f433fa3c34b43809f5233f52d479c77850183f
+  - 9548fb941d9c1b26a379844c2ea7bf0437365f7d
   - dba1e01dbb4195eed72c776a6cf838dda86a21b1
   - 29a3085a3c73b6653d16cffd753921b0e9e2c89b
   - 56f3c0d733b468e1350be40e67796855405bb039
-  commit_sha: bded75ecc051d0d5dbf73a4d86f733ab028d2e1f
-  generated_at: '1794366338'
+  commit_sha: b924fd25eb07e8d671eae64ebd740d929762cbc7
+  generated_at: '1794372347'
   generator: kuda-template/0.1.2

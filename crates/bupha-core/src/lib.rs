@@ -6,7 +6,7 @@
 //! pending one (skipped shas should get a "superseded" status from the
 //! caller). N commits during a run = 1 follow-up run on the newest.
 
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::collections::VecDeque;
 use std::path::PathBuf;
 
@@ -48,7 +48,7 @@ pub fn is_valid_env_name(s: &str) -> bool {
 /// How a repo's pending work collapses: `latest` keeps one pending
 /// slot (newest wins — CI gates), `all` runs every push in order
 /// (FIFO, bounded). Per-repo via `[[repo]] queue = "..."`.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize, Default)]
 #[serde(rename_all = "lowercase")]
 pub enum QueuePolicy {
     #[default]
@@ -842,7 +842,7 @@ impl Default for TriggerCfg {
     }
 }
 
-#[derive(Debug, Deserialize, Clone, Default)]
+#[derive(Debug, Deserialize, Serialize, Clone, Default)]
 pub struct RunnerCfg {
     /// Runner kind: "dagger" | "shell" | "ssh" | impl crates.
     pub kind: String,
