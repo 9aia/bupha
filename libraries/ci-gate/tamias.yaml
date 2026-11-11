@@ -2,7 +2,7 @@
 #
 # `tamias install <ref>` fetches this payload; `tamias deploy ci-gate`
 # renders the provider unit (`bupha-watch.service` running
-# `bupha watch --config ~/.config/bupha/bundles/ci-gate.toml`) and
+# `tamias-driver-bupha host --config ~/.config/bupha/bundles/ci-gate.toml`) and
 # `tamias-driver-bupha deploy` writes that operator config from
 # `fleet.toml` + this manifest's `provider.ingress` block.
 # `tamias driver exec ci-gate hooks register` points the declared
@@ -28,11 +28,15 @@ provider:
     # driver generates — the fleet itself lives in the payload's
     # fleet.toml, never in this unit file.
     - name: watch
-      # INTERIM (bupha T-052): unit execs the cargo-installed bupha
-      # binary until the driver gains engine-host mode — then this becomes
-      # `tamias-driver-bupha host --config ...`.
+      # The driver binary hosts the engine in-process (`host` verb,
+      # bupha T-052) — exec it from tamias's drivers dir, NOT a
+      # cargo-installed `bupha` (ADR-0006: no user-facing CLI on the
+      # host path). Install the driver to
+      # ~/.local/share/tamias/drivers/ (or set TAMIAS_HOME) — a
+      # bare `tamias-driver-bupha` won't resolve under systemd's
+      # minimal PATH.
       exec: >-
-        ~/.cargo/bin/bupha watch --config ~/.config/bupha/bundles/ci-gate.toml
+        ~/.local/share/tamias/drivers/tamias-driver-bupha host --config ~/.config/bupha/bundles/ci-gate.toml
       env_file: "~/.config/bupha/env"
       workdir: "~"
       restart: on-failure

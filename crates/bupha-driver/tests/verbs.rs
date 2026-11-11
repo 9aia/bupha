@@ -34,6 +34,19 @@ fn capabilities_verb_reports_pavo() {
         .iter()
         .any(|x| x == "pavo"));
     assert!(v["verbs"].as_array().unwrap().iter().any(|x| x == "serve"));
+    // Engine-host verb — provider units exec this binary (T-052).
+    assert!(v["verbs"].as_array().unwrap().iter().any(|x| x == "host"));
+    assert!(v["types"].as_array().unwrap().iter().any(|x| x == "bupha"));
+}
+
+#[test]
+fn host_verb_fails_fast_without_config_or_name() {
+    // `host` blocks once running — the only cheap CLI-level check is
+    // the argument/config failure path (exit 1, clear stderr).
+    let out = bin().arg("host").output().unwrap();
+    assert!(!out.status.success());
+    let err = String::from_utf8_lossy(&out.stderr);
+    assert!(err.contains("--config or --name"), "{err}");
 }
 
 #[test]

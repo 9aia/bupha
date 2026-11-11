@@ -1,6 +1,6 @@
 name: bupha
 root: /home/luis/GitHub/9aia/workspace/repos/bupha
-purpose: '*CI for your own forge — GitHub first, GitLab later; GHA workflows'
+purpose: '*The CI integration for [tamias](https://github.com/9aia/tamias) —'
 modules:
 - bupha
 - bupha-access
@@ -45,14 +45,15 @@ modules:
 - bupha-trigger
 - bupha-tunnel
 - bupha-vcs
+- bupha-watch
 - bupha-webhook
 - docs
 - project
 commands:
 - cargo check
 - cargo test --workspace
-tree_digest: c6c35e1a2c0b3a19471d628f89b9cf4d6f6ff8dd
-files_total: 189
+tree_digest: 20dae50468f96434c65c949353ee9a637ff76871
+files_total: 200
 provenance:
   files:
   - Cargo.toml
@@ -100,11 +101,12 @@ provenance:
   - crates/bupha-trigger/Cargo.toml
   - crates/bupha-tunnel/Cargo.toml
   - crates/bupha-vcs/Cargo.toml
+  - crates/bupha-watch/Cargo.toml
   - crates/bupha-webhook/Cargo.toml
   - modules/dagger/dagger/pyproject.toml
   hashes:
-  - 974bd9d77d6dece577fb9fdeef687df2abc3c81a
-  - 9186f12fd9a25c0d22db68208cbcfb86bfa8041a
+  - 027dd92ed14acdb73338f54277fad3f4862bf723
+  - a83ce6df8dceff28bf85b100bbfb643589acb113
   - faa9d3e3b2e30ebed8aecf8da83c4683f33024c8
   - d3b36ada9a99ed7e36e96e47a7beb1f5bf3fe348
   - 977aa09725741778eef33809aaf4414e789e3f02
@@ -114,7 +116,7 @@ provenance:
   - d46021a5cc4e28ee9eed1d7ca349dd222a5d8306
   - 1e8b72c77e68157b0bceb70cbb4e3ea5c6b4868e
   - 1ce58c0ddf98f4e695cbd71d19541ac6dc19034a
-  - d46c76bc07f89f82d0098c6a592c3d867d3d5bc9
+  - 00a396278233e3eabb344f56b77ece0c02207b83
   - c6468e2b1603699af53234b1fa10040bc21f84b9
   - b1c0f26fe1cf3ded47e08fa677971c448489f47a
   - 90556965fe774768db42f410ce6430ce8dd30f55
@@ -124,7 +126,7 @@ provenance:
   - 2949c06c8e71ef5da170506ce9cd8dfbb7312ce3
   - 6ebc856617d9589fc7fa9c6363696d2e543e5f0b
   - 65cf007ad2f3d1e6517719d11469bc6e97b7326d
-  - db3eef6c7af5e559b2ee7618785672397a6de744
+  - f29aa72be25f9c9a3a17d9af454f9c87411252a9
   - 130920aec2d9f32d6f8c6d16b35230ba63ddc04f
   - 15329f105dd770552bcd21afd4cba3ac3467cded
   - 9a8bdeb02a9e8896e60f63d221a83f115d8a5980
@@ -148,8 +150,9 @@ provenance:
   - 5049aec6b8565aa211bac21b52c0f690c0509d63
   - 5e76ec1737eaa365ccdeadbb3706a163e1a97792
   - 634f96eb54a20f970a3488c4356ca2c51ffefa70
+  - 8cb3b54c35b78522f163e0104edfb89c73a0a0e3
   - cd8e10b771c3960ae45a2b6f7705fa9f1cdc6344
   - a787b6af9e98fd8cae6ece92467308d34e49bbce
-  commit_sha: 4678ccac0cfef02ef0696abed83babef4c0550f5
-  generated_at: '1794337184'
+  commit_sha: 0aa42b749aaffad5d1704beffbac5af8bef7c814
+  generated_at: '1794356096'
   generator: kuda/0.1.0

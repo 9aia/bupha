@@ -12,6 +12,16 @@ api:
   file: project/adrs/0002-adr-0002-enterprise-grade-surfaces.md
   line: 2
   module: project
+- name: ADR-0005
+  kind: record
+  file: project/adrs/0005-bupha-is-the-ci-repo-un-deprecation-gha-dialect-tamias-driver.md
+  line: 2
+  module: project
+- name: ADR-0006
+  kind: record
+  file: project/adrs/0006-bupha-is-ci-semantics-only-substrate-is-hypha-peregrin-distribution-is-tamias.md
+  line: 2
+  module: project
 - name: I-001
   kind: record
   file: project/issues/issue-0001-ci-jobs-run-in-the-watcher-cgroup-oom-kills-the-watcher-and-re-runs-forever.md
@@ -82,6 +92,11 @@ api:
   file: project/proposals/proposal-0001-status-signature-attestation-link-in-commit-status-body.md
   line: 2
   module: project
+- name: P-002
+  kind: record
+  file: project/proposals/proposal-0002-ci-job-ops-contract-bupha-hypha-peregrin-seam.md
+  line: 2
+  module: project
 - name: T-007
   kind: record
   file: project/BACKLOG.md
@@ -90,72 +105,72 @@ api:
 - name: T-008
   kind: record
   file: project/BACKLOG.md
-  line: 9
+  line: 12
   module: project
 - name: T-009
   kind: record
   file: project/BACKLOG.md
-  line: 13
+  line: 16
   module: project
 - name: T-010
   kind: record
   file: project/BACKLOG.md
-  line: 14
+  line: 17
   module: project
 - name: T-011
   kind: record
   file: project/BACKLOG.md
-  line: 15
+  line: 18
   module: project
 - name: T-012
   kind: record
   file: project/BACKLOG.md
-  line: 16
+  line: 19
   module: project
 - name: T-013
   kind: record
   file: project/BACKLOG.md
-  line: 17
+  line: 20
   module: project
 - name: T-014
   kind: record
   file: project/BACKLOG.md
-  line: 18
+  line: 21
   module: project
 - name: T-015
   kind: record
   file: project/BACKLOG.md
-  line: 19
+  line: 22
   module: project
 - name: T-016
   kind: record
   file: project/BACKLOG.md
-  line: 20
+  line: 23
   module: project
 - name: T-017
   kind: record
   file: project/BACKLOG.md
-  line: 21
+  line: 24
   module: project
 - name: T-018
   kind: record
   file: project/BACKLOG.md
-  line: 22
+  line: 25
   module: project
 - name: T-019
   kind: record
   file: project/BACKLOG.md
-  line: 26
+  line: 29
   module: project
 - name: T-020
   kind: record
   file: project/BACKLOG.md
-  line: 27
+  line: 30
   module: project
 - name: T-021
   kind: record
   file: project/BACKLOG.md
-  line: 28
+  line: 31
   module: project
 - name: T-027
   kind: record
@@ -187,29 +202,35 @@ api:
   file: project/TODO.md
   line: 6
   module: project
+api_omitted: 14
 deps: []
 warnings:
 - 'project/issues/issue-0003-unvalidated-sha-on-non-webhook-paths-worktree-path-traversal-git-option-injection.md: schema: "critical" is not one of "low", "med" or 3 other candidates'
 notes: ''
 verify:
 - project/BACKLOG.md
+- project/DONE.md
 - project/TODO.md
 - project/adrs/0001-adr-0001-github-actions-compatibility-for-easy-migration.md
 - project/adrs/0002-adr-0002-enterprise-grade-surfaces.md
+- project/adrs/0005-bupha-is-the-ci-repo-un-deprecation-gha-dialect-tamias-driver.md
+- project/adrs/0006-bupha-is-ci-semantics-only-substrate-is-hypha-peregrin-distribution-is-tamias.md
 - project/handoffs/I-003.md
 - project/handoffs/T-027.md
-- project/handoffs/archive/T-029.md
-- project/index.md
-- project/issues/issue-0001-ci-jobs-run-in-the-watcher-cgroup-oom-kills-the-watcher-and-re-runs-forever.md
-- project/issues/issue-0002-test-flakes-at-head-path-mutation-races-bupha-attest-sigstore-cosign-rs-bupha-cloudflared-tunnel-rs-spawn-fails-without-binary-fail-under-parallel-cargo-test-bupha-keyring-secrets-rs-leaks-path-between-tests-all-pass-in-isolation.md
+- project/handoffs/T-049.md
 provenance:
   files:
   - project/BACKLOG.md
+  - project/DONE.md
   - project/TODO.md
   - project/adrs/0001-adr-0001-github-actions-compatibility-for-easy-migration.md
   - project/adrs/0002-adr-0002-enterprise-grade-surfaces.md
+  - project/adrs/0005-bupha-is-the-ci-repo-un-deprecation-gha-dialect-tamias-driver.md
+  - project/adrs/0006-bupha-is-ci-semantics-only-substrate-is-hypha-peregrin-distribution-is-tamias.md
   - project/handoffs/I-003.md
   - project/handoffs/T-027.md
+  - project/handoffs/T-049.md
+  - project/handoffs/T-053.md
   - project/handoffs/archive/T-029.md
   - project/index.md
   - project/issues/issue-0001-ci-jobs-run-in-the-watcher-cgroup-oom-kills-the-watcher-and-re-runs-forever.md
@@ -225,17 +246,23 @@ provenance:
   - project/issues/issue-0011-worker-panics-on-fleet-job-with-unknown-key-dos.md
   - project/issues/issue-0012-bupha-init-git-remote-url-interpolated-into-generated-python-patch-host.md
   - project/proposals/proposal-0001-status-signature-attestation-link-in-commit-status-body.md
+  - project/proposals/proposal-0002-ci-job-ops-contract-bupha-hypha-peregrin-seam.md
   hashes:
-  - 3da860598e3e77ec43cce7d6e537274c761aca4c
-  - a8220fba525dd40a74bee2aecf455783f1e705a9
+  - e9f311a05504d185a4ac87e46e8809255cbd13a7
+  - 0e8dc6eaed47e8274db301395a9e7693fd4d7215
+  - 50e45d395226481f388c2eed9b09614eb2f2f36b
   - 2dc7665583c806fc5a5a09d8c2ad485b2888aa4b
   - 83ad74c3b209b9f10a7edd820fd31e8d583e5489
+  - 5d22a78ab0e5a33a834acb59d44080bc09bceefd
+  - e52d9fd7026b90c3f3eb17b03dea333b80260688
   - 522318709a3923d3396a224c9968ee4471e7750e
   - 22e0586b4e103ee18dbeca15ed3c319130706688
+  - d9f2a6cdd906c41a4ecedbfddb7714f01115485c
+  - 090337343bfb25fbaec264c4ce1ee3fa5f02a9f4
   - d3f12670f3e871b0c2a499668a4cd1e3bb3d7815
   - 3091ed43775d9ade33d06ad35e6b788b98afa4d5
   - 52d8d4834c8a14b6d2a45689e9dd401b65bb7c95
-  - 157d1ae843763134c6a91c2e961a96f834b5a00f
+  - 5a935f315ece34dedaec75e5e07cada1fdc93103
   - 8f20548325f4bfe69bfb6723f90a0173f5506c98
   - 11ffe90cea4b3482cce4696c921911494c8cf40e
   - 84ad14974b3ec06b018331aed31813e325f211ca
@@ -247,6 +274,7 @@ provenance:
   - 754f2219f7c59af7eb3add454d07669932d45edd
   - 002b0049113c3dc274fc3c858e2ec68c97a8b63d
   - df3eb22a6b42fbc7a4353c8d160b5b4387205b8f
-  commit_sha: 804e98a4c3563e04363c85c0957e703865ff33bb
-  generated_at: '1794198342'
+  - 64bb8eeec2c83135075727fb9aec32780e212939
+  commit_sha: 0aa42b749aaffad5d1704beffbac5af8bef7c814
+  generated_at: '1794356096'
   generator: kuda-template/0.1.2

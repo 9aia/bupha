@@ -22,6 +22,11 @@ api:
   file: docs/reference/crate-api.md
   line: 1
   module: docs
+- name: Crate scope audit — bupha under ADR-0006
+  kind: record
+  file: docs/explanation/crate-scope-audit.md
+  line: 1
+  module: docs
 - name: Distributed runners
   kind: record
   file: docs/how-to/distributed-runners.md
@@ -32,9 +37,19 @@ api:
   file: docs/getting-started.md
   line: 1
   module: docs
+- name: 'How-to: package bupha fleets with tamias'
+  kind: record
+  file: docs/how-to/tamias-bundles.md
+  line: 1
+  module: docs
 - name: 'How-to: run without containers'
   kind: record
   file: docs/how-to/shell-runner.md
+  line: 1
+  module: docs
+- name: 'How-to: run your GitHub Actions workflows on your own box'
+  kind: record
+  file: docs/how-to/gha-runner.md
   line: 1
   module: docs
 - name: 'How-to: sccache backend'
@@ -68,26 +83,29 @@ verify:
 - docs/package.json
 - docs/comparison.md
 - docs/explanation/architecture.md
+- docs/explanation/crate-scope-audit.md
 - docs/explanation/release-model.md
 - docs/gen-api-index.py
 - docs/gen-config-docs.py
 - docs/gen-crate-map.py
 - docs/getting-started.md
 - docs/how-to/distributed-runners.md
-- docs/how-to/multi-repo.md
 provenance:
   files:
   - docs/comparison.md
   - docs/explanation/architecture.md
+  - docs/explanation/crate-scope-audit.md
   - docs/explanation/release-model.md
   - docs/gen-api-index.py
   - docs/gen-config-docs.py
   - docs/gen-crate-map.py
   - docs/getting-started.md
   - docs/how-to/distributed-runners.md
+  - docs/how-to/gha-runner.md
   - docs/how-to/multi-repo.md
   - docs/how-to/sccache-backend.md
   - docs/how-to/shell-runner.md
+  - docs/how-to/tamias-bundles.md
   - docs/index.md
   - docs/package.json
   - docs/public/api/static.files/SourceSerif4-LICENSE-a2cfd9d5.md
@@ -96,24 +114,27 @@ provenance:
   - docs/reference/crate-api.md
   - docs/tutorials/first-run.md
   hashes:
-  - c2ddb396f43286f9bedec282a4c99e8f90ca47eb
-  - 342f9098904ff8454c2a041b2326597e67e55bd1
+  - c6be92c475d9a2cc084a0a860297f7a921d49708
+  - 3f3b8fbefcf410166190f222531c8e65b427d7b6
+  - 6bfedddf3b70cd513ecdd2757da7bb41a263d3ee
   - 9dbdd7b6bbf4c07e8811a0842dc26ca4dd88ca8a
   - 4190ba42e1402d3b750ddb42650ef4322a0ffda5
-  - 768bad3d834ab41488f660d9a512b78638543399
+  - 3581f95a4ca27c14f28e6d0dc17cdb2acd00803a
   - bbd5eb7406ea4575ec41ab702a951fc85f6c346d
-  - 4cf5fe376d64f261d7db0fec59b606150e4b33a1
+  - 1dd14fe0ba790a66dafc38d710f957cd9762e50c
   - 711ac6669b0af0c9e1f84c4b7aad1ab895b5c1e2
+  - b0a58f951a224721750d63ddb1ce585f2bf68f64
   - 16fbf905102ef5a2a8cfd8b633c4854c6a5ecf9a
   - 4ee7f2b425b4393d662c8e6d54a59b6272e22a6a
   - 4831a71b4f2cf04bff365e8b1297a035f629ab5c
-  - f12f8973e61db5dc2c1924a5ac48cb77b7e1b94b
+  - 0c9a81370dc5b4005705d22482a07362190f1d50
+  - 69c03f271a220340ea3b6cfebd6a05008a560a55
   - 3383cb82ab33f666e6c2f4d9d9990cf647a3ca5f
   - 175fa4f47aecdc02e902d243a1c29914eb2ee258
-  - e1a24e9797edb151014edb30991718d03e9ad68b
-  - 66162b8db114a707747f84246c8ef0c2f6afc83b
-  - fa785c76e1e5397e4e01daef23ac28e591afc6b9
+  - 6954a19058909a82dffd052f76f2b7384a5dc4dd
+  - 9c8dc1f97ab76a629dd8af02b69eae9333a82602
+  - de7f8889e1f2b79e930ce466daa26b7725956ddf
   - 37bee1e511822188060b6fe1d22ac4d7a9f417c2
-  commit_sha: 2d4a96daf7ba7229d45d539225fd64293e5c01a3
-  generated_at: '1794195473'
+  commit_sha: 0aa42b749aaffad5d1704beffbac5af8bef7c814
+  generated_at: '1794356096'
   generator: kuda-template/0.1.2

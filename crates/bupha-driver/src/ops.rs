@@ -3,8 +3,8 @@
 //! tamias discovers `tamias-driver-<type>` executables and runs
 //! `<verb> --dir <payload> --name <pkg> [--config <f>]` for the
 //! lifecycle three (`install`/`deploy`/`uninstall`) and any provider
-//! verb the driver's `capabilities` advertises (`hooks`, `health`,
-//! `status`, `logs`, `config-schema`). This module is that surface —
+//! verb the driver's `capabilities` advertises (`host`, `hooks`,
+//! `health`, `status`, `logs`, `config-schema`). This module is that surface —
 //! the pavo verbs (`manifest`/`serve`/`capabilities`) stay in
 //! `main.rs`/`lib.rs`; `main.rs` dispatches on the subcommand, and
 //! tamias verbs always carry `--dir`/`--name` while pavo verbs never
@@ -17,8 +17,11 @@
 //! from `provider.ingress[]` (the same values `hooks register`
 //! points GitHub at — one source of truth, no drift). `deploy`
 //! writes the merged doc to `~/.config/bupha/bundles/<name>.toml`;
-//! the provider unit's `bupha watch --config <that path>` consumes
-//! it. Per-bundle files beat merging into `bupha.yaml`: the config
+//! the provider unit's `tamias-driver-bupha host --config <that
+//! path>` consumes it (the `host` verb runs the watcher engine
+//! in-process via `bupha-watch` — ADR-0006: units exec the driver
+//! binary, not a cargo-installed `bupha`). Per-bundle files beat
+//! merging into `bupha.yaml`: the config
 //! loader (`bupha-config-file`) has no include mechanism and a
 //! merge-writer would have to track provenance to stay idempotent —
 //! a dedicated file is trivially regenerable and `uninstall` is a
@@ -328,8 +331,9 @@ fn table_mut<'a>(root: &'a mut toml::Table, key: &str) -> Result<&'a mut toml::T
         .ok_or_else(|| format!("{FLEET_FILE}: '{key}' must be a table"))
 }
 
-/// `deploy` — write the operator config `bupha watch --config`
-/// consumes: `fleet.toml` with `tunnel.public_url` and
+/// `deploy` — write the operator config
+/// `tamias-driver-bupha host --config` consumes: `fleet.toml` with
+/// `tunnel.public_url` and
 /// `trigger.listen`/`kind` filled from `provider.ingress[]` (the
 /// manifest wins those fields — they're the same values the forge
 /// hooks point at). Regeneration is idempotent: the file is wholly
@@ -373,7 +377,7 @@ pub fn deploy(dir: &Path, name: &str, config: Option<&Path>) -> Result<String, S
 
     let text = toml::to_string(&toml::Value::Table(fleet))
         .map_err(|e| format!("{FLEET_FILE}: serialize: {e}"))?;
-    // Validate the merged doc exactly as `bupha watch --config` will
+    // Validate the merged doc exactly as `host --config` will
     // load it — a bad fleet must fail here, not at unit start.
     let mut cfg: bupha_core::Config =
         toml::from_str(&text).map_err(|e| format!("merged config: {e}"))?;
@@ -817,7 +821,7 @@ pub fn config_schema() -> Result<String, String> {
     let schema = json!({
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "title": "bupha operator config",
-        "description": "The --config file a bupha-bundle provider's `bupha watch` consumes — written by `tamias deploy` via tamias-driver-bupha from the bundle's fleet.toml + tamias.yaml provider.ingress. TOML/YAML mapping; schema is draft 2020-12.",
+        "description": "The --config file `tamias-driver-bupha host` consumes — written by `tamias deploy` via tamias-driver-bupha from the bundle's fleet.toml + tamias.yaml provider.ingress. TOML/YAML mapping; schema is draft 2020-12.",
         "type": "object",
         "required": ["repo", "runner", "status"],
         "properties": {
@@ -876,6 +880,44 @@ pub fn config_schema() -> Result<String, String> {
     serde_json::to_string_pretty(&schema).map_err(|e| e.to_string())
 }
 
+/// `host` — engine-host mode: run the watcher pipeline
+/// **in-process** so deployed provider units exec this driver
+/// binary instead of a cargo-installed `bupha` (ADR-0006: no
+/// user-facing bupha CLI on the host path; bupha T-052).
+///
+/// Loads the operator config `deploy` wrote — `--config <path>`,
+/// else `~/.config/bupha/bundles/<name>.toml` (`--name` required
+/// then) — and blocks in `bupha_watch::watch`: trigger listener +
+/// queues + runner + status sinks, identical to `bupha watch`.
+/// `--dir` is accepted (tamias's dispatch contract) but unused —
+/// the payload's `fleet.toml` only matters at `deploy` time.
+///
+/// # Errors
+/// Fails on a missing `--config`/`--name` or an unloadable config;
+/// once running, config errors inside `watch` exit the process
+/// like the CLI's did.
+pub fn host(f: &Flags) -> Result<String, String> {
+    let path = match f.config.clone() {
+        Some(p) => p,
+        None => bundle_config_path(
+            f.name
+                .as_deref()
+                .ok_or_else(|| "host: --config or --name is required".to_string())?,
+            None,
+        ),
+    };
+    use bupha_config::ConfigSource;
+    let cfg = bupha_config_file::FileSource {
+        path: Some(path.to_string_lossy().to_string()),
+    }
+    .load()
+    .map_err(|e| format!("host: {}: {e}", path.display()))?;
+    // Blocks until the sources stop (e2e shutdown hook, signal) —
+    // the unit's Restart= policy owns the lifecycle from there.
+    bupha_watch::watch(std::sync::Arc::new(cfg));
+    Ok(String::new())
+}
+
 // --- dispatch -----------------------------------------------------------------
 
 /// Run one tamias verb. `verb` is the subcommand `main.rs` already
@@ -920,6 +962,7 @@ pub fn run(verb: &str, args: &[String]) -> i32 {
             let (dir, name) = required(&f, "logs")?;
             logs(&dir, &name, f.lines)
         }),
+        "host" => parse_flags(args).and_then(|f| host(&f)),
         "config-schema" => {
             // Instance-agnostic probe — flags accepted, ignored.
             match config_schema() {
@@ -974,7 +1017,7 @@ provider:
   name: bupha
   services:
     - name: watch
-      exec: "bupha watch --config ~/.config/bupha/bundles/ci-gate.toml"
+      exec: "tamias-driver-bupha host --config ~/.config/bupha/bundles/ci-gate.toml"
   ingress:
     - public_url: https://ci.example.com
       listen: 127.0.0.1:29173
@@ -1039,7 +1082,7 @@ provider:
         // fleet content preserved
         assert!(text.contains("o/r"));
         assert!(text.contains("BUPHA_WH_O_R"));
-        // parses back through the same loader `bupha watch --config` uses
+        // parses back through the same loader `host --config` uses
         let cfg = bupha_config_file::FileSource {
             path: Some(out.to_string_lossy().to_string()),
         }
@@ -1146,6 +1189,69 @@ provider:
             "--dry-run",
         ]);
         assert!(hooks(&f2, true).unwrap_err().contains("provider"));
+    }
+
+    /// Minimal github-trigger config on an ephemeral port: the
+    /// webhook secret resolves from the env (NAME only), and the
+    /// e2e shutdown hook (`BUPHA_WATCH_SHUTDOWN_FILE`) unwinds the
+    /// accept loop so `host` returns.
+    #[test]
+    fn host_runs_engine_until_shutdown_hook() {
+        let dir = tmp("host-run");
+        let repo_dir = dir.join("repo");
+        std::fs::create_dir_all(&repo_dir).unwrap();
+        let cfg_path = dir.join("bupha.toml");
+        std::fs::write(
+            &cfg_path,
+            format!(
+                r#"
+[[repo]]
+name = "o/r"
+dir = "{}"
+
+[runner]
+kind = "shell"
+
+[status]
+kind = "none"
+
+[trigger]
+kind = "github"
+listen = "127.0.0.1:0"
+secret_env = "BUPHA_WEBHOOK_SECRET"
+
+[worktree]
+base = "{}"
+"#,
+                repo_dir.display(),
+                dir.join("wt").display()
+            ),
+        )
+        .unwrap();
+        let stop = dir.join("stop");
+        std::fs::write(&stop, "").unwrap();
+        std::env::set_var("BUPHA_WATCH_SHUTDOWN_FILE", &stop);
+        std::env::set_var("BUPHA_WEBHOOK_SECRET", "test-secret");
+        let args: Vec<String> = [
+            "--config".to_string(),
+            cfg_path.to_string_lossy().to_string(),
+        ]
+        .to_vec();
+        assert_eq!(run("host", &args), 0);
+        std::env::remove_var("BUPHA_WATCH_SHUTDOWN_FILE");
+        std::env::remove_var("BUPHA_WEBHOOK_SECRET");
+    }
+
+    #[test]
+    fn host_requires_config_or_name() {
+        assert_eq!(run("host", &[]), 1);
+        let missing = tmp("host-missing").join("nope.toml");
+        let args: Vec<String> = [
+            "--config".to_string(),
+            missing.to_string_lossy().to_string(),
+        ]
+        .to_vec();
+        assert_eq!(run("host", &args), 1);
     }
 
     #[test]

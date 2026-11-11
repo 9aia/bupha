@@ -1,11 +1,12 @@
-# ci-gate fleet — the operator config `bupha watch` runs.
+# ci-gate fleet — the operator config `tamias-driver-bupha host` runs.
 #
 # This file is the payload's fleet source: `tamias-driver-bupha
 # deploy` merges it with tamias.yaml's provider.ingress (which owns
 # `tunnel.public_url`, `trigger.listen`/`kind`) and writes the result
 # to ~/.config/bupha/bundles/ci-gate.toml. It is a COMPLETE
-# bupha_core::Config doc — every section `bupha watch --config`
-# needs is here; only the two manifest-owned fields are absent.
+# bupha_core::Config doc — every section the `host` verb's
+# `--config` load needs is here; only the two manifest-owned
+# fields are absent.
 #
 # Secrets are env-var NAMES only — values resolve env → OS keyring →
 # ~/.config/bupha/env (the unit's EnvironmentFile). Never put a

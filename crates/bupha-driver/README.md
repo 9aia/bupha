@@ -24,7 +24,8 @@ tamias dispatches `<verb> --dir <payload> --name <pkg> [--config <f>]`:
 | verb | output |
 | --- | --- |
 | `install` | no-op — the operator config is `deploy`'s job (install only sees the evictable fetch-cache payload) |
-| `deploy` | merge the payload's `fleet.toml` (a complete `bupha_core::Config` doc) with `tamias.yaml provider.ingress[]` — `tunnel.public_url`, `trigger.listen`/`kind`, `tunnel.local_url` are manifest-owned — and write `~/.config/bupha/bundles/<name>.toml`, the file the provider unit's `bupha watch --config` consumes. Idempotent: fully regenerated each run, validated as a real `Config` before write |
+| `deploy` | merge the payload's `fleet.toml` (a complete `bupha_core::Config` doc) with `tamias.yaml provider.ingress[]` — `tunnel.public_url`, `trigger.listen`/`kind`, `tunnel.local_url` are manifest-owned — and write `~/.config/bupha/bundles/<name>.toml`, the file the provider unit's `host` verb consumes. Idempotent: fully regenerated each run, validated as a real `Config` before write |
+| `host [--config <f>]` | engine-host mode — run the watcher pipeline (`bupha-watch`, the same code `bupha watch` runs) in-process against the deployed operator config; blocks until the sources stop. What provider units exec |
 | `uninstall` | remove the deployed config (`--config` overrides the path) |
 | `hooks register\|uninstall [--dry-run] [--api-base <url>] [--token-env <NAME>]` | upsert/remove the GitHub webhooks `provider.ingress[].hooks[]` declare, via `bupha_github`'s REST path (exact-URL match). `--dry-run` prints the plan and resolves no secrets. Register needs the forge token + each repo's webhook secret **by NAME** (env → keyring → `~/.config/bupha/env`) |
 | `health` | JSON `{ok, probes[]}` — webhook `ping` per ingress `listen`+`path` (`POST …/hook` + `X-GitHub-Event: ping` → `200 pong`), else `systemctl --user is-active` per provider unit |

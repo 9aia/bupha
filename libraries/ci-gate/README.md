@@ -9,7 +9,7 @@ per-repo pipeline → commit status, latest-wins per repo.
 
 | file | role |
 | --- | --- |
-| `tamias.yaml` | package manifest — `provider:` declares the systemd unit (`bupha watch --config ~/.config/bupha/bundles/ci-gate.toml`), the env file, and the public ingress (`https://ci.luisfuturist.com` → `127.0.0.1:29173/hook`) plus the GitHub hooks to manage |
+| `tamias.yaml` | package manifest — `provider:` declares the systemd unit (`tamias-driver-bupha host --config ~/.config/bupha/bundles/ci-gate.toml`), the env file, and the public ingress (`https://ci.luisfuturist.com` → `127.0.0.1:29173/hook`) plus the GitHub hooks to manage |
 | `fleet.toml` | the operator config payload — every `[[repo]]` and the `[runner]`/`[status]`/`[queue]`/`[worktree]` blocks. Deploy merges the manifest-owned `tunnel.public_url`/`trigger.listen`/`trigger.kind` into it and writes `~/.config/bupha/bundles/ci-gate.toml` |
 
 The fleet file is deliberately small and representative — the full

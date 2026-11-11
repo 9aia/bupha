@@ -57,6 +57,7 @@ pub fn capabilities_value() -> Value {
         "health",
         "status",
         "logs",
+        "host",
         "config-schema",
     ] {
         if !verbs.iter().any(|x| x.as_str() == Some(extra)) {

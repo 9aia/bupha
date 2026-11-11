@@ -13,59 +13,33 @@ name = "bupha"
 path = "src/main.rs"
 
 [dependencies]
+# The watcher engine (trigger → queue → runner → sinks) lives in
+# bupha-watch — shared verbatim with `tamias-driver-bupha host`.
+bupha-watch.workspace = true
 bupha-core.workspace = true
 bupha-vcs.workspace = true
 bupha-git.workspace = true
 bupha-queue.workspace = true
 bupha-queue-redb.workspace = true
 bupha-queue-redis.workspace = true
+bupha-queue-lease.workspace = true
 bupha-secret.workspace = true
 bupha-keyring.workspace = true
-bupha-dotenv.workspace = true
 bupha-service.workspace = true
 bupha-config.workspace = true
-bupha-cache.workspace = true
-bupha-cache-sccache.workspace = true
 bupha-config-file.workspace = true
-bupha-trigger.workspace = true
-bupha-status.workspace = true
 bupha-runner.workspace = true
-bupha-dagger.workspace = true
-bupha-shell.workspace = true
-bupha-ssh.workspace = true
 bupha-http.workspace = true
-bupha-tunnel.workspace = true
-bupha-cloudflared.workspace = true
 bupha-github.workspace = true
-bupha-gha.workspace = true
-bupha-sturn.workspace = true
-bupha-webhook.workspace = true
-clap = { version = "4", features = ["derive"] }
+bupha-trigger.workspace = true
 bupha-systemd.workspace = true
+bupha-telemetry.workspace = true
+clap = { version = "4", features = ["derive"] }
 serde_json = "1"
 ureq = { version = "3" }
 clap-markdown = "0.1.5"
-dirs = "7.0.0"
 serde_norway = "0.9"
 toml = "0.8"
-
-bupha-access.workspace = true
-bupha-access-file.workspace = true
-bupha-access-forge.workspace = true
-bupha-audit-file.workspace = true
-bupha-telemetry.workspace = true
-bupha-telemetry-otel.workspace = true
-bupha-container.workspace = true
-
-bupha-history.workspace = true
-
-bupha-attest.workspace = true
-
-bupha-attest-file.workspace = true
-
-bupha-attest-sigstore.workspace = true
-
-bupha-queue-lease.workspace = true
 
 [dev-dependencies]
 hmac = "0.12"
@@ -77,4 +51,3 @@ ureq = { version = "3" }
 # test hooks in main.rs and tests/) — declare it for check-cfg.
 [lints.rust]
 unexpected_cfgs = { level = "warn", check-cfg = ["cfg(coverage)"] }
-

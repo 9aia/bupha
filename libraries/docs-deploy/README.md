@@ -1,7 +1,7 @@
 # docs-deploy — bupha docs-site deploys as a tamias bundle
 
 Docs-branch deployment packaged as a tamias content bundle
-(`type: bupha`). A second `bupha watch` unit
+(`type: bupha`). A second watcher unit
 (`bupha-watch-docs.service`) fans GitHub push webhooks into
 bupha's queue → detached worktree of the pushed `docs` sha → the
 repo's own deploy script → `docs/deploy` commit status,
@@ -18,7 +18,7 @@ entries because bupha's runner *is* the shell command.
 
 | file | role |
 | --- | --- |
-| `tamias.yaml` | package manifest — `provider:` declares the systemd unit (`bupha watch --config ~/.config/bupha/bundles/docs-deploy.toml`), the env file, and the public ingress (`https://docs-deploy.luisfuturist.com` → `127.0.0.1:29174/hook`) plus the GitHub hooks to manage |
+| `tamias.yaml` | package manifest — `provider:` declares the systemd unit (`tamias-driver-bupha host --config ~/.config/bupha/bundles/docs-deploy.toml`), the env file, and the public ingress (`https://docs-deploy.luisfuturist.com` → `127.0.0.1:29174/hook`) plus the GitHub hooks to manage |
 | `fleet.toml` | the operator config payload — the `[[repo]]` set and the `[runner]`/`[status]`/`[queue]`/`[worktree]` blocks. Deploy merges the manifest-owned `tunnel.public_url`/`trigger.listen`/`trigger.kind` into it and writes `~/.config/bupha/bundles/docs-deploy.toml` |
 
 The fleet file ships one concrete repo (`9aia/bupha`) plus a

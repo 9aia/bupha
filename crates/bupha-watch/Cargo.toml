@@ -1,0 +1,53 @@
+[package]
+name = "bupha-watch"
+description = "bupha watcher engine host — trigger → queue → runner → status pipeline shared by `bupha watch` and `tamias-driver-bupha host`"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+keywords = ["ci", "bupha"]
+categories = ["development-tools"]
+
+[dependencies]
+bupha-core.workspace = true
+bupha-vcs.workspace = true
+bupha-git.workspace = true
+bupha-queue.workspace = true
+bupha-queue-redb.workspace = true
+bupha-queue-redis.workspace = true
+bupha-queue-lease.workspace = true
+bupha-secret.workspace = true
+bupha-keyring.workspace = true
+bupha-dotenv.workspace = true
+bupha-trigger.workspace = true
+bupha-status.workspace = true
+bupha-runner.workspace = true
+bupha-dagger.workspace = true
+bupha-shell.workspace = true
+bupha-ssh.workspace = true
+bupha-http.workspace = true
+bupha-container.workspace = true
+bupha-gha.workspace = true
+bupha-tunnel.workspace = true
+bupha-cloudflared.workspace = true
+bupha-github.workspace = true
+bupha-sturn.workspace = true
+bupha-webhook.workspace = true
+bupha-cache.workspace = true
+bupha-cache-sccache.workspace = true
+bupha-access.workspace = true
+bupha-access-file.workspace = true
+bupha-access-forge.workspace = true
+bupha-audit-file.workspace = true
+bupha-telemetry.workspace = true
+bupha-telemetry-otel.workspace = true
+bupha-history.workspace = true
+bupha-attest.workspace = true
+bupha-attest-file.workspace = true
+bupha-attest-sigstore.workspace = true
+toml.workspace = true
+
+# cargo-llvm-cov compiles with `--cfg coverage` (see coverage-gated
+# test hooks in lib.rs) — declare it for check-cfg.
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ["cfg(coverage)"] }
