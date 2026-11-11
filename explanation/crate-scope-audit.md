@@ -39,7 +39,7 @@ Rulings:
 | `bupha-dagger` | KEEP | Runner impl — `dagger call` per job. | stays |
 | `bupha-dotenv` | MIGRATE | `KEY=VAL` secret file — generic secret plumbing, not CI semantics. hypha already ships `hypha-dotenv`; under a cuora story (T-056) it dies outright. | hypha-secret impls / cuora (T-056) |
 | `bupha-driver` | KEEP+EXTEND | `tamias-driver-bupha` is the distribution surface *and* the future worker host (P-002 §4 `worker` verb). `data.rs` moves from `queue.redb` reads to the ci-job entity index when hosted mode lands. | stays — gains `worker` verb + ci-jobs view |
-| `bupha-gha` | KEEP | The workflow dialect — parse/plan/script/executor for `.github/workflows/*.yml`. Core CI semantics; also feeds T-050 (self-hosted GHA runner). | stays |
+| `bupha-gha` | KEEP | The workflow dialect — parse/plan/script/executor for `.github/workflows/*.yml`. Core CI semantics; also feeds T-050 (self-hosted GHA runner — reserved name `gha-runner`, T-054). | stays |
 | `bupha-git` | KEEP | `Vcs` impl via git CLI — worktree/sync primitives every runner needs. | stays |
 | `bupha-github` | KEEP | Trigger parse/verify (push normalization) + `StatusSink` commit-status posting — both halves are CI semantics (P-002 keeps normalization + worker-side status posting in bupha). | stays |
 | `bupha-history` | KEEP (dev/optional) | JSONL run records for `bupha runs`/`log`. In hosted mode the ci-job entity index *is* the history; keep as dev-mode/optional feature, candidate to fold later. | stays (dev) |

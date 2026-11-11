@@ -149,6 +149,11 @@ formats. See `examples/bupha.toml.example` and
 
 ## `[runner]` — kind `gha`
 
+The *workflow dialect*: bupha reads `.github/workflows/*.yml` and
+executes it. (The separate planned self-hosted-runner mode — bupha
+speaking the actions/runner broker protocol — is reserved the name
+`gha-runner`; T-054.)
+
 | field | type | required | notes |
 |---|---|---|---|
 | `workflow` | `WorkflowSel` | optional | Pin workflow file(s) instead of discovering every `on.push`-matching file under `.github/workflows/`. Entries resolve against `.github/workflows/` first, then the worktree root. |

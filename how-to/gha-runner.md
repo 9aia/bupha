@@ -7,6 +7,13 @@ dagger call, the runner parses the workflows at the pushed sha
 and runs every `on.push`-matching one, sequentially, in one local
 bash process. The aggregate exit status drives the commit status.
 
+> **Naming (T-054).** `runner.kind = "gha"` is the *workflow
+> dialect* — bupha reads `.github/workflows` YAML and executes it.
+> The reverse direction (bupha as a GitHub self-hosted runner that
+> repos target with `runs-on: [self-hosted, bupha]`) is a separate
+> planned feature reserved the name **`gha-runner`** — don't confuse
+> the two.
+
 ```toml
 [[repo]]
 name = "org/app"
