@@ -65,7 +65,7 @@ api:
 - name: all_policy_fifo_and_bound
   kind: function
   file: crates/bupha-plane/src/plane.rs
-  line: 1100
+  line: 1178
   module: bupha-plane
 - name: as_str
   kind: function
@@ -80,7 +80,7 @@ api:
 - name: cancel_pending_running_terminal
   kind: function
   file: crates/bupha-plane/src/plane.rs
-  line: 1326
+  line: 1404
   module: bupha-plane
 - name: check_holder
   kind: function
@@ -95,12 +95,12 @@ api:
 - name: claim_is_cas_with_fence_and_lease
   kind: function
   file: crates/bupha-plane/src/plane.rs
-  line: 1124
+  line: 1202
   module: bupha-plane
 - name: claim_label_gate_with_advertised_labels
   kind: function
   file: crates/bupha-plane/src/plane.rs
-  line: 1197
+  line: 1275
   module: bupha-plane
 - name: clone_for_retry
   kind: function
@@ -110,12 +110,12 @@ api:
 - name: complete_failure_retries_as_new_attempt
   kind: function
   file: crates/bupha-plane/src/plane.rs
-  line: 1282
+  line: 1360
   module: bupha-plane
 - name: complete_success_is_terminal
   kind: function
   file: crates/bupha-plane/src/plane.rs
-  line: 1250
+  line: 1328
   module: bupha-plane
 - name: compute_id
   kind: function
@@ -140,7 +140,7 @@ api:
 - name: create_validates_and_derives_id
   kind: function
   file: crates/bupha-plane/src/plane.rs
-  line: 1052
+  line: 1130
   module: bupha-plane
 - name: default
   kind: function
@@ -175,7 +175,7 @@ api:
 - name: delete_rules
   kind: function
   file: crates/bupha-plane/src/plane.rs
-  line: 1413
+  line: 1491
   module: bupha-plane
 - name: dispatch_op
   kind: function
@@ -190,7 +190,7 @@ api:
 - name: enqueue_requeues_terminal_with_attempt_bump
   kind: function
   file: crates/bupha-plane/src/plane.rs
-  line: 1376
+  line: 1454
   module: bupha-plane
 - name: entity_doc
   kind: function
@@ -200,9 +200,9 @@ api:
 - name: expired_lease_with_cancel_requested_cancels
   kind: function
   file: crates/bupha-plane/src/plane.rs
-  line: 1363
+  line: 1441
   module: bupha-plane
-api_omitted: 61
+api_omitted: 64
 deps:
 - async-trait
 - axum
@@ -234,7 +234,7 @@ provenance:
   - fcdab77747a105b6a9ccd61f0074664e7efb925d
   - 8bcb7b0a43ea382ecebb0704171ff874d91bfe1f
   - 5a1c57b9a0b181a0aa6f0f2b8b0c54cd0ebe1717
-  - 47186af9cb66ce73488ef0739641d003deb4bdd5
-  commit_sha: b924fd25eb07e8d671eae64ebd740d929762cbc7
-  generated_at: '1794372347'
+  - 1e328d4ede8856e32b4ce843f00e2dff818926da
+  commit_sha: 5f560dabfe367ad7ed676eedc0a5f24236c101da
+  generated_at: '1794372592'
   generator: kuda-template/0.1.2
