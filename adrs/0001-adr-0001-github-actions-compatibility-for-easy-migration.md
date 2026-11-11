@@ -2,7 +2,7 @@
 id = "ADR-0001"
 title = "ADR-0001: GitHub Actions compatibility for easy migration"
 status = "done"
-priority = "medium"
+priority = "med"
 +++
 
 # ADR-0001: GitHub Actions compatibility for easy migration

@@ -4,7 +4,7 @@ title = "secret-bearing files at lax perms: sccache-env 0644, repo .env 0644"
 status = "done"
 created = "2026-11-03"
 owner = "devin"
-priority = "medium"
+priority = "med"
 labels = ["security"]
 +++
 

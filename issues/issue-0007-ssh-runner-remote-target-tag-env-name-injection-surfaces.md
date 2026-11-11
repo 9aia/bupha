@@ -4,7 +4,7 @@ title = "ssh runner: remote/target/tag/env-name injection surfaces"
 status = "done"
 created = "2026-11-03"
 owner = "devin"
-priority = "medium"
+priority = "med"
 labels = ["security"]
 +++
 

@@ -2,7 +2,7 @@
 id = "ADR-0002"
 title = "ADR-0002: Enterprise-grade surfaces"
 status = "done"
-priority = "medium"
+priority = "med"
 +++
 
 # ADR-0002: Enterprise-grade surfaces

@@ -4,7 +4,7 @@ title = "worker panics on fleet job with unknown key → DoS"
 status = "done"
 created = "2026-11-03"
 owner = "devin"
-priority = "medium"
+priority = "med"
 labels = ["security"]
 +++
 

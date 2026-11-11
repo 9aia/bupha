@@ -4,7 +4,7 @@ title = "status signature/attestation link in commit-status body"
 status = "open"
 created = "2026-10-31"
 owner = "devin"
-priority = "medium"
+priority = "med"
 +++
 
 Implements T-027 / ADR-0002 §5 line: 'Status sink gets a signature link field (the attestation URL)'.

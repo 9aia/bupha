@@ -4,7 +4,7 @@ title = "unvalidated sha on non-webhook paths → worktree path traversal + git 
 status = "done"
 created = "2026-11-03"
 owner = "devin"
-priority = "critical"
+priority = "crit"
 labels = ["security"]
 +++
 

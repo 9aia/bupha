@@ -4,7 +4,7 @@ title = "test flakes at HEAD — PATH-mutation races: bupha-attest-sigstore/cosi
 status = "done"
 created = "2026-11-03"
 owner = "devin"
-priority = "medium"
+priority = "med"
 +++
 
 # test flakes at HEAD — PATH-mutation races: bupha-attest-sigstore/cosign.rs, bupha-cloudflared/tunnel.rs::spawn_fails_without_binary fail under parallel cargo test; bupha-keyring/secrets.rs leaks PATH between tests; all pass in isolation
