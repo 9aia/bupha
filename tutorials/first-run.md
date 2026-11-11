@@ -11,9 +11,13 @@ webhook → queue → worktree → pipeline → commit status.
 
 Prereqs: **Linux + systemd** (provider units need systemd; the
 shell runner needs bash; macOS/Windows unsupported for now); git;
-the `tamias` CLI and the `tamias-driver-bupha` driver binary on
-`PATH` or in `$TAMIAS_HOME/drivers/` (`cargo build --release -p
-bupha-driver` from this repo produces it); a stable public URL
+the `tamias` CLI; the `bupha` command pack — `tamias install
+9aia:bupha@0.1.0` from the org registry (needs
+`TAMIAS_REGISTRY_TOKEN`), or `scripts/pack.sh` + `tamias install
+--allow-drivers ./libraries/bupha` from a checkout — which
+registers `tamias-driver-bupha` into `$TAMIAS_HOME/drivers/`
+(`cargo build --release -p bupha-driver` from this repo produces
+the binary by hand); a stable public URL
 for the webhook — named cloudflared tunnel or a direct box; quick
 tunnels are convenient but flaky. Docker only if you use the
 dagger runner.
