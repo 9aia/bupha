@@ -1,0 +1,3 @@
+[net]
+# 9aia git deps (lasius-vcs) resolve over ssh — let the git CLI handle auth.
+git-fetch-with-cli = true

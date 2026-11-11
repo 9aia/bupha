@@ -61,11 +61,18 @@ struct RawJob {
     env: Vec<(String, String)>,
     defaults: Defaults,
     matrix: Vec<(String, Vec<String>)>,
+    /// `outputs:` — output name → value template (usually a single
+    /// `${{ steps.<id>.outputs.<name> }}`). Interpolated at expand;
+    /// `needs.*`/`steps.*` refs stay deferred for the renderer.
+    outputs: Vec<(String, String)>,
     steps: Vec<RawStep>,
 }
 
 enum RawStep {
     Run {
+        /// `id:` — the handle `steps.<id>.outputs.*` references.
+        /// `None` steps are unreachable from expressions.
+        id: Option<String>,
         shell: Option<String>,
         working_directory: Option<String>,
         env: Vec<(String, String)>,
@@ -73,7 +80,9 @@ enum RawStep {
     },
     /// `uses: actions/checkout` — verification no-op (the worktree
     /// is already at the pushed sha).
-    Checkout,
+    Checkout {
+        id: Option<String>,
+    },
 }
 
 /// One runnable job after matrix fan-out, `${{ }}` interpolation and
@@ -82,6 +91,9 @@ enum RawStep {
 pub struct Job {
     /// Workflow display name (for logs).
     pub workflow: String,
+    /// The job's YAML id — the handle `needs.<id>.outputs.*`
+    /// expressions reference (not `name:`/`label`).
+    pub id: String,
     /// `name:` or the job id.
     pub label: String,
     /// Labels GitHub would schedule on (recorded; execution is
@@ -93,15 +105,23 @@ pub struct Job {
     pub env: Vec<(String, String)>,
     pub working_directory: Option<String>,
     pub shell: Option<String>,
+    /// `outputs:` — name → interpolated template. `needs.*`/`steps.*`
+    /// refs inside survive as literal `${{ … }}` for the renderer,
+    /// which resolves them against collected step outputs once the
+    /// job has run.
+    pub outputs: Vec<(String, String)>,
     pub steps: Vec<Step>,
 }
 
 pub enum Step {
     Run(RunStep),
-    Checkout,
+    Checkout { id: Option<String> },
 }
 
 pub struct RunStep {
+    /// `id:` — `steps.<id>.outputs.*` handle; `None` when the step
+    /// declared no id (its `$GITHUB_OUTPUT` writes stay unreferenced).
+    pub id: Option<String>,
     pub shell: Option<String>,
     pub working_directory: Option<String>,
     /// Step-level env only (job env is exported by the job block).
@@ -445,8 +465,21 @@ impl Workflow {
                 .map(|s| interpolate(s, &eval, &format!("{what}.defaults.run.shell")))
                 .transpose()?,
         };
+        // `outputs:` values evaluate in job context — env.* resolves
+        // now; needs.*/steps.* stay deferred for the renderer.
+        let outputs = j
+            .outputs
+            .iter()
+            .map(|(k, v)| {
+                Ok((
+                    k.clone(),
+                    interpolate(v, &eval, &format!("{what}.outputs.{k}"))?,
+                ))
+            })
+            .collect::<Result<Vec<_>, String>>()?;
         Ok(Job {
             workflow: self.name.clone(),
+            id: j.id.clone(),
             label: match &j.name {
                 Some(n) => interpolate(n, &eval, &format!("{what}.name"))?,
                 None => j.id.clone(),
@@ -460,6 +493,7 @@ impl Workflow {
             env: job_env,
             working_directory: defaults.working_directory,
             shell: defaults.shell,
+            outputs,
             steps,
         })
     }
@@ -508,8 +542,9 @@ fn build_step(
     what: &str,
 ) -> Result<Step, String> {
     match s {
-        RawStep::Checkout => Ok(Step::Checkout),
+        RawStep::Checkout { id } => Ok(Step::Checkout { id: id.clone() }),
         RawStep::Run {
+            id,
             shell,
             working_directory,
             env,
@@ -525,6 +560,7 @@ fn build_step(
                 env: Some(&step_env),
             };
             Ok(Step::Run(RunStep {
+                id: id.clone(),
                 shell: shell
                     .as_ref()
                     .map(|s| interpolate(s, &step_eval, &format!("{what}.shell")))
@@ -607,11 +643,41 @@ pub fn interpolate(tpl: &str, eval: &Eval, what: &str) -> Result<String, String>
     Ok(out)
 }
 
+/// Is `inner` a `needs.<job>.outputs.<name>` or
+/// `steps.<id>.outputs.<name>` ref — the only expressions deferred
+/// to runtime? The split is at the FIRST `.outputs.`: the middle is
+/// the job/step id, everything after is the output name (dots
+/// allowed).
+fn is_output_ref(inner: &str) -> bool {
+    for prefix in ["needs.", "steps."] {
+        if let Some(rest) = inner.strip_prefix(prefix) {
+            if let Some((head, name)) = rest.split_once(".outputs.") {
+                return !head.is_empty() && !name.is_empty();
+            }
+        }
+    }
+    false
+}
+
+/// Names that become path components in the renderer's output store
+/// (job `outputs:` keys, step `id:`s): `[A-Za-z0-9_.-]`, never `.`
+/// or `..`. Expression-derived names are already charset-checked by
+/// `resolve`; these YAML-side names need the same guarantee.
+fn safe_key(name: &str) -> bool {
+    !name.is_empty()
+        && name != "."
+        && name != ".."
+        && name
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || matches!(c, '_' | '.' | '-'))
+}
+
 fn resolve(inner: &str, eval: &Eval, what: &str) -> Result<String, String> {
     let bad = || {
         format!(
             "{what}: unsupported expression `${{{{ {inner} }}}}` — supported: \
-             env.*, github.{{sha,ref,ref_name,repository,event_name}}, matrix.*"
+             env.*, github.{{sha,ref,ref_name,repository,event_name}}, matrix.*, \
+             needs.<job>.outputs.<name>, steps.<id>.outputs.<name>"
         )
     };
     let dotted_ok = !inner.is_empty()
@@ -659,9 +725,22 @@ fn resolve(inner: &str, eval: &Eval, what: &str) -> Result<String, String> {
                 .map(|(_, v)| v.clone())
                 .ok_or_else(|| format!("{what}: matrix has no `{rest}` binding"))
         }
-        "needs" => Err(format!(
-            "{what}: `needs.*` contexts (outputs/result) are not supported in v1"
-        )),
+        "needs" | "steps" => {
+            // Output refs can't resolve at expand time — the values
+            // are produced while the generated program runs. Keep the
+            // `${{ … }}` source verbatim; the renderer turns it into
+            // a lookup against the collected $GITHUB_OUTPUT files.
+            // Everything else under these contexts stays unsupported.
+            if is_output_ref(inner) {
+                Ok(format!("${{{{ {inner} }}}}"))
+            } else {
+                Err(format!(
+                    "{what}: unsupported expression `${{{{ {inner} }}}}` — \
+                     under `needs`/`steps` only `.outputs.<name>` refs are \
+                     supported (needs.*.result, steps.*.conclusion, … are not)"
+                ))
+            }
+        }
         _ => Err(bad()),
     }
 }
@@ -785,9 +864,10 @@ fn parse_job(m: &serde_norway::Mapping, id: &str, source: &str) -> Result<RawJob
             "steps",
             "strategy",
             "permissions",
+            "outputs",
         ],
         // The v1 boundary, loudly: conditions, containers,
-        // services, timeouts, outputs, concurrency.
+        // services, timeouts, concurrency.
         &[
             "if",
             "timeout-minutes",
@@ -795,7 +875,6 @@ fn parse_job(m: &serde_norway::Mapping, id: &str, source: &str) -> Result<RawJob
             "container",
             "environment",
             "concurrency",
-            "outputs",
             "continue-on-error",
             "uses",
             "secrets",
@@ -820,6 +899,34 @@ fn parse_job(m: &serde_norway::Mapping, id: &str, source: &str) -> Result<RawJob
     };
     let defaults = parse_defaults(get(m, "defaults"), &format!("{what}.defaults"))?;
     let matrix = parse_matrix(get(m, "strategy"), &what)?;
+    let outputs = match get(m, "outputs") {
+        Some(Value::Mapping(om)) => {
+            let mut out = Vec::with_capacity(om.len());
+            for (k, v) in om {
+                let key = k
+                    .as_str()
+                    .ok_or_else(|| format!("{what}.outputs: names must be strings"))?;
+                if !safe_key(key) {
+                    return Err(format!(
+                        "{what}.outputs: invalid output name `{key}` — \
+                         `[A-Za-z0-9_.-]` only"
+                    ));
+                }
+                out.push((
+                    key.to_string(),
+                    scalar(v, &format!("{what}.outputs.{key}"))?,
+                ));
+            }
+            out
+        }
+        Some(v) => {
+            return Err(format!(
+                "{what}.outputs: expected a mapping, got {}",
+                kind(v)
+            ))
+        }
+        None => Vec::new(),
+    };
     let steps_v = get(m, "steps").ok_or_else(|| format!("{what}: missing `steps`"))?;
     let Value::Sequence(seq) = steps_v else {
         return Err(format!("{what}.steps: expected a sequence"));
@@ -828,9 +935,27 @@ fn parse_job(m: &serde_norway::Mapping, id: &str, source: &str) -> Result<RawJob
         return Err(format!("{what}.steps: empty"));
     }
     let mut steps = Vec::with_capacity(seq.len());
+    let mut step_ids: HashSet<String> = HashSet::new();
     for (si, sv) in seq.iter().enumerate() {
         let sw = format!("{what}.steps[{si}]");
         let sm = as_map(sv, &sw)?;
+        // `id:` is the steps.<id>.outputs.* handle — it becomes a
+        // path component in the renderer's output store, so it gets
+        // the same charset rule as job output names. Duplicate ids
+        // are ambiguous, like on GitHub.
+        let id = get(sm, "id")
+            .map(|s| scalar(s, &format!("{sw}.id")))
+            .transpose()?;
+        if let Some(id) = &id {
+            if !safe_key(id) {
+                return Err(format!(
+                    "{sw}.id: invalid step id `{id}` — `[A-Za-z0-9_.-]` only"
+                ));
+            }
+            if !step_ids.insert(id.clone()) {
+                return Err(format!("{sw}.id: duplicate step id `{id}`"));
+            }
+        }
         check_keys(
             sm,
             &[
@@ -868,6 +993,7 @@ fn parse_job(m: &serde_norway::Mapping, id: &str, source: &str) -> Result<RawJob
                     None => Vec::new(),
                 };
                 steps.push(RawStep::Run {
+                    id,
                     shell: get(sm, "shell")
                         .map(|s| scalar(s, &format!("{sw}.shell")))
                         .transpose()?,
@@ -881,7 +1007,7 @@ fn parse_job(m: &serde_norway::Mapping, id: &str, source: &str) -> Result<RawJob
             (None, Some(uv)) => {
                 let uses = scalar(uv, &format!("{sw}.uses"))?;
                 parse_uses(&uses, sm, &sw)?;
-                steps.push(RawStep::Checkout);
+                steps.push(RawStep::Checkout { id });
             }
         }
     }
@@ -893,6 +1019,7 @@ fn parse_job(m: &serde_norway::Mapping, id: &str, source: &str) -> Result<RawJob
         env,
         defaults,
         matrix,
+        outputs,
         steps,
     })
 }

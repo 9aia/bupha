@@ -10,8 +10,8 @@ categories = ["development-tools"]
 
 [dependencies]
 bupha-core.workspace = true
-bupha-vcs.workspace = true
-bupha-git.workspace = true
+lasius-vcs.workspace = true
+lasius-vcs-git.workspace = true
 bupha-queue.workspace = true
 bupha-secret.workspace = true
 bupha-secret-cuora.workspace = true

@@ -16,8 +16,6 @@ members = [
     "crates/bupha-systemd",
     "crates/bupha-core",
     "crates/bupha-trigger",
-    "crates/bupha-vcs",
-    "crates/bupha-git",
     "crates/bupha-gha",
     "crates/bupha-gha-runner",
     "crates/bupha-queue",
@@ -74,8 +72,8 @@ bupha-attest = { path = "crates/bupha-attest", version = "0.1.0" }
 bupha-history = { path = "crates/bupha-history", version = "0.1.0" }
 bupha-core = { path = "crates/bupha-core", version = "0.1.0" }
 bupha-trigger = { path = "crates/bupha-trigger", version = "0.1.0" }
-bupha-vcs = { path = "crates/bupha-vcs", version = "0.1.0" }
-bupha-git = { path = "crates/bupha-git", version = "0.1.0" }
+lasius-vcs = { git = "ssh://git@github.com/9aia/lasius.git", rev = "782c10840149d9a62ac9aa2d0c3a440233ffc86b" }
+lasius-vcs-git = { git = "ssh://git@github.com/9aia/lasius.git", rev = "782c10840149d9a62ac9aa2d0c3a440233ffc86b" }
 bupha-gha = { path = "crates/bupha-gha", version = "0.1.0" }
 bupha-gha-runner = { path = "crates/bupha-gha-runner", version = "0.1.0" }
 bupha-queue = { path = "crates/bupha-queue", version = "0.1.0" }

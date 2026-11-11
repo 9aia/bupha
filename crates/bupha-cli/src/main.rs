@@ -18,7 +18,7 @@
 use bupha_config::ConfigSource;
 use bupha_config_file::FileSource;
 use bupha_core::Config;
-use bupha_git::GitVcs;
+use lasius_vcs_git::GitVcs;
 use bupha_github::GitHubAdmin;
 use bupha_keyring::KeyringSecrets;
 use bupha_queue::{JsonQueueStore, QueueStore};
@@ -28,7 +28,7 @@ use bupha_secret_cuora::CuoraSecrets;
 use bupha_service::Service;
 use bupha_systemd as deploy;
 use bupha_trigger::ForgeAdmin;
-use bupha_vcs::Vcs;
+use lasius_vcs::Vcs;
 use clap::{Parser, Subcommand};
 
 mod campaign_import;
@@ -1132,11 +1132,11 @@ fn cmd_deploy_release(dry_run: bool) {
         }
     }
     let vcs = GitVcs;
-    if !vcs.tag_exists(&repo_dir, &tag) && !vcs.tag(&repo_dir, &tag) {
+    if !vcs.tag_exists(&repo_dir, &tag) && !vcs.tag(&repo_dir, &tag, None) {
         eprintln!("git tag {tag} failed");
         std::process::exit(1);
     }
-    if !vcs.push_tag(&repo_dir, &tag) {
+    if !vcs.push_tag(&repo_dir, "origin", &tag) {
         eprintln!("tag push failed — publish done, push {tag} by hand");
         std::process::exit(1);
     }

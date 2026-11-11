@@ -40,7 +40,7 @@ use bupha_core::{Config, EnqueueResult, Queue};
 use bupha_dagger::DaggerRunner;
 use bupha_dotenv::DotenvSecrets;
 use bupha_gha::GhaRunner;
-use bupha_git::GitVcs;
+use lasius_vcs_git::GitVcs;
 use bupha_github::{GitHubStatus, GitHubTrigger, LogStatus};
 use bupha_history::RunRecord;
 use bupha_keyring::KeyringSecrets;
@@ -54,7 +54,7 @@ use bupha_telemetry::{NoopTelemetry, RunEvent, Telemetry};
 use bupha_telemetry_otel::OtelTelemetry;
 use bupha_trigger::{Emit, Push, Source, Stop, Trigger, Verdict};
 use bupha_tunnel::Tunnel;
-use bupha_vcs::Vcs;
+use lasius_vcs::Vcs;
 use bupha_webhook::WebhookSource;
 use std::collections::VecDeque;
 use std::path::{Path, PathBuf};
@@ -319,7 +319,7 @@ pub fn run_job(
     vcs.worktree_prune(&repo.dir);
     // The pushed sha usually isn't in the local clone yet.
     if !vcs.has_commit(&repo.dir, sha) {
-        vcs.sync(&repo.dir);
+        vcs.sync(&repo.dir, None);
     }
     if !vcs.worktree_add(&repo.dir, &wt, sha) {
         eprintln!("worktree add failed for {sha}");

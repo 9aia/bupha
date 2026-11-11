@@ -17,8 +17,8 @@ path = "src/main.rs"
 # bupha-watch — shared verbatim with `tamias-driver-bupha host`.
 bupha-watch.workspace = true
 bupha-core.workspace = true
-bupha-vcs.workspace = true
-bupha-git.workspace = true
+lasius-vcs.workspace = true
+lasius-vcs-git.workspace = true
 bupha-queue.workspace = true
 bupha-secret.workspace = true
 bupha-secret-cuora.workspace = true

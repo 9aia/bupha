@@ -95,8 +95,7 @@ impl Secrets for CuoraSecrets {
         if status.success() {
             Ok(())
         } else {
-            Err(std::io::Error::new(
-                std::io::ErrorKind::Other,
+            Err(std::io::Error::other(
                 format!("cuora put {} exited {status}", rref(name)),
             ))
         }

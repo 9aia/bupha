@@ -330,7 +330,6 @@ dependencies = [
  "bupha-config-file",
  "bupha-core",
  "bupha-gha-runner",
- "bupha-git",
  "bupha-github",
  "bupha-http",
  "bupha-keyring",
@@ -342,12 +341,13 @@ dependencies = [
  "bupha-systemd",
  "bupha-telemetry",
  "bupha-trigger",
- "bupha-vcs",
  "bupha-watch",
  "clap",
  "clap-markdown",
  "hex",
  "hmac",
+ "lasius-vcs",
+ "lasius-vcs-git",
  "serde_json",
  "serde_norway",
  "sha2",
@@ -549,13 +549,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "bupha-git"
-version = "0.1.0"
-dependencies = [
- "bupha-vcs",
-]
-
-[[package]]
 name = "bupha-github"
 version = "0.1.0"
 dependencies = [
@@ -699,10 +692,6 @@ name = "bupha-tunnel"
 version = "0.1.0"
 
 [[package]]
-name = "bupha-vcs"
-version = "0.1.0"
-
-[[package]]
 name = "bupha-watch"
 version = "0.1.0"
 dependencies = [
@@ -721,7 +710,6 @@ dependencies = [
  "bupha-dagger",
  "bupha-dotenv",
  "bupha-gha",
- "bupha-git",
  "bupha-github",
  "bupha-history",
  "bupha-http",
@@ -739,10 +727,11 @@ dependencies = [
  "bupha-telemetry-otel",
  "bupha-trigger",
  "bupha-tunnel",
- "bupha-vcs",
  "bupha-webhook",
  "chrono",
  "hypha-node-api",
+ "lasius-vcs",
+ "lasius-vcs-git",
  "serde_json",
  "tokio",
  "toml",
@@ -2085,6 +2074,22 @@ checksum = "d8f198d1db720e4940b5a493201d199d9f24f568f8f746bd13706243a2f71598"
 dependencies = [
  "cfg-if",
  "cpufeatures 0.3.1",
+]
+
+[[package]]
+name = "lasius-vcs"
+version = "0.3.0"
+source = "git+ssh://git@github.com/9aia/lasius.git?rev=782c10840149d9a62ac9aa2d0c3a440233ffc86b#782c10840149d9a62ac9aa2d0c3a440233ffc86b"
+dependencies = [
+ "serde",
+]
+
+[[package]]
+name = "lasius-vcs-git"
+version = "0.3.0"
+source = "git+ssh://git@github.com/9aia/lasius.git?rev=782c10840149d9a62ac9aa2d0c3a440233ffc86b#782c10840149d9a62ac9aa2d0c3a440233ffc86b"
+dependencies = [
+ "lasius-vcs",
 ]
 
 [[package]]
