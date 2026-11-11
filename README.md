@@ -100,8 +100,10 @@ cli` → the engine lib — there is no cargo-installed `bupha`
 binary, T-012):
 
 ```sh
-scripts/pack.sh                                  # stage the driver payload
-tamias install --allow-drivers ./libraries/bupha   # deploys `bupha`
+tamias install 9aia:bupha@0.1.0          # org registry — command pack
+                                         # (needs TAMIAS_REGISTRY_TOKEN)
+scripts/pack.sh                                  # or stage the driver payload
+tamias install --allow-drivers ./libraries/bupha   # from a checkout — deploys `bupha`
 tamias install <ref>            # fetch + unpack a fleet bundle payload
 tamias deploy <bundle>          # render the provider unit + write
                                 # ~/.config/bupha/bundles/<name>.toml
