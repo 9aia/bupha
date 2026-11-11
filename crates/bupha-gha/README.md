@@ -3,6 +3,13 @@
 Runner impl: executes `.github/workflows/*.yml` natively — GitHub
 Actions as bupha's first CI dialect. Select with `runner.kind = "gha"`.
 
+> **Naming (T-054).** `gha` here is the *workflow dialect* — bupha
+> reads workflow YAML and runs it. The reverse direction — bupha
+> acting as a GitHub **self-hosted runner** speaking the
+> actions/runner broker protocol (`runs-on: [self-hosted, bupha]`)
+> — is reserved the name `gha-runner` (crate `bupha-gha-runner`).
+> Two different products; keep them distinct.
+
 The pushed sha's detached worktree is the workspace. Every
 `on.push`-matching workflow runs **sequentially, locally, in one
 spawned bash process**; the aggregate exit status drives the repo's

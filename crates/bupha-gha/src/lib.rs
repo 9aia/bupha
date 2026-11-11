@@ -7,6 +7,14 @@
 //! The supported subset and its hard boundaries live in the crate
 //! README — anything outside it is a loud error at spawn time, never
 //! a silent skip.
+//!
+//! Naming (T-054): `bupha-gha` / `runner.kind = "gha"` name the
+//! **workflow-dialect** direction — bupha *reads*
+//! `.github/workflows/*.yml` and executes it. The opposite direction
+//! — bupha registering as a GitHub **self-hosted runner** speaking
+//! the actions/runner broker protocol (`runs-on: [self-hosted,
+//! bupha]`) — is reserved the name `gha-runner` (crate
+//! `bupha-gha-runner`); never reuse bare `gha` for it.
 
 /// The pure workflow core — public so a sibling dialect (gitlab)
 /// or tooling can reuse parse/select/expand without the runner.
