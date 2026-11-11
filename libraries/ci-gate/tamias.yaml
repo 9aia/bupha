@@ -41,6 +41,11 @@ provider:
       workdir: "~"
       restart: on-failure
   ingress:
+    # STANDALONE MODE (ADR-0007): this block wires the bupha webhook
+    # listener — the fallback ingress for deployments with no
+    # peregrin. Production webhook/forge ingress is a peregrin
+    # campaign listener normalizing deliveries and enqueuing
+    # `ci-job` via `ci.enqueue`; the org gate already runs that way.
     # Declarative only — forge-hook *registration* is the deploy
     # driver's job (`tamias driver exec ci-gate hooks register`);
     # nothing here performs live registration. `public_url` is also

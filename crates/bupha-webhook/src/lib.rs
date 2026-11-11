@@ -4,6 +4,13 @@
 //! (≤ 2 MiB), repo-hint → secret select → signature verify →
 //! delivery-id dedup → parse → emit the push. New forges plug in
 //! as `Trigger` impls — this harness stays put.
+//!
+//! **Standalone/dev mode** (ADR-0007): this listener harness is the
+//! *fallback* webhook ingress for deployments with no peregrin.
+//! Production ingress is a peregrin campaign listener that reuses
+//! bupha's normalization semantics (`Trigger` parse + HMAC verify —
+//! which stay canonical here) and enqueues `ci-job` via
+//! `ci.enqueue`; do not point production webhooks at `/hook`.
 
 use bupha_trigger::{Emit, PushOutcome, Source, Stop, Trigger, Verdict};
 use std::collections::{HashMap, HashSet};

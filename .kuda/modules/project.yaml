@@ -22,6 +22,11 @@ api:
   file: project/adrs/0006-bupha-is-ci-semantics-only-substrate-is-hypha-peregrin-distribution-is-tamias.md
   line: 2
   module: project
+- name: ADR-0007
+  kind: record
+  file: project/adrs/0007-webhook-forge-ingress-is-peregrin-owned-bupha-webhook-surfaces-are-standalone-dev-mode.md
+  line: 2
+  module: project
 - name: I-001
   kind: record
   file: project/issues/issue-0001-ci-jobs-run-in-the-watcher-cgroup-oom-kills-the-watcher-and-re-runs-forever.md
@@ -197,12 +202,7 @@ api:
   file: project/TODO.md
   line: 5
   module: project
-- name: T-044
-  kind: record
-  file: project/TODO.md
-  line: 6
-  module: project
-api_omitted: 14
+api_omitted: 18
 deps: []
 warnings:
 - 'project/issues/issue-0003-unvalidated-sha-on-non-webhook-paths-worktree-path-traversal-git-option-injection.md: schema: "critical" is not one of "low", "med" or 3 other candidates'
@@ -215,9 +215,9 @@ verify:
 - project/adrs/0002-adr-0002-enterprise-grade-surfaces.md
 - project/adrs/0005-bupha-is-the-ci-repo-un-deprecation-gha-dialect-tamias-driver.md
 - project/adrs/0006-bupha-is-ci-semantics-only-substrate-is-hypha-peregrin-distribution-is-tamias.md
+- project/adrs/0007-webhook-forge-ingress-is-peregrin-owned-bupha-webhook-surfaces-are-standalone-dev-mode.md
 - project/handoffs/I-003.md
 - project/handoffs/T-027.md
-- project/handoffs/T-049.md
 provenance:
   files:
   - project/BACKLOG.md
@@ -227,10 +227,13 @@ provenance:
   - project/adrs/0002-adr-0002-enterprise-grade-surfaces.md
   - project/adrs/0005-bupha-is-the-ci-repo-un-deprecation-gha-dialect-tamias-driver.md
   - project/adrs/0006-bupha-is-ci-semantics-only-substrate-is-hypha-peregrin-distribution-is-tamias.md
+  - project/adrs/0007-webhook-forge-ingress-is-peregrin-owned-bupha-webhook-surfaces-are-standalone-dev-mode.md
   - project/handoffs/I-003.md
   - project/handoffs/T-027.md
   - project/handoffs/T-049.md
+  - project/handoffs/T-052.md
   - project/handoffs/T-053.md
+  - project/handoffs/T-055.md
   - project/handoffs/archive/T-029.md
   - project/index.md
   - project/issues/issue-0001-ci-jobs-run-in-the-watcher-cgroup-oom-kills-the-watcher-and-re-runs-forever.md
@@ -249,16 +252,19 @@ provenance:
   - project/proposals/proposal-0002-ci-job-ops-contract-bupha-hypha-peregrin-seam.md
   hashes:
   - e9f311a05504d185a4ac87e46e8809255cbd13a7
-  - 0e8dc6eaed47e8274db301395a9e7693fd4d7215
-  - 50e45d395226481f388c2eed9b09614eb2f2f36b
+  - 011d77174f1fefc673a2b25304c42eb31c4e1e92
+  - e2305af34caa52e59e94cf62278cb073e2c08277
   - 2dc7665583c806fc5a5a09d8c2ad485b2888aa4b
   - 83ad74c3b209b9f10a7edd820fd31e8d583e5489
   - 5d22a78ab0e5a33a834acb59d44080bc09bceefd
   - e52d9fd7026b90c3f3eb17b03dea333b80260688
+  - afef3694073ef806a08826c8bf767f3f6c7bca08
   - 522318709a3923d3396a224c9968ee4471e7750e
   - 22e0586b4e103ee18dbeca15ed3c319130706688
   - d9f2a6cdd906c41a4ecedbfddb7714f01115485c
+  - e098bcc9a459e54f7779c158e11e38b3034551a3
   - 090337343bfb25fbaec264c4ce1ee3fa5f02a9f4
+  - 678cc4caeea0ae0c3f584b6476659e15f00e1942
   - d3f12670f3e871b0c2a499668a4cd1e3bb3d7815
   - 3091ed43775d9ade33d06ad35e6b788b98afa4d5
   - 52d8d4834c8a14b6d2a45689e9dd401b65bb7c95
@@ -275,6 +281,6 @@ provenance:
   - 002b0049113c3dc274fc3c858e2ec68c97a8b63d
   - df3eb22a6b42fbc7a4353c8d160b5b4387205b8f
   - 64bb8eeec2c83135075727fb9aec32780e212939
-  commit_sha: 0aa42b749aaffad5d1704beffbac5af8bef7c814
-  generated_at: '1794356096'
+  commit_sha: 199ab36e089df214b5b92b522f341b93377e8909
+  generated_at: '1794356288'
   generator: kuda-template/0.1.2

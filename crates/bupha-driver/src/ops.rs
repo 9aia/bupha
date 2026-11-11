@@ -20,7 +20,13 @@
 //! the provider unit's `tamias-driver-bupha host --config <that
 //! path>` consumes it (the `host` verb runs the watcher engine
 //! in-process via `bupha-watch` — ADR-0006: units exec the driver
-//! binary, not a cargo-installed `bupha`). Per-bundle files beat
+//! binary, not a cargo-installed `bupha`). That whole listener path
+//! — `host`, `hooks`, `provider.ingress[]` — is **standalone/dev
+//! mode** (ADR-0007): production webhook/forge ingress is a
+//! peregrin campaign listener that normalizes deliveries through
+//! bupha's `Trigger` semantics and enqueues `ci-job` via
+//! `ci.enqueue`; use these verbs only where no peregrin runs.
+//! Per-bundle files beat
 //! merging into `bupha.yaml`: the config
 //! loader (`bupha-config-file`) has no include mechanism and a
 //! merge-writer would have to track provenance to stay idempotent —
@@ -160,6 +166,11 @@ struct Service {
     name: String,
 }
 
+/// `provider.ingress[]` — the standalone-mode webhook wiring
+/// (ADR-0007): public endpoint, listen address, hook path, and the
+/// forge hooks `hooks register` manages. Production ingress is a
+/// peregrin campaign listener instead; these fields only feed the
+/// bupha `host`/`hooks`/`health` path.
 #[derive(Debug, Deserialize, Default)]
 struct Ingress {
     #[serde(default)]
@@ -536,12 +547,19 @@ fn hook_targets(dir: &Path, api_base: Option<&str>) -> Result<Vec<HookTarget>, S
 }
 
 /// `hooks register|uninstall` — upsert/remove the GitHub webhooks
-/// the manifest's `provider.ingress[].hooks[]` declare, reusing
-/// `bupha_github`'s REST path (exact-URL match, idempotent). Register
-/// needs the forge token (`--token-env`/`[runner] token_env`, default
-/// `BUPHA_TOKEN`) and each repo's webhook secret by NAME; unregister
-/// needs only the token. `--dry-run` prints the plan and resolves
-/// nothing.
+/// the manifest's `provider.ingress[].hooks[]` declare, via
+/// `bupha_github`'s REST path (exact-URL match, idempotent).
+///
+/// **Standalone mode** (ADR-0007): this registers hooks at the
+/// bupha webhook listener — the fallback ingress for deployments
+/// with no peregrin. Production ingress is a peregrin campaign
+/// listener enqueuing `ci-job` via `ci.enqueue`; don't point
+/// production webhooks here.
+///
+/// Register needs the forge token (`--token-env`/`[runner]
+/// token_env`, default `BUPHA_TOKEN`) and each repo's webhook
+/// secret by NAME; unregister needs only the token. `--dry-run`
+/// prints the plan and resolves nothing.
 ///
 /// # Errors
 /// Fails on an unreadable manifest/fleet, missing secrets, or forge

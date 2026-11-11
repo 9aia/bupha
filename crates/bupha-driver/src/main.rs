@@ -28,6 +28,10 @@
 //!   the sources stop; `--dir`/`--name` accepted per the tamias
 //!   dispatch contract (`--name` supplies the default
 //!   `bundles/<name>.toml` path when `--config` is absent).
+//!   **Standalone/dev mode** (ADR-0007): the trigger listener this
+//!   hosts is the fallback ingress — production webhook ingress is
+//!   a peregrin campaign listener enqueuing `ci-job` via
+//!   `ci.enqueue`.
 //! - `deploy` — merge the payload's `fleet.toml` with
 //!   `tamias.yaml provider.ingress[]` (`tunnel.public_url`,
 //!   `trigger.listen`/`kind`) and write
@@ -39,6 +43,9 @@
 //!   `provider.ingress[].hooks[]` declare, via `bupha_github`'s REST
 //!   path. Secrets resolve by NAME (env → keyring →
 //!   `~/.config/bupha/env`); values are never printed.
+//!   **Standalone mode** (ADR-0007): registers hooks at the bupha
+//!   listener — production ingress is peregrin campaigns, so use
+//!   this only for deployments with no peregrin.
 //! - `health` — JSON probe: webhook `ping` per ingress
 //!   `listen`+`path`, else `systemctl --user is-active` per unit.
 //! - `status` — JSON per-unit `is-active`/`is-enabled`.

@@ -5,22 +5,22 @@ api:
 - name: G
   kind: type
   file: crates/bupha-webhook/src/lib.rs
-  line: 23
+  line: 30
   module: bupha-webhook
 - name: Inner
   kind: type
   file: crates/bupha-webhook/src/lib.rs
-  line: 34
+  line: 41
   module: bupha-webhook
 - name: MAX_INFLIGHT
   kind: const
   file: crates/bupha-webhook/src/lib.rs
-  line: 19
+  line: 26
   module: bupha-webhook
 - name: WebhookSource
   kind: type
   file: crates/bupha-webhook/src/lib.rs
-  line: 52
+  line: 59
   module: bupha-webhook
 - name: bupha-webhook
   kind: module
@@ -30,22 +30,22 @@ api:
 - name: drop
   kind: function
   file: crates/bupha-webhook/src/lib.rs
-  line: 25
+  line: 32
   module: bupha-webhook
 - name: name
   kind: function
   file: crates/bupha-webhook/src/lib.rs
-  line: 70
+  line: 77
   module: bupha-webhook
 - name: run
   kind: function
   file: crates/bupha-webhook/src/lib.rs
-  line: 74
+  line: 81
   module: bupha-webhook
 - name: scopeguard
   kind: function
   file: crates/bupha-webhook/src/lib.rs
-  line: 22
+  line: 29
   module: bupha-webhook
 deps:
 - bupha-core
@@ -62,7 +62,7 @@ provenance:
   - crates/bupha-webhook/src/lib.rs
   hashes:
   - cd8e10b771c3960ae45a2b6f7705fa9f1cdc6344
-  - 5cfd2de3d35dca438983fe310eae1e704b921acf
-  commit_sha: 0e834547a43c398b6dd783cda815f8a7b1d7b5ad
-  generated_at: '1794337106'
+  - 597fb572dbd112f4331a665148afb3e75d76a764
+  commit_sha: 199ab36e089df214b5b92b522f341b93377e8909
+  generated_at: '1794356288'
   generator: kuda-template/0.1.2

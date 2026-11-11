@@ -15,6 +15,14 @@
 //! Config arrives already loaded (`bupha_core::Config`); secret
 //! *values* resolve through the same chain the CLI uses — env →
 //! OS keyring → `~/.config/bupha/env` — by NAME only.
+//!
+//! **Standalone/dev mode** (ADR-0007): the trigger-listener path
+//! (`trigger.kind` forge webhook, `[trigger.sturn]` poller) is the
+//! fallback ingress for deployments with no peregrin. Production
+//! webhook/forge ingress is a peregrin campaign listener that
+//! normalizes deliveries through bupha's `Trigger` semantics and
+//! enqueues `ci-job` entities via `ci.enqueue` — the engine bits
+//! below (queues, runners, sinks) stay canonical either way.
 
 use bupha_access::{Access, AllowAll};
 use bupha_access_file::FileAccess;

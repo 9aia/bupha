@@ -11,6 +11,14 @@ GitHub first, GitLab later; GHA workflows as a runner dialect.*
 `tamias install`/`deploy` provisions the watcher, tunnel, and forge
 hooks. The engine below is the integration's implementation.
 
+**Ingress ownership (ADR-0007):** production webhook/forge ingress
+is a *peregrin* campaign listener — it normalizes deliveries through
+bupha's `Trigger` semantics and enqueues `ci-job` via `ci.enqueue`.
+The bupha webhook listener (`bupha-webhook` `/hook`, `bupha watch`,
+`tamias-driver-bupha hooks register`) is **standalone/dev mode** —
+the fallback for deployments with no peregrin, not the production
+path.
+
 Headless CI, built for agent-driven setups — **pre-1.0**, Linux +
 systemd focus. A single binary — a queue engine: pluggable **sources**
 land pushes and pull requests on the queue (latest-wins or bounded

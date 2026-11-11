@@ -5,72 +5,72 @@ api:
 - name: ChildSlot
   kind: type
   file: crates/bupha-watch/src/lib.rs
-  line: 228
+  line: 236
   module: bupha-watch
 - name: FailWait
   kind: type
   file: crates/bupha-watch/src/lib.rs
-  line: 136
+  line: 144
   module: bupha-watch
 - name: FailWaitRunner
   kind: type
   file: crates/bupha-watch/src/lib.rs
-  line: 134
+  line: 142
   module: bupha-watch
 - name: Ingest
   kind: type
   file: crates/bupha-watch/src/lib.rs
-  line: 430
+  line: 438
   module: bupha-watch
 - name: JobEnd
   kind: type
   file: crates/bupha-watch/src/lib.rs
-  line: 251
+  line: 259
   module: bupha-watch
 - name: Poll
   kind: type
   file: crates/bupha-watch/src/lib.rs
-  line: 318
+  line: 326
   module: bupha-watch
 - name: Shared
   kind: type
   file: crates/bupha-watch/src/lib.rs
-  line: 402
+  line: 410
   module: bupha-watch
 - name: Worker
   kind: type
   file: crates/bupha-watch/src/lib.rs
-  line: 231
+  line: 239
   module: bupha-watch
 - name: build_attest
   kind: function
   file: crates/bupha-watch/src/lib.rs
-  line: 595
+  line: 603
   module: bupha-watch
 - name: build_audit
   kind: function
   file: crates/bupha-watch/src/lib.rs
-  line: 625
+  line: 633
   module: bupha-watch
 - name: build_runner
   kind: function
   file: crates/bupha-watch/src/lib.rs
-  line: 55
+  line: 63
   module: bupha-watch
 - name: build_runners
   kind: function
   file: crates/bupha-watch/src/lib.rs
-  line: 667
+  line: 675
   module: bupha-watch
 - name: build_sinks
   kind: function
   file: crates/bupha-watch/src/lib.rs
-  line: 640
+  line: 648
   module: bupha-watch
 - name: build_telemetry
   kind: function
   file: crates/bupha-watch/src/lib.rs
-  line: 576
+  line: 584
   module: bupha-watch
 - name: bupha-watch
   kind: module
@@ -80,87 +80,87 @@ api:
 - name: cfg_dir
   kind: function
   file: crates/bupha-watch/src/lib.rs
-  line: 170
+  line: 178
   module: bupha-watch
 - name: drop
   kind: function
   file: crates/bupha-watch/src/lib.rs
-  line: 165
+  line: 173
   module: bupha-watch
 - name: ingest_push
   kind: function
   file: crates/bupha-watch/src/lib.rs
-  line: 450
+  line: 458
   module: bupha-watch
 - name: kill
   kind: function
   file: crates/bupha-watch/src/lib.rs
-  line: 156
+  line: 164
   module: bupha-watch
 - name: name
   kind: function
   file: crates/bupha-watch/src/lib.rs
-  line: 140
+  line: 148
   module: bupha-watch
 - name: persist_queue
   kind: function
   file: crates/bupha-watch/src/lib.rs
-  line: 414
+  line: 422
   module: bupha-watch
 - name: renew_ticks
   kind: function
   file: crates/bupha-watch/src/lib.rs
-  line: 241
+  line: 249
   module: bupha-watch
 - name: run_job
   kind: function
   file: crates/bupha-watch/src/lib.rs
-  line: 258
+  line: 266
   module: bupha-watch
 - name: secret
   kind: function
   file: crates/bupha-watch/src/lib.rs
-  line: 191
+  line: 199
   module: bupha-watch
 - name: secret_names
   kind: function
   file: crates/bupha-watch/src/lib.rs
-  line: 217
+  line: 225
   module: bupha-watch
 - name: settle_run
   kind: function
   file: crates/bupha-watch/src/lib.rs
-  line: 688
+  line: 696
   module: bupha-watch
 - name: spawn
   kind: function
   file: crates/bupha-watch/src/lib.rs
-  line: 143
+  line: 151
   module: bupha-watch
 - name: try_wait
   kind: function
   file: crates/bupha-watch/src/lib.rs
-  line: 150
+  line: 158
   module: bupha-watch
 - name: wait
   kind: function
   file: crates/bupha-watch/src/lib.rs
-  line: 153
+  line: 161
   module: bupha-watch
 - name: watch
   kind: function
   file: crates/bupha-watch/src/lib.rs
-  line: 729
+  line: 737
   module: bupha-watch
 - name: webhook_secret_names
   kind: function
   file: crates/bupha-watch/src/lib.rs
-  line: 206
+  line: 214
   module: bupha-watch
 - name: worker_id
   kind: function
   file: crates/bupha-watch/src/lib.rs
-  line: 677
+  line: 685
   module: bupha-watch
 deps:
 - bupha-access
@@ -242,7 +242,7 @@ provenance:
   - crates/bupha-watch/src/lib.rs
   hashes:
   - 8cb3b54c35b78522f163e0104edfb89c73a0a0e3
-  - ba3f93427fb9ef953ce8135265549715d3843e8a
-  commit_sha: 0aa42b749aaffad5d1704beffbac5af8bef7c814
-  generated_at: '1794356096'
+  - 351d5471a05342c4735a30ffb413d09c46c9984c
+  commit_sha: 199ab36e089df214b5b92b522f341b93377e8909
+  generated_at: '1794356288'
   generator: kuda-template/0.1.2
