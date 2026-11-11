@@ -13,6 +13,14 @@
 //!   `jobs`/`notifications` answer `ok:false` — this driver claims
 //!   none of them.
 //!
+//! Engine ops (the "CLI-as-generated-surface" contract, P-021):
+//! `{"op":"query","query":"ops"}` answers the ops manifest —
+//! every bounded `bupha` CLI verb derived from the engine's own
+//! clap tree ([`engine_ops`]); `query:"cli.<verb>"` re-execs
+//! `tamias-driver-bupha run <argv>` in a captured child and
+//! returns `{op, argv, code, stdout, stderr}`. Unbounded daemons
+//! (`watch`/`agent`/`gha-runner`) ride `surfaces`.
+//!
 //! Read path: bupha keeps no serve wire — its state is files under
 //! `worktree.base` (`history.jsonl`, `queue.json`, plus the systemd
 //! user units the watcher manages). The driver reads those
@@ -24,7 +32,10 @@
 //! parsing prose. See `data.rs`.
 
 pub mod data;
+pub mod engine_ops;
 pub mod ops;
+#[cfg(any(feature = "cli", feature = "mcp"))]
+pub mod surface;
 pub mod views;
 
 use pavo_driver_kit as kit;
@@ -60,10 +71,22 @@ pub fn capabilities_value() -> Value {
         "host",
         "worker",
         "config-schema",
+        "ops",
+        "run",
     ] {
         if !verbs.iter().any(|x| x.as_str() == Some(extra)) {
             verbs.push(serde_json::json!(extra));
         }
+    }
+    // Feature-gated embedded surfaces — advertised only when the
+    // binary actually answers them.
+    #[cfg(feature = "cli")]
+    if !verbs.iter().any(|x| x.as_str() == Some("cli")) {
+        verbs.push(serde_json::json!("cli"));
+    }
+    #[cfg(feature = "mcp")]
+    if !verbs.iter().any(|x| x.as_str() == Some("mcp")) {
+        verbs.push(serde_json::json!("mcp"));
     }
     v["verbs"] = Value::Array(verbs);
     v
@@ -83,10 +106,20 @@ pub fn dispatch(req: &Request) -> Response {
             Err(e) => Response::err(e),
         },
         Request::Query { query, params } => {
-            // Unknown names fail the op; everything else answers
-            // `ok:true` — degraded reads travel as `{"error": …}` /
+            // `ops` and `cli.<verb>` are engine ops; everything
+            // else is a view query — unknown names fail the op,
+            // degraded reads travel as `{"error": …}` /
             // `{"note": …}` data payloads, matching the sibling
             // drivers' contract.
+            if query == "ops" {
+                return Response::ok_typed(&wire::QueryResult {
+                    query: query.clone(),
+                    data: engine_ops::manifest(),
+                });
+            }
+            if let Some(op) = engine_ops::op_of(query) {
+                return engine_ops::run_verb(&op, params);
+            }
             if !views::known_query(query) {
                 return Response::err(format!("unknown query: {query}"));
             }

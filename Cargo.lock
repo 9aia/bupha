@@ -494,6 +494,7 @@ dependencies = [
 name = "bupha-driver"
 version = "0.1.0"
 dependencies = [
+ "bupha",
  "bupha-config",
  "bupha-config-file",
  "bupha-core",
@@ -505,6 +506,7 @@ dependencies = [
  "bupha-secret-cuora",
  "bupha-systemd",
  "bupha-watch",
+ "clap",
  "pavo-driver-kit",
  "pavo-protocol",
  "pavo-testkit",
@@ -2471,8 +2473,9 @@ checksum = "f38d5652c16fde515bb1ecef450ab0f6a219d619a7274976324d5e377f7dceba"
 [[package]]
 name = "pavo-driver-kit"
 version = "0.1.0"
-source = "git+https://github.com/9aia/pavo#090dcb4bde1a158f8c68b1ddbc85dddf191e4abb"
+source = "git+https://github.com/9aia/pavo?rev=1f5e37afdb0b66a1ef908c2cc2448248493399c2#1f5e37afdb0b66a1ef908c2cc2448248493399c2"
 dependencies = [
+ "clap",
  "pavo-protocol",
  "serde",
  "serde_json",
@@ -2481,7 +2484,7 @@ dependencies = [
 [[package]]
 name = "pavo-protocol"
 version = "0.1.0"
-source = "git+https://github.com/9aia/pavo#090dcb4bde1a158f8c68b1ddbc85dddf191e4abb"
+source = "git+https://github.com/9aia/pavo?rev=1f5e37afdb0b66a1ef908c2cc2448248493399c2#1f5e37afdb0b66a1ef908c2cc2448248493399c2"
 dependencies = [
  "serde",
  "serde_json",
@@ -2491,7 +2494,7 @@ dependencies = [
 [[package]]
 name = "pavo-testkit"
 version = "0.1.0"
-source = "git+https://github.com/9aia/pavo#090dcb4bde1a158f8c68b1ddbc85dddf191e4abb"
+source = "git+https://github.com/9aia/pavo?rev=1f5e37afdb0b66a1ef908c2cc2448248493399c2#1f5e37afdb0b66a1ef908c2cc2448248493399c2"
 dependencies = [
  "pavo-protocol",
  "serde",

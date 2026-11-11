@@ -17,6 +17,34 @@ pavo verbs take no `--dir`/`--name`; tamias verbs always do.
 `render`/`submit` answer explicit `ok:false` — the driver claims no
 renderers and no forms.
 
+## Engine ops (P-021 — the `bupha` CLI as a generated surface)
+
+| verb | output |
+| --- | --- |
+| `ops` | the ops manifest — every bounded `bupha` verb as a `cli.<verb>` wire query, derived from the engine's own clap tree (`bupha::command()`); typed params (`arg`/`opt`/`flag`), the `--config` global listed once, honest `mutates` flags |
+| `run <argv>` | engine passthrough — `tamias-driver-bupha run doctor --json` ≡ `bupha doctor --json`; also the child side of `cli.*` wire queries (re-exec'd in a captured child so engine output never touches the serve stream) |
+| `cli <op> [args]` | *(feature `cli`)* generated clap CLI over the ops manifest — op → subcommand, `surfaces` → streaming passthrough subcommands |
+| `mcp` | *(feature `mcp`)* the ops as MCP tools over stdio |
+
+Over `serve`: `{"op":"query","query":"ops"}` answers the manifest;
+`{"op":"query","query":"cli.<verb>","params":{…}}` returns
+`{op, argv, code, stdout, stderr}` — the engine's own exit code is
+data, `ok:false` is reserved for unknown ops/spawn failures.
+
+**Surfaces** (never ops — they don't return): `watch` (the
+source → queue → runner loop), `agent` (the remote-run HTTP
+listener), `gha-runner` (the broker poll loop). `service logs
+--follow` is a streaming *flag* — `follow` is skipped from the ops
+params so the bounded verb stays an op.
+
+**Mutates** is honest: `deploy.*`/`destroy.*`/`service.*` drive
+systemd units, forge webhooks, `~/.config/bupha/env` and crates.io
+releases; `init`/`import`/`run` write configs or execute the
+pipeline. Read-only ops: `doctor`, `runs`, `log`, `explain`,
+`deploy check`, `service status|logs`. Secrets are env-var NAMES
+only — values resolve inside the child through the canonical chain
+(env → cuora → keyring → `~/.config/bupha/env`), never argv.
+
 ## tamias verbs (`type: bupha`)
 
 tamias dispatches `<verb> --dir <payload> --name <pkg> [--config <f>]`:
@@ -114,8 +142,10 @@ healthy and hosts render the failure inline.
 | `bupha:repos` | latest history record per repo/job key — the "statuses on each sha" surface | `repo` |
 | `bupha:service` | `bupha-watch.service` + `bupha-worker.service` enabled/active | — |
 
-Read-only: the driver never writes queue/history/audit state and
-never invokes mutating `bupha` verbs.
+Read-only: the *view* plane never writes queue/history/audit state
+and never invokes `bupha` verbs — the ops surface above is the
+deliberate exception (ops re-exec the real CLI; `mutates` flags say
+which).
 
 ## Tests
 

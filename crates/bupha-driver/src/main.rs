@@ -14,6 +14,26 @@
 //!   and warns on verbs missing from `verbs` — one payload satisfies
 //!   both.
 //! - `serve` — ndjson JSON-RPC on stdio (see `bupha_driver::serve`).
+//!   `query:"ops"` answers the engine ops manifest; `query:"cli.<verb>"`
+//!   runs a bounded `bupha` CLI verb in a captured child.
+//!
+//! Engine surface (P-021 — the `bupha` CLI as a generated surface):
+//!
+//! - `ops` — the ops manifest: every bounded `bupha` verb as a
+//!   `cli.<verb>` wire query, derived from the engine's own clap
+//!   tree (`bupha::command`). Unbounded daemons (`watch`, `agent`,
+//!   `gha-runner`) are `surfaces`, never ops.
+//! - `run <argv>` — engine passthrough: `tamias-driver-bupha run
+//!   doctor --json` ≡ `bupha doctor --json`. Also the child side of
+//!   `cli.*` wire queries (`engine_ops::run_verb` re-execs this same
+//!   verb so engine output never touches the serve stream).
+//!
+//! Optional surfaces: features `cli`/`mcp` embed pavo-driver-kit's
+//! surface layer — `cli <op> [args]` is a generated CLI over the ops
+//! manifest (`watch`/`agent`/`gha-runner` ride as streaming
+//! subcommands), `mcp` serves the ops as MCP tools on stdio. Both
+//! are equivalent to the standalone `tamias-driver-cli`/`tamias-driver-mcp`
+//! surface drivers, minus the PATH/discovery hop.
 //!
 //! **tamias content-type driver** (`type: bupha` packages — tamias
 //! always passes `--dir <payload> --name <pkg> [--config <f>]`, so
@@ -67,6 +87,8 @@
 //! `bupha_driver::data` for the pavo read plane.
 
 use bupha_driver as drv;
+#[cfg(any(feature = "cli", feature = "mcp"))]
+use pavo_driver_kit as kit;
 
 fn main() {
     let mut args = std::env::args().skip(1);
@@ -84,6 +106,46 @@ fn main() {
             );
         }
         Some("serve") => std::process::exit(drv::serve()),
+        // Engine ops surface — `ops` prints the manifest derived
+        // from `bupha::command()`; `run` is the engine passthrough
+        // and the child side of `cli.*` wire queries.
+        Some("ops") => {
+            println!("{}", drv::engine_ops::manifest());
+        }
+        Some("run") => {
+            let argv = std::iter::once("bupha".to_string()).chain(args);
+            std::process::exit(bupha::run_from(argv));
+        }
+        // Embedded surface verbs (feature-gated, optional): the
+        // pavo-driver-kit surface layer renders this driver's own
+        // ops manifest — `cli` = generated clap CLI (op → subcommand,
+        // `cli watch` streams), `mcp` = ops → MCP tools over stdio.
+        // The standalone tamias-driver-cli/-mcp binaries do the same
+        // over process dispatch; these verbs need nothing on PATH.
+        #[cfg(feature = "cli")]
+        Some("cli") => {
+            let m = kit::surface::OpsManifest::from_value(&drv::engine_ops::manifest())
+                .unwrap_or_default();
+            let argv: Vec<String> = std::iter::once("bupha".to_string()).chain(args).collect();
+            std::process::exit(kit::surface::cli::run(
+                "bupha",
+                &m,
+                &argv,
+                &mut drv::surface::Engine,
+            ));
+        }
+        #[cfg(feature = "mcp")]
+        Some("mcp") => {
+            let m = kit::surface::OpsManifest::from_value(&drv::engine_ops::manifest())
+                .unwrap_or_default();
+            match kit::surface::mcp::serve_stdio(&m, &mut drv::surface::Engine) {
+                Ok(()) => {}
+                Err(e) => {
+                    eprintln!("tamias-driver-bupha mcp: {e}");
+                    std::process::exit(1);
+                }
+            }
+        }
         // Tamias verbs — always invoked with `--dir`/`--name` by the
         // tamias dispatch contract; pavo never passes those flags, so
         // subcommand-first dispatch keeps the surfaces disjoint.
@@ -94,7 +156,8 @@ fn main() {
             std::process::exit(drv::ops::run(verb, &args.collect::<Vec<_>>()));
         }
         _ => {
-            eprintln!("usage: tamias-driver-bupha manifest|capabilities|serve");
+            eprintln!("usage: tamias-driver-bupha manifest|capabilities|ops|run <argv>|serve");
+            eprintln!("       (feature `cli` adds `cli <op> [args]`; feature `mcp` adds `mcp`)");
             eprintln!("       tamias-driver-bupha <install|deploy|uninstall|hooks|health|status|logs|host|worker|config-schema> --dir <d> --name <n> [--config <c>]");
             std::process::exit(1);
         }

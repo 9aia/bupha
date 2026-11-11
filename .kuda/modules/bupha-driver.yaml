@@ -12,6 +12,11 @@ api:
   file: crates/bupha-driver/src/views.rs
   line: 186
   module: bupha-driver
+- name: Engine
+  kind: type
+  file: crates/bupha-driver/src/surface.rs
+  line: 19
+  module: bupha-driver
 - name: FLEET_FILE
   kind: const
   file: crates/bupha-driver/src/ops.rs
@@ -82,10 +87,25 @@ api:
   file: crates/bupha-driver/src/views.rs
   line: 77
   module: bupha-driver
+- name: READ_ONLY
+  kind: const
+  file: crates/bupha-driver/src/engine_ops.rs
+  line: 56
+  module: bupha-driver
 - name: RUN_COLS
   kind: const
   file: crates/bupha-driver/src/views.rs
   line: 70
+  module: bupha-driver
+- name: SKIP_PARAMS
+  kind: const
+  file: crates/bupha-driver/src/engine_ops.rs
+  line: 50
+  module: bupha-driver
+- name: SURFACES
+  kind: const
+  file: crates/bupha-driver/src/engine_ops.rs
+  line: 44
   module: bupha-driver
 - name: Serve
   kind: type
@@ -111,6 +131,31 @@ api:
   kind: const
   file: crates/bupha-driver/src/data.rs
   line: 44
+  module: bupha-driver
+- name: argv
+  kind: function
+  file: crates/bupha-driver/src/engine_ops.rs
+  line: 237
+  module: bupha-driver
+- name: argv_flattens_repeatable_dirs
+  kind: function
+  file: crates/bupha-driver/src/engine_ops.rs
+  line: 435
+  module: bupha-driver
+- name: argv_maps_globals_and_nested_verbs
+  kind: function
+  file: crates/bupha-driver/src/engine_ops.rs
+  line: 402
+  module: bupha-driver
+- name: argv_maps_positionals_and_named_params
+  kind: function
+  file: crates/bupha-driver/src/engine_ops.rs
+  line: 421
+  module: bupha-driver
+- name: argv_omits_absent_params
+  kind: function
+  file: crates/bupha-driver/src/engine_ops.rs
+  line: 456
   module: bupha-driver
 - name: bin
   kind: function
@@ -150,60 +195,16 @@ api:
 - name: capabilities_value
   kind: function
   file: crates/bupha-driver/src/lib.rs
-  line: 45
+  line: 56
   module: bupha-driver
 - name: capabilities_verb_reports_pavo
   kind: function
   file: crates/bupha-driver/tests/verbs.rs
   line: 27
   module: bupha-driver
-- name: closed_stdout_exits_the_serve_loop
-  kind: function
-  file: crates/bupha-driver/tests/serve.rs
-  line: 152
-  module: bupha-driver
-- name: col
-  kind: function
-  file: crates/bupha-driver/src/views.rs
-  line: 34
-  module: bupha-driver
-- name: config_dir
-  kind: function
-  file: crates/bupha-driver/src/ops.rs
-  line: 272
-  module: bupha-driver
-- name: config_schema
-  kind: function
-  file: crates/bupha-driver/src/ops.rs
-  line: 821
-  module: bupha-driver
-- name: config_schema_is_draft_2020_12
-  kind: function
-  file: crates/bupha-driver/src/ops.rs
-  line: 1429
-  module: bupha-driver
-- name: config_schema_prints_json_schema
-  kind: function
-  file: crates/bupha-driver/tests/ops.rs
-  line: 169
-  module: bupha-driver
-- name: ctx
-  kind: function
-  file: crates/bupha-driver/src/data.rs
-  line: 227
-  module: bupha-driver
-- name: ctx_base
-  kind: function
-  file: crates/bupha-driver/src/views.rs
-  line: 360
-  module: bupha-driver
-- name: data
-  kind: module
-  file: crates/bupha-driver/src/lib.rs
-  line: 26
-  module: bupha-driver
-api_omitted: 138
+api_omitted: 167
 deps:
+- bupha
 - bupha-config
 - bupha-config-file
 - bupha-core
@@ -215,6 +216,7 @@ deps:
 - bupha-secret-cuora
 - bupha-systemd
 - bupha-watch
+- clap
 - pavo-driver-kit
 - pavo-protocol
 - serde
@@ -230,42 +232,47 @@ deps:
 - bupha-config-file
 - bupha-core
 - bupha-queue
+- clap
 - pavo_protocol
 notes: ''
 verify:
 - crates/bupha-driver/Cargo.toml
-- crates/bupha-driver/src/data.rs
 - crates/bupha-driver/src/lib.rs
 - crates/bupha-driver/src/main.rs
+- crates/bupha-driver/src/data.rs
+- crates/bupha-driver/src/engine_ops.rs
 - crates/bupha-driver/src/ops.rs
+- crates/bupha-driver/src/surface.rs
 - crates/bupha-driver/src/views.rs
 - crates/bupha-driver/tests/conformance.rs
 - crates/bupha-driver/tests/ops.rs
-- crates/bupha-driver/tests/serve.rs
-- crates/bupha-driver/tests/verbs.rs
 provenance:
   files:
   - crates/bupha-driver/Cargo.toml
   - crates/bupha-driver/src/data.rs
+  - crates/bupha-driver/src/engine_ops.rs
   - crates/bupha-driver/src/lib.rs
   - crates/bupha-driver/src/main.rs
   - crates/bupha-driver/src/ops.rs
+  - crates/bupha-driver/src/surface.rs
   - crates/bupha-driver/src/views.rs
   - crates/bupha-driver/tests/conformance.rs
   - crates/bupha-driver/tests/ops.rs
   - crates/bupha-driver/tests/serve.rs
   - crates/bupha-driver/tests/verbs.rs
   hashes:
-  - 5d0d74e27a1c4369d9fb27f107311b3342a3336a
+  - a31f3ca6532c91cfc4309aafbcff8e5c5f8ab049
   - 2750262004acbeece286ebddc439b77e8a150b71
-  - 91a1004839738c3a94f697ab13a05cc26980f5e2
-  - 32cc235fe7fd955da42953a2f6534e7dc1a64760
+  - 81fb36b9ee166e85433f28143450cde09fdeb7cb
+  - 0b419e0b052816a51708f3a9390bb7e22d6854dd
+  - c02b13825aee792d7972302054721ab976ce3cfb
   - 58b97e17cab8550a860bb1797778acd98de29338
+  - 133c70ff04c847865af3a9d1ad06f370ca6182bd
   - d8f6cbd1c8f342af984fc99785f7a9cb9bc54f85
   - 39c206d85acc5c3cc6a666f4b3547eb240197a0a
   - 2b4a4f24aaddf4c61b1989d876d41d7b06b3967b
   - eef1d35d7cd370db4426fbaca5c7f364f73510a3
   - fd852737ecb9227ba086e83d6212dc327ab9ac7b
-  commit_sha: e0c60cad318e76742d903699c09b5cc59505d2a0
-  generated_at: '1794368528'
+  commit_sha: 4f07b6af27e844e8f1ebf0e1910549da782c44db
+  generated_at: '1794376851'
   generator: kuda-template/0.1.2

@@ -202,7 +202,7 @@ api:
   file: project/TODO.md
   line: 4
   module: project
-api_omitted: 49
+api_omitted: 50
 deps: []
 notes: ''
 verify:
@@ -228,6 +228,7 @@ provenance:
   - project/adrs/0007-webhook-forge-ingress-is-peregrin-owned-bupha-webhook-surfaces-are-standalone-dev-mode.md
   - project/handoffs/I-003.md
   - project/handoffs/T-027.md
+  - project/handoffs/T-048.md
   - project/handoffs/T-049.md
   - project/handoffs/T-052.md
   - project/handoffs/T-053.md
@@ -276,6 +277,7 @@ provenance:
   - afef3694073ef806a08826c8bf767f3f6c7bca08
   - 522318709a3923d3396a224c9968ee4471e7750e
   - 22e0586b4e103ee18dbeca15ed3c319130706688
+  - 6d97a1476277d5bb72165801c6f9663cb1c69ddd
   - c94c2cb5a98b32911cafe3c49e215a880a8eaeae
   - e098bcc9a459e54f7779c158e11e38b3034551a3
   - 090337343bfb25fbaec264c4ce1ee3fa5f02a9f4
@@ -313,6 +315,6 @@ provenance:
   - d7ce1cb6d95ae71a26ec4c6bdabdc5f318d8a21f
   - 64bb8eeec2c83135075727fb9aec32780e212939
   - 47479681f7ca7db300bbd8f998bd0918a4db0010
-  commit_sha: de1419f620c1c982a4556a697ed928f8b9dd181a
-  generated_at: '1794375270'
+  commit_sha: 4f07b6af27e844e8f1ebf0e1910549da782c44db
+  generated_at: '1794376851'
   generator: kuda-template/0.1.2
