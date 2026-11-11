@@ -27,7 +27,7 @@
 # `worker`/`hooks`/`health`/`status`/`logs`). Installing this pack
 # does not deploy a fleet.
 name: bupha
-version: "0.1.0"
+version: "0.2.0"
 type: files
 description: >-
   Headless CI engine — push webhook → queue → detached worktree →
