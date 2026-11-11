@@ -50,12 +50,12 @@ provider:
       # minimal PATH.
       exec: >-
         ~/.local/share/tamias/drivers/tamias-driver-bupha host --config ~/.config/bupha/bundles/ci-gate.toml
-      # LEGACY fallback (T-056): secrets resolve env → cuora
-      # (`cuora://bupha/<NAME>`, canonical) → keyring → this file.
-      # Once every secret lives in cuora this line can go; the
+      # Secrets resolve env → cuora (`cuora://bupha/<NAME>`,
+      # canonical, T-056/T-059) → keyring. The legacy
+      # `~/.config/bupha/env` file is retired — every fleet secret
+      # lives in the cuora vault, so no `env_file:` here. The
       # watcher still needs `cuora` on PATH (systemd's minimal
       # PATH — same caveat as the driver binary above).
-      env_file: "~/.config/bupha/env"
       workdir: "~"
       restart: on-failure
     # The entity-plane worker (T-064): claims pending `ci-job`
@@ -67,7 +67,6 @@ provider:
     - name: worker
       exec: >-
         ~/.local/share/tamias/drivers/tamias-driver-bupha worker --config ~/.config/bupha/bundles/ci-gate.toml
-      env_file: "~/.config/bupha/env"
       workdir: "~"
       restart: on-failure
   ingress:

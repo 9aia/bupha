@@ -48,6 +48,16 @@ generator lands.
 - **`bupha-audit-file`** — decision/outcome JSONL audit sink
   (`[audit]`); **`bupha doctor --json`** — machine-readable checks.
 
+### Changed
+
+- **Secrets migration complete (T-059)** — every fleet secret
+  (`BUPHA_WH_*`, `BUPHA_TOKEN`, `BUPHA_WEBHOOK_SECRET`,
+  `PEREGRIN_TOKEN`) now lives in the cuora vault as
+  `cuora://bupha/<NAME>`; `~/.config/bupha/env` is retired and the
+  `env_file:` lines are gone from both bundle manifests. Resolution
+  order is unchanged (env → cuora → keyring → env file); the last
+  two legs remain only as no-cuora fallbacks.
+
 ### Fixed
 
 - Security audit hardening — sha/key/env validation, agent wire

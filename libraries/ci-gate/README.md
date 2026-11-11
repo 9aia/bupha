@@ -46,8 +46,8 @@ tamias uninstall ci-gate        # remove the unit; driver uninstall removes bund
 
 Names only, never values. Resolution order env → **cuora**
 (`cuora://bupha/<NAME>` via the `cuora` CLI — canonical, T-056) →
-OS keyring → `~/.config/bupha/env` (legacy fallback; the unit's
-`EnvironmentFile`):
+OS keyring → `~/.config/bupha/env` (legacy code fallback; the file
+is retired — T-059 — and no unit sets `EnvironmentFile`):
 
 - `BUPHA_TOKEN` — forge token for statuses + hook management
   (`[runner] token_env`)
@@ -58,10 +58,9 @@ OS keyring → `~/.config/bupha/env` (legacy fallback; the unit's
   (`[worker] node_token_env`); only the worker unit needs it, and
   only in substrate mode
 
-Seed values with `printf '%s' "$VALUE" | cuora put
-cuora://bupha/<NAME>`; the dev CLI's `bupha deploy env` still
-writes the legacy `~/.config/bupha/env` skeleton for hosts
-without cuora.
+Seed/rotate values with `printf '%s' "$VALUE" | cuora put
+cuora://bupha/<NAME>` — every fleet secret already lives there
+(T-059).
 
 ## Driver
 

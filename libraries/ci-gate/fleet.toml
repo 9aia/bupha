@@ -9,13 +9,15 @@
 # fields are absent.
 #
 # Secrets are env-var NAMES only — never put a value in this file.
-# Canonical resolution (T-056): process env → cuora broker
+# Canonical resolution (T-056/T-059): process env → cuora broker
 # (`cuora://bupha/<NAME>` via the `cuora` CLI — sealed, audited) →
 # OS keyring → ~/.config/bupha/env (both LEGACY fallbacks for hosts
-# without cuora). Migrate a value with
+# without cuora). Migration is DONE (T-059): every fleet secret —
+# the BUPHA_WH_*/BUPHA_TOKEN/BUPHA_WEBHOOK_SECRET names below plus
+# PEREGRIN_TOKEN for the worker — lives in the cuora vault, and the
+# ~/.config/bupha/env file is retired (no `env_file:` in
+# tamias.yaml). To (re)store a value:
 #   printf '%s' "$VALUE" | cuora put cuora://bupha/<NAME>
-# then drop it from the env file; the env file + `env_file:` in
-# tamias.yaml stay only as the no-cuora fallback.
 #
 # Representative fleet — the full org import is a separate
 # workstream; drop the generated [[repo]] set in here when it lands.

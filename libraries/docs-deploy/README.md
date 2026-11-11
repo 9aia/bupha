@@ -76,9 +76,10 @@ Each `[[repo]]` needs, at its `refs/heads/docs` tip:
   materializes the docs-branch worktree. bupha's `deploy-docs.sh`
   honors `BUPHA_REPO=<main clone path>` for exactly this;
 - a `BUPHA_WH_<OWNER>_<REPO>` secret value (webhook HMAC) and
-  `BUPHA_TOKEN` (status posts + gh-pages push auth) in
-  `~/.config/bupha/env` — names only in config, values in the env
-  file or OS keyring.
+  `BUPHA_TOKEN` (status posts + gh-pages push auth) in the cuora
+  vault as `cuora://bupha/<NAME>` — names only in config, values
+  sealed in cuora (T-059; the `~/.config/bupha/env` file is
+  retired).
 
 The gh-pages push inside the deploy script authenticates via the
 worktree's `origin` + an env-scoped `credential.helper` reading
@@ -89,8 +90,8 @@ worktree's `origin` + an env-scoped `credential.helper` reading
 
 Names only, never values. Resolution order env → **cuora**
 (`cuora://bupha/<NAME>` via the `cuora` CLI — canonical, T-056) →
-OS keyring → `~/.config/bupha/env` (legacy fallback; the unit's
-`EnvironmentFile`):
+OS keyring → `~/.config/bupha/env` (legacy code fallback; the file
+is retired — T-059 — and no unit sets `EnvironmentFile`):
 
 - `BUPHA_TOKEN` — forge token for statuses + gh-pages pushes
   (`[runner] token_env`)
@@ -101,10 +102,9 @@ OS keyring → `~/.config/bupha/env` (legacy fallback; the unit's
   (`[worker] node_token_env`); only the worker unit needs it, and
   only in substrate mode
 
-Seed values with `printf '%s' "$VALUE" | cuora put
-cuora://bupha/<NAME>`; the dev CLI's `bupha deploy env` still
-writes the legacy `~/.config/bupha/env` skeleton for hosts
-without cuora.
+Seed/rotate values with `printf '%s' "$VALUE" | cuora put
+cuora://bupha/<NAME>` — every fleet secret already lives there
+(T-059).
 
 ## Driver
 
