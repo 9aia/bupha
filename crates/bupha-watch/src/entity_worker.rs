@@ -1,5 +1,5 @@
 //! entity_worker — the `ci-job` consumption loop (P-002 §4.1): the
-//! entity-plane replacement for the redis `WorkQueue` pull path.
+//! entity-plane replacement for the retired redis `WorkQueue` pull path (T-049).
 //!
 //! One worker process polls `EntityApi::list_entities("ci-job")`,
 //! filters pending jobs this box can run (known key + `runsOn` ⊆
@@ -25,7 +25,7 @@ use std::time::Duration;
 use bupha_attest::Attest;
 use bupha_core::{is_valid_sha, Config, WatchedRepo};
 use bupha_plane::job::{CiJob, JobState, CI_JOB_KIND};
-use bupha_queue_lease::{Fence, TryClaim};
+use bupha_queue::{Fence, TryClaim};
 use bupha_runner::Runner;
 use bupha_status::StatusSink;
 use bupha_telemetry::{RunEvent, Telemetry};
@@ -52,8 +52,7 @@ fn lease_secs() -> u64 {
         .unwrap_or(DEFAULT_LEASE_SECS)
 }
 
-/// Idle poll between scans — `BUPHA_WORKER_POLL_MS` (shared with the
-/// redis `bupha worker` cadence), default 1s.
+/// Idle poll between scans — `BUPHA_WORKER_POLL_MS`, default 1s.
 fn poll_ms() -> u64 {
     std::env::var("BUPHA_WORKER_POLL_MS")
         .ok()
@@ -353,7 +352,8 @@ pub enum ExecEnd {
 
 /// The execution half of the loop — owns runner/sink/worktree
 /// plumbing. [`WatchExec`] is the production impl (the same
-/// `bupha-watch` builders `bupha worker`/`watch` use); tests
+/// `bupha-watch` builders `bupha watch`/`tamias-driver-bupha worker`
+/// use); tests
 /// substitute a scripted fake.
 pub trait JobExec: Send + Sync {
     /// This worker's claim identity (`<host>:<pid>`) — goes into
@@ -364,8 +364,8 @@ pub trait JobExec: Send + Sync {
     fn exec(&self, job: &EntityJob, claim: &EntityClaim<'_>) -> ExecEnd;
 }
 
-/// Production executor — replicates `bupha worker`'s wiring (the
-/// CLI's `cmd_worker`): per-key status sinks, per-key runners,
+/// Production executor — the same wiring `bupha watch` uses: per-key
+/// status sinks, per-key runners,
 /// telemetry/attest/audit, one shared child slot (one build at a
 /// time per box). Queue persistence does NOT apply — entity state
 /// *is* the queue.
@@ -383,7 +383,7 @@ pub struct WatchExec {
 
 impl WatchExec {
     /// Wire the executor against `cfg` — same fail-fast config
-    /// errors `bupha worker`/`watch` raise.
+    /// errors `bupha watch` raises.
     ///
     /// # Panics
     /// Exits the process on an unloadable config or unknown runner/
@@ -426,6 +426,19 @@ impl JobExec for WatchExec {
             eprintln!("ci-job {}: unknown key {:?} — releasing", ej.id, ej.job.key);
             return ExecEnd::Skip;
         };
+        // Ref/event gate — the same match the standalone ingest
+        // applies (`w.branch == git_ref && w.events.contains(event)`,
+        // T-068). `candidates` pre-filters, but exec is also the
+        // trust boundary for direct callers: a ci-job enqueued for a
+        // ref this job doesn't watch must not run a sha that merely
+        // exists in repo.dir.
+        if repo.branch != ej.job.git_ref || !repo.events.iter().any(|e| e == &ej.job.event) {
+            eprintln!(
+                "ci-job {}: ref/event {}/{:?} doesn't match {} — releasing",
+                ej.id, ej.job.git_ref, ej.job.event, repo.key
+            );
+            return ExecEnd::Skip;
+        }
         let sha = ej.job.sha.as_str();
         // Last-line validation before the sha names worktree dirs and
         // reaches git argv — the plane validated at create, but the
@@ -478,27 +491,46 @@ impl JobExec for WatchExec {
 // --- the loop -------------------------------------------------------------
 
 /// What one keys this worker may claim: known job keys + the label
-/// set `[worker] labels` advertises. Built once from the config —
-/// `runsOn` matching is the same set-equality the plane re-checks
-/// server-side (P-002 §4: the caller pre-filters, the CAS makes the
-/// pick race-safe).
+/// set `[worker] labels` advertises + the per-key ref/event gate the
+/// standalone ingest applies (`branch`/`events` — T-068). Built once
+/// from the config — `runsOn` matching is the same set-equality the
+/// plane re-checks server-side (P-002 §4: the caller pre-filters,
+/// the CAS makes the pick race-safe).
 #[derive(Debug, Default)]
 pub struct ClaimFilter {
     pub keys: HashSet<String>,
     pub labels: Vec<String>,
+    /// key → (watched `branch`, `events`) — the entity job's
+    /// `git_ref`/`event` must match exactly like a webhook push does.
+    /// Keys absent here (hand-built filters in tests) skip the gate.
+    specs: std::collections::HashMap<String, (String, Vec<String>)>,
 }
 
 impl ClaimFilter {
-    /// From a loaded config — `cfg.watched()` keys + worker labels.
+    /// From a loaded config — `cfg.watched()` keys + worker labels +
+    /// each key's branch/event spec.
     ///
     /// # Errors
     /// Propagates `Config::watched` validation failures.
     pub fn from_config(cfg: &Config) -> Result<Self, String> {
+        let watched = cfg.watched()?;
         Ok(Self {
-            keys: cfg.watched()?.iter().map(|w| w.key.clone()).collect(),
+            keys: watched.iter().map(|w| w.key.clone()).collect(),
             labels: cfg.worker.labels.clone(),
+            specs: watched
+                .iter()
+                .map(|w| (w.key.clone(), (w.branch.clone(), w.events.clone())))
+                .collect(),
         })
     }
+}
+
+/// The standalone-ingest match (`w.branch == git_ref &&
+/// w.events.contains(event)`) applied to an entity doc — T-068: the
+/// entity path must not run a sha pushed to a ref this job doesn't
+/// watch.
+fn ref_event_match(spec: &(String, Vec<String>), job: &CiJob) -> bool {
+    spec.0 == job.git_ref && spec.1.iter().any(|e| e == &job.event)
 }
 
 /// Pending candidates in claim order — oldest `enqueuedAt` first
@@ -512,6 +544,10 @@ pub fn candidates(jobs: &[EntityJob], filter: &ClaimFilter) -> Vec<EntityJob> {
         .filter(|ej| {
             ej.job.state == JobState::Pending
                 && filter.keys.contains(&ej.job.key)
+                && filter
+                    .specs
+                    .get(&ej.job.key)
+                    .is_none_or(|spec| ref_event_match(spec, &ej.job))
                 && ej.job.runs_on.iter().all(|l| filter.labels.contains(l))
                 && is_valid_sha(&ej.job.sha)
         })
@@ -634,7 +670,7 @@ pub fn step(
 /// `BUPHA_WATCH_SHUTDOWN_FILE` hook in production; systemd's
 /// SIGTERM kills between jobs since runs are synchronous). Sleeps
 /// `poll` between scans — one job at a time per box, same as
-/// `bupha worker`.
+/// `tamias-driver-bupha worker`.
 pub fn run(
     filter: &ClaimFilter,
     api: &dyn JobApi,
@@ -852,6 +888,7 @@ mod tests {
         ClaimFilter {
             keys: keys.iter().map(|k| (*k).to_string()).collect(),
             labels: Vec::new(),
+            specs: Default::default(),
         }
     }
 
@@ -996,6 +1033,7 @@ mod tests {
                 .into_iter()
                 .collect(),
             labels: vec!["arch=x86".into()],
+            specs: Default::default(),
         };
         let cands = candidates(&api.list_jobs().unwrap(), &filter);
         assert_eq!(cands.len(), 2);
@@ -1012,8 +1050,85 @@ mod tests {
         let filter3 = ClaimFilter {
             keys: filter2.keys.clone(),
             labels: vec!["arch=arm64".into()],
+            specs: Default::default(),
         };
         assert_eq!(candidates(&api.list_jobs().unwrap(), &filter3).len(), 3);
+    }
+
+    #[test]
+    fn candidates_apply_ref_event_gate() {
+        // T-068: a ci-job whose ref/event the watched spec doesn't
+        // cover must never become a candidate — the standalone
+        // ingest matches `branch`/`events`, the entity path now does
+        // the same.
+        let api = FakeApi::new();
+        api.insert(pending("o/n", "abc1234def56", 1)); // main + push
+        let mut dev = pending("o/n", "bbb2222ccc33", 1);
+        dev.git_ref = "refs/heads/dev".into();
+        api.insert(dev);
+        let mut pr = pending("o/n", "ccc3333ddd44", 1);
+        pr.event = "pull_request".into();
+        api.insert(pr);
+
+        let mut filter = filter_for(&["o/n"]);
+        filter.specs.insert(
+            "o/n".into(),
+            ("refs/heads/main".into(), vec!["push".into()]),
+        );
+        let cands = candidates(&api.list_jobs().unwrap(), &filter);
+        assert_eq!(cands.len(), 1);
+        assert_eq!(cands[0].job.sha, "abc1234def56");
+
+        // Widening events lets the PR job in; the dev-ref job stays
+        // out either way.
+        filter
+            .specs
+            .get_mut("o/n")
+            .unwrap()
+            .1
+            .push("pull_request".into());
+        let cands = candidates(&api.list_jobs().unwrap(), &filter);
+        assert_eq!(cands.len(), 2);
+        assert!(cands.iter().all(|c| c.job.git_ref == "refs/heads/main"));
+    }
+
+    #[test]
+    fn from_config_builds_ref_event_specs() {
+        // The production filter carries each watched key's resolved
+        // branch + events — job-level branch overrides included.
+        let cfg: Config = toml::from_str(
+            r#"
+[runner]
+kind = "shell"
+[status]
+kind = "log"
+[[repo]]
+name = "o/n"
+dir = "/tmp/x"
+branch = "refs/heads/main"
+events = ["push", "pull_request"]
+[[repo]]
+name = "o/m"
+dir = "/tmp/y"
+[[repo.jobs]]
+name = "docs"
+branch = "refs/heads/docs"
+"#,
+        )
+        .unwrap();
+        let filter = ClaimFilter::from_config(&cfg).unwrap();
+        assert!(filter.keys.contains("o/n"));
+        assert!(filter.keys.contains("o/m:docs"));
+        let implicit = &filter.specs["o/n"];
+        assert_eq!(implicit.0, "refs/heads/main");
+        assert_eq!(
+            implicit.1,
+            vec!["push".to_string(), "pull_request".to_string()]
+        );
+        let docs = &filter.specs["o/m:docs"];
+        assert_eq!(docs.0, "refs/heads/docs");
+        // events default to ["push"] when the repo doesn't opt in.
+        assert_eq!(docs.1, vec!["push".to_string()]);
     }
 
     #[test]

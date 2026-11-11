@@ -811,8 +811,8 @@ fn claim_auth(payload: &Value) -> Result<(String, u64), Fault> {
     Ok((worker, fence))
 }
 
-/// Holder + fence check — the `bupha-queue-lease` holder-check
-/// expressed as entity state. 409 on any mismatch; no state change.
+/// Holder + fence check — the retired `bupha-queue-lease`
+/// holder-check expressed as entity state. 409 on any mismatch; no state change.
 fn check_holder(job: &CiJob, id: &str, worker: &str, fence: u64) -> Result<(), Fault> {
     if job.state != JobState::Running {
         return Err(fault(

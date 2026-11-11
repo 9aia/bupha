@@ -6,11 +6,11 @@
 //! `watch(cfg)` runs the same pipeline `bupha watch` always has:
 //! trigger listener (forge webhook and/or sturn WAL poller) →
 //! latest-wins queues → per-job runner → status sinks, with the
-//! fleet pull queue (`[queue] kind = "redis"`) feeding remote
-//! `bupha worker` boxes. The shared builders below (`build_runner`,
+//! dev/test `WorkQueue` port (production distribution is the
+//! ci-job entity plane). The shared builders below (`build_runner`,
 //! `build_sinks`, `run_job`, `settle_run`, …) are also what the
-//! CLI's `worker`/`agent`/`run` commands wire — one implementation,
-//! no duplication.
+//! CLI's `agent`/`run` commands and the driver's `worker` verb wire
+//! — one implementation, no duplication.
 //!
 //! Config arrives already loaded (`bupha_core::Config`); secret
 //! *values* resolve through the same chain the CLI uses — env →
@@ -44,9 +44,7 @@ use bupha_git::GitVcs;
 use bupha_github::{GitHubStatus, GitHubTrigger, LogStatus};
 use bupha_history::RunRecord;
 use bupha_keyring::KeyringSecrets;
-use bupha_queue::{Job, PersistedQueue, QueueStore, WorkQueue};
-use bupha_queue_lease::{LocalClaim, TryClaim};
-use bupha_queue_redb::RedbQueueStore;
+use bupha_queue::{JsonQueueStore, LocalClaim, PersistedQueue, QueueStore, TryClaim};
 use bupha_runner::{RunCtx, RunHandle, Runner};
 use bupha_secret::Secrets;
 use bupha_secret_cuora::CuoraSecrets;
@@ -459,7 +457,6 @@ struct Ingest {
     cv: Arc<Condvar>,
     child: ChildSlot,
     store: Arc<dyn QueueStore>,
-    workq: Option<Arc<dyn WorkQueue>>,
     sinks: Arc<std::collections::HashMap<String, Arc<dyn StatusSink>>>,
     telemetry: Arc<dyn Telemetry>,
     access: Arc<dyn Access>,
@@ -468,8 +465,8 @@ struct Ingest {
 
 /// The shared push→queue path — every `Source` lands its pushes
 /// here identically: match watched jobs on (repo, ref), gate on
-/// the access policy, enqueue latest-wins per job, feed the fleet
-/// pull queue, post superseded statuses, cancel in-flight runs.
+/// the access policy, enqueue latest-wins per job, post superseded
+/// statuses, cancel in-flight runs.
 /// The `Verdict` goes back to the source, which maps it to its own
 /// ack surface (HTTP status codes, log lines).
 fn ingest_push(
@@ -520,8 +517,8 @@ fn ingest_push(
         let mut g = ix.shared.lock().unwrap();
         for w in &matched {
             // The local queue only holds jobs THIS box can run —
-            // a job wanting labels we lack belongs to the fleet
-            // pull queue.
+            // a job wanting labels we lack belongs to the entity
+            // plane's fleet (ci-job `runsOn`), not this queue.
             if !w.runs_on.iter().all(|l| ix.cfg.worker.labels.contains(l)) {
                 continue;
             }
@@ -550,24 +547,6 @@ fn ingest_push(
         }
         for w in &matched {
             persist_queue(&g, &*ix.store, &w.key);
-        }
-    }
-    // Fleet visibility: the shared pull queue gets every matched job
-    // regardless of local labels.
-    if let Some(wq) = &ix.workq {
-        for w in &matched {
-            let j = Job {
-                key: w.key.clone(),
-                sha: sha.to_string(),
-                runs_on: w.runs_on.clone(),
-            };
-            if wq.enqueue(&j).unwrap_or(false) {
-                ix.telemetry.event(&RunEvent::Queued {
-                    repo: j.key.clone(),
-                    sha: sha.to_string(),
-                });
-                queued = true;
-            }
         }
     }
     for (key, old) in olds {
@@ -841,10 +820,9 @@ pub fn watch(cfg: Arc<Config>) {
         });
     }
 
-    // Restore queued work from a previous life. The queue DB and
+    // Restore queued work from a previous life. The queue file and
     // worktrees live under the base — make sure it exists so a fresh
-    // config boots without a manual mkdir (a file there still fails
-    // at the queue-store open below).
+    // config boots without a manual mkdir.
     let _ = std::fs::create_dir_all(&cfg.worktree.base);
     let qfile = PathBuf::from(&cfg.worktree.base).join("queue.json");
     let mut shared = Shared::default();
@@ -853,30 +831,13 @@ pub fn watch(cfg: Arc<Config>) {
             .queues
             .insert(r.key.clone(), Queue::with_policy(r.policy));
     }
-    let mut claim: Arc<dyn TryClaim> = Arc::new(LocalClaim::default());
-    // The fleet pull queue — only the shared store feeds it; remote
-    // `bupha worker` processes claim what lands here.
-    let mut workq: Option<Arc<dyn WorkQueue>> = None;
+    let claim: Arc<dyn TryClaim> = Arc::new(LocalClaim::default());
+    // The dev/single-box queue store — durable queue state is the
+    // ci-job entity plane; this file only survives watch restarts.
     let store: Arc<dyn QueueStore> = match cfg.queue.kind.as_str() {
-        "redb" | "" => Arc::new(
-            RedbQueueStore::open(qfile.with_extension("redb"))
-                .unwrap_or_else(|e| panic!("queue store: {e}")),
-        ),
-        "redis" => {
-            let url = cfg.queue.url.clone().unwrap_or_else(|| {
-                eprintln!("[queue] kind=redis needs `url`");
-                std::process::exit(2);
-            });
-            let redis = Arc::new(
-                bupha_queue_redis::RedisQueueStore::open(&url)
-                    .unwrap_or_else(|e| panic!("redis: {e}")),
-            );
-            claim = redis.clone();
-            workq = Some(redis.clone());
-            redis
-        }
+        "json" | "" => Arc::new(JsonQueueStore::new(qfile)),
         other => {
-            eprintln!("unknown queue kind '{other}' (redb|redis)");
+            eprintln!("unknown queue kind '{other}' (json)");
             std::process::exit(2);
         }
     };
@@ -1083,7 +1044,6 @@ pub fn watch(cfg: Arc<Config>) {
         cv: Arc::clone(&cv),
         child: Arc::clone(&child),
         store: Arc::clone(&store),
-        workq: workq.clone(),
         sinks: Arc::clone(&sinks),
         telemetry: telemetry.clone(),
         access: access.clone(),

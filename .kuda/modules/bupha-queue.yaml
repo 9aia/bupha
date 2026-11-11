@@ -2,20 +2,40 @@ name: bupha-queue
 path: crates/bupha-queue/Cargo.toml
 purpose: 'QueueStore port: queue persistence'
 api:
+- name: Bare
+  kind: type
+  file: crates/bupha-queue/tests/lease.rs
+  line: 30
+  module: bupha-queue
 - name: Claim
   kind: type
   file: crates/bupha-queue/src/lib.rs
-  line: 61
+  line: 66
+  module: bupha-queue
+- name: Fence
+  kind: type
+  file: crates/bupha-queue/src/lib.rs
+  line: 241
   module: bupha-queue
 - name: Job
   kind: type
   file: crates/bupha-queue/src/lib.rs
-  line: 41
+  line: 46
+  module: bupha-queue
+- name: JsonQueueStore
+  kind: type
+  file: crates/bupha-queue/src/lib.rs
+  line: 209
   module: bupha-queue
 - name: KeyPolicy
   kind: type
   file: crates/bupha-queue/src/lib.rs
-  line: 53
+  line: 58
+  module: bupha-queue
+- name: LocalClaim
+  kind: type
+  file: crates/bupha-queue/src/lib.rs
+  line: 282
   module: bupha-queue
 - name: MemStore
   kind: type
@@ -25,22 +45,27 @@ api:
 - name: MemWorkQueue
   kind: type
   file: crates/bupha-queue/src/lib.rs
-  line: 94
+  line: 99
   module: bupha-queue
 - name: PersistedQueue
   kind: type
   file: crates/bupha-queue/src/lib.rs
-  line: 15
+  line: 20
   module: bupha-queue
 - name: QueueStore
   kind: trait
   file: crates/bupha-queue/src/lib.rs
-  line: 21
+  line: 26
+  module: bupha-queue
+- name: TryClaim
+  kind: trait
+  file: crates/bupha-queue/src/lib.rs
+  line: 251
   module: bupha-queue
 - name: WorkQueue
   kind: trait
   file: crates/bupha-queue/src/lib.rs
-  line: 73
+  line: 78
   module: bupha-queue
 - name: bupha-queue
   kind: module
@@ -50,17 +75,27 @@ api:
 - name: claim_next
   kind: function
   file: crates/bupha-queue/src/lib.rs
-  line: 123
+  line: 128
   module: bupha-queue
 - name: complete
   kind: function
   file: crates/bupha-queue/src/lib.rs
-  line: 177
+  line: 182
   module: bupha-queue
 - name: enqueue
   kind: function
   file: crates/bupha-queue/src/lib.rs
-  line: 105
+  line: 110
+  module: bupha-queue
+- name: is_done
+  kind: function
+  file: crates/bupha-queue/src/lib.rs
+  line: 265
+  module: bupha-queue
+- name: is_done
+  kind: function
+  file: crates/bupha-queue/src/lib.rs
+  line: 291
   module: bupha-queue
 - name: job
   kind: function
@@ -70,17 +105,42 @@ api:
 - name: labels_fit
   kind: function
   file: crates/bupha-queue/src/lib.rs
-  line: 100
+  line: 105
+  module: bupha-queue
+- name: load
+  kind: function
+  file: crates/bupha-queue/src/lib.rs
+  line: 222
   module: bupha-queue
 - name: load
   kind: function
   file: crates/bupha-queue/tests/store.rs
   line: 18
   module: bupha-queue
+- name: local_claim_always_claims_and_renews
+  kind: function
+  file: crates/bupha-queue/tests/lease.rs
+  line: 8
+  module: bupha-queue
+- name: local_claim_done_set
+  kind: function
+  file: crates/bupha-queue/tests/lease.rs
+  line: 17
+  module: bupha-queue
+- name: mark_done
+  kind: function
+  file: crates/bupha-queue/src/lib.rs
+  line: 271
+  module: bupha-queue
+- name: mark_done
+  kind: function
+  file: crates/bupha-queue/src/lib.rs
+  line: 299
+  module: bupha-queue
 - name: mem_enqueue_rejects_unsafe_sha
   kind: function
   file: crates/bupha-queue/src/lib.rs
-  line: 199
+  line: 313
   module: bupha-queue
 - name: mem_workq_all_policy_fifo
   kind: function
@@ -92,44 +152,82 @@ api:
   file: crates/bupha-queue/tests/store.rs
   line: 56
   module: bupha-queue
+- name: missing_file_is_empty_and_corrupt_is_error
+  kind: function
+  file: crates/bupha-queue/tests/json_store.rs
+  line: 46
+  module: bupha-queue
+- name: new
+  kind: function
+  file: crates/bupha-queue/src/lib.rs
+  line: 216
+  module: bupha-queue
+- name: persist
+  kind: function
+  file: crates/bupha-queue/src/lib.rs
+  line: 230
+  module: bupha-queue
 - name: persist
   kind: function
   file: crates/bupha-queue/tests/store.rs
   line: 21
   module: bupha-queue
+- name: persist_creates_missing_parent_dirs
+  kind: function
+  file: crates/bupha-queue/tests/json_store.rs
+  line: 72
+  module: bupha-queue
 - name: persist_key
   kind: function
   file: crates/bupha-queue/src/lib.rs
-  line: 31
+  line: 36
+  module: bupha-queue
+- name: persist_key_leaves_other_keys
+  kind: function
+  file: crates/bupha-queue/tests/json_store.rs
+  line: 58
   module: bupha-queue
 - name: persist_key_updates_only_its_key
   kind: function
   file: crates/bupha-queue/tests/store.rs
   line: 28
   module: bupha-queue
-- name: tests
-  kind: module
-  file: crates/bupha-queue/src/lib.rs
-  line: 195
+- name: pq
+  kind: function
+  file: crates/bupha-queue/tests/json_store.rs
+  line: 15
   module: bupha-queue
+- name: renew
+  kind: function
+  file: crates/bupha-queue/src/lib.rs
+  line: 256
+  module: bupha-queue
+api_omitted: 6
 deps:
 - bupha-core
 - serde
+- serde_json
 - serde
 notes: ''
 verify:
 - crates/bupha-queue/Cargo.toml
 - crates/bupha-queue/src/lib.rs
+- crates/bupha-queue/tests/json_store.rs
+- crates/bupha-queue/tests/lease.rs
 - crates/bupha-queue/tests/store.rs
 provenance:
   files:
   - crates/bupha-queue/Cargo.toml
   - crates/bupha-queue/src/lib.rs
+  - crates/bupha-queue/tests/json_store.rs
+  - crates/bupha-queue/tests/lease.rs
   - crates/bupha-queue/tests/store.rs
   hashes:
-  - d8bdacf5871e0188feecd3c7ae3e53d622052a3d
-  - 668bd118db356e923c1094d58ca580f2062b5701
+  - 4067514b00d192c5f7b55d0612da1930e6ad3f73
+  - 6cfffb91cebc08ac82d53df31837e4c0cd5a0c37
+  - f614cb55bf4bbce4b326607773ced2c4c0300c57
+  - 54998eb1240b415e81cfb62121629cd2d0d3bbb9
   - 6969472b290b481ac9170c9bbd85c9a24e177784
-  commit_sha: bded75ecc051d0d5dbf73a4d86f733ab028d2e1f
-  generated_at: '1794366338'
+  commit_sha: e0c60cad318e76742d903699c09b5cc59505d2a0
+  generated_at: '1794368528'
   generator: kuda-template/0.1.2

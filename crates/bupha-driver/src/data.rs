@@ -6,7 +6,7 @@
 //! | surface | file / probe | written by |
 //! |---|---|---|
 //! | run history | `<base>/history.jsonl` | `bupha-history` — one JSONL record per finished run (`{sha, repo, status, wall_secs}`) |
-//! | queue state | `<base>/queue.redb` | `bupha-queue-redb` — `QueueStore` table `queue`, repo key → `PersistedQueue {pending, running}`; read via a temp snapshot copy (the watcher holds the live lock) |
+//! | queue state | `<base>/queue.json` | `bupha-queue` `JsonQueueStore` — repo key → `PersistedQueue {pending, running}`; tmp+rename writes mean a direct read never sees a torn file |
 //! | watcher units | `systemctl --user is-enabled/is-active` | `bupha-systemd` (`bupha service status`) |
 //!
 //! The `bupha` CLI is *not* the data plane: `runs`/`log`/`explain`
@@ -23,17 +23,16 @@
 //!    the watcher's own resolution order.
 //! 3. The compiled default `/tmp/bupha` (`default_wt_base`).
 //!
-//! Queue kind comes from the same config (`[queue] kind`); `redis`
-//! fleets keep queue state in redis, which this driver does not
-//! read — the queue view degrades to a note there.
+//! Queue kind comes from the same config (`[queue] kind`); only the
+//! dev `json` store is readable here — anything else degrades the
+//! queue view to a note.
 
 use std::path::{Path, PathBuf};
 
 use bupha_config::ConfigSource;
 use bupha_config_file::FileSource;
 use bupha_core::Config;
-use bupha_queue::{PersistedQueue, QueueStore};
-use bupha_queue_redb::RedbQueueStore;
+use bupha_queue::{JsonQueueStore, PersistedQueue, QueueStore};
 use serde_json::{Map, Value};
 
 /// The compiled default `worktree.base` (`bupha_core`'s
@@ -48,9 +47,9 @@ const WORKER_UNIT: &str = "bupha-worker.service";
 /// the watcher was configured with.
 #[derive(Debug, Clone)]
 pub struct Plane {
-    /// `worktree.base` — parent of `history.jsonl`, `queue.redb`, …
+    /// `worktree.base` — parent of `history.jsonl`, `queue.json`, …
     pub base: PathBuf,
-    /// `[queue] kind` — "redb" (readable here) or "redis" (not).
+    /// `[queue] kind` — "json" (readable here) or retired kinds.
     pub queue_kind: String,
 }
 
@@ -87,7 +86,7 @@ fn home_dir() -> PathBuf {
 /// path (the CLI's `--config`), otherwise [`FileSource`] runs the
 /// standard search (`$BUPHA_CONFIG` → `./bupha.*` →
 /// `~/.config/bupha/`). `None` on any failure — callers degrade to
-/// the default base + redb assumption.
+/// the default base + json assumption.
 fn load_config(ctx: &Map<String, Value>) -> Option<Config> {
     let path = param_str(ctx, "config")
         .or_else(|| param_str(ctx, "buphaConfig"))
@@ -105,7 +104,7 @@ pub fn resolve(ctx: &Map<String, Value>) -> Plane {
         .unwrap_or_else(|| PathBuf::from(DEFAULT_BASE));
     let queue_kind = cfg
         .map(|c| c.queue.kind)
-        .unwrap_or_else(|| "redb".to_string());
+        .unwrap_or_else(|| "json".to_string());
     Plane { base, queue_kind }
 }
 
@@ -114,9 +113,9 @@ pub fn history_path(base: &Path) -> PathBuf {
     base.join("history.jsonl")
 }
 
-/// `<base>/queue.redb` — the embedded queue store (kind = "redb").
+/// `<base>/queue.json` — the dev queue store (kind = "json").
 pub fn queue_path(base: &Path) -> PathBuf {
-    base.join("queue.redb")
+    base.join("queue.json")
 }
 
 /// Every parseable record in `history.jsonl`, oldest → newest.
@@ -156,46 +155,28 @@ pub fn run_records(base: &Path, repo: Option<&str>, limit: usize) -> Vec<Value> 
     v
 }
 
-/// Queue entries from `<base>/queue.redb` via the same
-/// [`RedbQueueStore`] the watcher persists through — read through a
-/// **temp snapshot copy**, never the live file. The watcher holds
-/// the database lock for its whole lifetime (`Database already
-/// open. Cannot acquire lock.` on a second `Database::create`), and
-/// even a successful direct open can run recovery writes; this
-/// driver is read-only, so it copies the ~tens-of-KB file aside and
-/// opens the copy. A torn mid-write copy fails to open and degrades
-/// to the same error string a locked file produced before.
+/// Queue entries from `<base>/queue.json` via the same
+/// [`JsonQueueStore`] the watcher persists through. The store's
+/// tmp+rename writes mean a direct read never sees a torn file, so
+/// no snapshot copy is needed (the old redb impl required one —
+/// the watcher held the database lock for its whole lifetime).
 ///
-/// Missing file = empty queue (fresh box). Non-redb kinds are
-/// refused up front — redis fleet state is not readable here.
+/// Missing file = empty queue (fresh box). Non-json kinds are
+/// refused up front — retired redb/redis fleet state is not
+/// readable here.
 ///
 /// # Errors
-/// Snapshot/open/load failure text, or the unsupported-kind note.
+/// Load failure text, or the unsupported-kind note.
 pub fn queue_entries(base: &Path, kind: &str) -> Result<Vec<(String, PersistedQueue)>, String> {
-    if !kind.is_empty() && kind != "redb" {
+    if !kind.is_empty() && kind != "json" {
         return Err(format!(
-            "queue kind '{kind}' — only the embedded redb store is readable here"
+            "queue kind '{kind}' — only the dev json store is readable here"
         ));
     }
-    let path = queue_path(base);
-    if !path.exists() {
-        return Ok(Vec::new());
-    }
-    let nanos = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map(|d| d.as_nanos())
-        .unwrap_or(0);
-    let snap = std::env::temp_dir().join(format!(
-        "bupha-driver-queue-{}-{nanos}.redb",
-        std::process::id()
-    ));
-    std::fs::copy(&path, &snap).map_err(|e| format!("queue.redb snapshot: {e}"))?;
-    let result = RedbQueueStore::open(snap.clone())
-        .and_then(|store| store.load())
+    JsonQueueStore::new(queue_path(base))
+        .load()
         .map(|m| m.into_iter().collect())
-        .map_err(|e| format!("queue.redb: {e}"));
-    let _ = std::fs::remove_file(&snap);
-    result
+        .map_err(|e| format!("queue.json: {e}"))
 }
 
 /// `systemctl --user is-enabled/is-active` for one unit — the same
@@ -286,12 +267,12 @@ mod tests {
         let cfg = write_config(
             &d,
             &format!(
-                "{MIN_CONFIG}[queue]\nkind = \"redis\"\n[worktree]\nbase = \"/tmp/cfg-base\"\n"
+                "{MIN_CONFIG}[queue]\nkind = \"json\"\n[worktree]\nbase = \"/tmp/cfg-base\"\n"
             ),
         );
         let plane = resolve(&ctx(&[("config", cfg.to_str().unwrap())]));
         assert_eq!(plane.base, PathBuf::from("/tmp/cfg-base"));
-        assert_eq!(plane.queue_kind, "redis");
+        assert_eq!(plane.queue_kind, "json");
     }
 
     #[test]
@@ -314,7 +295,7 @@ mod tests {
         let missing = d.join("nope.toml");
         let plane = resolve(&ctx(&[("config", missing.to_str().unwrap())]));
         assert_eq!(plane.base, PathBuf::from(DEFAULT_BASE));
-        assert_eq!(plane.queue_kind, "redb");
+        assert_eq!(plane.queue_kind, "json");
     }
 
     #[test]
@@ -373,23 +354,24 @@ mod tests {
     }
 
     #[test]
-    fn queue_entries_redis_kind_is_a_note() {
-        let d = tmp("queue-redis");
+    fn queue_entries_retired_kind_is_a_note() {
+        let d = tmp("queue-retired");
         let e = queue_entries(&d, "redis").unwrap_err();
         assert!(e.contains("redis"));
+        assert!(queue_entries(&d, "redb").is_err());
     }
 
     #[test]
     fn queue_entries_missing_store_is_empty() {
         let d = tmp("queue-missing");
-        assert!(queue_entries(&d, "redb").unwrap().is_empty());
+        assert!(queue_entries(&d, "json").unwrap().is_empty());
         assert!(queue_entries(&d, "").unwrap().is_empty());
     }
 
     #[test]
-    fn queue_entries_reads_redb_roundtrip() {
+    fn queue_entries_reads_json_roundtrip() {
         use bupha_queue::QueueStore;
-        let d = tmp("queue-redb");
+        let d = tmp("queue-json");
         let mut map = BTreeMap::new();
         map.insert(
             "o/r".to_string(),
@@ -398,10 +380,9 @@ mod tests {
                 running: Some("c".repeat(40)),
             },
         );
-        let store = RedbQueueStore::open(queue_path(&d)).unwrap();
+        let store = JsonQueueStore::new(queue_path(&d));
         store.persist(&map).unwrap();
-        drop(store);
-        let entries = queue_entries(&d, "redb").unwrap();
+        let entries = queue_entries(&d, "json").unwrap();
         assert_eq!(entries.len(), 1);
         assert_eq!(entries[0].0, "o/r");
         assert_eq!(entries[0].1.pending.len(), 2);

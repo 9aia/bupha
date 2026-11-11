@@ -25,9 +25,10 @@
 //!
 //! Queue semantics stay in `bupha-core` (`is_valid_*`,
 //! `MAX_PENDING`, `Queue`/`QueuePolicy` — the spec this plane
-//! mirrors); distributed queue state is the entity plane itself per
-//! the crate-scope audit (P-002 §5: `bupha-queue-{redb,redis}` and
-//! `bupha-queue-lease` migrate/die in T-049).
+//! mirrors); distributed queue state is the entity plane itself —
+//! T-049 retired `bupha-queue-{redb,redis}` and `bupha-queue-lease`;
+//! the dev watcher keeps `bupha-queue`'s port + `JsonQueueStore` +
+//! single-box `TryClaim`/`LocalClaim`.
 
 pub mod job;
 pub mod plane;

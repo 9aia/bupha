@@ -1,7 +1,8 @@
 //! LocalClaim: the single-box lease — always claims, never loses;
 //! its in-memory done set behaves like a peer-completed marker.
+//! (Ported from bupha-queue-lease, T-049.)
 
-use bupha_queue_lease::{Fence, LocalClaim, TryClaim};
+use bupha_queue::{Fence, LocalClaim, TryClaim};
 
 #[test]
 fn local_claim_always_claims_and_renews() {

@@ -317,28 +317,26 @@ impl Default for AttestCfg {
     }
 }
 
-/// Queue persistence (`[queue]`). redb is the single-box default;
-/// redis enables multi-worker fleets behind the lease port.
+/// Dev queue persistence (`[queue]`). The durable path is the
+/// ci-job entity plane (P-002); this store only backs standalone/
+/// dev `bupha watch` restarts. T-049 retired the redb/redis stores —
+/// only the JSON-file impl remains.
 #[derive(Debug, Deserialize, Clone)]
 #[serde(deny_unknown_fields)]
 pub struct QueueCfg {
-    /// Store kind: "redb" (default, embedded) or "redis" (multi-worker).
+    /// Store kind: "json" (default, dev single-box file).
     #[serde(default = "default_queue_kind")]
     pub kind: String,
-    /// redis URL ("redis://127.0.0.1/") — used when kind = "redis".
-    #[serde(default)]
-    pub url: Option<String>,
 }
 
 fn default_queue_kind() -> String {
-    "redb".into()
+    "json".into()
 }
 
 impl Default for QueueCfg {
     fn default() -> Self {
         Self {
             kind: default_queue_kind(),
-            url: None,
         }
     }
 }
@@ -365,7 +363,8 @@ pub struct WorkerCfg {
     /// Hypha/peregrin node base URL for the entity-plane worker
     /// (`tamias-driver-bupha worker`, P-002) — e.g.
     /// `http://127.0.0.1:18787`. Absent = the entity worker has no
-    /// node to poll (the redis `bupha worker` path is unaffected).
+    /// node to poll (the retired redis pull-queue path is gone —
+    /// T-049).
     #[serde(default)]
     pub node: Option<String>,
     /// Env-var NAME holding the node's bearer credential — resolved
@@ -418,7 +417,7 @@ pub struct Config {
     /// kept as alias for existing configs.
     #[serde(rename = "repo", alias = "repos", default)]
     pub repos: Vec<RepoEntry>,
-    /// Optional — `bupha worker` boxes never listen.
+    /// Optional — entity worker boxes never listen.
     #[serde(default)]
     pub trigger: TriggerCfg,
     pub runner: RunnerCfg,
@@ -443,7 +442,7 @@ pub struct Config {
     /// Run provenance (`[attest]`). Absent = none.
     #[serde(default)]
     pub attest: AttestCfg,
-    /// Queue persistence backend (`[queue]`). Absent = redb.
+    /// Dev queue persistence backend (`[queue]`). Absent = json.
     #[serde(default)]
     pub queue: QueueCfg,
     /// Entity-plane worker endpoint + fleet routing labels
@@ -524,7 +523,7 @@ pub struct RepoEntry {
 #[serde(deny_unknown_fields)]
 pub struct JobEntry {
     /// Job name — path-safe `[A-Za-z0-9._-]+`, non-empty. Lands in
-    /// worktree paths (`<base>-<repo>-<job>-<sha12>`), redis claim
+    /// worktree paths (`<base>-<repo>-<job>-<sha12>`), fleet claim
     /// keys and the default status context (`<context>/<job>`).
     pub name: String,
     /// The ref this job watches (default: the repo's `branch`).

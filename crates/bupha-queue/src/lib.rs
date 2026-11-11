@@ -1,11 +1,16 @@
-//! QueueStore port — durable queue persistence for the watcher.
-//! JSON-file impl in `bupha-queue-json`; SQLite/remote = new impls.
-//! WorkQueue port — the shared pull queue a fleet of `bupha worker`
-//! processes claims jobs from (per-key lists + leases).
+//! QueueStore port — queue persistence for the standalone/dev
+//! watcher. [`JsonQueueStore`] is the dev impl; the durable path is
+//! the `ci-job` entity plane (T-049 retired the redb/redis stores).
+//! WorkQueue port — the shared pull queue a fleet of worker
+//! processes claims jobs from (per-key lists + leases); dev/test
+//! only — production distribution is the ci-job entity plane.
+//! TryClaim port — single-box claim fencing for `run_job`'s renew
+//! ticker (absorbed into the ci-job entity for the plane path).
 
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, HashSet, VecDeque};
 use std::io;
+use std::path::PathBuf;
 use std::sync::Mutex;
 
 /// One repo's persisted slice: pending backlog + the sha that was
@@ -187,6 +192,115 @@ impl WorkQueue for MemWorkQueue {
             .lock()
             .unwrap()
             .insert((job.key.clone(), job.sha.clone()));
+        Ok(())
+    }
+}
+
+/// JSON-file [`QueueStore`] — the dev/single-box persistence impl
+/// (T-049: the redb embedded store is retired; durable queue state
+/// is the ci-job entity plane). Writes are tmp-file + rename, so a
+/// reader never sees a torn file; a missing file reads as an empty
+/// map and a corrupt one as an error.
+///
+/// Per-key writes use the trait's default read-modify-write — fine
+/// for the single dev writer `bupha watch` is; the shared-store
+/// contention the old redis impl handled is gone with it.
+#[derive(Debug, Clone)]
+pub struct JsonQueueStore {
+    path: PathBuf,
+}
+
+impl JsonQueueStore {
+    /// Store at `path` (e.g. `<worktree.base>/queue.json`).
+    #[must_use]
+    pub fn new(path: PathBuf) -> Self {
+        Self { path }
+    }
+}
+
+impl QueueStore for JsonQueueStore {
+    fn load(&self) -> io::Result<BTreeMap<String, PersistedQueue>> {
+        match std::fs::read_to_string(&self.path) {
+            Err(e) if e.kind() == io::ErrorKind::NotFound => Ok(BTreeMap::new()),
+            Err(e) => Err(e),
+            Ok(text) => serde_json::from_str(&text).map_err(io::Error::other),
+        }
+    }
+
+    fn persist(&self, queues: &BTreeMap<String, PersistedQueue>) -> io::Result<()> {
+        if let Some(parent) = self.path.parent() {
+            std::fs::create_dir_all(parent)?;
+        }
+        let tmp = self.path.with_extension("tmp");
+        std::fs::write(&tmp, serde_json::to_string(queues).unwrap_or_default())?;
+        std::fs::rename(&tmp, &self.path)
+    }
+}
+
+/// A fencing token — monotonic counter making stale claims detectable.
+pub struct Fence(pub u64);
+
+/// Try to claim a sha for `worker`. `Some(fence)` = this worker owns
+/// the run; `None` = another worker holds it.
+///
+/// Single-box port (moved here from `bupha-queue-lease`, T-049): the
+/// distributed fence/lease semantics live in the ci-job entity
+/// (`fence` counter + `leaseExpiresAt` + `ci.claim` CAS); this trait
+/// remains only so `run_job`'s renew ticker and the dev watcher have
+/// a claim to renew.
+pub trait TryClaim: Send + Sync {
+    fn try_claim(&self, repo: &str, sha: &str, worker: &str) -> io::Result<Option<Fence>>;
+    /// Extend a held claim's TTL. Long runs renew periodically so the
+    /// lease doesn't expire mid-build. `false` = the claim was lost
+    /// (expired or stolen). Default: always-held (single-box stores).
+    fn renew(&self, repo: &str, sha: &str, worker: &str) -> io::Result<bool> {
+        let _ = (repo, sha, worker);
+        Ok(true)
+    }
+    /// Has this sha already been run to completion by ANY worker?
+    /// Peers drop their redundant queue entries on `true` — without
+    /// it a sha a peer already ran would sit at the front of the
+    /// queue until the lease expired, then re-run. Default: never
+    /// (single box — no peer could have finished it).
+    fn is_done(&self, repo: &str, sha: &str) -> io::Result<bool> {
+        let _ = (repo, sha);
+        Ok(false)
+    }
+    /// Mark a sha complete — peers drop their redundant entries.
+    /// Default no-op (single box).
+    fn mark_done(&self, repo: &str, sha: &str) -> io::Result<()> {
+        let _ = (repo, sha);
+        Ok(())
+    }
+}
+
+/// Single-box claim — always succeeds with a zero fence. Used when
+/// the store can't be shared: one worker means no contention. The
+/// done set is in-memory so is_done/mark_done still behave correctly
+/// within the process (and in tests).
+#[derive(Default)]
+pub struct LocalClaim {
+    done: Mutex<HashSet<(String, String)>>,
+}
+
+impl TryClaim for LocalClaim {
+    fn try_claim(&self, _repo: &str, _sha: &str, _worker: &str) -> io::Result<Option<Fence>> {
+        Ok(Some(Fence(0)))
+    }
+
+    fn is_done(&self, repo: &str, sha: &str) -> io::Result<bool> {
+        Ok(self
+            .done
+            .lock()
+            .unwrap()
+            .contains(&(repo.to_string(), sha.to_string())))
+    }
+
+    fn mark_done(&self, repo: &str, sha: &str) -> io::Result<()> {
+        self.done
+            .lock()
+            .unwrap()
+            .insert((repo.to_string(), sha.to_string()));
         Ok(())
     }
 }

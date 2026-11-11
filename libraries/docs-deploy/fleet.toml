@@ -76,12 +76,10 @@ cancel_running = true
 kind = "github"
 context = "docs/deploy"
 
-# Embedded ACIC store — survives watcher restarts; redis is the
-# multi-box fleet option ([queue] kind = "redis").
-# LEGACY (ADR-0006): queue/cache/locks are substrate-owned —
-# this section migrates to the ci-job/hypha path (bupha T-049/051).
-[queue]
-kind = "redb"
+# No [queue] section: the dev/single-box queue store defaults to the
+# JSON file under worktree.base (T-049 retired redb/redis). Durable
+# queue state is the ci-job entity plane — LEGACY (ADR-0006):
+# queue/cache/locks are substrate-owned (bupha T-049/051).
 
 # Detached worktrees for runs — kept under $HOME, not /tmp, so a
 # reboot doesn't strand in-flight checkouts.

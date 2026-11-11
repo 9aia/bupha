@@ -3,7 +3,7 @@
 //!
 //! Read path: every query resolves a [`crate::data::Plane`] (params
 //! `base`/`config`, else the watcher's own config discovery) and
-//! reads `history.jsonl` / `queue.redb` / the systemd units — see
+//! reads `history.jsonl` / `queue.json` / the systemd units — see
 //! `data.rs`. A failed read degrades to an `{"error": …}` or
 //! `{"note": …}` payload inside an `ok:true` response, matching the
 //! sibling drivers' contract.
@@ -14,7 +14,7 @@
 //! |-----------------|---------------------------------------------|
 //! | `bupha:status`  | plane digest — base, queue kind, counts, unit states |
 //! | `bupha:runs`    | `history.jsonl` tail (`repo`/`limit` params)  |
-//! | `bupha:queue`   | `queue.redb` pending/running per key          |
+//! | `bupha:queue`   | `queue.json` pending/running per key          |
 //! | `bupha:repos`   | latest history record per repo/job key        |
 //! | `bupha:service` | `systemctl --user` state of watch/worker units |
 
@@ -112,7 +112,7 @@ pub fn specs() -> Vec<ViewSpec> {
             "queue",
             "Queue",
             "/bupha/queue",
-            "Persisted queue state per watched key — pending backlog and the in-flight sha, from queue.redb. Redis-backed fleets degrade to a note (their queue lives in redis).",
+            "Persisted queue state per watched key — pending backlog and the in-flight sha, from queue.json. Non-json queue kinds degrade to a note.",
             &["queue"],
             table("Queue", "queue", QUEUE_COLS),
         ),
@@ -263,9 +263,9 @@ fn queue_row(key: &str, q: &bupha_queue::PersistedQueue) -> Value {
     })
 }
 
-/// `queue` query — persisted pending/running per key. Non-redb
-/// queue kinds degrade to a note (redis fleet state is unreadable
-/// here); a missing store reads as an empty queue.
+/// `queue` query — persisted pending/running per key. Non-json
+/// queue kinds degrade to a note (retired redb/redis fleet state is
+/// unreadable here); a missing store reads as an empty queue.
 fn queue_rows(ctx: &Map<String, Value>) -> Value {
     let plane = data::resolve(ctx);
     match data::queue_entries(&plane.base, &plane.queue_kind) {
@@ -506,9 +506,9 @@ mod tests {
     }
 
     #[test]
-    fn queue_rows_reads_store_and_notes_redis() {
+    fn queue_rows_reads_store_and_notes_retired_kind() {
+        use bupha_queue::JsonQueueStore;
         use bupha_queue::{PersistedQueue, QueueStore};
-        use bupha_queue_redb::RedbQueueStore;
         let d = tmp("v-queue");
         let mut map = std::collections::BTreeMap::new();
         map.insert(
@@ -518,16 +518,15 @@ mod tests {
                 running: Some("b".repeat(40)),
             },
         );
-        let store = RedbQueueStore::open(d.join("queue.redb")).unwrap();
+        let store = JsonQueueStore::new(d.join("queue.json"));
         store.persist(&map).unwrap();
-        drop(store);
         let v = queue_rows(&ctx_base(&d));
         let rows = v.as_array().unwrap();
         assert_eq!(rows.len(), 1);
         assert_eq!(rows[0]["key"], "o/r");
         assert_eq!(rows[0]["pending"], 1);
 
-        // redis kind → note payload, not an error
+        // retired kind → note payload, not an error
         let cfg = d.join("bupha.toml");
         std::fs::write(
             &cfg,
@@ -554,7 +553,7 @@ mod tests {
         assert!(v["bupha-watch"].is_string());
         assert!(v["bupha-worker"].is_string());
 
-        // absent history + redis queue degrade to strings/notes
+        // absent history + retired-kind queue degrades to a note
         let empty = tmp("v-summary-empty");
         let cfg = empty.join("bupha.toml");
         std::fs::write(

@@ -15,32 +15,32 @@ api:
 - name: Cli
   kind: type
   file: crates/bupha-cli/src/main.rs
-  line: 47
+  line: 44
   module: bupha
 - name: Cmd
   kind: type
   file: crates/bupha-cli/src/main.rs
-  line: 58
+  line: 55
   module: bupha
 - name: DELEGATE_TEMPLATE
   kind: const
   file: crates/bupha-cli/src/main.rs
-  line: 484
+  line: 332
   module: bupha
 - name: DeploySub
   kind: type
   file: crates/bupha-cli/src/main.rs
-  line: 146
+  line: 136
   module: bupha
 - name: DestroySub
   kind: type
   file: crates/bupha-cli/src/main.rs
-  line: 175
+  line: 161
   module: bupha
 - name: DocOut
   kind: type
   file: crates/bupha-cli/src/main.rs
-  line: 510
+  line: 358
   module: bupha
 - name: Job
   kind: type
@@ -50,12 +50,12 @@ api:
 - name: MODULE_REF
   kind: const
   file: crates/bupha-cli/src/main.rs
-  line: 482
+  line: 330
   module: bupha
 - name: N
   kind: const
   file: crates/bupha-cli/tests/watch.rs
-  line: 1093
+  line: 705
   module: bupha
 - name: NO_CUORA
   kind: const
@@ -65,12 +65,12 @@ api:
 - name: Rec
   kind: type
   file: crates/bupha-cli/tests/watch.rs
-  line: 174
+  line: 161
   module: bupha
 - name: ServiceSub
   kind: type
   file: crates/bupha-cli/src/main.rs
-  line: 189
+  line: 171
   module: bupha
 - name: Svc
   kind: type
@@ -80,12 +80,12 @@ api:
 - name: agent_error_exits
   kind: function
   file: crates/bupha-cli/tests/watch.rs
-  line: 1974
+  line: 1338
   module: bupha
 - name: agent_serves_and_http_runner_arm
   kind: function
   file: crates/bupha-cli/tests/watch.rs
-  line: 1895
+  line: 1259
   module: bupha
 - name: bupha
   kind: module
@@ -115,7 +115,7 @@ api:
 - name: campaign_import
   kind: module
   file: crates/bupha-cli/src/main.rs
-  line: 37
+  line: 34
   module: bupha
 - name: campaign_to_yaml
   kind: function
@@ -125,7 +125,7 @@ api:
 - name: cancel_supersede_honest_statuses
   kind: function
   file: crates/bupha-cli/tests/watch.rs
-  line: 369
+  line: 355
   module: bupha
 - name: cfg
   kind: function
@@ -140,69 +140,69 @@ api:
 - name: cfg_text
   kind: function
   file: crates/bupha-cli/tests/watch.rs
-  line: 204
+  line: 191
   module: bupha
 - name: check
   kind: function
   file: crates/bupha-cli/src/main.rs
-  line: 516
+  line: 364
   module: bupha
 - name: cmd_agent
   kind: function
   file: crates/bupha-cli/src/main.rs
-  line: 344
+  line: 192
   module: bupha
 - name: cmd_deploy
   kind: function
   file: crates/bupha-cli/src/main.rs
-  line: 961
+  line: 804
   module: bupha
 - name: cmd_deploy_release
   kind: function
   file: crates/bupha-cli/src/main.rs
-  line: 1092
+  line: 931
   module: bupha
 - name: cmd_destroy
   kind: function
   file: crates/bupha-cli/src/main.rs
-  line: 1217
+  line: 1056
   module: bupha
 - name: cmd_doctor
   kind: function
   file: crates/bupha-cli/src/main.rs
-  line: 528
+  line: 376
   module: bupha
 - name: cmd_explain
   kind: function
   file: crates/bupha-cli/src/main.rs
-  line: 1464
+  line: 1299
   module: bupha
 - name: cmd_import
   kind: function
   file: crates/bupha-cli/src/main.rs
-  line: 886
+  line: 733
   module: bupha
 - name: cmd_init
   kind: function
   file: crates/bupha-cli/src/main.rs
-  line: 370
+  line: 218
   module: bupha
 - name: cmd_log
   kind: function
   file: crates/bupha-cli/src/main.rs
-  line: 1449
+  line: 1284
   module: bupha
 - name: cmd_run
   kind: function
   file: crates/bupha-cli/src/main.rs
-  line: 784
+  line: 632
   module: bupha
 - name: cmd_runs
   kind: function
   file: crates/bupha-cli/src/main.rs
-  line: 1422
+  line: 1257
   module: bupha
-api_omitted: 112
+api_omitted: 105
 deps:
 - dagger-io
 - bupha-config
@@ -213,9 +213,6 @@ deps:
 - bupha-http
 - bupha-keyring
 - bupha-queue
-- bupha-queue-lease
-- bupha-queue-redb
-- bupha-queue-redis
 - bupha-runner
 - bupha-secret
 - bupha-secret-cuora
@@ -235,7 +232,6 @@ deps:
 - hmac
 - sha2
 - bupha-queue
-- bupha-queue-redb
 - hmac
 - sha2
 - bupha-config
@@ -244,12 +240,10 @@ deps:
 - bupha-git
 - bupha-github
 - bupha-keyring
-- bupha-queue-lease
 - bupha-runner
 - bupha-secret
 - bupha-secret-cuora
 - bupha-service
-- bupha-telemetry
 - bupha-trigger
 - bupha-vcs
 - clap
@@ -284,18 +278,18 @@ provenance:
   - modules/dagger/dagger/src/bupha/main.py
   - modules/dagger/tests/test_self_patch.py
   hashes:
-  - dadff1032c75c419f526c842804a0a8372c66147
-  - a44efaadc5db36f28ce62827f661ed3ad71fbecb
+  - 6fe6da87a43867167a60d2fb134c95e057dcf6e0
+  - 253cd11539c28b6d0166fdde0c8f07f2cbbc58d3
   - 4102762337a49a25a35bd6da2202b6c0536fe273
-  - e874c1c493c116218614e58c47050db763afe4d6
-  - 5691c14b9c0fc023e6e6ba50672a0f6ec250ea84
+  - 2bb27e1ba0b9d80b440272fbcefd97527045ff47
+  - 76a9969a9b3948b239e83cd9000b762ccb34f194
   - e6680112289b06ae1e8d8d6659c60f2333c8ca23
   - 16a66bca9a602549e108d45e9d1233dbe2e7e34b
-  - 314232dc523cc2a6e48aecc514cc8474e7489385
+  - 31d7ff86bc81e9daa5c80f524125aa1905db3bb8
   - a787b6af9e98fd8cae6ece92467308d34e49bbce
   - 297de02314bb3e68d56e2e8a33bcad4ba6c92465
   - b266b7f034f3d194f5cba16fd2bf6a51886ccf46
   - 509a3147960f3aa59978a55730803da3c2ff0850
-  commit_sha: bded75ecc051d0d5dbf73a4d86f733ab028d2e1f
-  generated_at: '1794366338'
+  commit_sha: e0c60cad318e76742d903699c09b5cc59505d2a0
+  generated_at: '1794368528'
   generator: kuda-template/0.1.2

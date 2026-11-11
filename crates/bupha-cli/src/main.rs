@@ -8,8 +8,8 @@
 //! user-facing bupha CLI — deployed fleets run this same engine
 //! through `tamias-driver-bupha host` under tamias provider
 //! units. The verbs below (`watch`, `run`, `doctor`, `import`,
-//! `deploy`/`destroy`/`service` helpers, `worker`/`agent` fleet
-//! daemons) exist for local reproduction, standalone/dev-mode
+//! `deploy`/`destroy`/`service` helpers, `agent`
+//! fleet daemons) exist for local reproduction, standalone/dev-mode
 //! operation, and migration.
 //!
 //! Config: bupha.yaml/.yml/.toml (secrets come from env). See
@@ -21,15 +21,12 @@ use bupha_core::Config;
 use bupha_git::GitVcs;
 use bupha_github::GitHubAdmin;
 use bupha_keyring::KeyringSecrets;
-use bupha_queue::{Claim, KeyPolicy, QueueStore, WorkQueue};
-use bupha_queue_lease::TryClaim;
-use bupha_queue_redb::RedbQueueStore;
+use bupha_queue::{JsonQueueStore, QueueStore};
 use bupha_runner::RunCtx;
 use bupha_secret::Secrets;
 use bupha_secret_cuora::CuoraSecrets;
 use bupha_service::Service;
 use bupha_systemd as deploy;
-use bupha_telemetry::RunEvent;
 use bupha_trigger::ForgeAdmin;
 use bupha_vcs::Vcs;
 use clap::{Parser, Subcommand};
@@ -37,7 +34,7 @@ use clap::{Parser, Subcommand};
 mod campaign_import;
 use std::path::{Path, PathBuf};
 use std::process::Command;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
 #[derive(Parser)]
 #[command(
@@ -59,10 +56,6 @@ enum Cmd {
     /// Serve the source → queue → runner loop (forge webhook,
     /// sturn WAL poller — every configured source).
     Watch,
-    /// Fleet puller — claim shared-queue jobs and run them. No
-    /// listener/tunnel/trigger; needs only [queue] (redis), [[repo]]
-    /// dirs, [runner], [status], [worktree].
-    Worker,
     /// Serve the remote-run agent — accepts jobs from `kind="http"`
     /// runners and executes them with this box's [runner].
     Agent,
@@ -98,9 +91,6 @@ enum Cmd {
     /// Toggle the watcher unit without removing it — free the box
     /// when CI isn't needed, `enable` brings it back.
     Service {
-        /// Operate on bupha-worker.service instead of bupha-watch.
-        #[arg(long, global = true)]
-        worker: bool,
         #[command(subcommand)]
         sub: ServiceSub,
     },
@@ -150,10 +140,6 @@ enum DeploySub {
         /// Skip enable --now (write the file only).
         #[arg(long)]
         no_start: bool,
-        /// Manage a worker unit (bupha-worker.service) instead of
-        /// the watcher unit.
-        #[arg(long)]
-        worker: bool,
     },
     /// Register/update the repo's push webhook via the REST API
     /// (token from env/keyring/env file — no `gh` dependency).
@@ -174,11 +160,7 @@ enum DeploySub {
 #[derive(Subcommand)]
 enum DestroySub {
     /// Disable + remove the systemd user unit.
-    Service {
-        /// Remove bupha-worker.service instead of bupha-watch.
-        #[arg(long)]
-        worker: bool,
-    },
+    Service,
     /// Delete the repo's webhook whose URL matches tunnel.public_url.
     Webhook,
     /// Remove detached worktrees and the persisted queue file.
@@ -202,140 +184,6 @@ enum ServiceSub {
         #[arg(short = 'f', long = "f")]
         follow: bool,
     },
-}
-
-/// `bupha worker` — the fleet puller: claims jobs from the shared
-/// pull queue ([queue] kind = "redis") and runs them locally. No
-/// listener, tunnel, webhook secrets or trigger — a worker box only
-/// needs [[repo]] dirs, [runner], [status], [worktree], [worker].
-fn cmd_worker(cfg: Arc<Config>) {
-    let watched: Vec<bupha_core::WatchedRepo> = cfg.watched().unwrap_or_else(|e| {
-        eprintln!("config: {e}");
-        std::process::exit(2);
-    });
-    let watched = Arc::new(watched);
-    let token = bupha_watch::secret(&cfg.runner.token_env).unwrap_or_default();
-    let (workq, claim): (Arc<dyn WorkQueue>, Arc<dyn TryClaim>) = match cfg.queue.kind.as_str() {
-        "redis" => {
-            let url = cfg.queue.url.clone().unwrap_or_else(|| {
-                eprintln!("[queue] kind=redis needs `url`");
-                std::process::exit(2);
-            });
-            let r = Arc::new(
-                bupha_queue_redis::RedisQueueStore::open(&url)
-                    .unwrap_or_else(|e| panic!("redis: {e}")),
-            );
-            (r.clone(), r)
-        }
-        other => {
-            eprintln!(
-                "`bupha worker` needs a shared pull queue — [queue] kind = \
-                     \"redis\", got '{other}'"
-            );
-            std::process::exit(2);
-        }
-    };
-    let audit = bupha_watch::build_audit(&cfg);
-    let sinks = bupha_watch::build_sinks(&cfg, &watched, &token, audit.as_ref());
-    let runners = bupha_watch::build_runners(&cfg, &watched);
-    let telemetry = bupha_watch::build_telemetry(&cfg);
-    let attest = bupha_watch::build_attest(&cfg);
-    let id = bupha_watch::worker_id();
-    let keys: Vec<KeyPolicy> = watched
-        .iter()
-        .map(|w| KeyPolicy {
-            key: w.key.clone(),
-            latest: w.policy == bupha_core::QueuePolicy::Latest,
-        })
-        .collect();
-    let shared = Mutex::new(bupha_watch::Shared::default());
-    let child: bupha_watch::ChildSlot = Arc::new(Mutex::new(None));
-    let _ = std::fs::create_dir_all(&cfg.worktree.base);
-    let poll_ms: u64 = std::env::var("BUPHA_WORKER_POLL_MS")
-        .ok()
-        .and_then(|v| v.parse().ok())
-        .unwrap_or(1000);
-    println!("bupha worker claiming jobs ({id})");
-    loop {
-        // Same e2e hook as watch — spawned test binaries stop cleanly.
-        if std::env::var("BUPHA_WATCH_SHUTDOWN_FILE")
-            .ok()
-            .is_some_and(|f| Path::new(&f).exists())
-        {
-            break;
-        }
-        match workq.claim_next(&id, &cfg.worker.labels, &keys) {
-            Ok(Some(Claim::Won { job, superseded })) => {
-                for j in &superseded {
-                    if let Some(s) = sinks.get(&j.key) {
-                        s.post(&j.sha, "error", "superseded by newer push");
-                    }
-                }
-                // The shared store is a trust boundary — a fleet
-                // peer (or anyone who can write it) can enqueue
-                // unknown keys or hostile shas. Skip, don't panic.
-                let known = watched.iter().any(|r| r.key == job.key)
-                    && sinks.contains_key(&job.key)
-                    && runners.contains_key(&job.key);
-                if !known {
-                    eprintln!("skipping fleet job with unknown key {:?}", job.key);
-                    let _ = workq.complete(&job, &id);
-                    continue;
-                }
-                if !bupha_core::is_valid_sha(&job.sha) {
-                    eprintln!("dropping fleet job with unsafe sha {:?}", job.sha);
-                    let _ = workq.complete(&job, &id);
-                    continue;
-                }
-                let repo = watched.iter().find(|r| r.key == job.key).unwrap();
-                let sink = &sinks[&job.key];
-                let runner = &runners[&job.key];
-                telemetry.event(&RunEvent::Started {
-                    repo: job.key.clone(),
-                    sha: job.sha.clone(),
-                });
-                let t0 = std::time::Instant::now();
-                let end = bupha_watch::run_job(
-                    &cfg,
-                    repo,
-                    &**sink,
-                    &**runner,
-                    &shared,
-                    &bupha_watch::Worker {
-                        child: &child,
-                        claim: &*claim,
-                        id: &id,
-                    },
-                    &job.sha,
-                );
-                let wall = t0.elapsed();
-                // A lost claim means a peer owns the job — IT settles.
-                if !matches!(end, bupha_watch::JobEnd::ClaimLost) {
-                    let _ = workq.complete(&job, &id);
-                }
-                bupha_watch::settle_run(
-                    &cfg,
-                    &*telemetry,
-                    &attest,
-                    runner.name(),
-                    &job.key,
-                    &job.sha,
-                    &end,
-                    wall,
-                );
-            }
-            Ok(Some(Claim::Pruned(sup))) => {
-                for j in &sup {
-                    if let Some(s) = sinks.get(&j.key) {
-                        s.post(&j.sha, "error", "superseded by newer push");
-                    }
-                }
-            }
-            Ok(None) => {}
-            Err(e) => eprintln!("claim scan: {e}"),
-        }
-        std::thread::sleep(std::time::Duration::from_millis(poll_ms));
-    }
 }
 
 /// `bupha agent` — the remote-run side of kind="http": accepts
@@ -836,7 +684,7 @@ fn main() {
             pull_request,
         } => cmd_import(file, out.as_deref(), dirs, *pull_request),
         // Toggling the unit needs no config file either.
-        Cmd::Service { worker, sub } => cmd_service(*worker, sub),
+        Cmd::Service { sub } => cmd_service(sub),
         _ => {
             let cfg = Arc::new(
                 FileSource {
@@ -865,7 +713,6 @@ fn main() {
 fn dispatch_cmd(cfg: &Arc<Config>, cmd: &Cmd, cli_config: Option<String>) {
     match cmd {
         Cmd::Watch => bupha_watch::watch(Arc::clone(cfg)),
-        Cmd::Worker => cmd_worker(Arc::clone(cfg)),
         Cmd::Agent => cmd_agent(Arc::clone(cfg)),
         Cmd::Doctor { json } => cmd_doctor(cfg, *json),
         Cmd::Run { function } => cmd_run(cfg, function.clone()),
@@ -917,7 +764,7 @@ fn cmd_import(file: &Path, out: Option<&Path>, dirs: &[String], pull_request: bo
 /// `bupha service enable|disable|status` — toggle the watcher unit
 /// without touching its files. The install path stays `deploy
 /// service`; `destroy service` still removes the unit entirely.
-fn cmd_service(worker_unit: bool, sub: &ServiceSub) {
+fn cmd_service(sub: &ServiceSub) {
     #[cfg(not(target_os = "linux"))]
     {
         eprintln!(
@@ -927,11 +774,7 @@ fn cmd_service(worker_unit: bool, sub: &ServiceSub) {
         );
         std::process::exit(1);
     }
-    let unit = if worker_unit {
-        "bupha-worker.service"
-    } else {
-        "bupha-watch.service"
-    };
+    let unit = "bupha-watch.service";
     let r = match sub {
         ServiceSub::Enable => deploy::enable_service(unit).map(|_| {
             println!("{unit} enabled — running now and at login");
@@ -1000,7 +843,7 @@ fn cmd_deploy(cfg: &Config, sub: &DeploySub, cli_config: Option<String>) {
                 }
             }
         }
-        DeploySub::Service { no_start, worker } => {
+        DeploySub::Service { no_start } => {
             #[cfg(not(target_os = "linux"))]
             {
                 eprintln!(
@@ -1012,11 +855,7 @@ fn cmd_deploy(cfg: &Config, sub: &DeploySub, cli_config: Option<String>) {
             }
             let bin = std::env::current_exe().unwrap_or(PathBuf::from("bupha"));
             let cfg_path = cli_config.clone().map(PathBuf::from);
-            let (unit, verb) = if *worker {
-                ("bupha-worker.service", "worker")
-            } else {
-                ("bupha-watch.service", "watch")
-            };
+            let (unit, verb) = ("bupha-watch.service", "watch");
             let svc = deploy::SystemdService {
                 unit: unit.into(),
                 bin: bin.clone(),
@@ -1216,13 +1055,9 @@ fn cmd_deploy_release(dry_run: bool) {
 
 fn cmd_destroy(cfg: &Config, sub: &DestroySub) {
     match sub {
-        DestroySub::Service { worker } => {
+        DestroySub::Service => {
             let svc = deploy::SystemdService {
-                unit: if *worker {
-                    "bupha-worker.service".into()
-                } else {
-                    "bupha-watch.service".into()
-                },
+                unit: "bupha-watch.service".into(),
                 bin: PathBuf::new(),
                 env: bupha_watch::cfg_dir().join("env"),
                 config: None,
@@ -1480,9 +1315,9 @@ fn cmd_explain(cfg: &Config, sha: &str) {
         }
     }
     // 2. Queue — is it pending/running?
-    let qf = PathBuf::from(&cfg.worktree.base).join("queue.redb");
-    if let Ok(store) = RedbQueueStore::open(qf) {
-        let map = store.load().unwrap_or_default();
+    let qf = PathBuf::from(&cfg.worktree.base).join("queue.json");
+    let store = JsonQueueStore::new(qf);
+    if let Ok(map) = store.load() {
         for (name, q) in &map {
             if q.running.as_deref().is_some_and(|r| r.starts_with(sha)) {
                 println!("running now on {name}");

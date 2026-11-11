@@ -2,9 +2,7 @@
 resolver = "2"
 members = [
     "crates/bupha-attest-sigstore",
-    "crates/bupha-queue-redis",
     "crates/bupha-attest-file",
-    "crates/bupha-queue-lease",
     "crates/bupha-history",
     "crates/bupha-attest",
     "crates/bupha-container",
@@ -23,7 +21,6 @@ members = [
     "crates/bupha-gha",
     "crates/bupha-gha-runner",
     "crates/bupha-queue",
-    "crates/bupha-queue-redb",
     "crates/bupha-service",
     "crates/bupha-secret",
     "crates/bupha-secret-cuora",
@@ -65,7 +62,6 @@ lto = "thin"
 
 [workspace.dependencies]
 bupha-attest-sigstore = { path = "crates/bupha-attest-sigstore", version = "0.1.0" }
-bupha-queue-redis = { path = "crates/bupha-queue-redis", version = "0.1.0" }
 bupha-attest-file = { path = "crates/bupha-attest-file", version = "0.1.0" }
 bupha-access = { path = "crates/bupha-access", version = "0.1.0" }
 bupha-access-file = { path = "crates/bupha-access-file", version = "0.1.0" }
@@ -76,7 +72,6 @@ bupha-telemetry-otel = { path = "crates/bupha-telemetry-otel", version = "0.1.0"
 bupha-container = { path = "crates/bupha-container", version = "0.1.0" }
 bupha-attest = { path = "crates/bupha-attest", version = "0.1.0" }
 bupha-history = { path = "crates/bupha-history", version = "0.1.0" }
-bupha-queue-lease = { path = "crates/bupha-queue-lease", version = "0.1.0" }
 bupha-core = { path = "crates/bupha-core", version = "0.1.0" }
 bupha-trigger = { path = "crates/bupha-trigger", version = "0.1.0" }
 bupha-vcs = { path = "crates/bupha-vcs", version = "0.1.0" }
@@ -84,7 +79,6 @@ bupha-git = { path = "crates/bupha-git", version = "0.1.0" }
 bupha-gha = { path = "crates/bupha-gha", version = "0.1.0" }
 bupha-gha-runner = { path = "crates/bupha-gha-runner", version = "0.1.0" }
 bupha-queue = { path = "crates/bupha-queue", version = "0.1.0" }
-bupha-queue-redb = { path = "crates/bupha-queue-redb", version = "0.1.0" }
 bupha-service = { path = "crates/bupha-service", version = "0.1.0" }
 bupha-secret = { path = "crates/bupha-secret", version = "0.1.0" }
 bupha-secret-cuora = { path = "crates/bupha-secret-cuora", version = "0.1.0" }

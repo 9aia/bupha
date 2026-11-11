@@ -1029,7 +1029,7 @@ pub fn worker(f: &Flags) -> Result<String, String> {
     let filter = bupha_watch::entity_worker::ClaimFilter::from_config(&cfg)
         .map_err(|e| format!("worker: config: {e}"))?;
     let exec = bupha_watch::entity_worker::WatchExec::new(std::sync::Arc::new(cfg));
-    // Same e2e shutdown hook as `host`/`bupha worker` — the loop
+    // Same e2e shutdown hook as `host` — the loop
     // checks it between jobs (a run in flight finishes first).
     let shutdown = || {
         std::env::var("BUPHA_WATCH_SHUTDOWN_FILE")
@@ -1037,7 +1037,7 @@ pub fn worker(f: &Flags) -> Result<String, String> {
             .is_some_and(|f| Path::new(&f).exists())
     };
     println!(
-        "bupha worker polling ci-job entities on {node} ({})",
+        "ci-job worker polling entities on {node} ({})",
         exec.worker()
     );
     bupha_watch::entity_worker::run(&filter, &api, &exec, &shutdown);

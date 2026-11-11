@@ -14,10 +14,10 @@
 //!   none of them.
 //!
 //! Read path: bupha keeps no serve wire — its state is files under
-//! `worktree.base` (`history.jsonl`, `queue.redb`, plus the systemd
+//! `worktree.base` (`history.jsonl`, `queue.json`, plus the systemd
 //! user units the watcher manages). The driver reads those
 //! directly through the same crates the watcher uses
-//! (`bupha-config-file` for config resolution, `bupha-queue-redb`
+//! (`bupha-config-file` for config resolution, `bupha-queue`
 //! for the queue store, `bupha-systemd` for unit state) — the most
 //! stable read path available; the `bupha` CLI's `runs`/`log` verbs
 //! print human text with no `--json`, so proxying them would mean

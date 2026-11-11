@@ -125,11 +125,11 @@ worktree:
 
 # --- Distributed runners (T-005) -----------------------------------
 #
-# queue:
-#   kind: redis                   # shared pull queue for fleet workers
-#   url: redis://queue-box:6379/
+# queue:                          # dev store only — durable queue
+#   kind: json                    # state is the ci-job entity plane
+#                                  # (T-049 retired redb/redis)
 #
-# worker:                         # this box's claim labels
+# worker:                         # this box's ci-job claim labels
 #   labels: ["arch=arm64"]
 #
 #   - name: org/firmware

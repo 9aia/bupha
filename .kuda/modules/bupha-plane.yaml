@@ -233,8 +233,8 @@ provenance:
   hashes:
   - fcdab77747a105b6a9ccd61f0074664e7efb925d
   - 7ac9e1b4b53d51238e74f7ceac1b9932a847c867
-  - 0aef1131dbda1bb8bd6d54ec52ebc4a6ee8ac1f7
-  - 78ab81b73c3f0bb433c65fabc43908eb26f9ee92
-  commit_sha: bded75ecc051d0d5dbf73a4d86f733ab028d2e1f
-  generated_at: '1794366338'
+  - 5e884ae364a4dec2bb496c5553f24170b9d615ed
+  - 60f6161d2822ec8f79b32354f159de95d2923aff
+  commit_sha: e0c60cad318e76742d903699c09b5cc59505d2a0
+  generated_at: '1794368528'
   generator: kuda-template/0.1.2

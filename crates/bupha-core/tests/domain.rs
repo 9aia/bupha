@@ -302,13 +302,13 @@ fn serde_defaults_and_deny_unknown() {
     assert_eq!(cfg.access.kind, "all");
     assert_eq!(cfg.telemetry.kind, "none");
     assert_eq!(cfg.attest.kind, "none");
-    assert_eq!(cfg.queue.kind, "redb");
+    assert_eq!(cfg.queue.kind, "json");
     assert_eq!(cfg.worktree.base, "/tmp/bupha");
     // direct Default impls agree with serde defaults
     assert_eq!(AccessCfg::default().kind, "all");
     assert_eq!(TelemetryCfg::default().kind, "none");
     assert_eq!(AttestCfg::default().kind, "none");
-    assert_eq!(QueueCfg::default().kind, "redb");
+    assert_eq!(QueueCfg::default().kind, "json");
     assert_eq!(TunnelCfg::default().provider, "none");
     assert_eq!(WorktreeCfg::default().base, "/tmp/bupha");
     assert_eq!(CacheCfg::default().kind, "");
@@ -371,8 +371,7 @@ kind = "file"
 dir = "/a"
 key_env = "K"
 [queue]
-kind = "redis"
-url = "redis://x"
+kind = "json"
 [worktree]
 base = "/w"
 [[repo]]
@@ -385,7 +384,6 @@ dir = "/tmp"
     assert_eq!(cfg.tunnel.public_url, "http://p");
     assert_eq!(cfg.access.allow, vec!["a"]);
     assert_eq!(cfg.attest.key_env, "K");
-    assert_eq!(cfg.queue.url.as_deref(), Some("redis://x"));
 }
 
 #[test]

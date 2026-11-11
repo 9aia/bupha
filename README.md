@@ -62,11 +62,12 @@ and status sinks never see the difference.
 - every concern behind a port: source (`github-webhook`,
   `sturn-wal`), runner (`dagger` | `shell` | `ssh` | `gha`),
   tunnel (`cloudflared` | `direct` | `none`), forge
-  (`github` today), VCS (`git`), queue store (`redb`), service
+  (`github` today), VCS (`git`), queue store (`json` dev file),
+  service
   (`systemd`), secrets (`cuora` | `keyring` | env file), config
   (`toml`), cache (`sccache`) — ports/impls are separate crates
-- persistent queue across restarts (embedded ACID store);
-  detached-git-worktree isolation
+- persistent queue across restarts (dev JSON store; durable queue
+  state is the ci-job entity plane); detached-git-worktree isolation
 - self-contained deploy: systemd unit, webhook registration, env seed,
   endpoint check
 - sccache-compatible artifact cache (local, garage/minio/R2/S3)

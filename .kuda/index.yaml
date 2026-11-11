@@ -31,9 +31,6 @@ modules:
 - bupha-keyring
 - bupha-plane
 - bupha-queue
-- bupha-queue-lease
-- bupha-queue-redb
-- bupha-queue-redis
 - bupha-runner
 - bupha-secret
 - bupha-secret-cuora
@@ -55,8 +52,8 @@ modules:
 commands:
 - cargo check
 - cargo test --workspace
-tree_digest: 9920ad1b24136dc36ac502fc8934cf503ce9268f
-files_total: 233
+tree_digest: 13d1a30b7535c086f9702985f93e29b08b77965d
+files_total: 225
 provenance:
   files:
   - Cargo.toml
@@ -90,9 +87,6 @@ provenance:
   - crates/bupha-keyring/Cargo.toml
   - crates/bupha-plane/Cargo.toml
   - crates/bupha-queue/Cargo.toml
-  - crates/bupha-queue-lease/Cargo.toml
-  - crates/bupha-queue-redb/Cargo.toml
-  - crates/bupha-queue-redis/Cargo.toml
   - crates/bupha-runner/Cargo.toml
   - crates/bupha-secret/Cargo.toml
   - crates/bupha-secret-cuora/Cargo.toml
@@ -111,8 +105,8 @@ provenance:
   - crates/bupha-webhook/Cargo.toml
   - modules/dagger/dagger/pyproject.toml
   hashes:
-  - dadff1032c75c419f526c842804a0a8372c66147
-  - 031dff432bd443e7c67a1bb94ca0483c668a3c0b
+  - 6fe6da87a43867167a60d2fb134c95e057dcf6e0
+  - 7095b5efebf997782b76e570e5732e6b239549f0
   - faa9d3e3b2e30ebed8aecf8da83c4683f33024c8
   - d3b36ada9a99ed7e36e96e47a7beb1f5bf3fe348
   - 977aa09725741778eef33809aaf4414e789e3f02
@@ -122,7 +116,7 @@ provenance:
   - d46021a5cc4e28ee9eed1d7ca349dd222a5d8306
   - 1e8b72c77e68157b0bceb70cbb4e3ea5c6b4868e
   - 1ce58c0ddf98f4e695cbd71d19541ac6dc19034a
-  - a44efaadc5db36f28ce62827f661ed3ad71fbecb
+  - 253cd11539c28b6d0166fdde0c8f07f2cbbc58d3
   - c6468e2b1603699af53234b1fa10040bc21f84b9
   - b1c0f26fe1cf3ded47e08fa677971c448489f47a
   - 90556965fe774768db42f410ce6430ce8dd30f55
@@ -132,7 +126,7 @@ provenance:
   - 2949c06c8e71ef5da170506ce9cd8dfbb7312ce3
   - 6ebc856617d9589fc7fa9c6363696d2e543e5f0b
   - 65cf007ad2f3d1e6517719d11469bc6e97b7326d
-  - 0dc0f2638e8d3800b6167637ea4cd9bd5c4bfc48
+  - 5d0d74e27a1c4369d9fb27f107311b3342a3336a
   - 130920aec2d9f32d6f8c6d16b35230ba63ddc04f
   - 50261b87b50271a25bf73fe4037897a0d4e97a89
   - 15329f105dd770552bcd21afd4cba3ac3467cded
@@ -141,10 +135,7 @@ provenance:
   - 324f2f1667132e7b9ede9def54a162c77381e0ca
   - 295c5fb2896a8e7a89dfabd77f0d1e85f22377b3
   - fcdab77747a105b6a9ccd61f0074664e7efb925d
-  - d8bdacf5871e0188feecd3c7ae3e53d622052a3d
-  - bb98453a9f581da32d17c8d15210520bc93efe20
-  - 906a52345372ef45d6baa7f267b50aaf4ba35c9f
-  - b2900c0993ad3c36bc7533acbf5bbf92e0f91265
+  - 4067514b00d192c5f7b55d0612da1930e6ad3f73
   - 4fefe465ba6004fda1b42f7c3358502f9fdbbc1f
   - f77f1a255f54b328d61466935ed9b8845a61e3bc
   - ab7b9515941ad8a9faf58f7ef5dbc93e453387b1
@@ -159,9 +150,9 @@ provenance:
   - 5049aec6b8565aa211bac21b52c0f690c0509d63
   - 5e76ec1737eaa365ccdeadbb3706a163e1a97792
   - 634f96eb54a20f970a3488c4356ca2c51ffefa70
-  - 270f8579f5af4f0503dd7c1bac00746506fa12b5
+  - dc5cc2d35eabf9edafcf54b4961a649f58553ffd
   - cd8e10b771c3960ae45a2b6f7705fa9f1cdc6344
   - a787b6af9e98fd8cae6ece92467308d34e49bbce
-  commit_sha: bb515cea1a369ce4a282bc6ef7d5c0422279e988
-  generated_at: '1794367801'
+  commit_sha: e0c60cad318e76742d903699c09b5cc59505d2a0
+  generated_at: '1794368528'
   generator: kuda/0.1.0

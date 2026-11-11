@@ -5,7 +5,7 @@ api:
 - name: DEFAULT_BASE
   kind: const
   file: crates/bupha-driver/src/data.rs
-  line: 41
+  line: 40
   module: bupha-driver
 - name: DEFAULT_LIMIT
   kind: const
@@ -55,7 +55,7 @@ api:
 - name: MIN_CONFIG
   kind: const
   file: crates/bupha-driver/src/data.rs
-  line: 259
+  line: 240
   module: bupha-driver
 - name: MIN_FLEET
   kind: const
@@ -70,7 +70,7 @@ api:
 - name: Plane
   kind: type
   file: crates/bupha-driver/src/data.rs
-  line: 50
+  line: 49
   module: bupha-driver
 - name: Provider
   kind: type
@@ -105,12 +105,12 @@ api:
 - name: WATCH_UNIT
   kind: const
   file: crates/bupha-driver/src/data.rs
-  line: 44
+  line: 43
   module: bupha-driver
 - name: WORKER_UNIT
   kind: const
   file: crates/bupha-driver/src/data.rs
-  line: 45
+  line: 44
   module: bupha-driver
 - name: bin
   kind: function
@@ -190,7 +190,7 @@ api:
 - name: ctx
   kind: function
   file: crates/bupha-driver/src/data.rs
-  line: 246
+  line: 227
   module: bupha-driver
 - name: ctx_base
   kind: function
@@ -211,7 +211,6 @@ deps:
 - bupha-github
 - bupha-keyring
 - bupha-queue
-- bupha-queue-redb
 - bupha-secret
 - bupha-secret-cuora
 - bupha-systemd
@@ -231,7 +230,6 @@ deps:
 - bupha-config-file
 - bupha-core
 - bupha-queue
-- bupha-queue-redb
 - pavo_protocol
 notes: ''
 verify:
@@ -258,16 +256,16 @@ provenance:
   - crates/bupha-driver/tests/serve.rs
   - crates/bupha-driver/tests/verbs.rs
   hashes:
-  - 0dc0f2638e8d3800b6167637ea4cd9bd5c4bfc48
-  - 292745af60a6bc6c289a0f5c534dbfea4fd7bdc7
-  - 4dd5bc86c1a85804e0554dcc80ca1ee0bf2a9a14
+  - 5d0d74e27a1c4369d9fb27f107311b3342a3336a
+  - 2750262004acbeece286ebddc439b77e8a150b71
+  - 91a1004839738c3a94f697ab13a05cc26980f5e2
   - 32cc235fe7fd955da42953a2f6534e7dc1a64760
-  - 600aab58d5a841fdd424459307a213c54d69a23d
-  - 5a924260e98929cd9f196b60c255bb99e4a4d567
+  - 58b97e17cab8550a860bb1797778acd98de29338
+  - d8f6cbd1c8f342af984fc99785f7a9cb9bc54f85
   - 39c206d85acc5c3cc6a666f4b3547eb240197a0a
   - 2b4a4f24aaddf4c61b1989d876d41d7b06b3967b
   - eef1d35d7cd370db4426fbaca5c7f364f73510a3
   - fd852737ecb9227ba086e83d6212dc327ab9ac7b
-  commit_sha: bded75ecc051d0d5dbf73a4d86f733ab028d2e1f
-  generated_at: '1794366338'
+  commit_sha: e0c60cad318e76742d903699c09b5cc59505d2a0
+  generated_at: '1794368528'
   generator: kuda-template/0.1.2

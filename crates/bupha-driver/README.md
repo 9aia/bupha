@@ -76,15 +76,15 @@ bupha has **no serve wire** — its state is files under
 | surface | source |
 | --- | --- |
 | run history | `<base>/history.jsonl` — one JSONL record per finished run (`{sha, repo, status, wall_secs}`), the same file `bupha runs`/`bupha log` read |
-| queue state | `<base>/queue.redb` — read through `bupha-queue-redb`'s `RedbQueueStore` via a temp snapshot copy: the watcher holds the live db lock (`Database already open`) for its whole lifetime, and a direct open could run recovery writes — the driver stays read-only |
+| queue state | `<base>/queue.json` — read through `bupha-queue`'s `JsonQueueStore`; tmp+rename writes mean a direct read never sees a torn file |
 | watcher units | `systemctl --user is-enabled/is-active` via `bupha-systemd` — the probe `bupha service status` runs |
 
 The `bupha` CLI was **not** chosen as the data plane: `runs`, `log`,
 and `explain` print human-formatted text with no `--json`, so
 proxying them would mean parsing prose. Reading the files directly —
 through the same crates that write them — is the stable read path.
-`[queue] kind = "redis"` fleets keep queue state in redis; the queue
-view degrades to a note there.
+Non-`json` `[queue] kind`s (retired redb/redis) degrade the queue
+view to a note.
 
 ## Which `base`?
 
@@ -110,7 +110,7 @@ healthy and hosts render the failure inline.
 | --- | --- | --- |
 | `bupha:status` | plane digest — base, queue kind, history presence, pending count, unit states | — |
 | `bupha:runs` | `history.jsonl` tail | `repo` (matches `owner/name` + `owner/name:job` keys, like `bupha runs`), `limit` (default 100, keeps the tail) |
-| `bupha:queue` | `queue.redb` pending/running per key | — |
+| `bupha:queue` | `queue.json` pending/running per key | — |
 | `bupha:repos` | latest history record per repo/job key — the "statuses on each sha" surface | `repo` |
 | `bupha:service` | `bupha-watch.service` + `bupha-worker.service` enabled/active | — |
 

@@ -3,8 +3,8 @@
 //! (systemctl/journalctl/dagger/rsync/ssh/podman/cargo/git) on PATH
 //! and stub HTTP forges where the CLI talks REST.
 
+use bupha_queue::JsonQueueStore;
 use bupha_queue::{PersistedQueue, QueueStore};
-use bupha_queue_redb::RedbQueueStore;
 use std::collections::{BTreeMap, VecDeque};
 use std::io::{BufRead, BufReader, Read, Write};
 use std::net::TcpListener;
@@ -519,18 +519,6 @@ fn service_subcommands() {
         (vec!["service", "status"], "enabled=enabled active=inactive"),
         (vec!["service", "restart"], "bupha-watch.service restarted"),
         (vec!["service", "logs"], "journal-line"),
-        (
-            vec!["service", "--worker", "enable"],
-            "bupha-worker.service enabled",
-        ),
-        (
-            vec!["service", "--worker", "disable"],
-            "bupha-worker.service disabled",
-        ),
-        (
-            vec!["service", "--worker", "restart"],
-            "bupha-worker.service restarted",
-        ),
     ] {
         let o = bupha(&args, &env);
         assert!(o.status.success(), "{args:?}: {}", out_ok(&o));
@@ -719,35 +707,6 @@ fn deploy_service_variants() {
     let unit = home.join(".config/systemd/user/bupha-watch.service");
     assert!(unit.exists());
     assert!(std::fs::read_to_string(&unit).unwrap().contains("watch"));
-
-    // --worker writes bupha-worker.service with the worker verb
-    let homew = t.join("hw");
-    let o = bupha(
-        &[
-            "deploy",
-            "service",
-            "--worker",
-            "--no-start",
-            "--config",
-            cfgp.to_str().unwrap(),
-        ],
-        &[
-            ("HOME", homew.display().to_string()),
-            ("PATH", stubbed_path(&bin)),
-        ],
-    );
-    assert!(o.status.success(), "{}", out_ok(&o));
-    let wunit = homew.join(".config/systemd/user/bupha-worker.service");
-    let u = std::fs::read_to_string(&wunit).unwrap();
-    assert!(
-        u.contains(" worker --config")
-            || u.contains(
-                " worker
-"
-            )
-            || u.contains("worker"),
-        "{u}"
-    );
 
     // default: write + enable --now
     let home2 = t.join("h2");
@@ -1311,27 +1270,6 @@ fn destroy_variants() {
     assert!(out_ok(&o).contains("removed"));
     assert!(!unit_dir.join("bupha-watch.service").exists());
 
-    // --worker removes the worker unit
-    let hw = t.join("hw");
-    let wdir = hw.join(".config/systemd/user");
-    std::fs::create_dir_all(&wdir).unwrap();
-    std::fs::write(wdir.join("bupha-worker.service"), "x").unwrap();
-    let o = bupha(
-        &[
-            "destroy",
-            "service",
-            "--worker",
-            "--config",
-            cfgp.to_str().unwrap(),
-        ],
-        &[
-            ("HOME", hw.display().to_string()),
-            ("PATH", stubbed_path(&bin)),
-        ],
-    );
-    assert!(o.status.success(), "{}", out_ok(&o));
-    assert!(!wdir.join("bupha-worker.service").exists());
-
     // daemon-reload failure -> exit 1
     stub(&bin, "systemctl", "exit 1");
     let o = bupha(
@@ -1515,7 +1453,7 @@ fn runs_log_explain() {
 
     // explain via queue store: running + pending
     let qsha = "c".repeat(40);
-    let store = RedbQueueStore::open(base.join("queue.redb")).unwrap();
+    let store = JsonQueueStore::new(base.join("queue.json"));
     let mut m = BTreeMap::new();
     m.insert(
         "o/r".to_string(),
@@ -1525,7 +1463,6 @@ fn runs_log_explain() {
         },
     );
     store.persist(&m).unwrap();
-    drop(store);
     let o = bupha(
         &["explain", &qsha[..8], "--config", cfgp.to_str().unwrap()],
         &env,
@@ -1735,35 +1672,17 @@ fn init_variants() {
 }
 
 #[test]
-fn worker_requires_shared_queue() {
-    let t = tmp("wkq");
+fn worker_verb_is_retired() {
+    // T-049: the redis pull-queue `bupha worker` is gone — fleet
+    // consumption is `tamias-driver-bupha worker` over ci-job
+    // entities. The verb no longer parses.
+    let t = tmp("wkr");
     let repo_dir = t.join("repo");
     repo(&repo_dir);
     let cfgp = cfg_repo(&t, &repo_dir, "");
-    // kind=redb (default) -> exit 2: no pull queue to claim from.
     let o = bupha(
         &["worker", "--config", cfgp.to_str().unwrap()],
         &[("HOME", t.join("h").display().to_string())],
     );
     assert_eq!(o.status.code(), Some(2));
-    assert!(out_ok(&o).contains("redis"), "{}", out_ok(&o));
-    // kind=redis without url -> exit 2 as well.
-    let cfgp2 = cfg_repo(&t, &repo_dir, "[queue]\nkind = \"redis\"\n");
-    let o = bupha(
-        &["worker", "--config", cfgp2.to_str().unwrap()],
-        &[("HOME", t.join("h2").display().to_string())],
-    );
-    assert_eq!(o.status.code(), Some(2));
-    assert!(out_ok(&o).contains("url"), "{}", out_ok(&o));
-    // watched() rejects the config (no [[repo]] entries) -> "config:" + exit 2.
-    let cfgp3 = cfg(
-        &t,
-        "[queue]\nkind = \"redis\"\nurl = \"redis://127.0.0.1:1/\"\n",
-    );
-    let o = bupha(
-        &["worker", "--config", cfgp3.to_str().unwrap()],
-        &[("HOME", t.join("h3").display().to_string())],
-    );
-    assert_eq!(o.status.code(), Some(2));
-    assert!(out_ok(&o).contains("config:"), "{}", out_ok(&o));
 }
