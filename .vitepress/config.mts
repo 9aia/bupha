@@ -36,6 +36,8 @@ export default defineConfig({
           { text: "Multi-repo", link: "/how-to/multi-repo" },
           { text: "Shell runner", link: "/how-to/shell-runner" },
           { text: "GHA workflows on your box", link: "/how-to/gha-runner" },
+          { text: "Self-hosted GHA runner", link: "/how-to/self-hosted-runner" },
+          { text: "Distributed runners", link: "/how-to/distributed-runners" },
           { text: "bupha as a GitHub Action", link: "/how-to/gha-action" },
           { text: "Tamias bundles", link: "/how-to/tamias-bundles" },
           { text: "sccache backend", link: "/how-to/sccache-backend" },

@@ -12,7 +12,7 @@ webhook → queue → worktree → pipeline → commit status.
 Prereqs: **Linux + systemd** (provider units need systemd; the
 shell runner needs bash; macOS/Windows unsupported for now); git;
 the `tamias` CLI; the `bupha` command pack — `tamias install
-9aia:bupha@0.1.0` from the org registry (needs
+9aia:bupha@0.2.0` from the org registry (needs
 `TAMIAS_REGISTRY_TOKEN`), or `scripts/pack.sh` + `tamias install
 --allow-drivers ./libraries/bupha` from a checkout — which
 registers `tamias-driver-bupha` into `$TAMIAS_HOME/drivers/`
@@ -45,10 +45,12 @@ tutorial walks `ci-gate`; swap the name for your own bundle.
    `tamias.yaml` are the config sources).
 
 3. `tamias deploy ci-gate` — renders `bupha-watch.service` **and**
+   `bupha-worker.service` (one ingress mode each — enable ONE,
+   see [tamias bundles](../how-to/tamias-bundles.md)) **and**
    runs the driver's `deploy` verb: merges `fleet.toml` with the
    manifest's `provider.ingress` and writes
-   `~/.config/bupha/bundles/ci-gate.toml` — the file the unit's
-   `tamias-driver-bupha host --config …` consumes.
+   `~/.config/bupha/bundles/ci-gate.toml` — the file both units'
+   `tamias-driver-bupha host|worker --config …` consume.
 
 4. `tamias driver exec ci-gate hooks register --dry-run` — print
    the webhook plan, then `… hooks register` for real (needs the
@@ -56,8 +58,10 @@ tutorial walks `ci-gate`; swap the name for your own bundle.
    **standalone/dev ingress** (ADR-0007); production ingress is a
    peregrin campaign listener.
 
-5. `tamias service enable bupha-watch` — start the watcher
-   (`loginctl enable-linger` once for boot persistence).
+5. `tamias service enable bupha-watch` — start the standalone
+   watcher (`loginctl enable-linger` once for boot persistence);
+   `bupha-worker` is the substrate/production alternative — see
+   [distributed runners](../how-to/distributed-runners.md).
 
 6. `tamias driver exec ci-gate health` — ping `/hook` + unit
    probe (JSON); `tamias driver exec ci-gate status` — per-unit

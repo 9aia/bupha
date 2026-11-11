@@ -13,8 +13,9 @@ bupha is a port/adapter monorepo: every external concern sits
 behind a trait (a _port_), and each integration is a crate that
 implements it (an _impl_). `bupha-core` is the pure domain — config
 shape, queue semantics, shared primitives — and depends on nothing
-outside itself; `bupha-cli` is the dev-harness composition root
-that wires impls to ports (the deployed composition is
+outside itself; `bupha-cli` is the engine lib + clap tree
+(`command()`/`run_from`) the dev harness and the driver's `cli`/
+`ops` surfaces share (the deployed composition is
 `tamias-driver-bupha` + tamias provider units).
 
 ## Crate map
@@ -29,7 +30,6 @@ that wires impls to ports (the deployed composition is
 | `bupha-cache` | port | Cache port: artifact-cache backend for runners |
 | `bupha-config` | port | Config port: where bupha.yaml/toml-shaped config comes from |
 | `bupha-queue` | port | QueueStore port: queue persistence |
-| `bupha-queue-lease` | port | Queue-lease port: multi-worker fencing (try_claim + Fence) |
 | `bupha-runner` | port | Runner port: how a job becomes a spawned process |
 | `bupha-secret` | port | Secret port: resolve named secrets from storage |
 | `bupha-service` | port | Service port: OS service lifecycle |
@@ -37,7 +37,6 @@ that wires impls to ports (the deployed composition is
 | `bupha-telemetry` | port | Telemetry port: fire-and-forget pipeline events |
 | `bupha-trigger` | port | Source port: where pushes come from — forge webhooks, WAL polls, … |
 | `bupha-tunnel` | port | Tunnel port: expose the webhook listener publicly |
-| `bupha-vcs` | port | Vcs port: VCS operations for repos and worktrees |
 | `bupha-access-file` | adapter | Access adapter: allowlist of forge logins from config |
 | `bupha-access-forge` | adapter | Access adapter: forge collaborator-permission check |
 | `bupha-attest-file` | adapter | Attest adapter: SLSA-shape predicate JSON per run (unsigned v1) |
@@ -53,18 +52,19 @@ that wires impls to ports (the deployed composition is
 | `bupha-dotenv` | adapter | Secret impl: KEY=VAL env file (chmod 600) |
 | `bupha-driver` | adapter | tamias-driver-bupha — pavo view driver over bupha's on-disk run/queue state (read-only) |
 | `bupha-gha` | adapter | Runner impl: .github/workflows/*.yml executed natively — GitHub Actions as CI dialect |
-| `bupha-git` | adapter | Vcs impl: git via the git CLI |
+| `bupha-gha-runner` | adapter | GitHub Actions self-hosted runner — speaks the actions/runner broker protocol so repos can runs-on: [self-hosted, bupha] |
 | `bupha-github` | adapter | GitHub impl: push-webhook trigger + commit-status sink |
 | `bupha-history` | adapter | Run-history adapter: JSONL records per finished run |
 | `bupha-http` | adapter | Runner impl: remote execution via HTTP agent (tar worktree + poll) |
 | `bupha-keyring` | adapter | Secret impl: OS keyring via secret-tool (libsecret) |
-| `bupha-queue-redb` | adapter | QueueStore impl: redb embedded store (single file, ACID) |
-| `bupha-queue-redis` | adapter | QueueStore adapter: redis (multi-worker; SET NX claim + INCR fence) |
+| `bupha-plane` | adapter | ci-job entity plane — hypha EntityPlane impl for the bupha↔hypha/peregrin seam (P-002) |
+| `bupha-secret-cuora` | adapter | Secret impl: cuora broker via the cuora CLI (canonical secrets story, T-056) |
 | `bupha-shell` | adapter | Runner impl: bash -c &lt;cmd&gt; per job — no containers |
 | `bupha-ssh` | adapter | Runner impl: remote execution over ssh (rsync worktree + run) |
 | `bupha-sturn` | adapter | sturn source impl: reads refs/sturn/* WAL state out of a clone via git plumbing |
 | `bupha-systemd` | adapter | Service impl: systemd user units |
 | `bupha-telemetry-otel` | adapter | Telemetry adapter: OpenMetrics textfile for Prometheus |
+| `bupha-watch` | adapter | bupha watcher engine host — trigger → queue → runner → status pipeline shared by `bupha watch` and `tamias-driver-bupha host` |
 | `bupha-webhook` | adapter | Source impl: forge-webhook listener driving a Trigger port impl |
 | `bupha` | binary | bupha — queue engine for event-driven jobs: shipped as CI |
 
@@ -123,7 +123,9 @@ POST /hook
        ([[repo.jobs]] entries, or the repo's implicit pipeline);
        forge-attested sender checked against the access policy
   → 8. enqueue — one queue per job; a push fan-outs into every
-       matched queue; persist via QueueStore (redb, ACID)
+       matched queue; jobs this box's `[worker] labels` can't
+       satisfy belong to the ci-job entity plane instead; persist
+       via QueueStore (dev `json` file)
   → 9. one global worker — Vcs fetch, detached worktree
        at <base>-<repo>[-<job>]-<sha12>
   → 10. spawn run handle (token via env:// name, never argv)
@@ -147,8 +149,10 @@ other (latest-wins on one never touches another's pending slot, and
 | `all`              | bounded FIFO (32) | appends; oldest evicted past cap; `cancel_running` rejected at load — it would drop a promised commit | releases |
 
 Persistence: accepted work writes through the `QueueStore` port
-(`redb`, single embedded file) inside `worktree.base`; on restart
-the interrupted `running` sha is re-queued at the front.
+(the dev `json` file under `worktree.base`; the durable path is
+the ci-job entity plane — see [distributed
+runners](../how-to/distributed-runners.md)) and on restart the
+interrupted `running` sha is re-queued at the front.
 
 One **global worker** serializes runs across all repos — a second
 push queues behind the in-flight job. Deliberate (one box, bounded

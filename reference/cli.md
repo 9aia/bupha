@@ -1,25 +1,13 @@
 # Command-Line Help for `bupha`
 
-> **Dev/debug harness — not the product surface** (ADR-0006
-> amendment). There is no user-facing `bupha` CLI: fleets install
-> and run through tamias (`tamias install`/`deploy`,
-> `tamias driver exec <bundle> host|health|status|logs|hooks` —
-> see [how-to/tamias-bundles](../how-to/tamias-bundles.md)). The
-> verbs below exist for local reproduction (`run`, `runs`,
-> `explain`, `log`), box checks (`doctor`), standalone/dev-mode
-> operation (`watch`, `worker`, `agent`, `deploy`/`destroy`/
-> `service`), and migration (`import`). Webhook ingress here is
-> the ADR-0007 standalone fallback — production ingress is a
-> peregrin campaign listener.
-
 This document contains the help content for the `bupha` command-line program.
 
 **Command Overview:**
 
 * [`bupha`↴](#bupha)
 * [`bupha watch`↴](#bupha-watch)
-* [`bupha worker`↴](#bupha-worker)
 * [`bupha agent`↴](#bupha-agent)
+* [`bupha gha-runner`↴](#bupha-gha-runner)
 * [`bupha init`↴](#bupha-init)
 * [`bupha doctor`↴](#bupha-doctor)
 * [`bupha run`↴](#bupha-run)
@@ -53,8 +41,8 @@ the oxpecker on your repo's back — headless CI
 ###### **Subcommands:**
 
 * `watch` — Serve the source → queue → runner loop (forge webhook, sturn WAL poller — every configured source)
-* `worker` — Fleet puller — claim shared-queue jobs and run them. No listener/tunnel/trigger; needs only [queue] (redis), [[repo]] dirs, [runner], [status], [worktree]
 * `agent` — Serve the remote-run agent — accepts jobs from `kind="http"` runners and executes them with this box's [runner]
+* `gha-runner` — Serve as a GitHub Actions self-hosted runner — registers with a repo (once), then polls GitHub's broker protocol and runs the jobs it is offered (`runs-on: [self-hosted, bupha]`). Uses bupha-gha-runner's own config file, not bupha.yaml
 * `init` — Scaffold dagger CI in a repo (dagger init + pinned module + delegate). For the script runner, a ci.sh is enough
 * `doctor` — Check what the loaded config actually needs on this box
 * `run` — Run the pipeline locally — in the watched repo's `dir`, not cwd
@@ -80,19 +68,23 @@ Serve the source → queue → runner loop (forge webhook, sturn WAL poller — 
 
 
 
-## `bupha worker`
-
-Fleet puller — claim shared-queue jobs and run them. No listener/tunnel/trigger; needs only [queue] (redis), [[repo]] dirs, [runner], [status], [worktree]
-
-**Usage:** `bupha worker`
-
-
-
 ## `bupha agent`
 
 Serve the remote-run agent — accepts jobs from `kind="http"` runners and executes them with this box's [runner]
 
 **Usage:** `bupha agent`
+
+
+
+## `bupha gha-runner`
+
+Serve as a GitHub Actions self-hosted runner — registers with a repo (once), then polls GitHub's broker protocol and runs the jobs it is offered (`runs-on: [self-hosted, bupha]`). Uses bupha-gha-runner's own config file, not bupha.yaml
+
+**Usage:** `bupha gha-runner <FILE>`
+
+###### **Arguments:**
+
+* `<FILE>` — Runner config file (TOML — bupha-gha-runner::Config). Positional: `--config` is already the global bupha.yaml flag, and clap arg ids must stay unique per command
 
 
 
@@ -159,7 +151,6 @@ Write + enable the systemd user unit (needs enable-linger for boot persistence)
 ###### **Options:**
 
 * `--no-start` — Skip enable --now (write the file only)
-* `--worker` — Manage a worker unit (bupha-worker.service) instead of the watcher unit
 
 
 
@@ -217,11 +208,7 @@ Teardown counterparts of `deploy`
 
 Disable + remove the systemd user unit
 
-**Usage:** `bupha destroy service [OPTIONS]`
-
-###### **Options:**
-
-* `--worker` — Remove bupha-worker.service instead of bupha-watch
+**Usage:** `bupha destroy service`
 
 
 
@@ -245,7 +232,7 @@ Remove detached worktrees and the persisted queue file
 
 Toggle the watcher unit without removing it — free the box when CI isn't needed, `enable` brings it back
 
-**Usage:** `bupha service [OPTIONS] <COMMAND>`
+**Usage:** `bupha service <COMMAND>`
 
 ###### **Subcommands:**
 
@@ -254,10 +241,6 @@ Toggle the watcher unit without removing it — free the box when CI isn't neede
 * `status` — Whether the watcher unit is enabled and running
 * `restart` — Restart the watcher unit
 * `logs` — Print (or follow, -f) the watcher unit log
-
-###### **Options:**
-
-* `--worker` — Operate on bupha-worker.service instead of bupha-watch
 
 
 

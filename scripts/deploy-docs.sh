@@ -8,7 +8,7 @@
 set -euo pipefail
 
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
-REPO="${BUPHA_REPO:-$HOME/GitHub/9aia/bupha}"
+REPO="${BUPHA_REPO:-$HOME/GitHub/9aia/workspace/repos/bupha}"
 export BUPHA_ROOT="$REPO"
 
 # The bupha watcher unit runs with the minimal systemd PATH

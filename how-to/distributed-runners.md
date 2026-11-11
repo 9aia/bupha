@@ -2,92 +2,95 @@
 
 One watcher process runs CI on one box — deployed as a tamias
 bundle, the provider unit execs `tamias-driver-bupha host`, which
-runs this same engine in-process. The fleet model adds three
-pieces — all optional, and single-box behavior is unchanged when
-they're absent:
+runs this same engine in-process. Two optional pieces scale it
+out; single-box behavior is unchanged when they're absent:
 
-- a **shared pull queue** (`[queue] kind = "redis"`) that N watchers
-  enqueue into and M worker boxes claim from;
-- **`bupha worker`** — a puller that runs jobs without listening for
-  webhooks (a dev-CLI daemon today; there is no driver verb for it
-  yet — see the note below);
+- the **ci-job entity plane** (P-002) — the distributed queue:
+  jobs are `kind="ci-job"` entities on a hypha/peregrin node, and
+  worker boxes claim them with `tamias-driver-bupha worker`;
+- **`bupha agent`** + `kind = "http"` runner — a remote executor
+  for boxes that can't (or shouldn't) pull.
 
-Config snippets below are TOML; `bupha.yaml`/`bupha.yml` is preferred
-and works identically (see [config reference](../reference/config.md)).
-- **`bupha agent`** + `kind = "http"` runner — a remote executor for
-  boxes that can't pull (or that you drive explicitly).
+> **Surface note (ADR-0006/0007).** `tamias-driver-bupha worker`
+> is the product path for fleet workers — declare it as a second
+> `provider.services[]` entry in the bundle's `tamias.yaml`
+> (`bupha-worker.service`; `libraries/ci-gate` does). The dev CLI
+> has no `worker` verb — the redis pull queue it used
+> (`[queue] kind = "redis"`, `bupha worker`, the `bupha-queue-*`
+> impl crates) was retired in T-049/T-068; `[queue]` keeps only
+> the dev `json` store that backs `host`/`watch` restarts.
 
-> **Surface note (ADR-0006).** The `bupha` verbs below
-> (`worker`/`agent`/`deploy service --worker`) are the **dev
-> harness** — the product path for single-box fleets is the tamias
-> bundle + driver `host` verb. Fleet worker/agent daemons have no
-> `tamias-driver-bupha` verb yet; run them standalone or wrap them
-> in your own units until one lands.
+## The ci-job entity plane
 
-## Shared queue + workers
+The plane (`bupha-plane`, a hypha `EntityPlane` impl) lives **on
+the node**, not in bupha: peregrin-node hosts `CiJobPlane` behind
+its default-on `bupha` cargo feature (T-061). Jobs are entities
+with deterministic ids `ci:{key}:{sha}:{attempt}` — replays dedup
+for free — and `ci.*` ops (`enqueue`/`claim`/`renew`/`release`/
+`complete`/`cancel`/`status`) carry the queue semantics
+(latest-wins/FIFO, fence + lease claims) that `bupha-core`
+defines.
+
+**Ingress.** Production webhook/forge ingress is a peregrin
+campaign listener (ADR-0007): it normalizes deliveries through
+bupha's `Trigger` semantics and creates `ci-job` entities via
+`ci.enqueue` — the `ci-ingress` campaign (T-063) does this
+against `${config.node_url}/api/entities` today. The standalone
+`host` watcher's local queue remains the dev/single-box path:
+a job whose `runs_on` labels the box's `[worker] labels` can't
+satisfy is skipped locally — it belongs to the plane's fleet.
+
+**Workers.** `tamias-driver-bupha worker --config
+~/.config/bupha/bundles/<name>.toml` polls the node
+(`[worker] node` in the config, `--node` / `BUPHA_WORKER_NODE`
+override), claims pending jobs this box's `[worker] labels`
+cover, runs each through the same worktree → runner → status
+pipeline `host` uses, renews the lease mid-run
+(`BUPHA_ENTITY_LEASE_SECS`, default 300s), and settles with
+`ci.complete` — which emits `ci.job.completed` to the node's
+event ingest. Claim loss (a fence mismatch → 409) abandons the
+run; a dead worker's job returns to `pending` when its lease
+expires. Node credential: `[worker] node_token_env` names a
+secret resolved through the usual chain (env → cuora → keyring →
+env file) — `peregrin pair`/`hypha pair` mints the token.
 
 ```toml
-# on every watcher AND worker box
-[queue]
-kind = "redis"
-url = "redis://queue-box:6379/"
+[worker]
+node = "http://127.0.0.1:18787"      # hypha/peregrin node base URL
+node_token_env = "PEREGRIN_TOKEN"   # secret NAME, never the value
+labels = ["arch=arm64"]             # this box's claim labels
 ```
-
-`bupha worker` needs only `[queue]`, `[[repo]]` dirs, `[runner]`,
-`[status]`, `[worktree]` — no `[trigger]`, webhook secrets or tunnel:
-
-```toml
-[queue]
-kind = "redis"
-url = "redis://queue-box:6379/"
-[runner]
-kind = "script"
-cmd = "bash ci.sh"
-[status]
-kind = "log"
-[worktree]
-base = "/var/lib/bupha"
-[[repo]]
-name = "org/api"
-dir = "/srv/repos/api"
-```
-
-Jobs are leased per `(key, sha)` (`bupha:claim:*`, 5-min TTL renewed
-during the run) — a dead worker's job is claimable again when the
-lease expires. `bupha:done:{key}:{sha}` markers stop redundant
-re-runs; `latest` queues prune superseded entries on claim.
 
 ## Label routing (multi-arch)
 
-Pin a repo to an architecture; workers carry matching labels:
+`runs_on` on a `[[repo]]`/`[[repo.jobs]]` entry becomes the
+entity's `runsOn` at fleet normalization (T-067): a job runs only
+on workers whose `[worker] labels` satisfy every requirement.
+Unlabeled jobs are claimable by anyone.
 
 ```toml
-# watcher
+# ingress/fleet spec
 [[repo]]
 name = "org/firmware"
 dir = "/srv/repos/firmware"
 runs_on = ["arch=arm64"]
 
-# worker on the ARM box
+# on the ARM worker box
 [worker]
 labels = ["arch=arm64"]
+node = "http://peregrin-node:18787"
+node_token_env = "PEREGRIN_TOKEN"
 ```
 
-A watcher never enqueues locally what its own `[worker] labels`
-can't satisfy — the job lands only in the pull queue. Unlabeled
-jobs are claimable by anyone. This is per-repo arch pinning; a
-same-push multi-arch *matrix* (one sha -> N parallel arch runs) is
-future work.
-
-```bash
-# dev CLI only — no driver verb for worker units yet
-bupha deploy service --worker   # writes bupha-worker.service
-bupha service --worker enable
-```
+This is per-repo arch pinning; a same-push multi-arch *matrix*
+(one sha → N parallel arch runs) is future work. A standalone
+`host` watcher applies the same rule locally — it only enqueues
+jobs its own `[worker] labels` cover, so labeled work always
+lands on the plane, never on the wrong box.
 
 ## Remote agent + http runner
 
-For a box you drive explicitly (it doesn't pull):
+For a box you drive explicitly (it doesn't pull from the plane):
 
 ```toml
 # on the CI box
@@ -109,5 +112,8 @@ The runner POSTs `{key, sha, cmd, env names}` to `/jobs`, PUTs the
 tarred worktree to `/jobs/{id}/worktree`, polls `GET /jobs/{id}`,
 and `DELETE`s to kill. Every request carries
 `X-Bupha-Auth: sha256=<hmac(body)>` verified against the shared
-secret. Caveats mirror the ssh runner: remote kills are best-effort
-and tarred `.git` pointer files are broken on the agent.
+secret. `bupha agent` is a dev-CLI surface (the `bins[]` shim
+carries it); for a deployed unit wrap it in your own
+`provider.services[]` entry or run it standalone. Caveats mirror
+the ssh runner: remote kills are best-effort and tarred `.git`
+pointer files are broken on the agent.

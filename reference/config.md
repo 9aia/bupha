@@ -27,14 +27,14 @@ no user-facing CLI).
 | field | type | required | notes |
 |---|---|---|---|
 | `repos` | `Vec<RepoEntry>` | required | Watched repos — each expands to one pending slot per job (one implicit job when `[[repo.jobs]]` is absent), all fed by one global worker. TOML-conventional singular; `repos` kept as alias for existing configs. |
-| `trigger` | `TriggerCfg` | optional | Optional — `bupha worker` boxes never listen. |
+| `trigger` | `TriggerCfg` | optional | Optional — entity worker boxes never listen. |
 | `tunnel` | `TunnelCfg` | optional | How the listener is exposed publicly (cloudflared, direct, none). |
 | `cache` | `CacheCfg` | optional | Artifact cache backend (`[cache]`); `runner.sccache_conf` is accepted for older configs — `[cache]` wins. |
 | `access` | `AccessCfg` | optional | Who may trigger (`[access]`). Absent = open. |
 | `audit` | `AuditCfg` | optional | Decision/outcome audit log (`[audit]`). Absent = none. |
 | `telemetry` | `TelemetryCfg` | optional | Pipeline observability (`[telemetry]`). Absent = none. |
 | `attest` | `AttestCfg` | optional | Run provenance (`[attest]`). Absent = none. |
-| `queue` | `QueueCfg` | optional | Queue persistence backend (`[queue]`). Absent = redb. |
+| `queue` | `QueueCfg` | optional | Dev queue persistence backend (`[queue]`). Absent = json. |
 | `worker` | `WorkerCfg` | optional | Entity-plane worker endpoint + fleet routing labels (`[worker]`) — `node`/`node_token_env` for the ci-job consumer, `labels` for queue-job filtering. Absent = defaults (no node, no labels). |
 | `agent` | `AgentCfg` | optional | Remote-run agent (`[agent]`). Absent = no agent listener. |
 | `worktree` | `WorktreeCfg` | optional | Where detached git worktrees for runs are created. |
@@ -109,7 +109,7 @@ no user-facing CLI).
 
 | field | type | required | notes |
 |---|---|---|---|
-| `name` | `string` | required | Job name — path-safe `[A-Za-z0-9._-]+`, non-empty. Lands in worktree paths (`&lt;base&gt;-&lt;repo&gt;-&lt;job&gt;-&lt;sha12&gt;`), redis claim keys and the default status context (`&lt;context&gt;/&lt;job&gt;`). |
+| `name` | `string` | required | Job name — path-safe `[A-Za-z0-9._-]+`, non-empty. Lands in worktree paths (`&lt;base&gt;-&lt;repo&gt;-&lt;job&gt;-&lt;sha12&gt;`), fleet claim keys and the default status context (`&lt;context&gt;/&lt;job&gt;`). |
 | `branch` | `string` | optional | The ref this job watches (default: the repo's `branch`). |
 | `runner` | `RunnerCfg` | optional | Per-job runner override — replaces the repo/global runner for this job only. |
 | `queue` | `"latest" | "all"` | optional | Queue policy for this job — `latest` (default) or `all`. Falls back to the repo's `queue`. |

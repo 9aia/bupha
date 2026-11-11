@@ -10,8 +10,9 @@ bash process. The aggregate exit status drives the commit status.
 > **Naming (T-054).** `runner.kind = "gha"` is the *workflow
 > dialect* — bupha reads `.github/workflows` YAML and executes it.
 > The reverse direction (bupha as a GitHub self-hosted runner that
-> repos target with `runs-on: [self-hosted, bupha]`) is a separate
-> planned feature reserved the name **`gha-runner`** — don't confuse
+> repos target with `runs-on: [self-hosted, bupha]`) is the
+> separate `gha-runner` surface — see
+> [self-hosted runner](self-hosted-runner.md). Don't confuse
 > the two.
 
 ```toml
@@ -37,33 +38,43 @@ workflow.
 
 v1 covers the common CI shape: `on.push` (branches/paths
 filters), `jobs` with `needs` (fail-fast DAG), `env`,
-`defaults.run`, `steps` (`run` + `uses: actions/checkout`),
-<code v-pre>${{ }}</code> expressions over `env`/`github`/`matrix`, and
+`defaults.run`, `steps` (`run` + `uses:` — `actions/checkout`
+and `dtolnay/rust-toolchain` only, with `id:`), job `outputs:`
+maps, job/step `if:` (a real expression subset — literals,
+`==`/`!=`/`&&`/`||`/`!`, `contains`/`startsWith`/`endsWith`,
+`success()`/`failure()`/`cancelled()`/`always()`, plus
+`needs.*.result`/`steps.*.conclusion`/`steps.*.outputs.*`/
+`needs.*.outputs.*` refs), `timeout-minutes` (GNU `timeout` per
+step, process-group watchdog per job), the `$GITHUB_ENV`/
+`$GITHUB_OUTPUT`/`$GITHUB_PATH`/`$GITHUB_WORKSPACE`/
+`$GITHUB_STEP_SUMMARY`/`RUNNER_TEMP` file commands, and
 `strategy.matrix` fan-out — executed **sequentially**, not in
-parallel.
+parallel (`max-parallel` parses but isn't enforced).
 
 Everything else is a **hard error at spawn**, naming the
-unsupported key — `if:`, `timeout-minutes`, `services:`,
-`container:`, `environment:`, `concurrency:`, `continue-on-error:`,
-`matrix.include`/`exclude`, `uses:` other than
-`actions/checkout` (`actions/setup-*` included), `secrets:`,
-`needs.*.outputs`, and unknown keys at any level. The full list
-and honest boundaries (paths filters diff the tip commit only,
-statuses are per `[[repo]]` not per gha job, `github.ref` is the
-watched branch) live in `crates/bupha-gha/README.md` — treat it
-as the contract.
+unsupported key — `services:`, `container:`, `environment:`,
+`concurrency:`, `continue-on-error:`, `matrix.include`/`exclude`,
+`uses:` other than `actions/checkout` and
+`dtolnay/rust-toolchain` (`actions/setup-*` included),
+`on.push.{tags,types,workflows}`, `secrets:`, `if:` functions
+beyond the subset (`hashFiles`, `fromJSON`, `format`, …), and
+unknown keys at any level. The full list and honest boundaries
+live in `crates/bupha-gha/README.md` — treat it as the contract.
 
 ## Migrating off GHA
 
 What you keep: the workflow files themselves, the
-`on.push`/`branches`/`paths` triggers, job `needs` ordering,
-matrix dimensions, step `env`/`working-directory`/`shell`.
+`on.push`/`branches`/`paths` triggers, job `needs` ordering and
+`if:`/`timeout-minutes`, matrix dimensions, step
+`env`/`working-directory`/`shell`, `$GITHUB_*` file commands.
 
 What changes:
 
-- **No marketplace.** `uses:` is limited to `actions/checkout`.
-  Toolchains install via `run:` steps (`curl`, `cargo install`,
-  your own scripts) or are already on the box.
+- **No marketplace.** `uses:` is limited to `actions/checkout`
+  (a verification no-op — the worktree is already at the pushed
+  sha) and `dtolnay/rust-toolchain` (lowers to rustup calls).
+  Everything else installs via `run:` steps (`curl`,
+  `cargo install`, your own scripts) or is already on the box.
 - **Sequential, local.** Matrix combinations and independent jobs
   run one after another on one machine — size `needs`/matrix
   accordingly, or split workflows across `[[repo.jobs]]` entries

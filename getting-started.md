@@ -15,6 +15,7 @@ Pick by what you need to do.
   [multi-repo](how-to/multi-repo.md) ·
   [shell runner](how-to/shell-runner.md) ·
   [gha runner — your own GHA workflows](how-to/gha-runner.md) ·
+  [self-hosted GHA runner](how-to/self-hosted-runner.md) ·
   [distributed runners](how-to/distributed-runners.md) ·
   [sccache backend](how-to/sccache-backend.md)
 - **Reference** (lookup): [cli — dev harness](reference/cli.md) ·
