@@ -29,6 +29,7 @@ bupha-config-file.workspace = true
 bupha-runner.workspace = true
 bupha-http.workspace = true
 bupha-github.workspace = true
+bupha-gha-runner.workspace = true
 bupha-trigger.workspace = true
 bupha-systemd.workspace = true
 bupha-telemetry.workspace = true

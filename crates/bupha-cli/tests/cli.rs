@@ -1686,3 +1686,206 @@ fn worker_verb_is_retired() {
     );
     assert_eq!(o.status.code(), Some(2));
 }
+
+// --- gha-runner (T-065) ----------------------------------------------------
+
+#[test]
+fn gha_runner_verb_variants() {
+    let t = tmp("ghar");
+    let home = t.join("h");
+    std::fs::create_dir_all(&home).unwrap();
+    let envs = [("HOME", home.display().to_string())];
+
+    // missing config file -> exit 2
+    let o = bupha(&["gha-runner", "/nonexistent/gha.toml"], &envs);
+    assert_eq!(o.status.code(), Some(2));
+
+    // unparseable TOML -> exit 2
+    let bad = t.join("bad.toml");
+    std::fs::write(&bad, "not = [toml").unwrap();
+    let o = bupha(&["gha-runner", bad.to_str().unwrap()], &envs);
+    assert_eq!(o.status.code(), Some(2));
+
+    // parses, but no credentials and no token -> connect fails -> 1
+    let run = t.join("run.toml");
+    std::fs::write(
+        &run,
+        "repo = \"o/r\"\ntoken_env = \"BUPHA_GHA_RUNNER_TOKEN_DEFINITELY_UNSET\"\n",
+    )
+    .unwrap();
+    let o = bupha(&["gha-runner", run.to_str().unwrap()], &envs);
+    assert_eq!(o.status.code(), Some(1));
+    assert!(out_ok(&o).contains("gha-runner"), "{}", out_ok(&o));
+}
+
+/// Full loop through the spawned binary: fabricated credentials point
+/// at a stub broker, the stub offers one script job, the runner
+/// executes it and reports `succeeded` via completejob; the
+/// BUPHA_WATCH_SHUTDOWN_FILE hook then unwinds the poll loop.
+#[test]
+fn gha_runner_executes_a_mock_broker_job() {
+    use std::sync::atomic::{AtomicBool, Ordering};
+    use std::time::{Duration, Instant};
+
+    let t = tmp("ghar-e2e");
+    let home = t.join("home");
+    std::fs::create_dir_all(&home).unwrap();
+
+    let api_base = std::sync::Arc::new(std::sync::Mutex::new(String::new()));
+    let offered = std::sync::Arc::new(AtomicBool::new(false));
+    let completed = std::sync::Arc::new(std::sync::Mutex::new(None::<String>));
+    let api = serve({
+        let api_base = api_base.clone();
+        let offered = offered.clone();
+        let completed = completed.clone();
+        move |req, body| {
+            let base = api_base.lock().unwrap().clone();
+            if req.starts_with("POST /token") {
+                return (200, r#"{"access_token":"tok-1","expires_in":3600}"#.into());
+            }
+            if req.starts_with("POST /_apis/distributedtask/pools/1/sessions") {
+                return (200, r#"{"sessionId":"sess-1"}"#.into());
+            }
+            if req.starts_with("GET /_apis/distributedtask/pools/1/messages") {
+                if !offered.swap(true, Ordering::SeqCst) {
+                    let offer = serde_json::json!({
+                        "runServiceUrl": format!("{base}/run"),
+                        "runnerRequestId": "req-1",
+                        "billingOwnerId": "owner-1",
+                        "shouldAcknowledge": true,
+                    });
+                    let envelope = serde_json::json!({
+                        "messageId": 1,
+                        "messageType": "RunnerJobRequest",
+                        "body": offer.to_string(),
+                    });
+                    return (200, envelope.to_string());
+                }
+                return (200, String::new());
+            }
+            if req.starts_with("DELETE /_apis/distributedtask/pools/1/messages")
+                || req.starts_with("DELETE /_apis/distributedtask/pools/1/sessions")
+            {
+                return (200, "{}".into());
+            }
+            if req.starts_with("POST /run/acquirejob") {
+                let job = serde_json::json!({
+                    "messageType": "PipelineAgentJobRequest",
+                    "jobId": "job-cli-1",
+                    "jobDisplayName": "cli mock job",
+                    "jobName": "mock",
+                    "requestId": 11,
+                    "billingOwnerId": "owner-1",
+                    "plan": {"planId": "plan-cli"},
+                    "timeline": {"id": "tl-cli"},
+                    "contextData": {"t": 2, "d": [
+                        {"k": "github", "v": {"t": 2, "d": [
+                            {"k": "repository", "v": "octocat/hello"}
+                        ]}}
+                    ]},
+                    "variables": {},
+                    "resources": {"endpoints": [{
+                        "url": format!("{base}/run"),
+                        "data": {}
+                    }]},
+                    "environmentVariables": {"t": 2, "d": []},
+                    "steps": [{
+                        "type": "action",
+                        "id": "s1",
+                        "name": "__run",
+                        "displayNameToken": {"type": 0, "lit": "say hi"},
+                        "reference": {"type": "script"},
+                        "inputs": {"type": 2, "map": [
+                            {"Key": {"type": 0, "lit": "script"},
+                             "Value": {"type": 0, "lit": "echo cli-mock-ok"}},
+                            {"Key": {"type": 0, "lit": "shell"},
+                             "Value": {"type": 0, "lit": "sh"}}
+                        ]}
+                    }]
+                });
+                return (200, job.to_string());
+            }
+            if req.starts_with("POST /run/completejob") {
+                *completed.lock().unwrap() = Some(String::from_utf8_lossy(body).into_owned());
+                return (200, "{}".into());
+            }
+            (404, "not found".into())
+        }
+    });
+    *api_base.lock().unwrap() = api.clone();
+
+    // Fabricated registration credentials — the CLI never calls the
+    // registration endpoints when the file exists.
+    let key = bupha_gha_runner::crypto::generate_key().unwrap();
+    let creds = bupha_gha_runner::register::Credentials {
+        service_url: api.clone(),
+        pool_id: 1,
+        agent_id: 2,
+        agent_name: "bupha-cli-test".into(),
+        client_id: "cid".into(),
+        token_url: format!("{api}/token"),
+        private_key: bupha_gha_runner::crypto::private_key_pem(&key).unwrap(),
+    };
+    std::fs::write(
+        t.join("creds.json"),
+        serde_json::to_string_pretty(&creds).unwrap(),
+    )
+    .unwrap();
+    let cfgp = t.join("gha.toml");
+    std::fs::write(
+        &cfgp,
+        "name = \"bupha-cli-test\"\ncredentials = \"creds.json\"\nworkdir = \"wt\"\n",
+    )
+    .unwrap();
+
+    // Once the job completes, drop the shutdown file so the poll
+    // loop unwinds cleanly (the repo's e2e stop convention).
+    let stop_path = t.join("stop");
+    {
+        let completed = completed.clone();
+        let stop_path = stop_path.clone();
+        std::thread::spawn(move || {
+            for _ in 0..600 {
+                if completed.lock().unwrap().is_some() {
+                    break;
+                }
+                std::thread::sleep(Duration::from_millis(50));
+            }
+            std::fs::write(&stop_path, "").unwrap();
+        });
+    }
+
+    let out_log = std::fs::File::create(t.join("out.log")).unwrap();
+    let err_log = std::fs::File::create(t.join("err.log")).unwrap();
+    let mut child = Command::new(env!("CARGO_BIN_EXE_bupha"))
+        .args(["gha-runner", cfgp.to_str().unwrap()])
+        .env("HOME", &home)
+        .env("BUPHA_CUORA_BIN", NO_CUORA)
+        .env("BUPHA_WATCH_SHUTDOWN_FILE", &stop_path)
+        .stdout(std::process::Stdio::from(out_log))
+        .stderr(std::process::Stdio::from(err_log))
+        .spawn()
+        .unwrap();
+    let deadline = Instant::now() + Duration::from_secs(20);
+    let status = loop {
+        if let Some(s) = child.try_wait().unwrap() {
+            break s;
+        }
+        if Instant::now() > deadline {
+            let _ = child.kill();
+            let err = std::fs::read_to_string(t.join("err.log")).unwrap_or_default();
+            panic!("gha-runner did not exit in 20s; stderr:\n{err}");
+        }
+        std::thread::sleep(Duration::from_millis(50));
+    };
+    assert!(status.success(), "exit {status}");
+
+    let body = completed
+        .lock()
+        .unwrap()
+        .clone()
+        .expect("completejob was never called");
+    let report: serde_json::Value = serde_json::from_str(&body).unwrap();
+    assert_eq!(report["conclusion"], "succeeded");
+    assert_eq!(report["jobId"], "job-cli-1");
+}

@@ -25,22 +25,22 @@ api:
 - name: DELEGATE_TEMPLATE
   kind: const
   file: crates/bupha-cli/src/main.rs
-  line: 332
+  line: 418
   module: bupha
 - name: DeploySub
   kind: type
   file: crates/bupha-cli/src/main.rs
-  line: 136
+  line: 146
   module: bupha
 - name: DestroySub
   kind: type
   file: crates/bupha-cli/src/main.rs
-  line: 161
+  line: 171
   module: bupha
 - name: DocOut
   kind: type
   file: crates/bupha-cli/src/main.rs
-  line: 358
+  line: 444
   module: bupha
 - name: Job
   kind: type
@@ -50,7 +50,7 @@ api:
 - name: MODULE_REF
   kind: const
   file: crates/bupha-cli/src/main.rs
-  line: 330
+  line: 416
   module: bupha
 - name: N
   kind: const
@@ -70,7 +70,7 @@ api:
 - name: ServiceSub
   kind: type
   file: crates/bupha-cli/src/main.rs
-  line: 171
+  line: 181
   module: bupha
 - name: Svc
   kind: type
@@ -145,69 +145,70 @@ api:
 - name: check
   kind: function
   file: crates/bupha-cli/src/main.rs
-  line: 364
+  line: 450
   module: bupha
 - name: cmd_agent
   kind: function
   file: crates/bupha-cli/src/main.rs
-  line: 192
+  line: 202
   module: bupha
 - name: cmd_deploy
   kind: function
   file: crates/bupha-cli/src/main.rs
-  line: 804
+  line: 897
   module: bupha
 - name: cmd_deploy_release
   kind: function
   file: crates/bupha-cli/src/main.rs
-  line: 931
+  line: 1024
   module: bupha
 - name: cmd_destroy
   kind: function
   file: crates/bupha-cli/src/main.rs
-  line: 1056
+  line: 1149
   module: bupha
 - name: cmd_doctor
   kind: function
   file: crates/bupha-cli/src/main.rs
-  line: 376
+  line: 462
   module: bupha
 - name: cmd_explain
   kind: function
   file: crates/bupha-cli/src/main.rs
-  line: 1299
+  line: 1392
+  module: bupha
+- name: cmd_gha_runner
+  kind: function
+  file: crates/bupha-cli/src/main.rs
+  line: 243
   module: bupha
 - name: cmd_import
   kind: function
   file: crates/bupha-cli/src/main.rs
-  line: 733
+  line: 826
   module: bupha
 - name: cmd_init
   kind: function
   file: crates/bupha-cli/src/main.rs
-  line: 218
+  line: 304
   module: bupha
 - name: cmd_log
   kind: function
   file: crates/bupha-cli/src/main.rs
-  line: 1284
+  line: 1377
   module: bupha
 - name: cmd_run
   kind: function
   file: crates/bupha-cli/src/main.rs
-  line: 632
+  line: 718
   module: bupha
-- name: cmd_runs
-  kind: function
-  file: crates/bupha-cli/src/main.rs
-  line: 1257
-  module: bupha
-api_omitted: 105
+api_omitted: 108
 deps:
 - dagger-io
 - bupha-config
 - bupha-config-file
 - bupha-core
+- bupha-gha-runner
 - bupha-git
 - bupha-github
 - bupha-http
@@ -279,10 +280,10 @@ provenance:
   - modules/dagger/tests/test_self_patch.py
   hashes:
   - 6fe6da87a43867167a60d2fb134c95e057dcf6e0
-  - 253cd11539c28b6d0166fdde0c8f07f2cbbc58d3
+  - 23c5d6e446ddc38edf61cff80515ef7fc43134c6
   - 4102762337a49a25a35bd6da2202b6c0536fe273
-  - 2bb27e1ba0b9d80b440272fbcefd97527045ff47
-  - 76a9969a9b3948b239e83cd9000b762ccb34f194
+  - 2a66fcb53c22d428776604fcd3fc497b88ac1cd5
+  - 42f089e301a1fa37c54fb268bd08a2be38db7e01
   - e6680112289b06ae1e8d8d6659c60f2333c8ca23
   - 16a66bca9a602549e108d45e9d1233dbe2e7e34b
   - 31d7ff86bc81e9daa5c80f524125aa1905db3bb8
@@ -290,6 +291,6 @@ provenance:
   - 297de02314bb3e68d56e2e8a33bcad4ba6c92465
   - b266b7f034f3d194f5cba16fd2bf6a51886ccf46
   - 509a3147960f3aa59978a55730803da3c2ff0850
-  commit_sha: e0c60cad318e76742d903699c09b5cc59505d2a0
-  generated_at: '1794368528'
+  commit_sha: 09033caa0fe4531fab316c8ce377f70bfaaedef5
+  generated_at: '1794369086'
   generator: kuda-template/0.1.2

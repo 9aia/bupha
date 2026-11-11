@@ -59,6 +59,16 @@ enum Cmd {
     /// Serve the remote-run agent — accepts jobs from `kind="http"`
     /// runners and executes them with this box's [runner].
     Agent,
+    /// Serve as a GitHub Actions self-hosted runner — registers with
+    /// a repo (once), then polls GitHub's broker protocol and runs
+    /// the jobs it is offered (`runs-on: [self-hosted, bupha]`).
+    /// Uses bupha-gha-runner's own config file, not bupha.yaml.
+    GhaRunner {
+        /// Runner config file (TOML — bupha-gha-runner::Config).
+        /// Positional: `--config` is already the global bupha.yaml
+        /// flag, and clap arg ids must stay unique per command.
+        file: PathBuf,
+    },
     /// Scaffold dagger CI in a repo (dagger init + pinned module
     /// + delegate). For the script runner, a ci.sh is enough.
     Init {
@@ -211,6 +221,82 @@ fn cmd_agent(cfg: Arc<Config>) {
         },
     ) {
         eprintln!("agent: {e}");
+        std::process::exit(1);
+    }
+}
+
+/// `bupha gha-runner <file>` — the dev surface for
+/// bupha-gha-runner: load its TOML config, register with the repo
+/// (once — credentials persist), then poll GitHub's broker protocol
+/// and execute offered jobs until stopped. This is the daemon-ish
+/// half of the crate; a tamias service entry can wrap it later.
+///
+/// Secrets are *names*, never values: `token_env`/`pat_env` resolve
+/// through the canonical chain (env → cuora → keyring →
+/// `~/.config/bupha/env`) and are injected into this process's env
+/// for the runner lib, which only reads env vars and files.
+///
+/// Shutdown follows the repo's e2e convention — `BUPHA_WATCH_SHUTDOWN_FILE`
+/// naming a file whose appearance flips the stop flag between polls;
+/// SIGTERM just kills the process (same as `watch`/`agent` — runs
+/// are synchronous, a killed job reports cancelled on the broker).
+fn cmd_gha_runner(path: &Path) {
+    let text = std::fs::read_to_string(path).unwrap_or_else(|e| {
+        eprintln!("gha-runner: read {}: {e}", path.display());
+        std::process::exit(2);
+    });
+    let mut cfg: bupha_gha_runner::Config = toml::from_str(&text).unwrap_or_else(|e| {
+        eprintln!("gha-runner: parse {}: {e}", path.display());
+        std::process::exit(2);
+    });
+    // Relative paths anchor at the config file's directory so the
+    // file is relocatable.
+    let base = path.parent().unwrap_or(Path::new("."));
+    for p in [&mut cfg.credentials, &mut cfg.workdir, &mut cfg.token_file] {
+        if p.is_relative() {
+            *p = base.join(&*p);
+        }
+    }
+    let _ = std::fs::create_dir_all(&cfg.workdir);
+
+    // Resolve the named secrets through the canonical chain and
+    // inject them as env vars — the runner lib's own resolution
+    // (env var → token file) then finds them. An already-set env
+    // var wins (secret() checks env first anyway).
+    for name in [cfg.token_env.clone(), cfg.pat_env.clone()] {
+        if name.is_empty() {
+            continue;
+        }
+        if std::env::var(&name).is_err() {
+            if let Some(v) = bupha_watch::secret(&name) {
+                std::env::set_var(&name, v);
+            }
+        }
+    }
+
+    let name = cfg.runner_name();
+    let mut agent = bupha_gha_runner::Agent::from_config(cfg).unwrap_or_else(|e| {
+        eprintln!("gha-runner: connect/register: {e}");
+        std::process::exit(1);
+    });
+
+    let stop = Arc::new(std::sync::atomic::AtomicBool::new(false));
+    if let Ok(f) = std::env::var("BUPHA_WATCH_SHUTDOWN_FILE") {
+        let stop = Arc::clone(&stop);
+        std::thread::spawn(move || {
+            while !stop.load(std::sync::atomic::Ordering::SeqCst) {
+                if Path::new(&f).exists() {
+                    stop.store(true, std::sync::atomic::Ordering::SeqCst);
+                    break;
+                }
+                std::thread::sleep(std::time::Duration::from_millis(200));
+            }
+        });
+    }
+
+    println!("gha-runner: {name} online — polling for jobs (Ctrl-C or BUPHA_WATCH_SHUTDOWN_FILE to stop)");
+    if let Err(e) = agent.run(&stop) {
+        eprintln!("gha-runner: {e}");
         std::process::exit(1);
     }
 }
@@ -683,6 +769,9 @@ fn main() {
             dirs,
             pull_request,
         } => cmd_import(file, out.as_deref(), dirs, *pull_request),
+        // The GHA runner reads its own config file (TOML), not
+        // bupha.yaml — handled before the shared config load.
+        Cmd::GhaRunner { file } => cmd_gha_runner(file),
         // Toggling the unit needs no config file either.
         Cmd::Service { sub } => cmd_service(sub),
         _ => {
@@ -722,7 +811,11 @@ fn dispatch_cmd(cfg: &Arc<Config>, cmd: &Cmd, cli_config: Option<String>) {
         Cmd::Log { n } => cmd_log(cfg, *n),
         Cmd::Explain { sha } => cmd_explain(cfg, sha),
         // Handled before config load — unreachable by construction.
-        Cmd::Init { .. } | Cmd::GenCliDocs | Cmd::Service { .. } | Cmd::Import { .. } => {
+        Cmd::Init { .. }
+        | Cmd::GenCliDocs
+        | Cmd::Service { .. }
+        | Cmd::Import { .. }
+        | Cmd::GhaRunner { .. } => {
             #[cfg(not(coverage))]
             unreachable!()
         }

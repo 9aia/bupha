@@ -329,6 +329,7 @@ dependencies = [
  "bupha-config",
  "bupha-config-file",
  "bupha-core",
+ "bupha-gha-runner",
  "bupha-git",
  "bupha-github",
  "bupha-http",
