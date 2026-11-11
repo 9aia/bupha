@@ -344,13 +344,10 @@ dependencies = [
  "bupha-watch",
  "clap",
  "clap-markdown",
- "hex",
- "hmac",
  "lasius-vcs",
  "lasius-vcs-git",
  "serde_json",
  "serde_norway",
- "sha2",
  "toml",
  "ureq",
 ]
@@ -499,6 +496,7 @@ dependencies = [
  "bupha-config-file",
  "bupha-core",
  "bupha-dotenv",
+ "bupha-gha-runner",
  "bupha-github",
  "bupha-keyring",
  "bupha-queue",
@@ -507,12 +505,15 @@ dependencies = [
  "bupha-systemd",
  "bupha-watch",
  "clap",
+ "hex",
+ "hmac",
  "pavo-driver-kit",
  "pavo-protocol",
  "pavo-testkit",
  "serde",
  "serde_json",
  "serde_norway",
+ "sha2",
  "toml",
  "ureq",
 ]
@@ -2475,7 +2476,6 @@ name = "pavo-driver-kit"
 version = "0.1.0"
 source = "git+https://github.com/9aia/pavo?rev=1f5e37afdb0b66a1ef908c2cc2448248493399c2#1f5e37afdb0b66a1ef908c2cc2448248493399c2"
 dependencies = [
- "clap",
  "pavo-protocol",
  "serde",
  "serde_json",

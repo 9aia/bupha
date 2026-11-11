@@ -6,6 +6,16 @@ use hmac::{Hmac, Mac};
 use sha2::Sha256;
 use std::process::{Child, Command};
 
+/// `tamias-driver-bupha run` — argv[0] is the driver's own; `run`
+/// hands the rest to `bupha::run_from`, the same engine entrypoint
+/// the `bins[]` `cli` shim verb uses (T-012 — the `bupha` binary
+/// itself is retired).
+fn bupha_cmd() -> Command {
+    let mut c = Command::new(env!("CARGO_BIN_EXE_tamias-driver-bupha"));
+    c.arg("run");
+    c
+}
+
 fn sign(secret: &str, body: &str) -> String {
     let mut m = <Hmac<Sha256> as Mac>::new_from_slice(secret.as_bytes()).unwrap();
     m.update(body.as_bytes());
@@ -124,7 +134,7 @@ dir = "{repo}"
     std::fs::write(&cfg_path, cfg).unwrap();
 
     let shutdown = tmp.join("shutdown");
-    let mut svc = Svc(Command::new(env!("CARGO_BIN_EXE_bupha"))
+    let mut svc = Svc(bupha_cmd()
         .args(["watch", "--config"])
         .arg(&cfg_path)
         .env("BUPHA_E2E_SECRET", "s3cr3t")

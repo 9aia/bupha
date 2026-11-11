@@ -14,7 +14,8 @@
 //! Unbounded daemons can never be request/response ops — they
 //! never return, so they ride `surfaces` instead: surface drivers
 //! (tamias-driver-cli / -mcp, the pavo-driver-kit `surface` layer,
-//! or this binary's feature-gated `cli`/`mcp` verbs) expose them
+//! or this binary's feature-gated `mcp` verb — `cli` is the bins[]
+//! shim passthrough, not a generated surface) expose them
 //! as streaming subcommands — `tamias-driver-bupha cli watch` ≡
 //! `bupha watch`. `service logs --follow` streams journalctl —
 //! the `follow` param is skipped so the bounded verb stays an op.
@@ -270,9 +271,9 @@ fn argv(name: &str, cmd: &Command, params: &Map<String, Value>) -> Vec<String> {
     out
 }
 
-/// The bare-name entry the embedded surfaces use (`OpSpec.name` is
-/// `cli.`-stripped); the wire path goes `op_of` → `run_verb`.
-#[cfg(any(feature = "cli", feature = "mcp"))]
+/// The bare-name entry the embedded `mcp` surface uses (`OpSpec.name`
+/// is `cli.`-stripped); the wire path goes `op_of` → `run_verb`.
+#[cfg(feature = "mcp")]
 pub fn run_op(op: &str, params: &Map<String, Value>) -> Response {
     match op_of(&format!("cli.{}", op.strip_prefix("cli.").unwrap_or(op))) {
         Some(name) => run_verb(&name, params),

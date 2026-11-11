@@ -9,7 +9,9 @@
 //! provider units. The verbs below (`watch`, `run`, `doctor`,
 //! `import`, `deploy`/`destroy`/`service` helpers, `agent`
 //! fleet daemons) exist for local reproduction, standalone/dev-mode
-//! operation, and migration.
+//! operation, and migration. There is no `bupha` binary — the
+//! command ships as the `libraries/bupha` tamias pack's `bins[]`
+//! shim → `tamias-driver-bupha cli` → [`run_from`] (T-012).
 //!
 //! The lib surface (`Cli`/`command()`/`parse_from()`/`run_from()`)
 //! is what `tamias-driver-bupha`'s ops manifest derives from — the

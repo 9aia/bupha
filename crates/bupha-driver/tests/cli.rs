@@ -11,6 +11,16 @@ use std::net::TcpListener;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output};
 
+/// `tamias-driver-bupha run` — argv[0] is the driver's own; `run`
+/// hands the rest to `bupha::run_from`, the same engine entrypoint
+/// the `bins[]` `cli` shim verb uses (T-012 — the `bupha` binary
+/// itself is retired).
+fn bupha_cmd() -> Command {
+    let mut c = Command::new(env!("CARGO_BIN_EXE_tamias-driver-bupha"));
+    c.arg("run");
+    c
+}
+
 fn tmp(tag: &str) -> PathBuf {
     let d = std::env::temp_dir().join(format!("bupha-cli-{}-{tag}", std::process::id()));
     let _ = std::fs::remove_dir_all(&d);
@@ -35,7 +45,7 @@ fn stub(dir: &Path, name: &str, body: &str) {
 const NO_CUORA: &str = "/nonexistent-bupha-test-cuora";
 
 fn bupha(args: &[&str], envs: &[(&str, String)]) -> Output {
-    let mut c = Command::new(env!("CARGO_BIN_EXE_bupha"));
+    let mut c = bupha_cmd();
     c.args(args).env("BUPHA_CUORA_BIN", NO_CUORA);
     for (k, v) in envs {
         c.env(k, v);
@@ -44,7 +54,7 @@ fn bupha(args: &[&str], envs: &[(&str, String)]) -> Output {
 }
 
 fn bupha_in(args: &[&str], cwd: &Path, envs: &[(&str, String)]) -> Output {
-    let mut c = Command::new(env!("CARGO_BIN_EXE_bupha"));
+    let mut c = bupha_cmd();
     c.args(args)
         .current_dir(cwd)
         .env("BUPHA_CUORA_BIN", NO_CUORA);
@@ -632,7 +642,7 @@ fn deploy_env_variants() {
     // no HOME/XDG at all -> cfg_dir() falls back to ./.config
     let cwd = t.join("cwd");
     std::fs::create_dir_all(&cwd).unwrap();
-    let o = Command::new(env!("CARGO_BIN_EXE_bupha"))
+    let o = bupha_cmd()
         .args(["deploy", "env", "--config"])
         .arg(&cfgp)
         .current_dir(&cwd)
@@ -1857,7 +1867,7 @@ fn gha_runner_executes_a_mock_broker_job() {
 
     let out_log = std::fs::File::create(t.join("out.log")).unwrap();
     let err_log = std::fs::File::create(t.join("err.log")).unwrap();
-    let mut child = Command::new(env!("CARGO_BIN_EXE_bupha"))
+    let mut child = bupha_cmd()
         .args(["gha-runner", cfgp.to_str().unwrap()])
         .env("HOME", &home)
         .env("BUPHA_CUORA_BIN", NO_CUORA)

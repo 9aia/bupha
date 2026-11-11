@@ -13,13 +13,15 @@ name = "tamias-driver-bupha"
 path = "src/main.rs"
 
 [features]
-# Embedded surfaces (pavo-driver-kit's surface layer) — optional,
-# acyclic: the driver gains `cli`/`mcp` argv verbs that serve its own
-# ops manifest; the standalone tamias-driver-cli/-mcp binaries front
-# the same ops without any feature. default = view + content-type
-# driver + `ops`/`run` engine passthrough only.
+# `mcp` embeds pavo-driver-kit's surface layer — the `mcp` argv verb
+# serves this driver's ops manifest as MCP tools on stdio, equivalent
+# to a standalone surface driver minus the PATH/discovery hop.
+# (`cli` is NOT a feature: it's the tamias `bins[]` shim verb — an
+# engine passthrough that needs nothing optional. `watch`/`agent`/
+# `gha-runner` ride the same shim with inherited stdio.)
+# default = view + content-type driver + `ops`/`run`/`cli`
+# passthroughs.
 default = []
-cli = ["pavo-driver-kit/cli"]
 mcp = ["pavo-driver-kit/mcp"]
 
 [dependencies]
@@ -64,3 +66,13 @@ pavo-driver-kit = { git = "https://github.com/9aia/pavo", version = "0.1.0", rev
 # Conformance gate — `cargo test` runs pavo's wire-contract suite
 # against this crate's own `tamias-driver-bupha serve` binary.
 pavo-testkit = { git = "https://github.com/9aia/pavo", rev = "1f5e37afdb0b66a1ef908c2cc2448248493399c2" }
+# The engine e2e suite (moved from bupha-cli when the `bupha`
+# binary retired — T-012) signs webhook deliveries and posts them.
+hmac = "0.12"
+sha2 = "0.10"
+hex = "0.4"
+# cli.rs' gha-runner test builds runner credentials in-process.
+bupha-gha-runner.workspace = true
+
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ["cfg(coverage)"] }

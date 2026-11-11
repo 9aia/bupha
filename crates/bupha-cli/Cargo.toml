@@ -8,9 +8,9 @@ repository.workspace = true
 keywords = ["ci", "bupha"]
 categories = ["development-tools"]
 
-[[bin]]
-name = "bupha"
-path = "src/main.rs"
+# No `[[bin]]` — the `bupha` command ships as the tamias pack in
+# `libraries/bupha` (`bins[]` shim → `tamias-driver-bupha cli` →
+# `bupha::run_from`, T-012). This package is the engine lib only.
 
 [dependencies]
 # The watcher engine (trigger → queue → runner → sinks) lives in
@@ -40,13 +40,8 @@ clap-markdown = "0.1.5"
 serde_norway = "0.9"
 toml = "0.8"
 
-[dev-dependencies]
-hmac = "0.12"
-sha2 = "0.10"
-hex = "0.4"
-ureq = { version = "3" }
-
 # cargo-llvm-cov compiles with `--cfg coverage` (see coverage-gated
-# test hooks in main.rs and tests/) — declare it for check-cfg.
+# test hooks in lib.rs and the driver-hosted e2e suite) — declare
+# it for check-cfg.
 [lints.rust]
 unexpected_cfgs = { level = "warn", check-cfg = ["cfg(coverage)"] }

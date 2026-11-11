@@ -27,13 +27,23 @@
 //!   doctor --json` ≡ `bupha doctor --json`. Also the child side of
 //!   `cli.*` wire queries (`engine_ops::run_verb` re-execs this same
 //!   verb so engine output never touches the serve stream).
+//! - `cli <argv>` — the tamias `bins[]` shim verb (T-012): `tamias
+//!   bin exec` runs `<driver> cli --dir <payload> --name <pkg>
+//!   <bupha argv>` for a declared `shim: cli` bin. bupha's engine
+//!   IS the CLI, so this is a passthrough — strip the two standard
+//!   driver flags and hand the rest to `bupha::run_from` with
+//!   inherited stdio. That keeps full engine parity a generated
+//!   ops→CLI surface can't express: globals before the verb
+//!   (`--config`), `--help`, the unbounded `watch`/`agent`/
+//!   `gha-runner` surfaces, and stdin-bound verbs all behave
+//!   exactly like the retired `bupha` binary. There is no `cli`
+//!   feature: `cli` is the shim verb, not a generated surface —
+//!   the engine's own argv grammar is the contract.
 //!
-//! Optional surfaces: features `cli`/`mcp` embed pavo-driver-kit's
-//! surface layer — `cli <op> [args]` is a generated CLI over the ops
-//! manifest (`watch`/`agent`/`gha-runner` ride as streaming
-//! subcommands), `mcp` serves the ops as MCP tools on stdio. Both
-//! are equivalent to the standalone `tamias-driver-cli`/`tamias-driver-mcp`
-//! surface drivers, minus the PATH/discovery hop.
+//! Optional surfaces: feature `mcp` embeds pavo-driver-kit's
+//! surface layer — `mcp` serves the ops as MCP tools on stdio,
+//! equivalent to the standalone `tamias-driver-mcp` surface
+//! driver minus the PATH/discovery hop.
 //!
 //! **tamias content-type driver** (`type: bupha` packages — tamias
 //! always passes `--dir <payload> --name <pkg> [--config <f>]`, so
@@ -87,7 +97,7 @@
 //! `bupha_driver::data` for the pavo read plane.
 
 use bupha_driver as drv;
-#[cfg(any(feature = "cli", feature = "mcp"))]
+#[cfg(feature = "mcp")]
 use pavo_driver_kit as kit;
 
 fn main() {
@@ -116,24 +126,27 @@ fn main() {
             let argv = std::iter::once("bupha".to_string()).chain(args);
             std::process::exit(bupha::run_from(argv));
         }
-        // Embedded surface verbs (feature-gated, optional): the
-        // pavo-driver-kit surface layer renders this driver's own
-        // ops manifest — `cli` = generated clap CLI (op → subcommand,
-        // `cli watch` streams), `mcp` = ops → MCP tools over stdio.
-        // The standalone tamias-driver-cli/-mcp binaries do the same
-        // over process dispatch; these verbs need nothing on PATH.
-        #[cfg(feature = "cli")]
+        // The tamias `bins[]` shim verb (T-012): `tamias bin exec`
+        // runs `<driver> cli --dir <payload> --name <pkg> <bupha
+        // argv>` for a declared `shim: cli` bin. bupha's engine IS
+        // the CLI, so this is a passthrough — strip the two standard
+        // driver flags and hand the rest to `bupha::run_from` with
+        // inherited stdio. That keeps full engine parity a generated
+        // ops→CLI surface can't express: globals before the verb
+        // (`--config`), `--help`, the unbounded `watch`/`agent`/
+        // `gha-runner` surfaces, and stdin-bound verbs all behave
+        // exactly like the retired `bupha` binary. The tamias
+        // content-type verbs below stay disjoint — `cli` is only
+        // ever the first arg from `bin exec`.
         Some("cli") => {
-            let m = kit::surface::OpsManifest::from_value(&drv::engine_ops::manifest())
-                .unwrap_or_default();
-            let argv: Vec<String> = std::iter::once("bupha".to_string()).chain(args).collect();
-            std::process::exit(kit::surface::cli::run(
-                "bupha",
-                &m,
-                &argv,
-                &mut drv::surface::Engine,
-            ));
+            let argv = engine_argv(&args.collect::<Vec<_>>());
+            std::process::exit(bupha::run_from(argv));
         }
+        // Embedded surface verb (feature-gated, optional): the
+        // pavo-driver-kit surface layer renders this driver's own
+        // ops manifest as MCP tools over stdio. The standalone
+        // tamias-driver-mcp binary does the same over process
+        // dispatch; this verb needs nothing on PATH.
         #[cfg(feature = "mcp")]
         Some("mcp") => {
             let m = kit::surface::OpsManifest::from_value(&drv::engine_ops::manifest())
@@ -156,10 +169,37 @@ fn main() {
             std::process::exit(drv::ops::run(verb, &args.collect::<Vec<_>>()));
         }
         _ => {
-            eprintln!("usage: tamias-driver-bupha manifest|capabilities|ops|run <argv>|serve");
-            eprintln!("       (feature `cli` adds `cli <op> [args]`; feature `mcp` adds `mcp`)");
+            eprintln!("usage: tamias-driver-bupha manifest|capabilities|ops|run <argv>|cli <bupha argv>|serve");
+            eprintln!("       (feature `mcp` adds `mcp`)");
             eprintln!("       tamias-driver-bupha <install|deploy|uninstall|hooks|health|status|logs|host|worker|config-schema> --dir <d> --name <n> [--config <c>]");
             std::process::exit(1);
         }
     }
+}
+
+/// `cli` verb argv (after the `cli` token) → engine argv (argv[0]
+/// included). `tamias bin exec`/`driver exec` prepend the standard
+/// driver flags — `--dir <payload>` `--name <pkg>` — which the
+/// engine doesn't know; consume the leading run of those two
+/// (`--flag v` and `--flag=v` forms) and pass everything else
+/// through untouched. `--config` is deliberately NOT stripped:
+/// it's a bupha global, so a user-passed one must reach the
+/// engine's own parse.
+fn engine_argv(args: &[String]) -> Vec<String> {
+    let mut out = vec!["bupha".to_string()];
+    let mut i = 0;
+    while i < args.len() {
+        let a = args[i].as_str();
+        if a == "--dir" || a == "--name" {
+            // flag + separate value — skip both (a trailing flag
+            // with no value just ends the scan).
+            i = (i + 2).min(args.len());
+        } else if a.starts_with("--dir=") || a.starts_with("--name=") {
+            i += 1;
+        } else {
+            break;
+        }
+    }
+    out.extend(args[i..].iter().cloned());
+    out
 }

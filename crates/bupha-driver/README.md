@@ -23,7 +23,7 @@ renderers and no forms.
 | --- | --- |
 | `ops` | the ops manifest — every bounded `bupha` verb as a `cli.<verb>` wire query, derived from the engine's own clap tree (`bupha::command()`); typed params (`arg`/`opt`/`flag`), the `--config` global listed once, honest `mutates` flags |
 | `run <argv>` | engine passthrough — `tamias-driver-bupha run doctor --json` ≡ `bupha doctor --json`; also the child side of `cli.*` wire queries (re-exec'd in a captured child so engine output never touches the serve stream) |
-| `cli <op> [args]` | *(feature `cli`)* generated clap CLI over the ops manifest — op → subcommand, `surfaces` → streaming passthrough subcommands |
+| `cli <argv>` | the tamias `bins[]` shim verb (T-012) — `tamias bin exec` calls `<driver> cli --dir <pkg> --name bupha <argv>`; the two driver flags are stripped and the rest runs through `bupha::run_from` in-process with inherited stdio. Full argv parity with the retired `bupha` binary: globals (`--config`), `--help`, and the unbounded `watch`/`agent`/`gha-runner` surfaces |
 | `mcp` | *(feature `mcp`)* the ops as MCP tools over stdio |
 
 Over `serve`: `{"op":"query","query":"ops"}` answers the manifest;
@@ -94,7 +94,11 @@ follow-up on T-062.
 
 Install: `cargo build --release -p bupha-driver` and put
 `target/release/tamias-driver-bupha` on `PATH`, or into
-`$TAMIAS_HOME/drivers/` (`~/.local/share/tamias/drivers`).
+`$TAMIAS_HOME/drivers/` (`~/.local/share/tamias/drivers`) — or
+install the `libraries/bupha` pack (`scripts/pack.sh` stages the
+same binary as a bundled driver; `tamias install --allow-drivers
+./libraries/bupha` registers it and deploys the `bupha` `bins[]`
+shim).
 
 ## Which state does it read?
 
@@ -154,5 +158,9 @@ which).
 - `tests/serve.rs` — every wire op plus degraded/unknown/broken-pipe
   paths.
 - `tests/verbs.rs` — the `manifest`/`capabilities`/usage verbs.
+- `tests/{cli,e2e,sturn,watch}.rs` — the engine e2e suite (moved
+  from `bupha-cli` when the `bupha` binary retired, T-012): every
+  file spawns `tamias-driver-bupha run <argv>` — the same
+  `bupha::run_from` entrypoint the `bins[]` `cli` shim uses.
 - Unit tests cover the file-plane reads against tempdirs (the CI
   coverage gate requires every line executed).

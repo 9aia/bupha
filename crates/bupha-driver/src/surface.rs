@@ -1,7 +1,9 @@
 //! Embedded surface dispatch — the driver serving its own engine's
 //! ops through `pavo-driver-kit`'s surface layer, no second binary
-//! needed. `cli`/`mcp` argv verbs (feature-gated) plug this
-//! [`Surface`] impl into `surface::cli::run` / `surface::mcp::serve_stdio`.
+//! needed. The feature-gated `mcp` argv verb plugs this
+//! [`Surface`] impl into `surface::mcp::serve_stdio` (`cli` is the
+//! `bins[]` shim passthrough in `main.rs`, not a generated
+//! surface).
 //!
 //! `op` reuses the same `cli.*` path wire queries take
 //! (`engine_ops::run_verb` re-execs `run` in a captured child —

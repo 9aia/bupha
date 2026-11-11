@@ -10,6 +10,16 @@ use std::net::{TcpListener, TcpStream};
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
 
+/// `tamias-driver-bupha run` — argv[0] is the driver's own; `run`
+/// hands the rest to `bupha::run_from`, the same engine entrypoint
+/// the `bins[]` `cli` shim verb uses (T-012 — the `bupha` binary
+/// itself is retired).
+fn bupha_cmd() -> Command {
+    let mut c = Command::new(env!("CARGO_BIN_EXE_tamias-driver-bupha"));
+    c.arg("run");
+    c
+}
+
 fn tmp(tag: &str) -> PathBuf {
     let d = std::env::temp_dir().join(format!("bupha-s-{}-{tag}", std::process::id()));
     let _ = std::fs::remove_dir_all(&d);
@@ -144,7 +154,7 @@ fn wait_listen(port: u16) {
 }
 
 fn spawn_watch(cfg_path: &Path, shutdown: &Path, envs: &[(&str, &str)]) -> Child {
-    let mut c = Command::new(env!("CARGO_BIN_EXE_bupha"));
+    let mut c = bupha_cmd();
     c.args(["watch", "--config"])
         .arg(cfg_path)
         .env("BUPHA_WATCH_SHUTDOWN_FILE", shutdown);

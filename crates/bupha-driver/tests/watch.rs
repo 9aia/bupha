@@ -16,6 +16,16 @@ use std::process::{Child, Command};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 
+/// `tamias-driver-bupha run` — argv[0] is the driver's own; `run`
+/// hands the rest to `bupha::run_from`, the same engine entrypoint
+/// the `bins[]` `cli` shim verb uses (T-012 — the `bupha` binary
+/// itself is retired).
+fn bupha_cmd() -> Command {
+    let mut c = Command::new(env!("CARGO_BIN_EXE_tamias-driver-bupha"));
+    c.arg("run");
+    c
+}
+
 fn sign(secret: &str, body: &str) -> String {
     let mut m = <Hmac<Sha256> as Mac>::new_from_slice(secret.as_bytes()).unwrap();
     m.update(body.as_bytes());
@@ -106,7 +116,7 @@ fn wait_listen(port: u16) {
 }
 
 fn spawn_watch(cfg_path: &Path, shutdown: &Path, envs: &[(&str, &str)]) -> Child {
-    let mut c = Command::new(env!("CARGO_BIN_EXE_bupha"));
+    let mut c = bupha_cmd();
     c.args(["watch", "--config"])
         .arg(cfg_path)
         .env("BUPHA_WATCH_SHUTDOWN_FILE", shutdown);
@@ -706,7 +716,7 @@ fn expect_exit(cfg: &str, code: i32, needle: &str) {
     let t = tmp(&format!("err-{}", N.fetch_add(1, Ordering::SeqCst)));
     let p = t.join("bupha.toml");
     std::fs::write(&p, cfg).unwrap();
-    let out = Command::new(env!("CARGO_BIN_EXE_bupha"))
+    let out = bupha_cmd()
         .args(["watch", "--config"])
         .arg(&p)
         .env("E2E_SECRET", "s")
@@ -737,7 +747,7 @@ fn config_kind_rejections() {
     {
         let p = t.join("nosec.toml");
         std::fs::write(&p, mk("")).unwrap();
-        let out = Command::new(env!("CARGO_BIN_EXE_bupha"))
+        let out = bupha_cmd()
             .args(["watch", "--config"])
             .arg(&p)
             .env("HOME", &t)
@@ -793,7 +803,7 @@ fn watch_boot_failures() {
     let cfg = mk("secret_env = \"ZZ_MISSING\"");
     let p = t.join("reposec.toml");
     std::fs::write(&p, &cfg).unwrap();
-    let out = Command::new(env!("CARGO_BIN_EXE_bupha"))
+    let out = bupha_cmd()
         .args(["watch", "--config"])
         .arg(&p)
         .env("E2E_SECRET", "s")
@@ -1120,7 +1130,7 @@ fn cov_fail_wait_runner_errors() {
     );
     let p = t.join("bupha.toml");
     std::fs::write(&p, &cfg).unwrap();
-    let out = Command::new(env!("CARGO_BIN_EXE_bupha"))
+    let out = bupha_cmd()
         .args(["run", "--config"])
         .arg(&p)
         .output()
@@ -1219,7 +1229,7 @@ fn watch_timed_shutdown_hook() {
     let cfg = cfg_text(port, "", &t.join("wt"), &repo_dir, "");
     let cfg_path = t.join("bupha.toml");
     std::fs::write(&cfg_path, &cfg).unwrap();
-    let out = Command::new(env!("CARGO_BIN_EXE_bupha"))
+    let out = bupha_cmd()
         .args(["watch", "--config"])
         .arg(&cfg_path)
         .env("E2E_SECRET", "s")
@@ -1244,7 +1254,7 @@ fn dead_arm_dispatch_hook() {
     let _ = repo(&repo_dir, 1);
     let p = t.join("bupha.toml");
     std::fs::write(&p, cfg_text(free_port(), "", &t.join("wt"), &repo_dir, "")).unwrap();
-    let o = Command::new(env!("CARGO_BIN_EXE_bupha"))
+    let o = bupha_cmd()
         .args(["runs", "--config"])
         .arg(&p)
         .env("BUPHA_COV_DEAD_ARMS", "1")
@@ -1282,7 +1292,7 @@ base = "{base}"
     std::fs::write(&cfg_path, cfg).unwrap();
 
     // Missing secret -> panic before serving.
-    let out = Command::new(env!("CARGO_BIN_EXE_bupha"))
+    let out = bupha_cmd()
         .args(["agent", "--config"])
         .arg(&cfg_path)
         .env("HOME", t.join("noh"))
@@ -1291,7 +1301,7 @@ base = "{base}"
     assert!(!out.status.success());
 
     // With the secret it binds + serves (stop via the same hook).
-    let svc = Command::new(env!("CARGO_BIN_EXE_bupha"))
+    let svc = bupha_cmd()
         .args(["agent", "--config"])
         .arg(&cfg_path)
         .env("BUPHA_AGENT_SECRET", "s3cr3t")
@@ -1321,7 +1331,7 @@ base = "{base}"
     );
     let cfg2_path = t.join("bupha-http.toml");
     std::fs::write(&cfg2_path, cfg2).unwrap();
-    let svc = Command::new(env!("CARGO_BIN_EXE_bupha"))
+    let svc = bupha_cmd()
         .args(["agent", "--config"])
         .arg(&cfg2_path)
         .env("BUPHA_AGENT_SECRET", "s3cr3t")
@@ -1363,7 +1373,7 @@ base = "{base}"
     );
     let p = t.join("a.toml");
     std::fs::write(&p, cfg).unwrap();
-    let out = Command::new(env!("CARGO_BIN_EXE_bupha"))
+    let out = bupha_cmd()
         .args(["agent", "--config"])
         .arg(&p)
         .env("BUPHA_AGENT_SECRET", "s")
@@ -1393,7 +1403,7 @@ base = "{base}"
     std::fs::write(&p3, cfg3).unwrap();
     // Agent secret resolves, then the http runner build panics on
     // its own missing secret_env -> exit 101.
-    let out = Command::new(env!("CARGO_BIN_EXE_bupha"))
+    let out = bupha_cmd()
         .args(["agent", "--config"])
         .arg(&p3)
         .env("BUPHA_AGENT_SECRET", "s3cr3t")
@@ -1419,7 +1429,7 @@ base = "{base}"
     );
     let p2 = t.join("b.toml");
     std::fs::write(&p2, cfg2).unwrap();
-    let out = Command::new(env!("CARGO_BIN_EXE_bupha"))
+    let out = bupha_cmd()
         .args(["agent", "--config"])
         .arg(&p2)
         .env("BUPHA_AGENT_SECRET", "s")

@@ -34,7 +34,7 @@
 pub mod data;
 pub mod engine_ops;
 pub mod ops;
-#[cfg(any(feature = "cli", feature = "mcp"))]
+#[cfg(feature = "mcp")]
 pub mod surface;
 pub mod views;
 
@@ -73,17 +73,16 @@ pub fn capabilities_value() -> Value {
         "config-schema",
         "ops",
         "run",
+        // The `bins[]` shim verb — always answered (engine
+        // passthrough, no feature gate).
+        "cli",
     ] {
         if !verbs.iter().any(|x| x.as_str() == Some(extra)) {
             verbs.push(serde_json::json!(extra));
         }
     }
-    // Feature-gated embedded surfaces — advertised only when the
-    // binary actually answers them.
-    #[cfg(feature = "cli")]
-    if !verbs.iter().any(|x| x.as_str() == Some("cli")) {
-        verbs.push(serde_json::json!("cli"));
-    }
+    // Feature-gated embedded surface — advertised only when the
+    // binary actually answers it.
     #[cfg(feature = "mcp")]
     if !verbs.iter().any(|x| x.as_str() == Some("mcp")) {
         verbs.push(serde_json::json!("mcp"));
