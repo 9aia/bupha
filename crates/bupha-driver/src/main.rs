@@ -32,6 +32,15 @@
 //!   hosts is the fallback ingress — production webhook ingress is
 //!   a peregrin campaign listener enqueuing `ci-job` via
 //!   `ci.enqueue`.
+//! - `worker` — the `ci-job` consumption loop (P-002 §4.1): polls
+//!   `kind="ci-job"` entities on a hypha/peregrin node
+//!   (`[worker] node` / `--node` / `BUPHA_WORKER_NODE`, credential
+//!   via `[worker] node_token_env` / `--node-token-env` /
+//!   `BUPHA_NODE_TOKEN`), `ci.claim`s pending jobs this box's
+//!   `[worker] labels` cover, runs them through the same
+//!   `bupha-watch` pipeline, `ci.complete`s the result. The
+//!   **second service** a fleet deployment runs — worker boxes
+//!   execute jobs the entity plane hands out.
 //! - `deploy` — merge the payload's `fleet.toml` with
 //!   `tamias.yaml provider.ingress[]` (`tunnel.public_url`,
 //!   `trigger.listen`/`kind`) and write
@@ -80,13 +89,13 @@ fn main() {
         // subcommand-first dispatch keeps the surfaces disjoint.
         Some(
             verb @ ("install" | "deploy" | "uninstall" | "hooks" | "health" | "status" | "logs"
-            | "host" | "config-schema"),
+            | "host" | "worker" | "config-schema"),
         ) => {
             std::process::exit(drv::ops::run(verb, &args.collect::<Vec<_>>()));
         }
         _ => {
             eprintln!("usage: tamias-driver-bupha manifest|capabilities|serve");
-            eprintln!("       tamias-driver-bupha <install|deploy|uninstall|hooks|health|status|logs|host|config-schema> --dir <d> --name <n> [--config <c>]");
+            eprintln!("       tamias-driver-bupha <install|deploy|uninstall|hooks|health|status|logs|host|worker|config-schema> --dir <d> --name <n> [--config <c>]");
             std::process::exit(1);
         }
     }

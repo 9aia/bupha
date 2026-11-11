@@ -362,6 +362,21 @@ pub struct WorkerCfg {
     /// unlabeled jobs are claimable by anyone.
     #[serde(default)]
     pub labels: Vec<String>,
+    /// Hypha/peregrin node base URL for the entity-plane worker
+    /// (`tamias-driver-bupha worker`, P-002) — e.g.
+    /// `http://127.0.0.1:18787`. Absent = the entity worker has no
+    /// node to poll (the redis `bupha worker` path is unaffected).
+    #[serde(default)]
+    pub node: Option<String>,
+    /// Env-var NAME holding the node's bearer credential — resolved
+    /// through the secret chain (env → cuora → keyring →
+    /// `~/.config/bupha/env`), the same rule as `token_env`/
+    /// `secret_env`: the config stores the NAME, never the value.
+    /// `peregrin pair`/`hypha pair` mints the token; store it under
+    /// this name (e.g. `PEREGRIN_TOKEN`). Absent = unauthenticated
+    /// calls (dev nodes).
+    #[serde(default)]
+    pub node_token_env: Option<String>,
 }
 
 /// Remote-run listener (`[agent]`) — `bupha agent` serves the http

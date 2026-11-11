@@ -50,6 +50,16 @@ fn host_verb_fails_fast_without_config_or_name() {
 }
 
 #[test]
+fn worker_verb_fails_fast_without_config_or_name() {
+    // `worker` blocks once polling — the only cheap CLI-level check
+    // is the argument/config failure path (exit 1, clear stderr).
+    let out = bin().arg("worker").output().unwrap();
+    assert!(!out.status.success());
+    let err = String::from_utf8_lossy(&out.stderr);
+    assert!(err.contains("--config or --name"), "{err}");
+}
+
+#[test]
 fn unknown_or_missing_verb_fails_with_usage() {
     for args in [
         vec![],

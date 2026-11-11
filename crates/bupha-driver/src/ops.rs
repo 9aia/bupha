@@ -76,6 +76,13 @@ pub struct Flags {
     pub api_base: Option<String>,
     /// `hooks --token-env` — forge-token secret NAME override.
     pub token_env: Option<String>,
+    /// `worker --node` — hypha/peregrin node base URL override
+    /// (`[worker] node` / `BUPHA_WORKER_NODE` are the config/env
+    /// fallbacks).
+    pub node: Option<String>,
+    /// `worker --node-token-env` — secret NAME holding the node's
+    /// bearer credential (`[worker] node_token_env` fallback).
+    pub node_token_env: Option<String>,
     /// Positional args (the `hooks` action).
     pub positional: Vec<String>,
 }
@@ -109,6 +116,8 @@ pub fn parse_flags(args: &[String]) -> Result<Flags, String> {
             "--config" => f.config = Some(PathBuf::from(take(&mut i)?)),
             "--api-base" => f.api_base = Some(take(&mut i)?),
             "--token-env" => f.token_env = Some(take(&mut i)?),
+            "--node" => f.node = Some(take(&mut i)?),
+            "--node-token-env" => f.node_token_env = Some(take(&mut i)?),
             "--lines" => {
                 f.lines = take(&mut i)?
                     .parse()
@@ -895,7 +904,14 @@ pub fn config_schema() -> Result<String, String> {
             "audit": {"type": "object"},
             "telemetry": {"type": "object"},
             "attest": {"type": "object"},
-            "worker": {"type": "object"},
+            "worker": {
+                "type": "object",
+                "properties": {
+                    "labels": {"type": "array", "items": {"type": "string"}},
+                    "node": {"type": "string", "description": "Hypha/peregrin node base URL for the `worker` verb's ci-job poll (P-002). Also settable via --node / BUPHA_WORKER_NODE."},
+                    "node_token_env": {"type": "string", "description": "Secret NAME (env → cuora → keyring → env file) holding the node bearer credential; BUPHA_NODE_TOKEN is a direct-token fallback."}
+                }
+            },
             "agent": {"type": "object"}
         }
     });
@@ -937,6 +953,92 @@ pub fn host(f: &Flags) -> Result<String, String> {
     // Blocks until the sources stop (e2e shutdown hook, signal) —
     // the unit's Restart= policy owns the lifecycle from there.
     bupha_watch::watch(std::sync::Arc::new(cfg));
+    Ok(String::new())
+}
+
+/// `worker` — the `ci-job` consumption loop (P-002 §4.1): poll
+/// `kind="ci-job"` entities on a hypha/peregrin node, `ci.claim`
+/// the pending ones this box's `[worker] labels` cover, run them
+/// through the same `bupha-watch` pipeline `host` uses (worktree →
+/// runner → status sink), `ci.renew` on the run ticker,
+/// `ci.complete` with the result. This is the **second service** a
+/// fleet deployment runs alongside `host` — the watcher ingests
+/// pushes (standalone mode) while workers execute jobs the
+/// entity plane hands out; in peregrin-hosted mode the plane lives
+/// on the node and `host` isn't needed at all.
+///
+/// Node endpoint resolution: `--node` → `BUPHA_WORKER_NODE` →
+/// `[worker] node` in the operator config. Credential: `--node-token-env`
+/// / `[worker] node_token_env` names a secret resolved through the
+/// usual chain (env → cuora → keyring → `~/.config/bupha/env`);
+/// `BUPHA_NODE_TOKEN` is a direct-token escape hatch; neither set =
+/// unauthenticated (dev nodes).
+///
+/// # Errors
+/// Fails on a missing `--config`/`--name`, an unloadable config, a
+/// missing node endpoint, or an unresolvable token NAME; once
+/// running, poll errors back off and retry.
+pub fn worker(f: &Flags) -> Result<String, String> {
+    let path = match f.config.clone() {
+        Some(p) => p,
+        None => bundle_config_path(
+            f.name
+                .as_deref()
+                .ok_or_else(|| "worker: --config or --name is required".to_string())?,
+            None,
+        ),
+    };
+    use bupha_config::ConfigSource;
+    use bupha_watch::entity_worker::JobExec as _;
+    let cfg = bupha_config_file::FileSource {
+        path: Some(path.to_string_lossy().to_string()),
+    }
+    .load()
+    .map_err(|e| format!("worker: {}: {e}", path.display()))?;
+
+    let node = f
+        .node
+        .clone()
+        .or_else(|| {
+            std::env::var("BUPHA_WORKER_NODE")
+                .ok()
+                .filter(|s| !s.is_empty())
+        })
+        .or_else(|| cfg.worker.node.clone())
+        .ok_or_else(|| {
+            "worker: no node endpoint — set [worker] node, --node, or BUPHA_WORKER_NODE".to_string()
+        })?;
+    let token =
+        match f
+            .node_token_env
+            .clone()
+            .or_else(|| cfg.worker.node_token_env.clone())
+        {
+            Some(name) => Some(bupha_watch::secret(&name).ok_or_else(|| {
+                format!("worker: {name} required (env, cuora, keyring or env file)")
+            })?),
+            None => std::env::var("BUPHA_NODE_TOKEN")
+                .ok()
+                .filter(|s| !s.is_empty()),
+        };
+
+    let api = bupha_watch::entity_worker::EntityJobApi::http(&node, token)
+        .map_err(|e| format!("worker: {e}"))?;
+    let filter = bupha_watch::entity_worker::ClaimFilter::from_config(&cfg)
+        .map_err(|e| format!("worker: config: {e}"))?;
+    let exec = bupha_watch::entity_worker::WatchExec::new(std::sync::Arc::new(cfg));
+    // Same e2e shutdown hook as `host`/`bupha worker` — the loop
+    // checks it between jobs (a run in flight finishes first).
+    let shutdown = || {
+        std::env::var("BUPHA_WATCH_SHUTDOWN_FILE")
+            .ok()
+            .is_some_and(|f| Path::new(&f).exists())
+    };
+    println!(
+        "bupha worker polling ci-job entities on {node} ({})",
+        exec.worker()
+    );
+    bupha_watch::entity_worker::run(&filter, &api, &exec, &shutdown);
     Ok(String::new())
 }
 
@@ -985,6 +1087,7 @@ pub fn run(verb: &str, args: &[String]) -> i32 {
             logs(&dir, &name, f.lines)
         }),
         "host" => parse_flags(args).and_then(|f| host(&f)),
+        "worker" => parse_flags(args).and_then(|f| worker(&f)),
         "config-schema" => {
             // Instance-agnostic probe — flags accepted, ignored.
             match config_schema() {
@@ -1274,6 +1377,24 @@ base = "{}"
         ]
         .to_vec();
         assert_eq!(run("host", &args), 1);
+    }
+
+    #[test]
+    fn worker_requires_config_and_node() {
+        // No --config/--name → usage failure. (Env cleared so an
+        // externally-set BUPHA_WORKER_NODE can't push the test into
+        // the blocking poll loop.)
+        std::env::remove_var("BUPHA_WORKER_NODE");
+        assert_eq!(run("worker", &[]), 1);
+        // A loadable config without a node endpoint fails fast —
+        // the polling loop itself is covered by bupha-watch's
+        // entity_worker tests (it would block here).
+        let dir = tmp("worker-nonode");
+        let cfg = dir.join("w.toml");
+        std::fs::write(&cfg, MIN_FLEET).unwrap();
+        let args: Vec<String> =
+            ["--config".to_string(), cfg.to_string_lossy().to_string()].to_vec();
+        assert_eq!(run("worker", &args), 1);
     }
 
     #[test]

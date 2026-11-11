@@ -22,6 +22,16 @@ description: >-
 # unit name `bupha deploy service` writes by hand).
 provider:
   name: bupha
+  # NOTE (P-002/T-062): `tamias-driver-bupha worker` is a SECOND
+  # service a fleet deployment can run — it polls `kind="ci-job"`
+  # entities on a hypha/peregrin node (`[worker] node` +
+  # `node_token_env` in fleet.toml, or --node/--node-token-env) and
+  # executes them through the same pipeline `host` runs. Deliberately
+  # NOT wired into services[] yet — this bundle is standalone-mode
+  # (bupha webhook ingress, ADR-0007); the entity-plane worker
+  # belongs to peregrin-hosted deployments where the ci-job plane
+  # lives on the node. Follow-up tracks wiring a `worker` service
+  # entry + `[worker] node`/`node_token_env` in fleet.toml.
   services:
     # The watcher: one listener + queue + runner for the whole fleet.
     # `--config` points at the per-bundle operator config the deploy

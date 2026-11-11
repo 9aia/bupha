@@ -26,6 +26,7 @@ tamias dispatches `<verb> --dir <payload> --name <pkg> [--config <f>]`:
 | `install` | no-op — the operator config is `deploy`'s job (install only sees the evictable fetch-cache payload) |
 | `deploy` | merge the payload's `fleet.toml` (a complete `bupha_core::Config` doc) with `tamias.yaml provider.ingress[]` — `tunnel.public_url`, `trigger.listen`/`kind`, `tunnel.local_url` are manifest-owned — and write `~/.config/bupha/bundles/<name>.toml`, the file the provider unit's `host` verb consumes. Idempotent: fully regenerated each run, validated as a real `Config` before write |
 | `host [--config <f>]` | engine-host mode — run the watcher pipeline (`bupha-watch`, the same code `bupha watch` runs) in-process against the deployed operator config; blocks until the sources stop. What provider units exec |
+| `worker [--config <f>] [--node <url>] [--node-token-env <NAME>]` | the `ci-job` consumption loop (P-002 §4.1) — polls `kind="ci-job"` entities on a hypha/peregrin node, `ci.claim`s pending jobs this box's `[worker] labels` cover, runs them through the same `bupha-watch` pipeline (worktree → runner → status sink), renews the lease mid-run, `ci.complete`s the result. The **second service** a fleet deployment runs — worker boxes execute jobs the entity plane hands out; in peregrin-hosted mode the plane lives on the node and `host` isn't needed at all |
 | `uninstall` | remove the deployed config (`--config` overrides the path) |
 | `hooks register\|uninstall [--dry-run] [--api-base <url>] [--token-env <NAME>]` | upsert/remove the GitHub webhooks `provider.ingress[].hooks[]` declare, via `bupha_github`'s REST path (exact-URL match). `--dry-run` prints the plan and resolves no secrets. Register needs the forge token + each repo's webhook secret **by NAME** (env → keyring → `~/.config/bupha/env`) |
 | `health` | JSON `{ok, probes[]}` — webhook `ping` per ingress `listen`+`path` (`POST …/hook` + `X-GitHub-Event: ping` → `200 pong`), else `systemctl --user is-active` per provider unit |
@@ -35,6 +36,33 @@ tamias dispatches `<verb> --dir <payload> --name <pkg> [--config <f>]`:
 
 Unit names derive exactly like `tamias deploy` renders them:
 `<provider.name|scope-name|name>-<service>.service`.
+
+### `worker` — the ci-job entity-plane loop
+
+`worker` is the distributed-queue counterpart of `host`: instead of
+ingesting forge pushes itself, it polls a hypha/peregrin node's
+entity index for `kind="ci-job"` entities (the P-002 ops contract —
+`ci.claim`/`ci.renew`/`ci.release`/`ci.complete`), claims what this
+box's labels cover, and runs each sha through the unchanged
+`bupha-watch` pipeline. Claim loss (fence mismatch) abandons the
+run; `ci.cancel`'s `cancelRequested` kills the child and settles
+`cancelled`; lease expiry returns dead workers' jobs to `pending`.
+
+Config resolution (first hit wins):
+
+| setting | sources |
+| --- | --- |
+| operator config | `--config <f>` → `~/.config/bupha/bundles/<name>.toml` (`--name`) — same file `host` consumes |
+| node URL | `--node` → `BUPHA_WORKER_NODE` → `[worker] node` in the config |
+| node credential | `--node-token-env <NAME>` / `[worker] node_token_env` → secret resolved by NAME through the usual chain (env → cuora → keyring → `~/.config/bupha/env`); `BUPHA_NODE_TOKEN` is a direct-token fallback; neither = unauthenticated (dev nodes) |
+| claim labels | `[worker] labels` — must cover each job's `runsOn` |
+| lease / poll | `BUPHA_ENTITY_LEASE_SECS` (default 300), `BUPHA_WORKER_POLL_MS` (default 1000), `BUPHA_WATCH_SHUTDOWN_FILE` (e2e shutdown hook, same as `host`) |
+
+`peregrin pair`/`hypha pair` mints the node token — store it under
+the `node_token_env` name. A worker unit is a **second**
+`provider.services[]` entry next to `watch` (or the only service in
+peregrin-hosted mode); this bundle doesn't wire one yet — see the
+follow-up on T-062.
 
 Install: `cargo build --release -p bupha-driver` and put
 `target/release/tamias-driver-bupha` on `PATH`, or into

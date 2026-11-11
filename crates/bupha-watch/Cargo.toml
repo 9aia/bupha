@@ -43,6 +43,14 @@ bupha-audit-file.workspace = true
 bupha-telemetry.workspace = true
 bupha-telemetry-otel.workspace = true
 bupha-history.workspace = true
+bupha-plane.workspace = true
+# The entity-plane worker (`entity_worker`) speaks the node↔hub
+# contract — git dep so `cargo install --git` and CI work without a
+# sibling ../hypha checkout (same rule as bupha-plane's hypha-http).
+hypha-node-api = { git = "https://github.com/9aia/hypha.git", branch = "main" }
+tokio = { version = "1", features = ["rt"] }
+chrono = "0.4"
+serde_json.workspace = true
 bupha-attest.workspace = true
 bupha-attest-file.workspace = true
 bupha-attest-sigstore.workspace = true

@@ -62,6 +62,12 @@ use std::collections::VecDeque;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Condvar, Mutex};
 
+/// The `ci-job` entity-plane worker (P-002 §4.1) — polls
+/// `kind="ci-job"` entities on a hypha/peregrin node and runs them
+/// through the same `run_job` pipeline; used by
+/// `tamias-driver-bupha worker`.
+pub mod entity_worker;
+
 pub fn build_runner(rc: &bupha_core::RunnerCfg, cache: &bupha_core::CacheCfg) -> Arc<dyn Runner> {
     // Impls own their config shape — `rc.extra` deserializes into the
     // matched impl's cfg struct. `[cache]` wins over a legacy

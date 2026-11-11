@@ -711,6 +711,7 @@ dependencies = [
  "bupha-history",
  "bupha-http",
  "bupha-keyring",
+ "bupha-plane",
  "bupha-queue",
  "bupha-queue-lease",
  "bupha-queue-redb",
@@ -728,6 +729,10 @@ dependencies = [
  "bupha-tunnel",
  "bupha-vcs",
  "bupha-webhook",
+ "chrono",
+ "hypha-node-api",
+ "serde_json",
+ "tokio",
  "toml",
 ]
 
@@ -1283,7 +1288,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "39cab71617ae0d63f51a36d69f866391735b51691dbda63cf6f96d042b63efeb"
 dependencies = [
  "libc",
- "windows-sys 0.61.2",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
@@ -1728,7 +1733,7 @@ dependencies = [
 [[package]]
 name = "hypha-http"
 version = "0.1.0"
-source = "git+https://github.com/9aia/hypha.git?branch=main#d05b355fd15053c5939df1bab5c120c11050a8df"
+source = "git+https://github.com/9aia/hypha.git?branch=main#069ea20735b6b70a682089450ab9bbd817c2bedd"
 dependencies = [
  "async-trait",
  "axum",
@@ -1750,9 +1755,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "hypha-node-api"
+version = "0.1.0"
+source = "git+https://github.com/9aia/hypha.git?branch=main#069ea20735b6b70a682089450ab9bbd817c2bedd"
+dependencies = [
+ "async-trait",
+ "serde",
+ "serde_json",
+ "tokio",
+ "ureq",
+]
+
+[[package]]
 name = "hypha-push"
 version = "0.1.0"
-source = "git+https://github.com/9aia/hypha.git?branch=main#d05b355fd15053c5939df1bab5c120c11050a8df"
+source = "git+https://github.com/9aia/hypha.git?branch=main#069ea20735b6b70a682089450ab9bbd817c2bedd"
 dependencies = [
  "base64 0.22.1",
  "futures",
@@ -1767,7 +1784,7 @@ dependencies = [
 [[package]]
 name = "hypha-telemetry"
 version = "0.1.0"
-source = "git+https://github.com/9aia/hypha.git?branch=main#d05b355fd15053c5939df1bab5c120c11050a8df"
+source = "git+https://github.com/9aia/hypha.git?branch=main#069ea20735b6b70a682089450ab9bbd817c2bedd"
 dependencies = [
  "http 1.5.0",
  "opentelemetry",
@@ -2878,7 +2895,7 @@ dependencies = [
  "errno",
  "libc",
  "linux-raw-sys",
- "windows-sys 0.61.2",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
@@ -3319,7 +3336,7 @@ dependencies = [
  "getrandom 0.4.3",
  "once_cell",
  "rustix",
- "windows-sys 0.61.2",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
