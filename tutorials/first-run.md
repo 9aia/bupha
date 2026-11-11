@@ -32,7 +32,8 @@ tutorial walks `ci-gate`; swap the name for your own bundle.
    (`BUPHA_TOKEN` is a repo-scoped PAT for statuses + hook
    management; `BUPHA_WEBHOOK_SECRET` is the HMAC secret GitHub
    signs deliveries with. Fallbacks when cuora isn't available:
-   OS keyring, then `~/.config/bupha/env` — legacy.)
+   OS keyring, then `~/.config/bupha/env` — legacy code fallback;
+   the env file itself is retired (T-059).)
 
 2. `tamias install <ref>` — fetch + unpack the bundle payload
    (driver `install` is a no-op; the payload's `fleet.toml` +

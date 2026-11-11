@@ -65,7 +65,7 @@ driver's `bupha:runs` pavo view (`repo` param matches
 `owner/name` and `owner/name:job` keys).
 
 `secret_env` names an env var (resolved like `trigger.secret_env` —
-env → cuora → keyring → `~/.config/bupha/env`, env file legacy),
+env → cuora (canonical — every fleet secret migrated, T-059) → keyring → `~/.config/bupha/env` (env file retired, legacy code fallback only),
 never the value. Each repo's
 hook can then be managed and rotated independently: the watcher
 resolves the target repo before verifying, so a push signed with one
