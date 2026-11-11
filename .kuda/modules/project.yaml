@@ -315,6 +315,6 @@ provenance:
   - d7ce1cb6d95ae71a26ec4c6bdabdc5f318d8a21f
   - 64bb8eeec2c83135075727fb9aec32780e212939
   - 47479681f7ca7db300bbd8f998bd0918a4db0010
-  commit_sha: 4f07b6af27e844e8f1ebf0e1910549da782c44db
-  generated_at: '1794376851'
-  generator: kuda-template/0.1.2
+  commit_sha: abb87b40721c7fe6faf27a74f32e3eb702f4c32f
+  generated_at: '1794440686'
+  generator: kuda-template/0.1.4

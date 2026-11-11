@@ -1,0 +1,54 @@
+name: sturn-wal
+path: refs/sturn/wal/bupha
+purpose: sturn coordination WAL — claims, writes, snaps, review events in refs/sturn/*
+api:
+- name: luis:claim@bupha#5faac881
+  kind: record
+  file: refs/sturn/wal/bupha
+  line: 4
+  module: sturn-wal
+- name: luis:claim@bupha#a4df7dbb
+  kind: record
+  file: refs/sturn/wal/bupha
+  line: 3
+  module: sturn-wal
+- name: luis:claim@bupha#ade3ea5f
+  kind: record
+  file: refs/sturn/wal/bupha
+  line: 1
+  module: sturn-wal
+- name: luis:claim@bupha#b8337c93
+  kind: record
+  file: refs/sturn/wal/bupha
+  line: 2
+  module: sturn-wal
+- name: luis:claim@devin-fix#7939ed06
+  kind: record
+  file: refs/sturn/wal/devin-fix
+  line: 1
+  module: sturn-wal
+- name: luis:presence@bupha#301c51d8
+  kind: record
+  file: refs/sturn/wal/bupha
+  line: 5
+  module: sturn-wal
+- name: luis:presence@devin-fix#eafc028d
+  kind: record
+  file: refs/sturn/wal/devin-fix
+  line: 2
+  module: sturn-wal
+deps: []
+notes: ''
+verify:
+- refs/sturn/wal/bupha
+- refs/sturn/wal/devin-fix
+provenance:
+  files:
+  - refs/sturn/wal/bupha
+  - refs/sturn/wal/devin-fix
+  hashes:
+  - 301c51d87ac6c9296108ec5c795c63e85fb95cd5
+  - eafc028dd4fd98fb72ca80982f9214cedea12254
+  commit_sha: abb87b40721c7fe6faf27a74f32e3eb702f4c32f
+  generated_at: '1794440686'
+  generator: kuda-template/0.1.4

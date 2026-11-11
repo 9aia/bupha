@@ -233,6 +233,6 @@ provenance:
   - e9038c63bcb11d4edeee1becd92a229aea2f35ac
   - 1c6e9fb9e23e1563cf8d6c24cfb9f42bc687901c
   - cd902a779249bc8147c37b10c0d1f4440089889f
-  commit_sha: de1419f620c1c982a4556a697ed928f8b9dd181a
-  generated_at: '1794375270'
-  generator: kuda-template/0.1.2
+  commit_sha: abb87b40721c7fe6faf27a74f32e3eb702f4c32f
+  generated_at: '1794440686'
+  generator: kuda-template/0.1.4

@@ -47,11 +47,12 @@ modules:
 - bupha-webhook
 - docs
 - project
+- sturn-wal
 commands:
 - cargo check
 - cargo test --workspace
-tree_digest: 1262131bfbc38744b1553c3101d656b2ea33055a
-files_total: 230
+tree_digest: 04ccb667832e4536f20e4b5be5d33660285f7071
+files_total: 233
 provenance:
   files:
   - Cargo.toml
@@ -101,8 +102,8 @@ provenance:
   - crates/bupha-webhook/Cargo.toml
   - modules/dagger/dagger/pyproject.toml
   hashes:
-  - 8cdadb84c208312f501a3088083a429066be3bbc
-  - eb52a338ba445df2ed0cccff531a99648296b750
+  - 3254ba5d49ca35c036e7dbec73323128251c78ef
+  - f17a54fde9bb1d2a0da827434b00b5dc6c4d7766
   - faa9d3e3b2e30ebed8aecf8da83c4683f33024c8
   - d3b36ada9a99ed7e36e96e47a7beb1f5bf3fe348
   - 977aa09725741778eef33809aaf4414e789e3f02
@@ -144,9 +145,9 @@ provenance:
   - 2a36671c2aaaac449a8e23391a72f3473f9fe3c9
   - 5049aec6b8565aa211bac21b52c0f690c0509d63
   - 5e76ec1737eaa365ccdeadbb3706a163e1a97792
-  - cd0626504ee09a80ca50247ea9047be7525928f4
+  - 3a81d785d77178b64fa3fd85a98f40a70bb6701d
   - cd8e10b771c3960ae45a2b6f7705fa9f1cdc6344
   - a787b6af9e98fd8cae6ece92467308d34e49bbce
-  commit_sha: 9cdfa7278914c50fd29b29a080863399d3c17dc1
-  generated_at: '1794420044'
+  commit_sha: abb87b40721c7fe6faf27a74f32e3eb702f4c32f
+  generated_at: '1794440686'
   generator: kuda/0.1.0

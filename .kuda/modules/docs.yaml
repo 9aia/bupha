@@ -42,6 +42,11 @@ api:
   file: docs/getting-started.md
   line: 1
   module: docs
+- name: 'How-to: bupha as a GitHub self-hosted runner'
+  kind: record
+  file: docs/how-to/self-hosted-runner.md
+  line: 1
+  module: docs
 - name: 'How-to: package bupha fleets with tamias'
   kind: record
   file: docs/how-to/tamias-bundles.md
@@ -116,6 +121,7 @@ provenance:
   - docs/how-to/gha-runner.md
   - docs/how-to/multi-repo.md
   - docs/how-to/sccache-backend.md
+  - docs/how-to/self-hosted-runner.md
   - docs/how-to/shell-runner.md
   - docs/how-to/tamias-bundles.md
   - docs/index.md
@@ -127,19 +133,20 @@ provenance:
   - docs/tutorials/first-run.md
   hashes:
   - 7359b1f8396d488dab45743b48a392e5184d19f7
-  - ae839684483df29b0863c7fa4d25626aef5ca633
+  - b329cc7210b613d965ea0f4fd05e711dee3c9aa8
   - 688acf9e6f5801f6cf68a1c04b7abd31cb0d8516
   - 6b6e6dee74fdd78349a9b970193a9856bef28b11
   - 0f854754e80779fb233575ac82f5496a4e0ece85
   - 4190ba42e1402d3b750ddb42650ef4322a0ffda5
   - 466de7770b21fe5c2f198bce2e9daa88e0ed5dd2
   - bbd5eb7406ea4575ec41ab702a951fc85f6c346d
-  - 736ec12d2094172cd51d45f1197d8ecf012c0c4a
-  - 71520dc2f0e7081d138ccf39d70922134412b76c
+  - c47ad1bad88b866750e50b966f2b87c8739f6f37
+  - 4c213fe1371efd1db9f376834b48f4be36cde67e
   - bc3849837d67d211002a31697cc13f66e6af95af
-  - c9c7159017eecf81e09041f19bc8e55be33fecb9
+  - d01a11f0f357bfe18474bf24d211c7612b7109ab
   - 43dd78f52318ba95b094066e8494c76d5643e40c
   - 4ee7f2b425b4393d662c8e6d54a59b6272e22a6a
+  - 8424cd3dffb32e3a41e18cb5023409ded0775de4
   - 4831a71b4f2cf04bff365e8b1297a035f629ab5c
   - 566298957a756aa1c805b033f10f0d98532484be
   - eefbe66df6dc6948b83a546b1f96e490dd4227f5
@@ -147,8 +154,8 @@ provenance:
   - 175fa4f47aecdc02e902d243a1c29914eb2ee258
   - a86d47603b9dcfff1b26c860db6015efaef54c22
   - 313190de8cbe0ea6c2ed509bc263060c9b74df96
-  - 3f7cdeb8d65bfb7571d14ff52e5669bf3c72905c
-  - 1653a4dad90c717e8b6339edff0c07bc1eb06742
-  commit_sha: 9cdfa7278914c50fd29b29a080863399d3c17dc1
-  generated_at: '1794420044'
-  generator: kuda-template/0.1.2
+  - 0044271f071ee88f9bab5d955191561fdbcc2390
+  - 6d9ba63380edf9736a453d7f8e517147dd433780
+  commit_sha: abb87b40721c7fe6faf27a74f32e3eb702f4c32f
+  generated_at: '1794440686'
+  generator: kuda-template/0.1.4
