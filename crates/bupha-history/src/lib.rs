@@ -1,6 +1,7 @@
 //! Run-history adapter — appends one JSONL record per finished run
-//! to `<worktree.base>/history.jsonl`. Read path: `bupha runs`
-//! (or `tail` the file). Keeps the last records bounded by rotation.
+//! to `<worktree.base>/history.jsonl`. Read path: the file tail —
+//! the dev CLI's `bupha runs`/`bupha log` and the driver's
+//! `bupha:runs` view. Keeps the last records bounded by rotation.
 
 use std::io::{self, Write};
 use std::path::Path;

@@ -36,8 +36,10 @@ tamias uninstall ci-gate        # remove the unit; driver uninstall removes bund
 
 ## Secrets
 
-Names only, never values. Resolution order env → OS keyring →
-`~/.config/bupha/env` (the unit's `EnvironmentFile`):
+Names only, never values. Resolution order env → **cuora**
+(`cuora://bupha/<NAME>` via the `cuora` CLI — canonical, T-056) →
+OS keyring → `~/.config/bupha/env` (legacy fallback; the unit's
+`EnvironmentFile`):
 
 - `BUPHA_TOKEN` — forge token for statuses + hook management
   (`[runner] token_env`)
@@ -45,9 +47,10 @@ Names only, never values. Resolution order env → OS keyring →
   (`[[repo]] secret_env`); the global fallback is
   `BUPHA_WEBHOOK_SECRET` (`[trigger] secret_env`)
 
-`bupha deploy env` (or `tamias-driver-bupha`'s sibling flow) seeds
-`~/.config/bupha/env` with the skeleton; fill values there or via
-`secret-tool`.
+Seed values with `printf '%s' "$VALUE" | cuora put
+cuora://bupha/<NAME>`; the dev CLI's `bupha deploy env` still
+writes the legacy `~/.config/bupha/env` skeleton for hosts
+without cuora.
 
 ## Driver
 

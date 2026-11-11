@@ -4,6 +4,14 @@
 //! a pluggable runner executes each sha, and status sinks report.
 //! No server, no UI.
 //!
+//! **Dev/debug harness only** (ADR-0006 amendment): there is no
+//! user-facing bupha CLI — deployed fleets run this same engine
+//! through `tamias-driver-bupha host` under tamias provider
+//! units. The verbs below (`watch`, `run`, `doctor`, `import`,
+//! `deploy`/`destroy`/`service` helpers, `worker`/`agent` fleet
+//! daemons) exist for local reproduction, standalone/dev-mode
+//! operation, and migration.
+//!
 //! Config: bupha.yaml/.yml/.toml (secrets come from env). See
 //! bupha-core::Config.
 

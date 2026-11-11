@@ -15,7 +15,7 @@
 //!
 //! Read path: bupha keeps no serve wire — its state is files under
 //! `worktree.base` (`history.jsonl`, `queue.redb`, plus the systemd
-//! user units `bupha service status` probes). The driver reads those
+//! user units the watcher manages). The driver reads those
 //! directly through the same crates the watcher uses
 //! (`bupha-config-file` for config resolution, `bupha-queue-redb`
 //! for the queue store, `bupha-systemd` for unit state) — the most

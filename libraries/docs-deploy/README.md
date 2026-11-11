@@ -74,14 +74,21 @@ worktree's `origin` + an env-scoped `credential.helper` reading
 
 ## Secrets
 
-Names only, never values. Resolution order env → OS keyring →
-`~/.config/bupha/env` (the unit's `EnvironmentFile`):
+Names only, never values. Resolution order env → **cuora**
+(`cuora://bupha/<NAME>` via the `cuora` CLI — canonical, T-056) →
+OS keyring → `~/.config/bupha/env` (legacy fallback; the unit's
+`EnvironmentFile`):
 
 - `BUPHA_TOKEN` — forge token for statuses + gh-pages pushes
   (`[runner] token_env`)
 - `BUPHA_WH_<OWNER>_<REPO>` — per-repo webhook secret
   (`[[repo]] secret_env`); the global fallback is
   `BUPHA_WEBHOOK_SECRET` (`[trigger] secret_env`)
+
+Seed values with `printf '%s' "$VALUE" | cuora put
+cuora://bupha/<NAME>`; the dev CLI's `bupha deploy env` still
+writes the legacy `~/.config/bupha/env` skeleton for hosts
+without cuora.
 
 ## Driver
 

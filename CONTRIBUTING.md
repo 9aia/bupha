@@ -11,7 +11,9 @@ config); ports are crates: `bupha-runner`, `bupha-tunnel`,
 `bupha-trigger`, `bupha-status`; impls: `bupha-github` (trigger +
 sink), `bupha-shell`/`bupha-dagger`/`bupha-ssh` (runners), `bupha-cloudflared`
 (tunnel), `bupha-systemd` (install helpers — `Service` port pending);
-`bupha` (cli) is the composition root. `modules/dagger/` is the
+`bupha` (cli) is the composition root and dev/debug harness —
+deployed fleets run the engine via `tamias-driver-bupha host`
+(ADR-0006: no user-facing `bupha` CLI). `modules/dagger/` is the
 shared pipeline module (Python SDK).
 
 ## Rules of thumb
@@ -27,7 +29,7 @@ shared pipeline module (Python SDK).
 
 ## Releasing
 
-Seed once with `bupha deploy release` (publishes workspace crates,
+Seed once with the dev CLI's `bupha deploy release` (publishes workspace crates,
 tags `{repo}-v{ver}`). Afterwards `scripts/release.sh` runs on each
 `main` push via bupha's own dogfood loop — bump, publish, tag, dist
 binaries. See `docs/explanation/release-model.md`.

@@ -5,7 +5,7 @@ api:
 - name: RunRecord
   kind: type
   file: crates/bupha-history/src/lib.rs
-  line: 9
+  line: 10
   module: bupha-history
 - name: appends_jsonl_and_sanitizes
   kind: function
@@ -30,7 +30,7 @@ api:
 - name: record
   kind: function
   file: crates/bupha-history/src/lib.rs
-  line: 22
+  line: 23
   module: bupha-history
 - name: unwritable_path_errors
   kind: function
@@ -50,8 +50,8 @@ provenance:
   - crates/bupha-history/tests/record.rs
   hashes:
   - bd3c49c8020bf9cc448326c4af9bd71df1191fb1
-  - a4d5f53943247c793bd60d1517db88365b083bf3
+  - ffcaf97879c571e220fd9bf3f5ba917cbac8da60
   - 412667e9daafb2cc1189b02fa970d60cb4d30f81
-  commit_sha: 2a6dcebac3778d8c539075212ef7514729e6a60a
-  generated_at: '1793687787'
+  commit_sha: aa68d7e5d8324589f2e1ce8ddc3b2b7204fa46ac
+  generated_at: '1794357802'
   generator: kuda-template/0.1.2

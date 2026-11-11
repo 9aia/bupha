@@ -1,7 +1,9 @@
-//! bupha-deploy — install-time helpers so users never copy files:
-//! `bupha deploy service` writes + enables the systemd unit,
-//! `bupha deploy webhook` registers the GitHub hook, and
-//! `bupha deploy env` seeds the secrets env file.
+//! bupha-deploy — install-time helpers so the dev CLI never copies
+//! files by hand: the `bupha deploy service` verb (dev harness —
+//! deployed fleets get their units from `tamias deploy`, ADR-0006)
+//! writes + enables the systemd unit, `bupha deploy webhook`
+//! registers the GitHub hook, and `bupha deploy env` seeds the
+//! secrets env file.
 
 use std::io;
 use std::path::{Path, PathBuf};

@@ -15,7 +15,7 @@ api:
 - name: SystemdService
   kind: type
   file: crates/bupha-systemd/src/lib.rs
-  line: 172
+  line: 174
   module: bupha-systemd
 - name: bupha-systemd
   kind: module
@@ -35,7 +35,7 @@ api:
 - name: disable
   kind: function
   file: crates/bupha-systemd/src/lib.rs
-  line: 198
+  line: 200
   module: bupha-systemd
 - name: disable_removes_unit_and_env_skeleton
   kind: function
@@ -45,7 +45,7 @@ api:
 - name: disable_service
   kind: function
   file: crates/bupha-systemd/src/lib.rs
-  line: 152
+  line: 154
   module: bupha-systemd
 - name: drop
   kind: function
@@ -55,12 +55,12 @@ api:
 - name: enable
   kind: function
   file: crates/bupha-systemd/src/lib.rs
-  line: 195
+  line: 197
   module: bupha-systemd
 - name: enable_service
   kind: function
   file: crates/bupha-systemd/src/lib.rs
-  line: 59
+  line: 61
   module: bupha-systemd
 - name: enable_stop_restart_status_logs
   kind: function
@@ -80,7 +80,7 @@ api:
 - name: home
   kind: function
   file: crates/bupha-systemd/src/lib.rs
-  line: 10
+  line: 12
   module: bupha-systemd
 - name: missing_tools_report_unknown_and_err
   kind: function
@@ -95,17 +95,17 @@ api:
 - name: restart_service
   kind: function
   file: crates/bupha-systemd/src/lib.rs
-  line: 126
+  line: 128
   module: bupha-systemd
 - name: run
   kind: function
   file: crates/bupha-systemd/src/lib.rs
-  line: 162
+  line: 164
   module: bupha-systemd
 - name: service_logs
   kind: function
   file: crates/bupha-systemd/src/lib.rs
-  line: 133
+  line: 135
   module: bupha-systemd
 - name: skeleton_error_and_disable_error
   kind: function
@@ -115,7 +115,7 @@ api:
 - name: stop_service
   kind: function
   file: crates/bupha-systemd/src/lib.rs
-  line: 102
+  line: 104
   module: bupha-systemd
 - name: stub
   kind: function
@@ -125,17 +125,17 @@ api:
 - name: unit_status
   kind: function
   file: crates/bupha-systemd/src/lib.rs
-  line: 109
+  line: 111
   module: bupha-systemd
 - name: write
   kind: function
   file: crates/bupha-systemd/src/lib.rs
-  line: 186
+  line: 188
   module: bupha-systemd
 - name: write_env_skeleton
   kind: function
   file: crates/bupha-systemd/src/lib.rs
-  line: 67
+  line: 69
   module: bupha-systemd
 - name: write_produces_unit
   kind: function
@@ -145,7 +145,7 @@ api:
 - name: write_service_unit
   kind: function
   file: crates/bupha-systemd/src/lib.rs
-  line: 19
+  line: 21
   module: bupha-systemd
 - name: write_unit_and_skeleton_write_errors
   kind: function
@@ -170,9 +170,9 @@ provenance:
   - crates/bupha-systemd/tests/unit.rs
   hashes:
   - 90afffb3e13a350613d0fa7bada6420d14581028
-  - d52e184edfe04df9b634fa4cfc7333caa5f7538a
+  - 6a3e0d93652651273b7f4ee12910b0c1cace78f1
   - 632dc76537fda48700e76783ad6dafdc21d9e610
   - c7d21f760ed85484aeb0b225873939c9cb846edc
-  commit_sha: 804e98a4c3563e04363c85c0957e703865ff33bb
-  generated_at: '1794198342'
+  commit_sha: aa68d7e5d8324589f2e1ce8ddc3b2b7204fa46ac
+  generated_at: '1794357802'
   generator: kuda-template/0.1.2

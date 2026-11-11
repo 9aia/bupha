@@ -94,8 +94,11 @@ rejected with `queue = "all"`).
 ## Secrets
 
 Config holds env-var **names** only (`secret_env`, `token_env`).
-Values resolve: process env → OS keyring (`secret-tool`) →
-`~/.config/bupha/env` (seeded by `bupha deploy env`). Never a
+Values resolve: process env → **cuora** (`cuora://bupha/<NAME>`
+via the `cuora` CLI — canonical, T-056) → OS keyring
+(`secret-tool`) → `~/.config/bupha/env` (legacy fallback, seeded
+by the dev CLI's `bupha deploy env`). Seed values with
+`printf '%s' "$VALUE" | cuora put cuora://bupha/<NAME>`. Never a
 secret value in `bupha.toml` — it's committed or shared.
 
 ## Statuses
@@ -111,4 +114,4 @@ Under `[worktree].base`: `history.jsonl` (one JSON result per
 finished run — `runs`/`log`/`explain` read it), `queue.redb`
 (persistent queue across restarts), `<base>-<repo>[-<job>]-<sha12>`
 detached worktrees (removed after the run; a leftover = died
-mid-flight). `bupha destroy worktrees` cleans them.
+mid-flight). The dev CLI's `bupha destroy worktrees` cleans them.

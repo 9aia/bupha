@@ -7,11 +7,14 @@ Do not open public issues for security reports.
 
 ## Scope
 
-- `bupha watch` binds a webhook listener — HMAC verification of
+- The watcher engine (run by `tamias-driver-bupha host` under
+  tamias units, or `bupha watch` in standalone/dev mode — ADR-0007)
+  binds a webhook listener — HMAC verification of
   `X-Hub-Signature-256` is mandatory; requests are capped at 2 MiB and
   unauthenticated payloads never reach the runner.
 - Secrets (`BUPHA_WEBHOOK_SECRET`, `BUPHA_TOKEN`) resolve via env var
-  → OS keyring (`secret-tool`) → `~/.config/bupha/env` (chmod 600);
+  → cuora (`cuora://bupha/<NAME>`, canonical per T-056) → OS keyring
+  (`secret-tool`) → `~/.config/bupha/env` (chmod 600, legacy);
   values never appear in config files and are passed to runners only
   via the runner's own documented mechanism (`env://` for dagger).
 - The tunnel is a child process under supervision; failures are

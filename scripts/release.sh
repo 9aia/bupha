@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
-# Triggered by bupha watch on pushes to 9aia/bupha (script runner).
+# Triggered by the bupha watcher on pushes to 9aia/bupha (script
+# runner — the engine host, `tamias-driver-bupha host` in deployed
+# units or `bupha watch` standalone).
 # The leading sleep is the debounce window: a newer push kills this
 # run via cancel_running, so only the last push in a quiet window
 # releases. Runs inside a detached worktree — commits/tags are pushed
