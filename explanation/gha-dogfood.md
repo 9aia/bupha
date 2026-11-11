@@ -44,7 +44,7 @@ Every real workflow hit the same wall, in roughly this order:
 | step `continue-on-error` | anyhow L49; serde L29 | hard error `unsupported key 'continue-on-error'` |
 | `uses:` ≠ `actions/checkout` | `dtolnay/rust-toolchain` (everywhere), `dtolnay/install`, `actions/upload-artifact`, `docker/setup-docker-action`, `actions/cache`, `actions/setup-node`, `docker://pandoc/…` | hard error `unsupported 'uses: …'` |
 | `strategy.matrix.include` | ripgrep L53–117, mdBook main.yml | `expected a scalar, got mapping` |
-| complex `${{ }}` expressions | serde L58 job name (`matrix.os == 'windows' && … \|\| ''`), ripgrep `startsWith(...)`, `hashFiles(...)`, `steps.*.outputs.*` | hard error `unsupported expression` |
+| complex `${{ }}` expressions | serde L58 job name (`matrix.os == 'windows' && … \|\| ''`), ripgrep `startsWith(...)`, `hashFiles(...)`, `steps.*.outputs.*` | hard error `unsupported expression` — *`steps.*.outputs.*`/`needs.*.outputs.*` since wired (T-069); the rest still error* |
 | `env:` null values | ripgrep L40–42 (`TARGET_FLAGS:` empty) | **was a bug — fixed** (null now coerces to `""`) |
 | step `with:` on any `uses:` | ripgrep L133–135, L249–257 | **was a bug — fixed** (`with` was missing from the step key allowlist; `actions/checkout` `with:` inputs now accepted, `with.path` still errors, `with` on `run:` errors) |
 | job `name:` `${{ }}` | serde L41,58,82; anyhow L20,53 | **was a bug — fixed** (names are now interpolated; unsupported expressions in names now error loudly instead of passing through verbatim) |
@@ -75,11 +75,26 @@ filters) passes **fully green**, including correct skip of a
 
 ## Semantic gaps vs GitHub Actions
 
+> **Update (T-048).** Several gaps below closed since this report:
+> `if:` (job+step) now parses a real expression subset — literals,
+> `==`/`!=`/`&&`/`||`/`!`/parens, `contains`/`startsWith`/`endsWith`,
+> `success()`/`failure()`/`cancelled()`/`always()`, plus
+> `needs.*.result`/`steps.*.conclusion` — with the implicit
+> `success() &&` wrap; `timeout-minutes` is enforced (GNU `timeout`
+> per step, process-group watchdog per job); `strategy.fail-fast`
+> cancels remaining matrix legs and `max-parallel` is parsed (still
+> sequential); `dtolnay/rust-toolchain` lowers to rustup calls;
+> `paths` filters now infer the push's `before` sha from
+> remote-tracking refs/reflogs/merge-base instead of diffing only
+> `HEAD^..HEAD`. The bullets below are annotated where they changed.
+
 - **`$GITHUB_ENV` / `$GITHUB_OUTPUT` / `$GITHUB_PATH` /
   `$RUNNER_TEMP` are unset.** `run: echo X=1 >> $GITHUB_ENV` fails
   with `ambiguous redirect`. This is the biggest functional gap —
   ripgrep's cross-install step and anyhow's nightly RUSTFLAGS
   steps depend on it. Filed as **T-060** (linked to T-048).
+  *(Superseded: these are now wired — see the crate README; the
+  dogfood run predates T-060's landing.)*
 - **`runs-on` is advisory.** `windows-latest`/`macos-latest` jobs
   execute locally on the watcher's Linux box — serde's `windows`
   job would "pass" having never run Windows. No platform guard or
@@ -87,21 +102,28 @@ filters) passes **fully green**, including correct skip of a
 - **Matrix is sequential** (documented): GHA runs combos in
   parallel; bupha runs them in order. ripgrep's 17-combo
   `include` matrix isn't even expressible (`include`/`exclude`
-  unsupported) — cartesian list-form only.
-- **No `if:` anywhere** — job and step conditions hard-error.
-  This is the single most common GHA construct; until it lands,
-  nearly every real workflow needs manual porting.
-- **Third-party actions are the hard wall.** `actions/setup-*`,
-  `dtolnay/rust-toolchain`, `actions/cache`,
-  `actions/upload-artifact`, `docker://…` all error. Toolchain
-  setup is the first thing every Rust CI does — `gha` v1 only
-  helps workflows that are already pure `run:` + `checkout`.
-- **Expression language is dotted-paths only.** No `==`, `&&`,
-  `||`, ternary, `startsWith`, `hashFiles`, `format`, no
-  `needs.*`/`steps.*`/`runner.*`/`strategy.*` contexts.
+  unsupported) — cartesian list-form only. `max-parallel` is
+  parsed and logged but not enforced (T-048).
+- **`if:` supported subset only.** The common constructs now work
+  (see update note), but the full expression language —
+  `hashFiles`, `fromJSON`, `format`, ternary, `runner.*`,
+  `strategy.*`, `steps.*.outcome` — still hard-errors loudly.
+- **Third-party actions are still mostly the hard wall.**
+  `actions/setup-*`, `actions/cache`, `actions/upload-artifact`,
+  `docker://…`, reusable-workflow `uses:` all error;
+  `dtolnay/rust-toolchain` is the one mapped action (T-048).
+  Toolchain setup beyond rustup still needs manual porting.
+- **Expression language grew but stays a subset.** `==`, `!=`,
+  `&&`, `||`, `!`, parens, `contains`/`startsWith`/`endsWith`,
+  status functions and the `needs.*.result`/`steps.*.conclusion`
+  refs now work in `if:` and `${{ }}` (T-048); no ternary,
+  `hashFiles`, `format`, `fromJSON`, or object/array contexts.
 - **Reusable workflows** (`jobs.<id>.uses:`) unsupported.
-- **`paths` filters diff `HEAD^..HEAD`** — tip commit only;
-  multi-commit pushes undercount (documented boundary).
+- **`paths` filters infer `before`** (T-048): remote-tracking
+  ref → reflog → local branch → merge-base, falling back to the
+  tip commit. Multi-commit pushes are covered when the repo still
+  has a ref pointing at the push's base; a `before` the clone
+  never saw still undercounts (documented boundary).
 - **`actions/checkout` ignores `with.ref`/`fetch-depth`** — it is
   a verification no-op; the worktree is already at the pushed sha.
   `with.path` errors.
@@ -109,8 +131,12 @@ filters) passes **fully green**, including correct skip of a
   even when its `on.push` filters wouldn't match — a broken
   non-matching workflow still fails the spawn (loud by design,
   differs from GHA which wouldn't evaluate it at all).
-- **No timeouts, services, containers, concurrency, outputs** —
-  all hard errors (documented subset boundary).
+- **Timeouts landed; services/containers/concurrency didn't** —
+  `timeout-minutes` is enforced at job (watchdog) and step
+  (`timeout`) level (T-048); `services:`, `container:`,
+  `concurrency:`, `continue-on-error:` remain hard errors.
+  Job/step `outputs:` and the `steps.*`/`needs.*` refs are
+  supported since T-069.
 
 ## Bugs found & fixed in this dogfood
 
