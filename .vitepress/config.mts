@@ -53,6 +53,7 @@ export default defineConfig({
         items: [
           { text: "Architecture", link: "/explanation/architecture" },
           { text: "Release model", link: "/explanation/release-model" },
+          { text: "Crate scope audit", link: "/explanation/crate-scope-audit" },
           { text: "vs hosted CI", link: "/comparison" },
         ],
       },
