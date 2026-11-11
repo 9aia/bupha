@@ -1,18 +1,28 @@
 # Distributed runners
 
-One `bupha watch` runs CI on one box. The fleet model adds three
+One watcher process runs CI on one box — deployed as a tamias
+bundle, the provider unit execs `tamias-driver-bupha host`, which
+runs this same engine in-process. The fleet model adds three
 pieces — all optional, and single-box behavior is unchanged when
 they're absent:
 
 - a **shared pull queue** (`[queue] kind = "redis"`) that N watchers
-  enqueue into and M `bupha worker` boxes claim from;
+  enqueue into and M worker boxes claim from;
 - **`bupha worker`** — a puller that runs jobs without listening for
-  webhooks;
+  webhooks (a dev-CLI daemon today; there is no driver verb for it
+  yet — see the note below);
 
 Config snippets below are TOML; `bupha.yaml`/`bupha.yml` is preferred
 and works identically (see [config reference](../reference/config.md)).
 - **`bupha agent`** + `kind = "http"` runner — a remote executor for
   boxes that can't pull (or that you drive explicitly).
+
+> **Surface note (ADR-0006).** The `bupha` verbs below
+> (`worker`/`agent`/`deploy service --worker`) are the **dev
+> harness** — the product path for single-box fleets is the tamias
+> bundle + driver `host` verb. Fleet worker/agent daemons have no
+> `tamias-driver-bupha` verb yet; run them standalone or wrap them
+> in your own units until one lands.
 
 ## Shared queue + workers
 
@@ -70,6 +80,7 @@ same-push multi-arch *matrix* (one sha -> N parallel arch runs) is
 future work.
 
 ```bash
+# dev CLI only — no driver verb for worker units yet
 bupha deploy service --worker   # writes bupha-worker.service
 bupha service --worker enable
 ```

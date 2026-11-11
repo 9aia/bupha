@@ -58,17 +58,25 @@ kind = "shell"
 cmd = "bash scripts/deploy-docs.sh"
 ```
 
-`bupha runs org/app` lists `org/app:gate` and `org/app:docs`
-records; `bupha runs org/app:gate` filters to the one job.
+`bupha runs org/app` (dev CLI) lists `org/app:gate` and
+`org/app:docs` records; `bupha runs org/app:gate` filters to the
+one job. On a deployed bundle the same data comes from the
+driver's `bupha:runs` pavo view (`repo` param matches
+`owner/name` and `owner/name:job` keys).
 
 `secret_env` names an env var (resolved like `trigger.secret_env` —
-env → keyring → `~/.config/bupha/env`), never the value. Each repo's
+env → cuora → keyring → `~/.config/bupha/env`, env file legacy),
+never the value. Each repo's
 hook can then be managed and rotated independently: the watcher
 resolves the target repo before verifying, so a push signed with one
 repo's secret fails for every other repo — knowing the global secret
 (or another team's) doesn't let a hook admin cross-forge. Repos
 without `secret_env` share the global.
 
-Run `bupha deploy webhook` once — it registers the hook on every
-watched repo, each with its own secret. `status_repo` on an entry
-redirects statuses (e.g. mirror repos); it defaults to `name`.
+Standalone/dev: run `bupha deploy webhook` once — it registers
+the hook on every watched repo, each with its own secret.
+Bundle path: `tamias driver exec <bundle> hooks register` does
+the same from `provider.ingress[].hooks[]` — **standalone/dev
+ingress** per ADR-0007 (production ingress is a peregrin
+campaign). `status_repo` on an entry redirects statuses (e.g.
+mirror repos); it defaults to `name`.

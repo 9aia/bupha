@@ -71,8 +71,9 @@ What changes:
   `ci/bupha/<job>` status context).
 - **Statuses are bupha's.** One commit status per repo/job under
   `ci/bupha` (or your `[status].context`), not per gha job.
-- **Secrets** resolve the bupha way — env-var names → OS keyring →
-  `~/.config/bupha/env`; `secrets:` context is unsupported, so
+- **Secrets** resolve the bupha way — env-var names → cuora
+  (`cuora://bupha/<NAME>`, canonical) → OS keyring →
+  `~/.config/bupha/env` (legacy); `secrets:` context is unsupported, so
   reference <code v-pre>${{ env.NAME }}</code> or plain `$NAME` in
   `run:` steps.
 - **PRs are opt-in, and reuse `on.push` shapes.** The dialect

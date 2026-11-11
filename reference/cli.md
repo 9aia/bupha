@@ -1,5 +1,17 @@
 # Command-Line Help for `bupha`
 
+> **Dev/debug harness — not the product surface** (ADR-0006
+> amendment). There is no user-facing `bupha` CLI: fleets install
+> and run through tamias (`tamias install`/`deploy`,
+> `tamias driver exec <bundle> host|health|status|logs|hooks` —
+> see [how-to/tamias-bundles](../how-to/tamias-bundles.md)). The
+> verbs below exist for local reproduction (`run`, `runs`,
+> `explain`, `log`), box checks (`doctor`), standalone/dev-mode
+> operation (`watch`, `worker`, `agent`, `deploy`/`destroy`/
+> `service`), and migration (`import`). Webhook ingress here is
+> the ADR-0007 standalone fallback — production ingress is a
+> peregrin campaign listener.
+
 This document contains the help content for the `bupha` command-line program.
 
 **Command Overview:**

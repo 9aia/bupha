@@ -22,13 +22,22 @@ Two files make a bundle:
   blocks. `tamias-driver-bupha deploy` merges the manifest-owned
   fields (`tunnel.public_url`, `trigger.listen`,
   `trigger.kind`) into it and writes
-  `~/.config/bupha/bundles/<name>.toml` — the config
-  `bupha watch --config` actually runs.
+  `~/.config/bupha/bundles/<name>.toml` — the config the provider
+  unit's `tamias-driver-bupha host --config` actually runs.
 
 Secrets are env-var **names** everywhere (`secret_env`,
-`token_env`); values resolve env → OS keyring →
-`~/.config/bupha/env` (the unit's `EnvironmentFile`). Never a
-value in either file.
+`token_env`); values resolve env → **cuora**
+(`cuora://bupha/<NAME>` via the `cuora` CLI — canonical, T-056) →
+OS keyring → `~/.config/bupha/env` (the unit's `EnvironmentFile`,
+legacy fallback). Seed with `printf '%s' "$VALUE" | cuora put
+cuora://bupha/<NAME>`. Never a value in either file.
+
+> **Ingress note (ADR-0007).** The `provider.ingress` block +
+> `hooks register` wire the bupha webhook listener — the
+> **standalone/dev** ingress for deployments with no peregrin.
+> Production webhook/forge ingress is a peregrin campaign
+> listener that normalizes deliveries through bupha's `Trigger`
+> semantics and enqueues `ci-job` via `ci.enqueue`.
 
 ## Install → deploy → hooks
 
@@ -64,22 +73,24 @@ or in `$TAMIAS_HOME/drivers/`.
    (`shell` + `cmd`, `gha` + `workflow`, `dagger`, …), and
    `[status].context` for the commit-status label.
 3. Edit `tamias.yaml`: `provider.services[]` exec should be
-   `bupha watch --config ~/.config/bupha/bundles/<name>.toml`;
+   `tamias-driver-bupha host --config ~/.config/bupha/bundles/<name>.toml`
+   (the driver binary from `$TAMIAS_HOME/drivers/` or `PATH` — the
+   `host` verb runs the watcher engine in-process);
    pick a **unique service name** — the unit is
    `<provider.name>-<service>`, and two bundles sharing
    `bupha-watch.service` would overwrite each other (ci-gate owns
    `watch`, docs-deploy owns `watch-docs`). Give `ingress[]` a
    distinct `listen` port and `public_url`, and one `hooks[]`
    entry per `[[repo]]`.
-4. `bupha runs --config fleet.toml` smoke-checks the payload
-   parses as a `Config` before you publish.
+4. `bupha runs --config fleet.toml` (dev CLI) smoke-checks the
+   payload parses as a `Config` before you publish.
 
 Two watchers can watch the same repo: GitHub delivers every push
 to both hook URLs and each fleet's `branch` filter keeps only its
 own refs — `main` for the gate, `docs` for deploys. Overlap costs
 a filtered delivery, not a double run.
 
-Coming from a peregrin campaign instead? `bupha import
-<campaign.yaml>` translates the github-webhook + git-job +
-github-status shape into a `bupha.yaml` fleet config — a
-head start for the `fleet.toml` inside step 2.
+Coming from a peregrin campaign instead? The dev CLI's
+`bupha import <campaign.yaml>` translates the github-webhook +
+git-job + github-status shape into a `bupha.yaml` fleet config —
+a head start for the `fleet.toml` inside step 2.

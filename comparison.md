@@ -12,7 +12,7 @@ not a GHA replacement at fleet scale.
 | secrets      | never leave the machine                         | hosted on GitHub                  |
 | cache        | your backend — local disk or your S3/R2/minio   | hosted cache                      |
 | pipeline def | your runner — `ci.sh`, dagger module, or a supported subset of `.github/workflows` YAML (`runner.kind = "gha"`) | YAML DSL + marketplace actions    |
-| local == CI  | `bupha run` is literally the same path          | `act` approximates                |
+| local == CI  | dev CLI `bupha run` is literally the same path   | `act` approximates                |
 | batching     | supersede built-in, honest "cancelled" statuses | `concurrency` groups              |
 | scale        | one worker, serialized runs                     | matrix/fleet                      |
 | cost         | your box only                                   | minutes billing                   |

@@ -1,11 +1,21 @@
 # Architecture
 
+> **Binary surface (ADR-0006 amendment).** bupha's shipped surface
+> is the engine library plus `tamias-driver-bupha` — tamias
+> bundles (`type: bupha`) deploy provider units that exec the
+> driver's `host` verb, which runs the watcher engine
+> (`bupha-watch`) in-process. The `bupha` CLI binary is a
+> dev/debug harness (`run`/`doctor`/`import`/`watch`); production
+> webhook ingress is a peregrin campaign (ADR-0007), with the
+> bupha webhook listener as the standalone/dev fallback.
+
 bupha is a port/adapter monorepo: every external concern sits
 behind a trait (a _port_), and each integration is a crate that
 implements it (an _impl_). `bupha-core` is the pure domain — config
 shape, queue semantics, shared primitives — and depends on nothing
-outside itself; the binary is a thin composition root that wires
-impls to ports.
+outside itself; `bupha-cli` is the dev-harness composition root
+that wires impls to ports (the deployed composition is
+`tamias-driver-bupha` + tamias provider units).
 
 ## Crate map
 
@@ -61,7 +71,8 @@ impls to ports.
 <!-- /gen:crate-map -->
 
 `modules/dagger/` (Python SDK) is the shared pipeline module
-`bupha init` installs into consumer repos — pinned to a sha.
+the dev CLI's `bupha init` installs into consumer repos — pinned
+to a sha.
 
 ## Sources — the ingest edge
 
@@ -69,8 +80,9 @@ bupha is a queue engine: `source → queue → effect`. Everything
 in front of the queue is a `Source` — a long-running ingest that
 emits normalized `(repo, ref, sha, sender)` pushes; everything
 behind it (queues, runner, status sinks) is source-agnostic. A
-`bupha watch` process runs every configured source and feeds one
-shared ingest path.
+watcher process — `tamias-driver-bupha host` in deployed units,
+`bupha watch` in the dev harness — runs every configured source
+and feeds one shared ingest path.
 
 | source            | config                                   | emits on                        |
 | ----------------- | ---------------------------------------- | ------------------------------- |
@@ -154,7 +166,8 @@ the queue moving.
   value touches paths or status URLs
 - webhook takeover is exact-URL only; hook API calls are timed out
 - config names secrets (`secret_env`/`token_env`) — values resolve
-  env → OS keyring → `~/.config/bupha/env` (0600); the runner gets
+  env → cuora (`cuora://bupha/<NAME>`, canonical, T-056) → OS
+  keyring → `~/.config/bupha/env` (0600, legacy); the runner gets
   the token through its own mechanism (`env://` for dagger)
 
 ## Extending

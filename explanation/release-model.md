@@ -1,11 +1,14 @@
 # The release model
 
 bupha releases itself — there is no hosted CI and no release tool
-in the loop. Two deliberate phases:
+in the loop. (The release verbs live on the dev CLI — `bupha
+deploy release`, `scripts/release.sh` — maintainer tooling, not
+user surface; ADR-0006.) Two deliberate phases:
 
 ## Phase 1 — the explicit seed
 
-`bupha deploy release` runs once, by hand: it reads cargo metadata,
+The dev CLI's `bupha deploy release` runs once, by hand: it reads
+cargo metadata,
 topologically orders the workspace's path-dependency graph,
 `cargo publish`es every member, tags `{repo}-v{version}`, and pushes
 the tag.
