@@ -9,3 +9,4 @@
 - T-057 docs/README/skill sweep — drop bupha CLI story (watch/deploy/run/doctor/import) per ADR-0006 amendment · pri:high · created:2026-11-10
 - T-062 tamias-driver-bupha worker verb — entity-index claim loop replacing WorkQueue (P-002 §4.1): list ci-job entities via hypha-node-api HttpEntityApi, ci.claim/renew/complete; unblocks T-052 worker host side · pri:high · created:2026-11-11 · links:T-049,T-052,P-002
 - T-050 gha-runner: bupha as GitHub self-hosted runner — speak actions/runner broker protocol so repos can runs-on: \[self-hosted, bupha\]; name reserved by T-054 — dialect keeps runner.kind=gha (ADR-0006 bidirectional gha) · created:2026-11-10
+- T-061 peregrin-node: register CiJobPlane behind optional bupha feature (P-002 §4.2) — state.kinds.register(Arc::new(CiJobPlane::new().with\_labels(...))) next to CampaignEntityPlane; or stand up bupha-node dev binary composing hypha-node + plane · pri:high · created:2026-11-11 · links:T-049,T-058,P-002
