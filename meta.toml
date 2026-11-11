@@ -1,7 +1,7 @@
 name = "bupha"
 
 [next]
-t = 60
+t = 61
 i = 13
 p = 3
 adr = 8
