@@ -5,7 +5,7 @@
   "scripts": {
     "docs:dev": "bun run docs:gen && vitepress dev",
     "docs:gen": "bun run docs:cli && bun run docs:config && bun run docs:crates",
-    "docs:cli": "cd .. && cargo run -q -p bupha -- gen-cli-docs > docs/reference/cli.md",
+    "docs:cli": "cd .. && cargo run -q -p bupha-driver -- run gen-cli-docs > docs/reference/cli.md",
     "docs:config": "python3 gen-config-docs.py",
     "docs:crates": "python3 gen-crate-map.py",
     "docs:build": "bun run docs:gen && vitepress build",

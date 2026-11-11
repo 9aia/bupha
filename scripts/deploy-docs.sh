@@ -25,10 +25,13 @@ export CARGO_TARGET_DIR="${CARGO_TARGET_DIR:-$REPO/target/gate}"
 echo "==> bun install"
 bun install
 
-BUPHA_BIN="$(command -v bupha || true)"
-BUPHA_BIN="${BUPHA_BIN:-$HOME/.cargo/bin/bupha}"
-echo "==> reference/cli.md ($BUPHA_BIN gen-cli-docs)"
-"$BUPHA_BIN" gen-cli-docs > reference/cli.md
+# gen-cli-docs rides the engine through the driver — the `bupha`
+# binary is retired (T-012); `tamias-driver-bupha run` is the same
+# `bupha::run_from` entrypoint the bins[] shim uses.
+BUPHA_BIN="$(command -v tamias-driver-bupha || true)"
+BUPHA_BIN="${BUPHA_BIN:-$HOME/.local/share/tamias/drivers/tamias-driver-bupha}"
+echo "==> reference/cli.md ($BUPHA_BIN run gen-cli-docs)"
+"$BUPHA_BIN" run gen-cli-docs > reference/cli.md
 
 echo "==> gen config + crate map (BUPHA_ROOT=$REPO)"
 python3 gen-config-docs.py

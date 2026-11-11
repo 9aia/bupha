@@ -1,11 +1,12 @@
 # Getting started
 
-bupha ships as tamias `type: bupha` bundles — there is no
-user-facing `bupha` CLI (ADR-0006 amendment). The product surface
-is `tamias install`/`deploy` plus `tamias driver exec <bundle>
-health|status|logs|hooks`; the watcher engine runs inside the
-provider unit via `tamias-driver-bupha host`. The `bupha` binary
-is a dev/debug harness only.
+bupha ships as tamias packages — the fleet bundles are `type:
+bupha` content packs and the `bupha` command itself is a `bins[]`
+shim pack (`libraries/bupha` → `tamias-driver-bupha cli` → the
+engine lib; there is no cargo-installed binary, T-012). The
+product surface is `tamias install`/`deploy` plus `tamias driver
+exec <bundle> health|status|logs|hooks`; the watcher engine runs
+inside the provider unit via `tamias-driver-bupha host`.
 
 Pick by what you need to do.
 

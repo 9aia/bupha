@@ -2,8 +2,9 @@
 
 Goal: push-triggered CI on a repo, end to end, in ~10 minutes.
 
-bupha ships as a tamias `type: bupha` bundle — there is no
-user-facing `bupha` CLI (ADR-0006 amendment). You install the
+bupha ships as tamias packages — the fleet is a `type: bupha`
+bundle and the `bupha` command is a `bins[]` shim pack
+(`libraries/bupha`, ADR-0006 amendment + T-012). You install the
 bundle with tamias, the provider unit runs the watcher engine
 through `tamias-driver-bupha host`, and GitHub pushes flow
 webhook → queue → worktree → pipeline → commit status.
@@ -68,8 +69,9 @@ Done. Logs: `journalctl --user -u bupha-watch -f` (or
 ## Local reproduction (dev harness)
 
 To reproduce a red run without touching the deployment, use the
-dev CLI — `cargo install --git https://github.com/9aia/bupha
-bupha`, then in the repo: `bupha doctor` checks the box against a
+dev CLI — install the command pack (`scripts/pack.sh` then
+`tamias install --allow-drivers ./libraries/bupha` from this
+repo), then in the repo: `bupha doctor` checks the box against a
 config, `bupha run` executes the configured runner in the watched
 `dir` — the same pipeline, locally. `bupha watch` runs the whole
 engine standalone (no tamias, no peregrin) — the ADR-0007
