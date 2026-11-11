@@ -2,6 +2,11 @@ name: bupha-vcs
 path: crates/bupha-vcs/Cargo.toml
 purpose: 'Vcs port: VCS operations for repos and worktrees'
 api:
+- name: Vcs
+  kind: trait
+  file: crates/bupha-vcs/src/lib.rs
+  line: 9
+  module: bupha-vcs
 - name: bupha-vcs
   kind: module
   file: crates/bupha-vcs/Cargo.toml
@@ -19,6 +24,6 @@ provenance:
   hashes:
   - 634f96eb54a20f970a3488c4356ca2c51ffefa70
   - 3413f97a538109bac5e1a098bd221afebea34f28
-  commit_sha: 2a6dcebac3778d8c539075212ef7514729e6a60a
-  generated_at: '1793687787'
+  commit_sha: bded75ecc051d0d5dbf73a4d86f733ab028d2e1f
+  generated_at: '1794366338'
   generator: kuda-template/0.1.2

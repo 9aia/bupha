@@ -2,6 +2,11 @@ name: bupha-status
 path: crates/bupha-status/Cargo.toml
 purpose: 'StatusSink port: where run outcomes are reported'
 api:
+- name: StatusSink
+  kind: trait
+  file: crates/bupha-status/src/lib.rs
+  line: 7
+  module: bupha-status
 - name: bupha-status
   kind: module
   file: crates/bupha-status/Cargo.toml
@@ -19,6 +24,6 @@ provenance:
   hashes:
   - 72d19ee54274002b46b4eb143502f0a422bc6b9b
   - 85154a18e12e769fb604220c1106b94633c3ee2a
-  commit_sha: 2a6dcebac3778d8c539075212ef7514729e6a60a
-  generated_at: '1793687787'
+  commit_sha: bded75ecc051d0d5dbf73a4d86f733ab028d2e1f
+  generated_at: '1794366338'
   generator: kuda-template/0.1.2

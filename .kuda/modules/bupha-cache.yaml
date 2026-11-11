@@ -2,6 +2,11 @@ name: bupha-cache
 path: crates/bupha-cache/Cargo.toml
 purpose: 'Cache port: artifact-cache backend for runners'
 api:
+- name: Cache
+  kind: trait
+  file: crates/bupha-cache/src/lib.rs
+  line: 6
+  module: bupha-cache
 - name: bupha-cache
   kind: module
   file: crates/bupha-cache/Cargo.toml
@@ -19,6 +24,6 @@ provenance:
   hashes:
   - 1e8b72c77e68157b0bceb70cbb4e3ea5c6b4868e
   - 3edf8e04c6077d0facacfc1d57b016b8cb135a1c
-  commit_sha: 2a6dcebac3778d8c539075212ef7514729e6a60a
-  generated_at: '1793687787'
+  commit_sha: bded75ecc051d0d5dbf73a4d86f733ab028d2e1f
+  generated_at: '1794366338'
   generator: kuda-template/0.1.2
