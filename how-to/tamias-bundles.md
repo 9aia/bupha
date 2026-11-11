@@ -19,11 +19,22 @@ Two files make a bundle:
   `tamias provider list`/`tamias run`.
 - **`fleet.toml`** — a *complete* `bupha_core::Config` doc: the
   `[[repo]]` set plus `[runner]`/`[status]`/`[queue]`/`[worktree]`
-  blocks. `tamias-driver-bupha deploy` merges the manifest-owned
-  fields (`tunnel.public_url`, `trigger.listen`,
+  blocks, and optionally `[worker] node`/`node_token_env` for the
+  entity-plane worker. `tamias-driver-bupha deploy` merges the
+  manifest-owned fields (`tunnel.public_url`, `trigger.listen`,
   `trigger.kind`) into it and writes
-  `~/.config/bupha/bundles/<name>.toml` — the config the provider
-  unit's `tamias-driver-bupha host --config` actually runs.
+  `~/.config/bupha/bundles/<name>.toml` — the config BOTH provider
+  verbs consume: `host --config` (the watcher) and
+  `worker --config` (the ci-job consumer).
+
+A bundle declares **two services, one per ingress mode**
+(ADR-0007): `watch`/`watch-docs` runs `tamias-driver-bupha host`
+— the standalone/dev watcher behind `provider.ingress`'s webhook
+listener — and `worker`/`worker-docs` runs
+`tamias-driver-bupha worker` — the substrate/production consumer
+(P-002) that polls `kind="ci-job"` entities on the hypha/peregrin
+node named by `[worker] node`. Enable ONE: both at once would
+fight over the listener port and double-run pushes.
 
 Secrets are env-var **names** everywhere (`secret_env`,
 `token_env`); values resolve env → **cuora**
@@ -37,7 +48,8 @@ cuora://bupha/<NAME>`. Never a value in either file.
 > **standalone/dev** ingress for deployments with no peregrin.
 > Production webhook/forge ingress is a peregrin campaign
 > listener that normalizes deliveries through bupha's `Trigger`
-> semantics and enqueues `ci-job` via `ci.enqueue`.
+> semantics and enqueues `ci-job` via `ci.enqueue` — consumed by
+> the bundle's `worker` service, not its `watch` service.
 
 ## Install → deploy → hooks
 
@@ -72,16 +84,22 @@ or in `$TAMIAS_HOME/drivers/`.
    opts into PR deliveries), the `[runner]` your pipelines need
    (`shell` + `cmd`, `gha` + `workflow`, `dagger`, …), and
    `[status].context` for the commit-status label.
-3. Edit `tamias.yaml`: `provider.services[]` exec should be
+3. Edit `tamias.yaml`: `provider.services[]` execs should be
    `tamias-driver-bupha host --config ~/.config/bupha/bundles/<name>.toml`
-   (the driver binary from `$TAMIAS_HOME/drivers/` or `PATH` — the
-   `host` verb runs the watcher engine in-process);
-   pick a **unique service name** — the unit is
+   for the watcher and `tamias-driver-bupha worker --config
+   ~/.config/bupha/bundles/<name>.toml` for the entity-plane
+   consumer (the driver binary from `$TAMIAS_HOME/drivers/` or
+   `PATH` — both verbs run the engine in-process);
+   pick **unique service names** — the unit is
    `<provider.name>-<service>`, and two bundles sharing
-   `bupha-watch.service` would overwrite each other (ci-gate owns
-   `watch`, docs-deploy owns `watch-docs`). Give `ingress[]` a
+   `bupha-watch.service`/`bupha-worker.service` would overwrite
+   each other (ci-gate owns `watch`+`worker`, docs-deploy owns
+   `watch-docs`+`worker-docs`). Give `ingress[]` a
    distinct `listen` port and `public_url`, and one `hooks[]`
-   entry per `[[repo]]`.
+   entry per `[[repo]]`. A substrate-mode bundle still declares
+   `ingress[]` (it's the standalone fallback + the source of
+   `tunnel.public_url`/`trigger.listen` in the generated config)
+   but only enables the worker unit.
 4. `bupha runs --config fleet.toml` (dev CLI) smoke-checks the
    payload parses as a `Config` before you publish.
 
