@@ -6,6 +6,7 @@
 - T-046 gitlab forge impls — bupha-gitlab trigger (webhook HMAC/X-Gitlab-Token, push+merge\_request) + status sink; same Trigger/StatusSink ports as github (PL-013 F1) · created:2026-11-10 · #ci · #gitlab
 - T-047 gitlab-ci runner impl — bupha-runner-gitlabci interpreting .gitlab-ci.yml; same Runner port as gha/shell/dagger; plan.rs core is dialect-agnostic (PL-013 F2) · created:2026-11-10 · #ci · #gitlab
 - T-048 gha runner follow-ups — parallel matrix, actions/setup-\* + other uses:, if: conditions, needs.\*.outputs, per-gha-job commit statuses, timeout-minutes enforcement, multi-commit paths filters (PL-013 D-deferred) · created:2026-11-10 · #ci · #gha
+- T-066 gha-runner live validation — run against a real repo's self-hosted runner (registration token → session → acquirejob → completejob → results service) on github.com; check GHES api-version drift · created:2026-11-11 · links:T-050
 
 ## Migration
 
