@@ -264,7 +264,6 @@ deps:
 - bupha-dagger
 - bupha-dotenv
 - bupha-gha
-- lasius_vcs_git
 - bupha-github
 - bupha-history
 - bupha-keyring
@@ -274,8 +273,9 @@ deps:
 - bupha-telemetry-otel
 - bupha-trigger
 - bupha-tunnel
-- lasius_vcs
 - bupha-webhook
+- lasius_vcs
+- lasius_vcs_git
 notes: ''
 verify:
 - crates/bupha-watch/Cargo.toml
@@ -289,7 +289,7 @@ provenance:
   hashes:
   - cd0626504ee09a80ca50247ea9047be7525928f4
   - 4e941b79e72e2ba31125669995aeb6ab9680ff71
-  - e9fa9817432ac5c80962f1442fcd6452cb25925a
-  commit_sha: b924fd25eb07e8d671eae64ebd740d929762cbc7
-  generated_at: '1794372347'
+  - 5f70d0c99fe6ac53f9e2910fb5db802c5d312b42
+  commit_sha: de1419f620c1c982a4556a697ed928f8b9dd181a
+  generated_at: '1794375270'
   generator: kuda-template/0.1.2

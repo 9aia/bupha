@@ -238,7 +238,6 @@ deps:
 - bupha-config
 - bupha-config-file
 - bupha-core
-- lasius_vcs_git
 - bupha-github
 - bupha-keyring
 - bupha-runner
@@ -246,8 +245,9 @@ deps:
 - bupha-secret-cuora
 - bupha-service
 - bupha-trigger
-- lasius_vcs
 - clap
+- lasius_vcs
+- lasius_vcs_git
 - serde_json
 - asyncio
 - typing
@@ -282,7 +282,7 @@ provenance:
   - 7ca4367a7975593caec1dd6b005893c6ad2cfd60
   - d9ab90efe4d27cced5f2dfcd36c0abd580aef6bd
   - 4102762337a49a25a35bd6da2202b6c0536fe273
-  - 141b4b7628e21a4e97c45ce9ab5023a4ccf929bd
+  - 5594e5f752209bc5a6e868632f0a80da2d00ea2e
   - 42f089e301a1fa37c54fb268bd08a2be38db7e01
   - e6680112289b06ae1e8d8d6659c60f2333c8ca23
   - 16a66bca9a602549e108d45e9d1233dbe2e7e34b
@@ -291,6 +291,6 @@ provenance:
   - 297de02314bb3e68d56e2e8a33bcad4ba6c92465
   - b266b7f034f3d194f5cba16fd2bf6a51886ccf46
   - 509a3147960f3aa59978a55730803da3c2ff0850
-  commit_sha: c7c717d31078804377f809e965a5acde710694c3
-  generated_at: '1794371148'
+  commit_sha: de1419f620c1c982a4556a697ed928f8b9dd181a
+  generated_at: '1794375270'
   generator: kuda-template/0.1.2

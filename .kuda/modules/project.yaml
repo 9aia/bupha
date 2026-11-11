@@ -115,72 +115,72 @@ api:
 - name: T-008
   kind: record
   file: project/BACKLOG.md
-  line: 14
+  line: 13
   module: project
 - name: T-009
   kind: record
   file: project/BACKLOG.md
-  line: 18
+  line: 17
   module: project
 - name: T-010
   kind: record
   file: project/BACKLOG.md
-  line: 19
+  line: 18
   module: project
 - name: T-011
   kind: record
   file: project/BACKLOG.md
-  line: 20
+  line: 19
   module: project
 - name: T-012
   kind: record
   file: project/BACKLOG.md
-  line: 21
+  line: 20
   module: project
 - name: T-013
   kind: record
   file: project/BACKLOG.md
-  line: 22
+  line: 21
   module: project
 - name: T-014
   kind: record
   file: project/BACKLOG.md
-  line: 23
+  line: 22
   module: project
 - name: T-015
   kind: record
   file: project/BACKLOG.md
-  line: 24
+  line: 23
   module: project
 - name: T-016
   kind: record
   file: project/BACKLOG.md
-  line: 25
+  line: 24
   module: project
 - name: T-017
   kind: record
   file: project/BACKLOG.md
-  line: 26
+  line: 25
   module: project
 - name: T-018
   kind: record
   file: project/BACKLOG.md
-  line: 27
+  line: 26
   module: project
 - name: T-019
   kind: record
   file: project/BACKLOG.md
-  line: 31
+  line: 30
   module: project
 - name: T-020
   kind: record
   file: project/BACKLOG.md
-  line: 32
+  line: 31
   module: project
 - name: T-021
   kind: record
   file: project/BACKLOG.md
-  line: 33
+  line: 32
   module: project
 - name: T-027
   kind: record
@@ -202,7 +202,7 @@ api:
   file: project/TODO.md
   line: 4
   module: project
-api_omitted: 44
+api_omitted: 49
 deps: []
 notes: ''
 verify:
@@ -245,6 +245,9 @@ provenance:
   - project/handoffs/T-066.md
   - project/handoffs/T-067.md
   - project/handoffs/T-068.md
+  - project/handoffs/T-069.md
+  - project/handoffs/T-071.md
+  - project/handoffs/T-072.md
   - project/handoffs/archive/T-029.md
   - project/index.md
   - project/issues/issue-0001-ci-jobs-run-in-the-watcher-cgroup-oom-kills-the-watcher-and-re-runs-forever.md
@@ -263,9 +266,9 @@ provenance:
   - project/proposals/proposal-0002-ci-job-ops-contract-bupha-hypha-peregrin-seam.md
   - project/proposals/proposal-0003-bupha-runner-port-is-load-bearing-keep-redundancy-is-queue-store-t-049-and-worktree-plumbing.md
   hashes:
-  - 755d5c381dec69083229644dea28d9726193ad50
-  - b0fdbebf704bb7e4e8a655a6a7557f7b1e86e140
-  - 8c7baee152240fdf8a2726bac46a6119b4c6625e
+  - 0c114ae20a3b247a677807d75548dc3e0d5e0883
+  - 7ae509befa27b3e5fbc9b46b6d6d8e9ab9a9ff79
+  - 225945d822670fbbe1baf227c98b30746e34927c
   - 2369700a1a6e99c56d28b0d38e76ab053b37bd6d
   - c29950d6fd46cd166cee477e9f1bd125ac1b283a
   - 5d22a78ab0e5a33a834acb59d44080bc09bceefd
@@ -288,8 +291,11 @@ provenance:
   - 8beb096a8090242c6736d3abba9882368c110ee2
   - b11dbe5775b6ba867733a191024ef3778500002b
   - 063ca31c199506697495c2e40e908dace00ad912
-  - 733c19131ea5e23fffe5be1ef735bee98e851741
+  - 5c2866d83d667297e17d8afc7b6da965d411a1b2
   - 37d569fa6a63a22d2e230d909da8b3ca5c17a980
+  - 8206059f41cc337b706e7c9ddba64aa890b568b5
+  - 174cdab0c2f9fe7f272bd2fb94a9f69e9e8f4602
+  - d7f877733cb2e87c430de164332c020926bee1ca
   - d3f12670f3e871b0c2a499668a4cd1e3bb3d7815
   - 3091ed43775d9ade33d06ad35e6b788b98afa4d5
   - 52d8d4834c8a14b6d2a45689e9dd401b65bb7c95
@@ -307,6 +313,6 @@ provenance:
   - d7ce1cb6d95ae71a26ec4c6bdabdc5f318d8a21f
   - 64bb8eeec2c83135075727fb9aec32780e212939
   - 47479681f7ca7db300bbd8f998bd0918a4db0010
-  commit_sha: c7c717d31078804377f809e965a5acde710694c3
-  generated_at: '1794371148'
+  commit_sha: de1419f620c1c982a4556a697ed928f8b9dd181a
+  generated_at: '1794375270'
   generator: kuda-template/0.1.2

@@ -18,7 +18,6 @@
 use bupha_config::ConfigSource;
 use bupha_config_file::FileSource;
 use bupha_core::Config;
-use lasius_vcs_git::GitVcs;
 use bupha_github::GitHubAdmin;
 use bupha_keyring::KeyringSecrets;
 use bupha_queue::{JsonQueueStore, QueueStore};
@@ -28,8 +27,9 @@ use bupha_secret_cuora::CuoraSecrets;
 use bupha_service::Service;
 use bupha_systemd as deploy;
 use bupha_trigger::ForgeAdmin;
-use lasius_vcs::Vcs;
 use clap::{Parser, Subcommand};
+use lasius_vcs::Vcs;
+use lasius_vcs_git::GitVcs;
 
 mod campaign_import;
 use std::path::{Path, PathBuf};
