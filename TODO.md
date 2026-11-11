@@ -12,3 +12,4 @@
 - [ ] T-061 peregrin-node: register CiJobPlane behind optional bupha feature (P-002 §4.2) — state.kinds.register(Arc::new(CiJobPlane::new().with\_labels(...))) next to CampaignEntityPlane; or stand up bupha-node dev binary composing hypha-node + plane · pri:high · created:2026-11-11 · links:T-049,T-058,P-002
 - [ ] T-062 tamias-driver-bupha worker verb — entity-index claim loop replacing WorkQueue (P-002 §4.1): list ci-job entities via hypha-node-api HttpEntityApi, ci.claim/renew/complete; unblocks T-052 worker host side · pri:high · created:2026-11-11 · links:T-049,T-052,P-002
 - [ ] T-063 ci-ingress normalization → POST /api/entities (T-058): forge webhook → bupha Trigger Push → ci-job indexDoc create; depends on T-061 plane registration · pri:high · created:2026-11-11 · links:T-049,T-058,P-002
+- [ ] T-064 wire tamias-driver-bupha worker as provider.services\[] entry + \[worker] node/node\_token\_env in fleet.toml (P-002/T-062 follow-up) · created:2026-11-11
