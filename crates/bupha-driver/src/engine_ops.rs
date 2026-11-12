@@ -24,7 +24,7 @@
 //!
 //! `mutates` is honest: bupha mutates CI state — `deploy`/`destroy`/
 //! `service` drive systemd units, forge webhooks, the env file and
-//! crates.io releases; `init` scaffolds repos; `import --out`
+//! release tags; `init` scaffolds repos; `import --out`
 //! writes a config; `run` executes the watched pipeline (worktrees,
 //! runners, status sinks). Read-only ops are `doctor`, `runs`,
 //! `log`, `explain`, `deploy check`, `service status|logs`.
@@ -51,8 +51,8 @@ const SURFACES: &[&str] = &["watch", "agent", "gha-runner"];
 const SKIP_PARAMS: &[&str] = &["follow"];
 
 /// Read-only verbs — everything else writes CI state: systemd
-/// units, forge webhooks, `~/.config/bupha/env`, worktrees,
-/// crates.io releases, or executes the pipeline. Mutators belong
+/// units, forge webhooks, `~/.config/bupha/env`, release tags, or
+/// executes the pipeline. Mutators belong
 /// behind a deliberate trigger, not ambient view polling.
 const READ_ONLY: &[&str] = &[
     "doctor",

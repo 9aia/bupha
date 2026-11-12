@@ -50,7 +50,7 @@ api:
 - name: discovery_source
   kind: function
   file: crates/bupha-config-file/src/lib.rs
-  line: 129
+  line: 127
   module: bupha-config-file
 - name: explicit_path_and_missing_error
   kind: function
@@ -80,12 +80,12 @@ api:
 - name: formats
   kind: function
   file: crates/bupha-config-file/src/lib.rs
-  line: 88
+  line: 86
   module: bupha-config-file
 - name: load
   kind: function
   file: crates/bupha-config-file/src/lib.rs
-  line: 144
+  line: 139
   module: bupha-config-file
 - name: load
   kind: function
@@ -95,7 +95,7 @@ api:
 - name: load_file
   kind: function
   file: crates/bupha-config-file/src/lib.rs
-  line: 112
+  line: 110
   module: bupha-config-file
 - name: loads_via_env_var
   kind: function
@@ -110,7 +110,7 @@ api:
 - name: named_path
   kind: function
   file: crates/bupha-config-file/src/lib.rs
-  line: 96
+  line: 94
   module: bupha-config-file
 - name: parse
   kind: function
@@ -130,7 +130,7 @@ api:
 - name: render
   kind: function
   file: crates/bupha-config-file/src/lib.rs
-  line: 81
+  line: 79
   module: bupha-config-file
 - name: scratch
   kind: function
@@ -171,10 +171,10 @@ provenance:
   - crates/bupha-config-file/tests/search.rs
   hashes:
   - 2554603bfe365d5bcc00501ca7b197239ae7512f
-  - 2dd25e6d452accb10987a7b3ba8b220cdffe3737
+  - 481af19f26aa6cfae19df77dfeda6d1ddb444602
   - 2affba5183bfec8524b622ea94147cf7d2503a79
   - b702f7deb42d5c3656988265442729762e382a79
   - 808579825141d8c833fcf582bc6a4e02d4f142d4
-  commit_sha: 269648ea789e65c140727529d749b9bbf66fdab7
-  generated_at: '1794488903'
+  commit_sha: 11045534cba61bed3e683b87d87c1f30855a5fc6
+  generated_at: '1794502634'
   generator: kuda-template/0.1.4

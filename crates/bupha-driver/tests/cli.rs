@@ -1054,7 +1054,8 @@ fn deploy_release_variants() {
     let t = tmp("rel");
     let bin = t.join("bin");
     std::fs::create_dir_all(&bin).unwrap();
-    // cargo stub: metadata -> fixture; publish -> "Uploaded"
+    // cargo stub: metadata -> fixture. crates.io publish is retired —
+    // release is tag-only, so no publish arm and no registry token.
     let fixture = t.join("meta.json");
     std::fs::write(
         &fixture,
@@ -1064,48 +1065,38 @@ fn deploy_release_variants() {
     ]}"#,
     )
     .unwrap();
-    stub(&bin, "cargo", &format!(
-        "case \"$*\" in\n *metadata*) cat \"{}\";;\n *publish*) echo \"Uploaded a-0.1.0\";;\nesac\nexit 0",
-        fixture.display()
-    ));
+    stub(
+        &bin,
+        "cargo",
+        &format!("cat \"{}\"\nexit 0", fixture.display()),
+    );
     stub(
         &bin,
         "git",
         "case \"$*\" in\n *rev-parse*verify*) exit 1;;\n *) exit 0;;\nesac",
     );
 
-    // dry-run doesn't need the token — but covers order + tag print
     let cwd = t.join("proj");
     std::fs::create_dir_all(&cwd).unwrap();
+
+    // dry-run prints the tag without touching git
     let o = bupha_in(
         &["deploy", "release", "--dry-run"],
         &cwd,
         &[("PATH", stubbed_path(&bin))],
     );
     assert!(o.status.success(), "{}", out_ok(&o));
-    assert!(out_ok(&o).contains("publish order: a -> b"));
-    assert!(out_ok(&o).contains("tag: "));
+    assert!(out_ok(&o).contains("tag: proj-v0.1.0"));
 
-    // real run: publishes (Uploaded) + tags + pushes via stubs
-    let o = bupha_in(
-        &["deploy", "release"],
-        &cwd,
-        &[
-            ("PATH", stubbed_path(&bin)),
-            ("CARGO_REGISTRY_TOKEN", "t".into()),
-        ],
-    );
-    assert!(o.status.success(), "{}", out_ok(&o));
-    assert!(out_ok(&o).contains("published a") && out_ok(&o).contains("released"));
-
-    // token missing -> exit 1
+    // real run: tag + push via stubs — no CARGO_REGISTRY_TOKEN needed
     let o = bupha_in(
         &["deploy", "release"],
         &cwd,
         &[("PATH", stubbed_path(&bin))],
     );
-    assert_eq!(o.status.code(), Some(1));
-    assert!(out_ok(&o).contains("CARGO_REGISTRY_TOKEN"));
+    assert!(o.status.success(), "{}", out_ok(&o));
+    assert!(out_ok(&o).contains("tagged proj-v0.1.0"));
+    assert!(out_ok(&o).contains("tamias publish libraries/bupha"));
 
     // cargo missing -> metadata spawn error
     let empty_bin = t.join("empty-bin");
@@ -1155,87 +1146,34 @@ fn deploy_release_variants() {
     assert_eq!(o.status.code(), Some(1));
     assert!(out_ok(&o).contains("mixed versions"));
 
-    // dep cycle -> publish_order error
-    let bin4 = t.join("bin4");
-    std::fs::create_dir_all(&bin4).unwrap();
-    let fixture4 = t.join("meta4.json");
-    std::fs::write(
-        &fixture4,
-        r#"{"workspace_members":["a","b"],"packages":[
-        {"name":"a","id":"a","version":"0.1.0","dependencies":[{"name":"b","path":"x"}]},
-        {"name":"b","id":"b","version":"0.1.0","dependencies":[{"name":"a","path":"x"}]}
-    ]}"#,
-    )
-    .unwrap();
-    stub(
-        &bin4,
-        "cargo",
-        &format!("cat \"{}\"\nexit 0", fixture4.display()),
-    );
-    let o = bupha_in(
-        &["deploy", "release", "--dry-run"],
-        &cwd,
-        &[("PATH", stubbed_path(&bin4))],
-    );
-    assert_eq!(o.status.code(), Some(1));
-    assert!(out_ok(&o).contains("dependency cycle"));
-
-    // publish fails permanently -> exit 1 (slow: 4x20s retries)
-    let bin5 = t.join("bin5");
-    std::fs::create_dir_all(&bin5).unwrap();
-    stub(&bin5, "cargo", &format!(
-        "case \"$*\" in\n *metadata*) cat \"{}\";;\n *publish*) echo \"error: failed\"; exit 1;;\nesac\nexit 0",
-        fixture.display()
-    ));
-    let o = bupha_in(
-        &["deploy", "release"],
-        &cwd,
-        &[
-            ("PATH", stubbed_path(&bin5)),
-            ("CARGO_REGISTRY_TOKEN", "t".into()),
-        ],
-    );
-    assert_eq!(o.status.code(), Some(1));
-    assert!(out_ok(&o).contains("publish failed"));
-
-    // publish ok but git tag fails
+    // git tag fails -> exit 1
     let bin6 = t.join("bin6");
     std::fs::create_dir_all(&bin6).unwrap();
     stub(
         &bin6,
         "cargo",
-        &format!(
-        "case \"$*\" in\n *metadata*) cat \"{}\";;\n *publish*) echo \"Uploaded\";;\nesac\nexit 0",
-        fixture.display()
-    ),
+        &format!("cat \"{}\"\nexit 0", fixture.display()),
     );
     stub(
         &bin6,
         "git",
-        "case \"$*\" in\n *tag*|*push*) exit 1;;\n *) exit 0;;\nesac",
+        "case \"$*\" in\n *rev-parse*verify*) exit 1;;\n *tag*) exit 1;;\n *) exit 0;;\nesac",
     );
     let o = bupha_in(
         &["deploy", "release"],
         &cwd,
-        &[
-            ("PATH", stubbed_path(&bin6)),
-            ("CARGO_REGISTRY_TOKEN", "t".into()),
-        ],
+        &[("PATH", stubbed_path(&bin6))],
     );
     assert_eq!(o.status.code(), Some(1));
     assert!(out_ok(&o).contains("git tag"));
 
-    // publish ok, tag exists->skip create? cover push_tag fail arm:
-    // rev-parse verify succeeds (tag_exists true) then push fails.
+    // tag exists (rev-parse verify ok) but push fails -> exit 1
     let bin7 = t.join("bin7");
     std::fs::create_dir_all(&bin7).unwrap();
     stub(
         &bin7,
         "cargo",
-        &format!(
-        "case \"$*\" in\n *metadata*) cat \"{}\";;\n *publish*) echo \"Uploaded\";;\nesac\nexit 0",
-        fixture.display()
-    ),
+        &format!("cat \"{}\"\nexit 0", fixture.display()),
     );
     stub(
         &bin7,
@@ -1245,10 +1183,7 @@ fn deploy_release_variants() {
     let o = bupha_in(
         &["deploy", "release"],
         &cwd,
-        &[
-            ("PATH", stubbed_path(&bin7)),
-            ("CARGO_REGISTRY_TOKEN", "t".into()),
-        ],
+        &[("PATH", stubbed_path(&bin7))],
     );
     assert_eq!(o.status.code(), Some(1));
     assert!(out_ok(&o).contains("tag push failed"));

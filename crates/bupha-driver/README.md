@@ -38,8 +38,8 @@ listener), `gha-runner` (the broker poll loop). `service logs
 params so the bounded verb stays an op.
 
 **Mutates** is honest: `deploy.*`/`destroy.*`/`service.*` drive
-systemd units, forge webhooks, `~/.config/bupha/env` and crates.io
-releases; `init`/`import`/`run` write configs or execute the
+systemd units, forge webhooks, `~/.config/bupha/env` and release
+tags; `init`/`import`/`run` write configs or execute the
 pipeline. Read-only ops: `doctor`, `runs`, `log`, `explain`,
 `deploy check`, `service status|logs`. Secrets are env-var NAMES
 only — values resolve inside the child through the canonical chain

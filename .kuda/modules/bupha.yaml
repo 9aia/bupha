@@ -100,12 +100,12 @@ api:
 - name: cmd_deploy_release
   kind: function
   file: crates/bupha-cli/src/lib.rs
-  line: 1076
+  line: 1077
   module: bupha
 - name: cmd_destroy
   kind: function
   file: crates/bupha-cli/src/lib.rs
-  line: 1201
+  line: 1142
   module: bupha
 - name: cmd_doctor
   kind: function
@@ -115,7 +115,7 @@ api:
 - name: cmd_explain
   kind: function
   file: crates/bupha-cli/src/lib.rs
-  line: 1444
+  line: 1385
   module: bupha
 - name: cmd_gha_runner
   kind: function
@@ -135,7 +135,7 @@ api:
 - name: cmd_log
   kind: function
   file: crates/bupha-cli/src/lib.rs
-  line: 1429
+  line: 1370
   module: bupha
 - name: cmd_run
   kind: function
@@ -145,7 +145,7 @@ api:
 - name: cmd_runs
   kind: function
   file: crates/bupha-cli/src/lib.rs
-  line: 1402
+  line: 1343
   module: bupha
 - name: cmd_service
   kind: function
@@ -170,7 +170,7 @@ api:
 - name: deploy_check
   kind: function
   file: crates/bupha-cli/src/lib.rs
-  line: 1292
+  line: 1233
   module: bupha
 - name: dir_override_wins
   kind: function
@@ -269,11 +269,11 @@ provenance:
   - ce6facd74af24f80d4d98cbe2e6b20991bdb9b66
   - 9d06d193d6de734ad28d5a33d2a743a391ec9383
   - 4102762337a49a25a35bd6da2202b6c0536fe273
-  - 4ea6dd8ebc34548796877e33c39c6a0210af644b
+  - d92160000d476a6e875db66eb21360816198a853
   - a787b6af9e98fd8cae6ece92467308d34e49bbce
   - 297de02314bb3e68d56e2e8a33bcad4ba6c92465
   - b266b7f034f3d194f5cba16fd2bf6a51886ccf46
   - 509a3147960f3aa59978a55730803da3c2ff0850
-  commit_sha: 269648ea789e65c140727529d749b9bbf66fdab7
-  generated_at: '1794488903'
+  commit_sha: 11045534cba61bed3e683b87d87c1f30855a5fc6
+  generated_at: '1794502634'
   generator: kuda-template/0.1.4

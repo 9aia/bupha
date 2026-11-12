@@ -114,7 +114,7 @@ permanent).
 | Wire a repo standalone | `bupha init` (stub `ci.sh` / dagger module) · `deploy env` · `deploy service` · `deploy webhook` · `deploy check` |
 | Migrate a peregrin campaign | `bupha import <campaign.yaml> [--out f] [--dir owner/name=path] [--pull-request]` |
 | Unwire standalone | `bupha destroy webhook` · `destroy service` · `destroy worktrees` |
-| Release seed (repo-local, no config) | `bupha deploy release [--dry-run]` — cargo publish + tag (maintainer flow) |
+| Release seed (repo-local, no config) | `bupha deploy release [--dry-run]` — tag `{repo}-v{ver}` + push (crates.io publish retired; ship via `tamias publish libraries/bupha`) |
 | Daemons — standalone/dev | `bupha watch` (sources → queue → runner; same engine `tamias-driver-bupha host` runs) · `agent` (remote-run side of `kind="http"`) · `gha-runner <FILE>` (self-hosted runner, own config) · fleet workers are `tamias-driver-bupha worker` (ci-job entity plane — no dev verb, the redis pull queue is retired) |
 
 ## The daily loop

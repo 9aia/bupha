@@ -164,10 +164,10 @@ enum DeploySub {
     Env,
     /// Verify the whole install: unit, secrets, hook, endpoint, token.
     Check,
-    /// One-time seed: cargo publish in dep order + tag {repo}-v{ver}.
-    /// Explicit — publishing is the irreversible step in the flow.
+    /// Tag the workspace version `{repo}-v{ver}` and push it.
+    /// crates.io publish is retired — releases ride the tamias pack.
     Release {
-        /// Print the publish order and tag without doing anything.
+        /// Print the tag without creating it.
         #[arg(long)]
         dry_run: bool,
     },
@@ -1070,19 +1070,12 @@ fn cmd_deploy(cfg: &Config, sub: &DeploySub, cli_config: Option<String>) {
     }
 }
 
-/// Seed the release flow: publish every workspace member in dep
-/// order, then tag `{repo}-v{version}` and push the tag. Explicit —
-/// this is the only irreversible step in bupha's lifecycle.
+/// Tag the workspace version `{repo}-v{ver}` and push it. crates.io
+/// publish is retired (org policy: only tamias publishes) — user-facing
+/// installs ride the `libraries/bupha` tamias pack, shipped by the
+/// operator via `tamias publish`.
 fn cmd_deploy_release(dry_run: bool) {
     let repo_dir = std::env::current_dir().unwrap_or(PathBuf::from("."));
-    if std::env::var("CARGO_REGISTRY_TOKEN")
-        .unwrap_or_default()
-        .is_empty()
-        && !dry_run
-    {
-        eprintln!("CARGO_REGISTRY_TOKEN required");
-        std::process::exit(1);
-    }
     let out = Command::new("cargo")
         .args(["metadata", "--format-version", "1", "--no-deps"])
         .current_dir(&repo_dir)
@@ -1108,27 +1101,6 @@ fn cmd_deploy_release(dry_run: bool) {
         .iter()
         .filter(|p| member_ids.contains(p["id"].as_str().unwrap_or("")))
         .collect();
-    let members: Vec<String> = pkgs
-        .iter()
-        .filter_map(|p| p["name"].as_str().map(String::from))
-        .collect();
-    let deps: Vec<(String, String)> = pkgs
-        .iter()
-        .flat_map(|p| {
-            let a = p["name"].as_str().unwrap_or("").to_string();
-            p["dependencies"]
-                .as_array()
-                .unwrap_or(&empty)
-                .iter()
-                .filter(|d| d["path"].is_string())
-                .filter_map(|d| d["name"].as_str().map(|n| (a.clone(), n.to_string())))
-                .collect::<Vec<_>>()
-        })
-        .collect();
-    let order = bupha_core::publish_order(&members, &deps).unwrap_or_else(|e| {
-        eprintln!("{e}");
-        std::process::exit(1)
-    });
     let versions: std::collections::HashSet<String> = pkgs
         .iter()
         .filter_map(|p| p["version"].as_str().map(String::from))
@@ -1149,39 +1121,8 @@ fn cmd_deploy_release(dry_run: bool) {
             .unwrap_or("release".into())
     );
     if dry_run {
-        println!("publish order: {}", order.join(" -> "));
         println!("tag: {tag}");
         return;
-    }
-    for name in &order {
-        let mut ok = false;
-        for _ in 0..5 {
-            let st = Command::new("cargo")
-                .args(["publish", "-p", name, "--allow-dirty"])
-                .current_dir(&repo_dir)
-                .output();
-            let text = st
-                .map(|o| {
-                    format!(
-                        "{}{}",
-                        String::from_utf8_lossy(&o.stdout),
-                        String::from_utf8_lossy(&o.stderr)
-                    )
-                })
-                .unwrap_or_default();
-            // "Finished" also appears for a successful package build
-            // whose upload then fails — only the upload counts.
-            if text.contains("Uploaded") || text.contains("already") {
-                println!("published {name}");
-                ok = true;
-                break;
-            }
-            std::thread::sleep(std::time::Duration::from_secs(20));
-        }
-        if !ok {
-            eprintln!("publish failed: {name}");
-            std::process::exit(1);
-        }
     }
     let vcs = GitVcs;
     if !vcs.tag_exists(&repo_dir, &tag) && !vcs.tag(&repo_dir, &tag, None) {
@@ -1189,12 +1130,12 @@ fn cmd_deploy_release(dry_run: bool) {
         std::process::exit(1);
     }
     if !vcs.push_tag(&repo_dir, "origin", &tag) {
-        eprintln!("tag push failed — publish done, push {tag} by hand");
+        eprintln!("tag push failed — tag {tag} by hand");
         std::process::exit(1);
     }
     println!(
-        "released {tag} — pushes to main now release via \
-              the watch loop"
+        "tagged {tag} — publish the pack with \
+              'tamias publish libraries/bupha'"
     );
 }
 

@@ -32,9 +32,16 @@ is the shared pipeline module (Python SDK).
 
 ## Releasing
 
-Seed once with the dev CLI's `bupha deploy release` (publishes workspace crates,
-tags `{repo}-v{ver}`). Afterwards `scripts/release.sh` runs on each
-`main` push via bupha's own dogfood loop — bump, publish, tag.
+`scripts/release.sh` runs on each `main` push via bupha's own
+dogfood loop (the dev CLI's `bupha deploy release` remains the
+manual seed). A release is one workspace version bump
+(`cargo set-version --workspace`), a sync of the version refs in
+`libraries/bupha/tamias.yaml`/`README.md`, and a `bupha-v<ver>`
+tag. There is **no crates.io publish**: the bupha crates are
+internal lib-only engines (org policy keeps every repo but tamias
+off crates.io). User-facing installs ride the tamias pack —
+after the tag, the operator runs `tamias publish
+libraries/bupha` to ship `9aia:bupha@<ver>` to the org registry.
 See `docs/explanation/release-model.md`.
 
 ## Docs

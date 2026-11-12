@@ -1,6 +1,5 @@
 # bupha
 
-[![crates.io](https://img.shields.io/crates/v/bupha)](https://crates.io/crates/bupha)
 [![license: MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
 *The CI integration for [tamias](https://github.com/9aia/tamias) —
