@@ -29,6 +29,10 @@ name = "9aia/bupha"
 dir = "~/GitHub/9aia/workspace/repos/bupha"
 branch = "refs/heads/main"
 secret_env = "BUPHA_WH_9AIA_BUPHA"
+# This stays the bare `9aia/bupha` lane — the docs-branch deploy is a
+# separate `9aia/bupha:docs` job lane owned by the docs-deploy
+# bundle's fleet.toml ([[repo.jobs]], T-030), never a second
+# [[repo]] here (duplicate names are rejected by Config::watched).
 # Runner override: the repo has no ci.sh and no xtask — the gate is
 # the cargo floor directly (fmt + clippy -D warnings + workspace
 # tests), with the user tool dirs pulled in for the minimal systemd

@@ -24,6 +24,14 @@
 # `hooks[]` entry in tamias.yaml AND a `cuora://bupha/BUPHA_WH_<OWNER>_<REPO>`
 # secret in the cuora vault (canonical, T-056/T-059 — the
 # ~/.config/bupha/env file is retired) before its pushes verify.
+#
+# Every [[repo]] here MUST carry a `[[repo.jobs]]` entry (T-030):
+# the pipeline is a named job so its fleet/claim key is
+# `<owner>/<name>:docs` — distinct from ci-gate's bare
+# `<owner>/<name>` lane on the shared ci-job plane. A bare [[repo]]
+# would yield the SAME key ci-gate's fleet resolves (fleet_specs
+# keeps the first spec, ci-gate.toml sorts first) and BOTH workers
+# would race to claim it.
 
 # --- fleet -------------------------------------------------------------------
 
@@ -32,27 +40,43 @@ name = "9aia/bupha"
 dir = "~/GitHub/9aia/workspace/repos/bupha"
 # The docs orphan branch IS the site checkout — pushes to it are
 # the deploy trigger. Main-branch pushes on this repo are filtered
-# out here (ci-gate's watcher owns refs/heads/main).
+# out here (ci-gate's watcher owns refs/heads/main). `branch` stays
+# the repo-level default for any future job; the `docs` job below
+# pins it explicitly.
 branch = "refs/heads/docs"
 secret_env = "BUPHA_WH_9AIA_BUPHA"
 
+[[repo.jobs]]
+name = "docs"
+branch = "refs/heads/docs"
+# Keep the `docs/deploy` status context — a named job's default
+# would be "<status.context>/<job>" = "docs/deploy/docs".
+context = "docs/deploy"
+
 # Template for additional docs-deploy repos — uncomment one block
 # per repo. Conventions:
-#   * `branch` stays refs/heads/docs (9aia.github.io is the odd one
-#     out — its site IS main, so use refs/heads/main there).
+#   * the pipeline is ALWAYS a `[[repo.jobs]]` named `docs` — never
+#     the implicit pipeline (see the fleet header: bare [[repo]]
+#     keys collide with ci-gate's lanes). `branch` stays
+#     refs/heads/docs (9aia.github.io is the odd one out — its site
+#     IS main, so use refs/heads/main there, job included).
 #   * `cmd` is the repo's own deploy script at the docs-worktree
 #     root. Repos whose docs:deploy needs the main checkout for gen
 #     steps (cargo doc etc.) must export BUPHA_REPO=<main clone
 #     path> — bupha's worktree only contains the docs branch.
 #   * self-contained repos (site checkout = docs branch root) can
 #     use the plain `bun install && bun run docs:deploy` shape
-#     instead of a script.
+#     instead of a script — override [repo.runner] per repo.
 #
 # [[repo]]
 # name = "9aia/<repo>"
 # dir = "~/GitHub/9aia/workspace/repos/<repo>"
 # branch = "refs/heads/docs"
 # secret_env = "BUPHA_WH_9AIA_<REPO>"
+#
+# [[repo.jobs]]
+# name = "docs"
+# context = "docs/deploy"
 
 # --- pipeline ------------------------------------------------------------------
 
@@ -93,8 +117,9 @@ base = "~/.local/share/bupha/worktrees-docs"
 # service (`bupha-worker-docs.service`), which claims `kind="ci-job"`
 # entities on the hypha/peregrin node and runs them through the same
 # pipeline `host` uses. Its claim filter is built from THIS fleet's
-# [[repo]] keys, so it only picks up docs-deploy jobs off the shared
-# ci-job plane (ci-gate's `bupha-worker.service` covers the rest).
+# [[repo.jobs]] keys (`9aia/bupha:docs` here — T-030), so it only
+# picks up docs-deploy jobs off the shared ci-job plane (ci-gate's
+# `bupha-worker.service` covers the bare `owner/name` lanes).
 # `host` ignores this section.
 [worker]
 # Hypha/peregrin node base URL — same org node ci-gate's worker

@@ -18,7 +18,7 @@
 # (docs branch here, main there), so the overlap costs a filtered
 # delivery, not a double run.
 name: docs-deploy
-version: "0.1.0"
+version: "0.1.1"
 type: bupha
 description: >-
   Push to refs/heads/docs → detached worktree at the pushed sha →
@@ -68,9 +68,9 @@ provider:
       restart: on-failure
     # The entity-plane worker (T-064): same `worker` verb ci-gate's
     # `bupha-worker.service` runs, pointed at THIS bundle's operator
-    # config — its claim filter is built from docs-deploy's [[repo]]
-    # keys, so it only picks up docs-deploy jobs off the shared
-    # ci-job plane.
+    # config — its claim filter is built from docs-deploy's
+    # [[repo.jobs]] keys (`<repo>:docs`, T-030), so it only picks up
+    # docs-deploy jobs off the shared ci-job plane.
     - name: worker-docs
       exec: >-
         ~/.local/share/tamias/drivers/tamias-driver-bupha worker --config ~/.config/bupha/bundles/docs-deploy.toml
