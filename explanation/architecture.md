@@ -28,7 +28,6 @@ outside itself; `bupha-cli` is the engine lib + clap tree
 | `bupha-access` | port | Access port: who may trigger a repo |
 | `bupha-attest` | port | Attest port: signed run provenance (SLSA-style predicate) |
 | `bupha-cache` | port | Cache port: artifact-cache backend for runners |
-| `bupha-config` | port | Config port: where bupha.yaml/toml-shaped config comes from |
 | `bupha-queue` | port | QueueStore port: queue persistence |
 | `bupha-runner` | port | Runner port: how a job becomes a spawned process |
 | `bupha-secret` | port | Secret port: resolve named secrets from storage |
@@ -44,9 +43,7 @@ outside itself; `bupha-cli` is the engine lib + clap tree
 | `bupha-audit-file` | adapter | Audit adapter: append access/outcome decisions to a JSONL file |
 | `bupha-cache-sccache` | adapter | Cache impl: sccache-compatible conf (file/S3/R2/GCS via conf) |
 | `bupha-cloudflared` | adapter | Tunnel impl: cloudflared (named tunnel preferred, quick tunnel fallback) |
-| `bupha-config-file` | adapter | File impl of ConfigSource — resolves bupha.yaml/.yml/.toml path, dispatches parse to the per-syntax adapter |
-| `bupha-config-toml` | adapter | TOML impl of ConfigSource — parses a bupha.toml file |
-| `bupha-config-yaml` | adapter | YAML impl of ConfigSource — parses a bupha.yaml/.yml file |
+| `bupha-config-file` | adapter | File impl of the config port — scarab-config discovery (`$BUPHA_CONFIG` → `./bupha.*` → `~/.config/bupha/`) + local TOML/YAML format dispatch |
 | `bupha-container` | adapter | Runner adapter: unprivileged container (podman/docker), network-off |
 | `bupha-dagger` | adapter | Runner impl: `dagger call &lt;fn&gt;` per job |
 | `bupha-dotenv` | adapter | Secret impl: KEY=VAL env file (chmod 600) |

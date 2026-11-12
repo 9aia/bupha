@@ -15,7 +15,7 @@ LAYER = {
     "bupha-trigger": "port", "bupha-status": "port",
     "bupha-vcs": "port", "bupha-queue": "port",
     "bupha-service": "port", "bupha-secret": "port",
-    "bupha-config": "port", "bupha-cache": "port",
+    "bupha-cache": "port",
     "bupha-access": "port", "bupha-telemetry": "port",
     "bupha-attest": "port", "bupha-queue-lease": "port",
 }

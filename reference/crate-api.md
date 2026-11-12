@@ -7,7 +7,6 @@ documented at source (doc comments).
 - [bupha-access](/bupha/api/bupha_access/index.html) — port
 - [bupha-attest](/bupha/api/bupha_attest/index.html) — port
 - [bupha-cache](/bupha/api/bupha_cache/index.html) — port
-- [bupha-config](/bupha/api/bupha_config/index.html) — port
 - [bupha-queue](/bupha/api/bupha_queue/index.html) — port
 - [bupha-runner](/bupha/api/bupha_runner/index.html) — port
 - [bupha-secret](/bupha/api/bupha_secret/index.html) — port
@@ -24,8 +23,6 @@ documented at source (doc comments).
 - [bupha-cache-sccache](/bupha/api/bupha_cache_sccache/index.html) — adapter
 - [bupha-cloudflared](/bupha/api/bupha_cloudflared/index.html) — adapter
 - [bupha-config-file](/bupha/api/bupha_config_file/index.html) — adapter
-- [bupha-config-toml](/bupha/api/bupha_config_toml/index.html) — adapter
-- [bupha-config-yaml](/bupha/api/bupha_config_yaml/index.html) — adapter
 - [bupha-container](/bupha/api/bupha_container/index.html) — adapter
 - [bupha-dagger](/bupha/api/bupha_dagger/index.html) — adapter
 - [bupha-dotenv](/bupha/api/bupha_dotenv/index.html) — adapter
