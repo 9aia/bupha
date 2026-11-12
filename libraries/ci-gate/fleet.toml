@@ -95,6 +95,758 @@ token_env = "BUPHA_TOKEN"
 cancel_running = true
 cmd = "bash scripts/ci.sh"
 
+[[repo]]
+name = "handl-lang/automation"
+dir = "~/GitHub/handl-lang/automation"
+
+[[repo]]
+name = "handl-lang/compile-dot"
+dir = "~/GitHub/handl-lang/compile-dot"
+
+[[repo]]
+name = "handl-lang/compile-handl"
+dir = "~/GitHub/handl-lang/compile-handl"
+
+[[repo]]
+name = "handl-lang/compile-js"
+dir = "~/GitHub/handl-lang/compile-js"
+
+[[repo]]
+name = "handl-lang/compile-llvm"
+dir = "~/GitHub/handl-lang/compile-llvm"
+
+[[repo]]
+name = "handl-lang/compile-sexp"
+dir = "~/GitHub/handl-lang/compile-sexp"
+
+[[repo]]
+name = "handl-lang/compile-term"
+dir = "~/GitHub/handl-lang/compile-term"
+
+[[repo]]
+name = "handl-lang/compile-triton"
+dir = "~/GitHub/handl-lang/compile-triton"
+
+[[repo]]
+name = "handl-lang/docs"
+dir = "/home/luis/GitHub/handl-lang/docs"
+secret_env = "BUPHA_WH_HANDL_LANG_DOCS"
+[repo.runner]
+kind = "shell"
+token_env = "BUPHA_TOKEN"
+cancel_running = true
+cmd = "bash ci/trigger.sh"
+
+[[repo]]
+name = "handl-lang/egraph"
+dir = "~/GitHub/handl-lang/egraph"
+
+[[repo]]
+name = "handl-lang/engine"
+dir = "~/GitHub/handl-lang/engine"
+
+[[repo]]
+name = "handl-lang/engine-exec"
+dir = "~/GitHub/handl-lang/engine-exec"
+secret_env = "BUPHA_WH_HANDL_LANG_ENGINE_EXEC"
+
+[[repo]]
+name = "handl-lang/engine-exec-bytecode"
+dir = "~/GitHub/handl-lang/engine-exec-bytecode"
+secret_env = "BUPHA_WH_HANDL_LANG_ENGINE_EXEC_BYTECODE"
+
+[[repo]]
+name = "handl-lang/engine-exec-tree-walk"
+dir = "~/GitHub/handl-lang/engine-exec-tree-walk"
+secret_env = "BUPHA_WH_HANDL_LANG_ENGINE_EXEC_TREE_WALK"
+
+[[repo]]
+name = "handl-lang/engine-fmt"
+dir = "~/GitHub/handl-lang/engine-fmt"
+secret_env = "BUPHA_WH_HANDL_LANG_ENGINE_FMT"
+
+[[repo]]
+name = "handl-lang/engine-lex"
+dir = "~/GitHub/handl-lang/engine-lex"
+secret_env = "BUPHA_WH_HANDL_LANG_ENGINE_LEX"
+
+[[repo]]
+name = "handl-lang/engine-lex-pattern"
+dir = "~/GitHub/handl-lang/engine-lex-pattern"
+secret_env = "BUPHA_WH_HANDL_LANG_ENGINE_LEX_PATTERN"
+
+[[repo]]
+name = "handl-lang/engine-parse"
+dir = "~/GitHub/handl-lang/engine-parse"
+secret_env = "BUPHA_WH_HANDL_LANG_ENGINE_PARSE"
+
+[[repo]]
+name = "handl-lang/engine-parse-pratt"
+dir = "~/GitHub/handl-lang/engine-parse-pratt"
+secret_env = "BUPHA_WH_HANDL_LANG_ENGINE_PARSE_PRATT"
+
+[[repo]]
+name = "handl-lang/engine-test"
+dir = "~/GitHub/handl-lang/engine-test"
+secret_env = "BUPHA_WH_HANDL_LANG_ENGINE_TEST"
+
+[[repo]]
+name = "handl-lang/engine-transform"
+dir = "~/GitHub/handl-lang/engine-transform"
+secret_env = "BUPHA_WH_HANDL_LANG_ENGINE_TRANSFORM"
+
+[[repo]]
+name = "handl-lang/engine-transform-rewrite"
+dir = "~/GitHub/handl-lang/engine-transform-rewrite"
+secret_env = "BUPHA_WH_HANDL_LANG_ENGINE_TRANSFORM_REWRITE"
+
+[[repo]]
+name = "handl-lang/engine-typecheck"
+dir = "~/GitHub/handl-lang/engine-typecheck"
+secret_env = "BUPHA_WH_HANDL_LANG_ENGINE_TYPECHECK"
+
+[[repo]]
+name = "handl-lang/engine-typecheck-nbe"
+dir = "~/GitHub/handl-lang/engine-typecheck-nbe"
+secret_env = "BUPHA_WH_HANDL_LANG_ENGINE_TYPECHECK_NBE"
+
+[[repo]]
+name = "handl-lang/eqsat"
+dir = "/home/luis/GitHub/handl-lang/eqsat"
+secret_env = "BUPHA_WH_HANDL_LANG_EQSAT"
+[repo.runner]
+kind = "shell"
+token_env = "BUPHA_TOKEN"
+cancel_running = true
+cmd = "bash scripts/gates.sh"
+
+[[repo]]
+name = "handl-lang/ext-compile"
+dir = "~/GitHub/handl-lang/ext-compile"
+
+[[repo]]
+name = "handl-lang/ext-eval"
+dir = "~/GitHub/handl-lang/ext-eval"
+
+[[repo]]
+name = "handl-lang/ext-fmt"
+dir = "~/GitHub/handl-lang/ext-fmt"
+
+[[repo]]
+name = "handl-lang/ext-kit"
+dir = "~/GitHub/handl-lang/ext-kit"
+
+[[repo]]
+name = "handl-lang/ext-lint"
+dir = "~/GitHub/handl-lang/ext-lint"
+
+[[repo]]
+name = "handl-lang/ext-plugin"
+dir = "~/GitHub/handl-lang/ext-plugin"
+
+[[repo]]
+name = "handl-lang/ext-sdkgen"
+dir = "~/GitHub/handl-lang/ext-sdkgen"
+
+[[repo]]
+name = "handl-lang/ext-test"
+dir = "~/GitHub/handl-lang/ext-test"
+
+[[repo]]
+name = "handl-lang/ext-transform"
+dir = "~/GitHub/handl-lang/ext-transform"
+
+[[repo]]
+name = "handl-lang/ext-typecheck"
+dir = "~/GitHub/handl-lang/ext-typecheck"
+
+[[repo]]
+name = "handl-lang/extension-neovim"
+dir = "~/GitHub/handl-lang/extension-neovim"
+
+[[repo]]
+name = "handl-lang/extension-vscode"
+dir = "~/GitHub/handl-lang/extension-vscode"
+
+[[repo]]
+name = "handl-lang/graphopt"
+dir = "/home/luis/GitHub/handl-lang/graphopt"
+secret_env = "BUPHA_WH_HANDL_LANG_GRAPHOPT"
+[repo.runner]
+kind = "shell"
+token_env = "BUPHA_TOKEN"
+cancel_running = true
+cmd = "bash scripts/gates.sh && bash ci.sh"
+
+[[repo]]
+name = "handl-lang/host"
+dir = "/home/luis/GitHub/handl-lang/host"
+secret_env = "BUPHA_WH_HANDL_LANG_HOST"
+[repo.runner]
+kind = "shell"
+token_env = "BUPHA_TOKEN"
+cancel_running = true
+cmd = "bash scripts/ci.sh"
+
+[[repo]]
+name = "handl-lang/host-cli"
+dir = "~/GitHub/handl-lang/host-cli"
+
+[[repo]]
+name = "handl-lang/host-lsp"
+dir = "~/GitHub/handl-lang/host-lsp"
+
+[[repo]]
+name = "handl-lang/host-tensor"
+dir = "~/GitHub/handl-lang/host-tensor"
+secret_env = "BUPHA_WH_HANDL_LANG_HOST_TENSOR"
+
+[[repo]]
+name = "handl-lang/kernel"
+dir = "~/GitHub/handl-lang/kernel"
+secret_env = "BUPHA_WH_HANDL_LANG_KERNEL"
+
+[[repo]]
+name = "handl-lang/kernelopt"
+dir = "~/GitHub/handl-lang/kernelopt"
+
+[[repo]]
+name = "handl-lang/kit-data-prelude"
+dir = "~/GitHub/handl-lang/kit-data-prelude"
+
+[[repo]]
+name = "handl-lang/kit-pkg"
+dir = "~/GitHub/handl-lang/kit-pkg"
+
+[[repo]]
+name = "handl-lang/kit-prelude-lang"
+dir = "~/GitHub/handl-lang/kit-prelude-lang"
+
+[[repo]]
+name = "handl-lang/lib-archive"
+dir = "~/GitHub/handl-lang/lib-archive"
+secret_env = "BUPHA_WH_HANDL_LANG_LIB_ARCHIVE"
+
+[[repo]]
+name = "handl-lang/lib-arrow-iter"
+dir = "~/GitHub/handl-lang/lib-arrow-iter"
+secret_env = "BUPHA_WH_HANDL_LANG_LIB_ARROW_ITER"
+
+[[repo]]
+name = "handl-lang/lib-base64"
+dir = "~/GitHub/handl-lang/lib-base64"
+secret_env = "BUPHA_WH_HANDL_LANG_LIB_BASE64"
+
+[[repo]]
+name = "handl-lang/lib-char"
+dir = "~/GitHub/handl-lang/lib-char"
+secret_env = "BUPHA_WH_HANDL_LANG_LIB_CHAR"
+
+[[repo]]
+name = "handl-lang/lib-char-native"
+dir = "~/GitHub/handl-lang/lib-char-native"
+secret_env = "BUPHA_WH_HANDL_LANG_LIB_CHAR_NATIVE"
+
+[[repo]]
+name = "handl-lang/lib-cli"
+dir = "~/GitHub/handl-lang/lib-cli"
+secret_env = "BUPHA_WH_HANDL_LANG_LIB_CLI"
+
+[[repo]]
+name = "handl-lang/lib-cli-gen"
+dir = "~/GitHub/handl-lang/lib-cli-gen"
+secret_env = "BUPHA_WH_HANDL_LANG_LIB_CLI_GEN"
+
+[[repo]]
+name = "handl-lang/lib-collections"
+dir = "~/GitHub/handl-lang/lib-collections"
+secret_env = "BUPHA_WH_HANDL_LANG_LIB_COLLECTIONS"
+
+[[repo]]
+name = "handl-lang/lib-command"
+dir = "~/GitHub/handl-lang/lib-command"
+secret_env = "BUPHA_WH_HANDL_LANG_LIB_COMMAND"
+
+[[repo]]
+name = "handl-lang/lib-compress"
+dir = "~/GitHub/handl-lang/lib-compress"
+secret_env = "BUPHA_WH_HANDL_LANG_LIB_COMPRESS"
+
+[[repo]]
+name = "handl-lang/lib-compress-gzip-c"
+dir = "~/GitHub/handl-lang/lib-compress-gzip-c"
+secret_env = "BUPHA_WH_HANDL_LANG_LIB_COMPRESS_GZIP_C"
+
+[[repo]]
+name = "handl-lang/lib-compress-zlib-c"
+dir = "~/GitHub/handl-lang/lib-compress-zlib-c"
+secret_env = "BUPHA_WH_HANDL_LANG_LIB_COMPRESS_ZLIB_C"
+
+[[repo]]
+name = "handl-lang/lib-concurrent"
+dir = "~/GitHub/handl-lang/lib-concurrent"
+secret_env = "BUPHA_WH_HANDL_LANG_LIB_CONCURRENT"
+
+[[repo]]
+name = "handl-lang/lib-concurrent-epoll"
+dir = "~/GitHub/handl-lang/lib-concurrent-epoll"
+secret_env = "BUPHA_WH_HANDL_LANG_LIB_CONCURRENT_EPOLL"
+
+[[repo]]
+name = "handl-lang/lib-curl"
+dir = "~/GitHub/handl-lang/lib-curl"
+secret_env = "BUPHA_WH_HANDL_LANG_LIB_CURL"
+
+[[repo]]
+name = "handl-lang/lib-datetime"
+dir = "~/GitHub/handl-lang/lib-datetime"
+secret_env = "BUPHA_WH_HANDL_LANG_LIB_DATETIME"
+
+[[repo]]
+name = "handl-lang/lib-dedent"
+dir = "~/GitHub/handl-lang/lib-dedent"
+secret_env = "BUPHA_WH_HANDL_LANG_LIB_DEDENT"
+
+[[repo]]
+name = "handl-lang/lib-desugar"
+dir = "~/GitHub/handl-lang/lib-desugar"
+secret_env = "BUPHA_WH_HANDL_LANG_LIB_DESUGAR"
+
+[[repo]]
+name = "handl-lang/lib-encoding"
+dir = "~/GitHub/handl-lang/lib-encoding"
+secret_env = "BUPHA_WH_HANDL_LANG_LIB_ENCODING"
+
+[[repo]]
+name = "handl-lang/lib-event"
+dir = "~/GitHub/handl-lang/lib-event"
+secret_env = "BUPHA_WH_HANDL_LANG_LIB_EVENT"
+
+[[repo]]
+name = "handl-lang/lib-fetch"
+dir = "~/GitHub/handl-lang/lib-fetch"
+secret_env = "BUPHA_WH_HANDL_LANG_LIB_FETCH"
+
+[[repo]]
+name = "handl-lang/lib-fetch-c"
+dir = "~/GitHub/handl-lang/lib-fetch-c"
+secret_env = "BUPHA_WH_HANDL_LANG_LIB_FETCH_C"
+
+[[repo]]
+name = "handl-lang/lib-fetch-js"
+dir = "~/GitHub/handl-lang/lib-fetch-js"
+secret_env = "BUPHA_WH_HANDL_LANG_LIB_FETCH_JS"
+
+[[repo]]
+name = "handl-lang/lib-fs"
+dir = "~/GitHub/handl-lang/lib-fs"
+secret_env = "BUPHA_WH_HANDL_LANG_LIB_FS"
+
+[[repo]]
+name = "handl-lang/lib-gh"
+dir = "~/GitHub/handl-lang/lib-gh"
+secret_env = "BUPHA_WH_HANDL_LANG_LIB_GH"
+
+[[repo]]
+name = "handl-lang/lib-grade"
+dir = "~/GitHub/handl-lang/lib-grade"
+secret_env = "BUPHA_WH_HANDL_LANG_LIB_GRADE"
+
+[[repo]]
+name = "handl-lang/lib-hello"
+dir = "~/GitHub/handl-lang/lib-hello"
+secret_env = "BUPHA_WH_HANDL_LANG_LIB_HELLO"
+
+[[repo]]
+name = "handl-lang/lib-hex"
+dir = "~/GitHub/handl-lang/lib-hex"
+secret_env = "BUPHA_WH_HANDL_LANG_LIB_HEX"
+
+[[repo]]
+name = "handl-lang/lib-http-rfc"
+dir = "~/GitHub/handl-lang/lib-http-rfc"
+secret_env = "BUPHA_WH_HANDL_LANG_LIB_HTTP_RFC"
+
+[[repo]]
+name = "handl-lang/lib-intl"
+dir = "~/GitHub/handl-lang/lib-intl"
+secret_env = "BUPHA_WH_HANDL_LANG_LIB_INTL"
+
+[[repo]]
+name = "handl-lang/lib-intl-c"
+dir = "~/GitHub/handl-lang/lib-intl-c"
+secret_env = "BUPHA_WH_HANDL_LANG_LIB_INTL_C"
+
+[[repo]]
+name = "handl-lang/lib-ip"
+dir = "~/GitHub/handl-lang/lib-ip"
+secret_env = "BUPHA_WH_HANDL_LANG_LIB_IP"
+
+[[repo]]
+name = "handl-lang/lib-ip-c"
+dir = "~/GitHub/handl-lang/lib-ip-c"
+secret_env = "BUPHA_WH_HANDL_LANG_LIB_IP_C"
+
+[[repo]]
+name = "handl-lang/lib-js"
+dir = "~/GitHub/handl-lang/lib-js"
+secret_env = "BUPHA_WH_HANDL_LANG_LIB_JS"
+
+[[repo]]
+name = "handl-lang/lib-json"
+dir = "~/GitHub/handl-lang/lib-json"
+secret_env = "BUPHA_WH_HANDL_LANG_LIB_JSON"
+
+[[repo]]
+name = "handl-lang/lib-json-handl"
+dir = "~/GitHub/handl-lang/lib-json-handl"
+secret_env = "BUPHA_WH_HANDL_LANG_LIB_JSON_HANDL"
+
+[[repo]]
+name = "handl-lang/lib-json-lib"
+dir = "~/GitHub/handl-lang/lib-json-lib"
+secret_env = "BUPHA_WH_HANDL_LANG_LIB_JSON_LIB"
+
+[[repo]]
+name = "handl-lang/lib-kernel-ir"
+dir = "~/GitHub/handl-lang/lib-kernel-ir"
+
+[[repo]]
+name = "handl-lang/lib-kv-map"
+dir = "~/GitHub/handl-lang/lib-kv-map"
+secret_env = "BUPHA_WH_HANDL_LANG_LIB_KV_MAP"
+
+[[repo]]
+name = "handl-lang/lib-libc"
+dir = "~/GitHub/handl-lang/lib-libc"
+secret_env = "BUPHA_WH_HANDL_LANG_LIB_LIBC"
+
+[[repo]]
+name = "handl-lang/lib-libz"
+dir = "~/GitHub/handl-lang/lib-libz"
+secret_env = "BUPHA_WH_HANDL_LANG_LIB_LIBZ"
+
+[[repo]]
+name = "handl-lang/lib-loader"
+dir = "~/GitHub/handl-lang/lib-loader"
+secret_env = "BUPHA_WH_HANDL_LANG_LIB_LOADER"
+
+[[repo]]
+name = "handl-lang/lib-math"
+dir = "~/GitHub/handl-lang/lib-math"
+secret_env = "BUPHA_WH_HANDL_LANG_LIB_MATH"
+
+[[repo]]
+name = "handl-lang/lib-math-c"
+dir = "~/GitHub/handl-lang/lib-math-c"
+secret_env = "BUPHA_WH_HANDL_LANG_LIB_MATH_C"
+
+[[repo]]
+name = "handl-lang/lib-math-handl"
+dir = "~/GitHub/handl-lang/lib-math-handl"
+secret_env = "BUPHA_WH_HANDL_LANG_LIB_MATH_HANDL"
+
+[[repo]]
+name = "handl-lang/lib-math-js"
+dir = "~/GitHub/handl-lang/lib-math-js"
+secret_env = "BUPHA_WH_HANDL_LANG_LIB_MATH_JS"
+
+[[repo]]
+name = "handl-lang/lib-noise"
+dir = "~/GitHub/handl-lang/lib-noise"
+secret_env = "BUPHA_WH_HANDL_LANG_LIB_NOISE"
+
+[[repo]]
+name = "handl-lang/lib-noise-c"
+dir = "~/GitHub/handl-lang/lib-noise-c"
+secret_env = "BUPHA_WH_HANDL_LANG_LIB_NOISE_C"
+
+[[repo]]
+name = "handl-lang/lib-noise-handl"
+dir = "~/GitHub/handl-lang/lib-noise-handl"
+secret_env = "BUPHA_WH_HANDL_LANG_LIB_NOISE_HANDL"
+
+[[repo]]
+name = "handl-lang/lib-noise-stub"
+dir = "~/GitHub/handl-lang/lib-noise-stub"
+secret_env = "BUPHA_WH_HANDL_LANG_LIB_NOISE_STUB"
+
+[[repo]]
+name = "handl-lang/lib-option"
+dir = "~/GitHub/handl-lang/lib-option"
+secret_env = "BUPHA_WH_HANDL_LANG_LIB_OPTION"
+
+[[repo]]
+name = "handl-lang/lib-os-c"
+dir = "~/GitHub/handl-lang/lib-os-c"
+secret_env = "BUPHA_WH_HANDL_LANG_LIB_OS_C"
+
+[[repo]]
+name = "handl-lang/lib-os-stub"
+dir = "~/GitHub/handl-lang/lib-os-stub"
+secret_env = "BUPHA_WH_HANDL_LANG_LIB_OS_STUB"
+
+[[repo]]
+name = "handl-lang/lib-otlp"
+dir = "~/GitHub/handl-lang/lib-otlp"
+secret_env = "BUPHA_WH_HANDL_LANG_LIB_OTLP"
+
+[[repo]]
+name = "handl-lang/lib-parse"
+dir = "~/GitHub/handl-lang/lib-parse"
+secret_env = "BUPHA_WH_HANDL_LANG_LIB_PARSE"
+
+[[repo]]
+name = "handl-lang/lib-pred"
+dir = "~/GitHub/handl-lang/lib-pred"
+secret_env = "BUPHA_WH_HANDL_LANG_LIB_PRED"
+
+[[repo]]
+name = "handl-lang/lib-query"
+dir = "~/GitHub/handl-lang/lib-query"
+secret_env = "BUPHA_WH_HANDL_LANG_LIB_QUERY"
+
+[[repo]]
+name = "handl-lang/lib-rand"
+dir = "~/GitHub/handl-lang/lib-rand"
+secret_env = "BUPHA_WH_HANDL_LANG_LIB_RAND"
+
+[[repo]]
+name = "handl-lang/lib-rand-c"
+dir = "~/GitHub/handl-lang/lib-rand-c"
+secret_env = "BUPHA_WH_HANDL_LANG_LIB_RAND_C"
+
+[[repo]]
+name = "handl-lang/lib-rand-js"
+dir = "~/GitHub/handl-lang/lib-rand-js"
+secret_env = "BUPHA_WH_HANDL_LANG_LIB_RAND_JS"
+
+[[repo]]
+name = "handl-lang/lib-rand-stub"
+dir = "~/GitHub/handl-lang/lib-rand-stub"
+secret_env = "BUPHA_WH_HANDL_LANG_LIB_RAND_STUB"
+
+[[repo]]
+name = "handl-lang/lib-result"
+dir = "~/GitHub/handl-lang/lib-result"
+secret_env = "BUPHA_WH_HANDL_LANG_LIB_RESULT"
+
+[[repo]]
+name = "handl-lang/lib-serialize"
+dir = "~/GitHub/handl-lang/lib-serialize"
+secret_env = "BUPHA_WH_HANDL_LANG_LIB_SERIALIZE"
+
+[[repo]]
+name = "handl-lang/lib-serialize-toml-c"
+dir = "~/GitHub/handl-lang/lib-serialize-toml-c"
+secret_env = "BUPHA_WH_HANDL_LANG_LIB_SERIALIZE_TOML_C"
+
+[[repo]]
+name = "handl-lang/lib-serialize-yaml-c"
+dir = "~/GitHub/handl-lang/lib-serialize-yaml-c"
+secret_env = "BUPHA_WH_HANDL_LANG_LIB_SERIALIZE_YAML_C"
+
+[[repo]]
+name = "handl-lang/lib-serve"
+dir = "~/GitHub/handl-lang/lib-serve"
+secret_env = "BUPHA_WH_HANDL_LANG_LIB_SERVE"
+
+[[repo]]
+name = "handl-lang/lib-serve-epoll"
+dir = "~/GitHub/handl-lang/lib-serve-epoll"
+secret_env = "BUPHA_WH_HANDL_LANG_LIB_SERVE_EPOLL"
+
+[[repo]]
+name = "handl-lang/lib-stats"
+dir = "~/GitHub/handl-lang/lib-stats"
+secret_env = "BUPHA_WH_HANDL_LANG_LIB_STATS"
+
+[[repo]]
+name = "handl-lang/lib-str"
+dir = "~/GitHub/handl-lang/lib-str"
+secret_env = "BUPHA_WH_HANDL_LANG_LIB_STR"
+
+[[repo]]
+name = "handl-lang/lib-str-c"
+dir = "~/GitHub/handl-lang/lib-str-c"
+secret_env = "BUPHA_WH_HANDL_LANG_LIB_STR_C"
+
+[[repo]]
+name = "handl-lang/lib-str-handl"
+dir = "~/GitHub/handl-lang/lib-str-handl"
+secret_env = "BUPHA_WH_HANDL_LANG_LIB_STR_HANDL"
+
+[[repo]]
+name = "handl-lang/lib-str-js"
+dir = "~/GitHub/handl-lang/lib-str-js"
+secret_env = "BUPHA_WH_HANDL_LANG_LIB_STR_JS"
+
+[[repo]]
+name = "handl-lang/lib-tag"
+dir = "~/GitHub/handl-lang/lib-tag"
+secret_env = "BUPHA_WH_HANDL_LANG_LIB_TAG"
+
+[[repo]]
+name = "handl-lang/lib-tar"
+dir = "~/GitHub/handl-lang/lib-tar"
+secret_env = "BUPHA_WH_HANDL_LANG_LIB_TAR"
+
+[[repo]]
+name = "handl-lang/lib-tensor"
+dir = "~/GitHub/handl-lang/lib-tensor"
+secret_env = "BUPHA_WH_HANDL_LANG_LIB_TENSOR"
+
+[[repo]]
+name = "handl-lang/lib-time"
+dir = "~/GitHub/handl-lang/lib-time"
+secret_env = "BUPHA_WH_HANDL_LANG_LIB_TIME"
+
+[[repo]]
+name = "handl-lang/lib-time-c"
+dir = "~/GitHub/handl-lang/lib-time-c"
+secret_env = "BUPHA_WH_HANDL_LANG_LIB_TIME_C"
+
+[[repo]]
+name = "handl-lang/lib-time-stub"
+dir = "~/GitHub/handl-lang/lib-time-stub"
+secret_env = "BUPHA_WH_HANDL_LANG_LIB_TIME_STUB"
+
+[[repo]]
+name = "handl-lang/lib-tls"
+dir = "~/GitHub/handl-lang/lib-tls"
+secret_env = "BUPHA_WH_HANDL_LANG_LIB_TLS"
+
+[[repo]]
+name = "handl-lang/lib-tls-libssl"
+dir = "~/GitHub/handl-lang/lib-tls-libssl"
+secret_env = "BUPHA_WH_HANDL_LANG_LIB_TLS_LIBSSL"
+
+[[repo]]
+name = "handl-lang/lib-transform"
+dir = "~/GitHub/handl-lang/lib-transform"
+secret_env = "BUPHA_WH_HANDL_LANG_LIB_TRANSFORM"
+
+[[repo]]
+name = "handl-lang/lib-type"
+dir = "~/GitHub/handl-lang/lib-type"
+secret_env = "BUPHA_WH_HANDL_LANG_LIB_TYPE"
+
+[[repo]]
+name = "handl-lang/lib-type-handl"
+dir = "~/GitHub/handl-lang/lib-type-handl"
+secret_env = "BUPHA_WH_HANDL_LANG_LIB_TYPE_HANDL"
+
+[[repo]]
+name = "handl-lang/lib-types"
+dir = "~/GitHub/handl-lang/lib-types"
+secret_env = "BUPHA_WH_HANDL_LANG_LIB_TYPES"
+
+[[repo]]
+name = "handl-lang/lib-unicode"
+dir = "~/GitHub/handl-lang/lib-unicode"
+secret_env = "BUPHA_WH_HANDL_LANG_LIB_UNICODE"
+
+[[repo]]
+name = "handl-lang/lib-unicode-c"
+dir = "~/GitHub/handl-lang/lib-unicode-c"
+secret_env = "BUPHA_WH_HANDL_LANG_LIB_UNICODE_C"
+
+[[repo]]
+name = "handl-lang/lib-url-rfc"
+dir = "~/GitHub/handl-lang/lib-url-rfc"
+secret_env = "BUPHA_WH_HANDL_LANG_LIB_URL_RFC"
+
+[[repo]]
+name = "handl-lang/lib-url-whatwg"
+dir = "~/GitHub/handl-lang/lib-url-whatwg"
+secret_env = "BUPHA_WH_HANDL_LANG_LIB_URL_WHATWG"
+
+[[repo]]
+name = "handl-lang/lib-utils"
+dir = "~/GitHub/handl-lang/lib-utils"
+secret_env = "BUPHA_WH_HANDL_LANG_LIB_UTILS"
+
+[[repo]]
+name = "handl-lang/lib-uuid"
+dir = "~/GitHub/handl-lang/lib-uuid"
+secret_env = "BUPHA_WH_HANDL_LANG_LIB_UUID"
+
+[[repo]]
+name = "handl-lang/lib-uuid-c"
+dir = "~/GitHub/handl-lang/lib-uuid-c"
+secret_env = "BUPHA_WH_HANDL_LANG_LIB_UUID_C"
+
+[[repo]]
+name = "handl-lang/lib-uuid-stub"
+dir = "~/GitHub/handl-lang/lib-uuid-stub"
+secret_env = "BUPHA_WH_HANDL_LANG_LIB_UUID_STUB"
+
+[[repo]]
+name = "handl-lang/lib-ws"
+dir = "~/GitHub/handl-lang/lib-ws"
+secret_env = "BUPHA_WH_HANDL_LANG_LIB_WS"
+
+[[repo]]
+name = "handl-lang/lib-ws-c"
+dir = "~/GitHub/handl-lang/lib-ws-c"
+secret_env = "BUPHA_WH_HANDL_LANG_LIB_WS_C"
+
+[[repo]]
+name = "handl-lang/lib-ws-frame"
+dir = "~/GitHub/handl-lang/lib-ws-frame"
+secret_env = "BUPHA_WH_HANDL_LANG_LIB_WS_FRAME"
+
+[[repo]]
+name = "handl-lang/lib-ws-frame-handl"
+dir = "~/GitHub/handl-lang/lib-ws-frame-handl"
+secret_env = "BUPHA_WH_HANDL_LANG_LIB_WS_FRAME_HANDL"
+
+[[repo]]
+name = "handl-lang/lib-ws-whatwg-c"
+dir = "~/GitHub/handl-lang/lib-ws-whatwg-c"
+secret_env = "BUPHA_WH_HANDL_LANG_LIB_WS_WHATWG_C"
+
+[[repo]]
+name = "handl-lang/lib-ws-whatwg-wasm"
+dir = "~/GitHub/handl-lang/lib-ws-whatwg-wasm"
+secret_env = "BUPHA_WH_HANDL_LANG_LIB_WS_WHATWG_WASM"
+
+[[repo]]
+name = "handl-lang/pitch-2026-fernandes"
+dir = "~/GitHub/handl-lang/pitch-2026-fernandes"
+
+[[repo]]
+name = "handl-lang/pitch-2026-lotufo"
+dir = "~/GitHub/handl-lang/pitch-2026-lotufo"
+
+[[repo]]
+name = "handl-lang/sdkgen-c"
+dir = "~/GitHub/handl-lang/sdkgen-c"
+
+[[repo]]
+name = "handl-lang/sdkgen-cli"
+dir = "~/GitHub/handl-lang/sdkgen-cli"
+
+[[repo]]
+name = "handl-lang/sdkgen-file"
+dir = "~/GitHub/handl-lang/sdkgen-file"
+
+[[repo]]
+name = "handl-lang/sdkgen-python"
+dir = "~/GitHub/handl-lang/sdkgen-python"
+
+[[repo]]
+name = "handl-lang/sdkgen-webidl"
+dir = "~/GitHub/handl-lang/sdkgen-webidl"
+
+[[repo]]
+name = "handl-lang/slidev-theme"
+dir = "~/GitHub/handl-lang/slidev-theme"
+
+[[repo]]
+name = "luisfuturist/blog"
+dir = "~/GitHub/luisfuturist/blog"
+secret_env = "BUPHA_WH_LUISFUTURIST_BLOG"
 # --- pipeline ------------------------------------------------------------------
 
 # The zero-container path: `bash -c <cmd>` in a detached worktree.
@@ -107,6 +859,10 @@ cmd = "bash scripts/ci.sh"
 kind = "shell"
 token_env = "BUPHA_TOKEN"
 cancel_running = true
+# Default gate for repos without a [repo.runner] override — the
+# legacy ci-gate campaign's implicit job (`bash ci.sh`, not the
+# shell impl's ./ci.sh default: no exec-bit requirement).
+cmd = "bash ci.sh"
 
 # Commit statuses post back to github under this context
 # (per-job contexts become "<context>/<job>").
