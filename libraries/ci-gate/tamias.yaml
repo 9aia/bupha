@@ -10,7 +10,7 @@
 # `tamias driver exec ci-gate hooks register` points the declared
 # GitHub webhooks at the public URL.
 name: ci-gate
-version: "0.3.1"
+version: "0.3.2"
 type: bupha
 description: >-
   Push-to-verdict CI gate: GitHub push webhook → bupha watcher →
