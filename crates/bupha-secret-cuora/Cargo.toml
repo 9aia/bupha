@@ -10,3 +10,7 @@ categories = ["development-tools"]
 
 [dependencies]
 bupha-secret.workspace = true
+# Shared cuora Secrets adapter — same https git dep style as
+# bupha-plane's hypha-http / bupha-watch's hypha-node-api.
+hypha-secret = { git = "https://github.com/9aia/hypha.git", branch = "main" }
+hypha-secret-cuora = { git = "https://github.com/9aia/hypha.git", branch = "main" }

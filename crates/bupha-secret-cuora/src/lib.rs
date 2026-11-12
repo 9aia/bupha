@@ -1,49 +1,123 @@
 //! Cuora impl of `Secrets` — the canonical secrets story (T-056).
+//! Thin wrapper over the shared [`hypha_secret_cuora`] adapter,
+//! pinned to the `bupha` scope.
 //!
 //! Each bupha secret NAME resolves to a fixed cuora ref:
 //! `cuora://bupha/<NAME>` — e.g. `BUPHA_WH_9AIA_BUPHA` maps to
 //! `cuora://bupha/BUPHA_WH_9AIA_BUPHA`. Values are fetched through
-//! the `cuora` CLI (`get`/`put`) so audit events, guardrails, and
-//! vault policy apply exactly as for every other consumer; bupha
-//! never stores a value itself.
+//! cuora so audit events, guardrails, and vault policy apply
+//! exactly as for every other consumer; bupha never stores a value
+//! itself.
 //!
-//! `get` shells `cuora get` per lookup. Secrets resolve once at
-//! watcher/driver boot (a handful of names per fleet), so a
-//! per-call process is cheaper than a persistent `cuora serve`
-//! session and needs no shared mutable state. A missing `cuora`
-//! binary, a denied op, or an absent ref all answer `None` —
-//! "not here" — so the caller's chain falls through to the legacy
-//! stores exactly like a keyring miss on a headless box.
+//! Two transports, selected by `BUPHA_CUORA_TRANSPORT` (the
+//! `<PRODUCT>_CUORA_TRANSPORT` convention — see `hypha-secret-cuora`):
+//!
+//! - `cli` (default) — shell `cuora get`/`put` per call. Secret
+//!   resolution happens a handful of times per run/verb, so a
+//!   per-call process is cheap and needs no shared mutable state.
+//! - `serve` — a persistent `cuora serve` child speaking the
+//!   ndjson JSON-RPC wire (`cuora-serve/1`) on stdio. Spawned lazily
+//!   on first use, reused for the client's lifetime.
+//!
+//! A missing `cuora` binary, a denied op, or an absent ref all
+//! answer `None` — "not here" — so the caller's chain falls through
+//! to the legacy stores exactly like a keyring miss on a headless
+//! box, on either transport.
 //!
 //! Env knobs: `BUPHA_CUORA_BIN` overrides the binary path (tests
-//! stub it); `CUORA_*` and `--config` resolution stay cuora's own.
-//! `CUORA_ENV`/`--env` picks the vault env — bupha does not pin one.
+//! stub it); `BUPHA_CUORA_TRANSPORT` picks `cli`/`serve`;
+//! `CUORA_*` and `--config` resolution stay cuora's own — the child
+//! inherits the environment, so `CUORA_ENV` picks the vault env —
+//! bupha does not pin one.
+
+pub use hypha_secret_cuora::{CuoraServe, CuoraTransport};
 
 use bupha_secret::Secrets;
-use std::io::Write;
+// The inner store implements hypha's `Secrets` trait — in scope
+// (anonymously) so `self.inner.get/set` resolve.
+use hypha_secret::Secrets as _;
 use std::path::PathBuf;
-use std::process::{Command, Stdio};
+use std::sync::OnceLock;
 
 /// Ref namespace — every bupha secret name lives under
 /// `cuora://bupha/…` so `cuora list` shows the whole fleet surface.
 pub const NAMESPACE: &str = "bupha";
 
-/// `Secrets` over the `cuora` CLI. Stateless — each call spawns a
-/// fresh `cuora get`/`put`, inheriting cuora's own config search
-/// (`$CUORA_CONFIG` → `./cuora.toml` → `~/.config/cuora/cuora.toml`).
+/// The env knobs this shim reads — re-exported for consumers that
+/// build their own transport legs.
+pub const BIN_ENV: &str = "BUPHA_CUORA_BIN";
+pub const TRANSPORT_ENV: &str = "BUPHA_CUORA_TRANSPORT";
+
+/// `Secrets` over cuora — CLI or `cuora serve` transport per
+/// [`CuoraTransport`]. Thin wrapper over
+/// [`hypha_secret_cuora::CuoraSecrets`] pinned to the `bupha`
+/// scope; the env knobs stay bupha's.
+///
+/// Clones share the serve child — see
+/// [`CuoraSecrets::shared_default`] for why that matters.
+#[derive(Clone)]
 pub struct CuoraSecrets {
     /// The `cuora` binary — `BUPHA_CUORA_BIN` when set, else `cuora`
-    /// resolved on PATH.
+    /// resolved on PATH. Kept as a field (not just inside `inner`)
+    /// because consumers document it as the test seam.
     pub bin: PathBuf,
+    inner: hypha_secret_cuora::CuoraSecrets,
 }
 
 impl Default for CuoraSecrets {
     fn default() -> Self {
+        Self::from_env()
+    }
+}
+
+impl std::fmt::Debug for CuoraSecrets {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("CuoraSecrets")
+            .field("bin", &self.bin)
+            .field("transport", &self.inner.transport())
+            .finish_non_exhaustive()
+    }
+}
+
+impl CuoraSecrets {
+    /// The env-selected store — `BUPHA_CUORA_BIN` +
+    /// `BUPHA_CUORA_TRANSPORT`.
+    fn from_env() -> Self {
+        Self::with_transport(
+            std::env::var_os(BIN_ENV).map_or_else(|| PathBuf::from("cuora"), PathBuf::from),
+            CuoraTransport::from_env(TRANSPORT_ENV),
+        )
+    }
+
+    /// A store over `bin` with the env-selected transport.
+    #[must_use]
+    pub fn with_bin(bin: PathBuf) -> Self {
+        Self::with_transport(bin, CuoraTransport::from_env(TRANSPORT_ENV))
+    }
+
+    /// A store over `bin` on an explicit transport — the test seam
+    /// and the "I know what I'm doing" constructor.
+    #[must_use]
+    pub fn with_transport(bin: PathBuf, transport: CuoraTransport) -> Self {
         Self {
-            bin: std::env::var_os("BUPHA_CUORA_BIN")
-                .map(PathBuf::from)
-                .unwrap_or_else(|| PathBuf::from("cuora")),
+            bin: bin.clone(),
+            inner: hypha_secret_cuora::CuoraSecrets::new(NAMESPACE)
+                .with_bin(bin)
+                .with_transport(transport),
         }
+    }
+
+    /// The process-wide default store.
+    ///
+    /// Worth sharing under the serve transport: `CuoraSecrets` is
+    /// cheap to construct but the serve child's whole point is
+    /// persistence — a fresh store per lookup would spawn and reap
+    /// `cuora serve` on every secret read, worse than the CLI. Under
+    /// `cli` sharing is a no-op behaviorally.
+    #[must_use]
+    pub fn shared_default() -> &'static Self {
+        static DEFAULT: OnceLock<CuoraSecrets> = OnceLock::new();
+        DEFAULT.get_or_init(CuoraSecrets::from_env)
     }
 }
 
@@ -51,54 +125,20 @@ impl Default for CuoraSecrets {
 /// mapping without constructing the store.
 ///
 /// `BUPHA_WH_9AIA_BUPHA` → `cuora://bupha/BUPHA_WH_9AIA_BUPHA`.
-/// Names are env-var-shaped (`[A-Z0-9_]`) which cuora's ref grammar
-/// accepts verbatim — no slugging, the name IS the ref tail, so
-/// `cuora put cuora://bupha/<NAME>` is the migration path with
-/// zero translation.
+#[must_use]
 pub fn rref(name: &str) -> String {
-    format!("cuora://{NAMESPACE}/{name}")
+    hypha_secret_cuora::rref(NAMESPACE, name)
 }
 
 impl Secrets for CuoraSecrets {
     fn get(&self, name: &str) -> Option<String> {
-        let o = Command::new(&self.bin)
-            .args(["--actor", "bupha", "get", &rref(name)])
-            .stdin(Stdio::null())
-            .stderr(Stdio::null())
-            .output()
-            .ok()?;
-        if !o.status.success() {
-            return None;
-        }
-        // `cuora get` prints the value via println! — strip exactly
-        // one trailing newline (and a CR before it); interior
-        // whitespace is part of the value.
-        let mut s = String::from_utf8_lossy(&o.stdout).into_owned();
-        if let Some(stripped) = s.strip_suffix('\n') {
-            s = stripped.strip_suffix('\r').unwrap_or(stripped).to_string();
-        }
-        (!s.is_empty()).then_some(s)
+        self.inner.get(name)
     }
 
-    /// Deploy-time migration: `cuora put` reads the value on stdin
-    /// (never argv — argv lands in shell history and `/proc`).
+    /// Deploy-time migration — `cuora put` reads the value on stdin
+    /// (never argv) on the CLI leg; under serve it rides the
+    /// request's `value` field, still never argv.
     fn set(&self, name: &str, value: &str) -> std::io::Result<()> {
-        let mut c = Command::new(&self.bin)
-            .args(["--actor", "bupha", "put", &rref(name)])
-            .stdin(Stdio::piped())
-            .stderr(Stdio::null())
-            .spawn()?;
-        if let Some(mut stdin) = c.stdin.take() {
-            stdin.write_all(value.as_bytes())?;
-        }
-        let status = c.wait()?;
-        if status.success() {
-            Ok(())
-        } else {
-            Err(std::io::Error::other(format!(
-                "cuora put {} exited {status}",
-                rref(name)
-            )))
-        }
+        self.inner.set(name, value)
     }
 }

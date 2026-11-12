@@ -48,7 +48,7 @@ fn stub(dir: &Path) -> PathBuf {
 }
 
 fn store_at(bin: PathBuf) -> CuoraSecrets {
-    CuoraSecrets { bin }
+    CuoraSecrets::with_bin(bin)
 }
 
 #[test]
