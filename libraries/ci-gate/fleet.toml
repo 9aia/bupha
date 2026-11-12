@@ -276,7 +276,7 @@ secret_env = "BUPHA_WH_HANDL_LANG_GRAPHOPT"
 kind = "shell"
 token_env = "BUPHA_TOKEN"
 cancel_running = true
-cmd = "bash scripts/gates.sh && bash ci.sh"
+cmd = "TORCHINDUCTOR_COMPILE_THREADS=1 bash scripts/gates.sh && TORCHINDUCTOR_COMPILE_THREADS=1 bash ci.sh"
 
 [[repo]]
 name = "handl-lang/host"
@@ -847,6 +847,131 @@ dir = "~/GitHub/handl-lang/slidev-theme"
 name = "luisfuturist/blog"
 dir = "~/GitHub/luisfuturist/blog"
 secret_env = "BUPHA_WH_LUISFUTURIST_BLOG"
+[[repo]]
+name = "handl-lang/engine-exec-cranelift"
+dir = "/home/luis/GitHub/handl-lang/engine-exec-cranelift"
+secret_env = "BUPHA_WH_HANDL_LANG_ENGINE_EXEC_CRANELIFT"
+
+[[repo]]
+name = "handl-lang/engine-lint"
+dir = "/home/luis/GitHub/handl-lang/engine-lint"
+secret_env = "BUPHA_WH_HANDL_LANG_ENGINE_LINT"
+
+[[repo]]
+name = "handl-lang/kit-core"
+dir = "/home/luis/GitHub/handl-lang/kit-core"
+secret_env = "BUPHA_WEBHOOK_SECRET"
+
+[[repo]]
+name = "handl-lang/kit-ffi"
+dir = "/home/luis/GitHub/handl-lang/kit-ffi"
+secret_env = "BUPHA_WEBHOOK_SECRET"
+
+[[repo]]
+name = "handl-lang/kit-lang"
+dir = "/home/luis/GitHub/handl-lang/kit-lang"
+secret_env = "BUPHA_WEBHOOK_SECRET"
+
+[[repo]]
+name = "handl-lang/kit-prelude"
+dir = "/home/luis/GitHub/handl-lang/kit-prelude"
+secret_env = "BUPHA_WEBHOOK_SECRET"
+
+[[repo]]
+name = "handl-lang/kit-server"
+dir = "/home/luis/GitHub/handl-lang/kit-server"
+secret_env = "BUPHA_WEBHOOK_SECRET"
+
+[[repo]]
+name = "handl-lang/kit-stdlib"
+dir = "/home/luis/GitHub/handl-lang/kit-stdlib"
+secret_env = "BUPHA_WEBHOOK_SECRET"
+
+[[repo]]
+name = "handl-lang/kit-test"
+dir = "/home/luis/GitHub/handl-lang/kit-test"
+secret_env = "BUPHA_WEBHOOK_SECRET"
+
+[[repo]]
+name = "handl-lang/lib-comb"
+dir = "/home/luis/GitHub/handl-lang/lib-comb"
+secret_env = "BUPHA_WH_HANDL_LANG_LIB_COMB"
+
+[[repo]]
+name = "handl-lang/lib-crypto"
+dir = "/home/luis/GitHub/handl-lang/lib-crypto"
+secret_env = "BUPHA_WH_HANDL_LANG_LIB_CRYPTO"
+
+[[repo]]
+name = "handl-lang/lib-ffi"
+dir = "/home/luis/GitHub/handl-lang/lib-ffi"
+secret_env = "BUPHA_WH_HANDL_LANG_LIB_FFI"
+
+[[repo]]
+name = "handl-lang/lib-kv"
+dir = "/home/luis/GitHub/handl-lang/lib-kv"
+secret_env = "BUPHA_WH_HANDL_LANG_LIB_KV"
+
+[[repo]]
+name = "handl-lang/lib-kv-hashmap"
+dir = "/home/luis/GitHub/handl-lang/lib-kv-hashmap"
+secret_env = "BUPHA_WH_HANDL_LANG_LIB_KV_HASHMAP"
+
+[[repo]]
+name = "handl-lang/lib-lang-compile"
+dir = "/home/luis/GitHub/handl-lang/lib-lang-compile"
+secret_env = "BUPHA_WH_HANDL_LANG_LIB_LANG_COMPILE"
+
+[[repo]]
+name = "handl-lang/lib-lang-eval"
+dir = "/home/luis/GitHub/handl-lang/lib-lang-eval"
+secret_env = "BUPHA_WH_HANDL_LANG_LIB_LANG_EVAL"
+
+[[repo]]
+name = "handl-lang/lib-lang-lex"
+dir = "/home/luis/GitHub/handl-lang/lib-lang-lex"
+secret_env = "BUPHA_WH_HANDL_LANG_LIB_LANG_LEX"
+
+[[repo]]
+name = "handl-lang/lib-lang-parse"
+dir = "/home/luis/GitHub/handl-lang/lib-lang-parse"
+secret_env = "BUPHA_WH_HANDL_LANG_LIB_LANG_PARSE"
+
+[[repo]]
+name = "handl-lang/lib-lang-run-compiled"
+dir = "/home/luis/GitHub/handl-lang/lib-lang-run-compiled"
+secret_env = "BUPHA_WH_HANDL_LANG_LIB_LANG_RUN_COMPILED"
+
+[[repo]]
+name = "handl-lang/lib-lang-typecheck"
+dir = "/home/luis/GitHub/handl-lang/lib-lang-typecheck"
+secret_env = "BUPHA_WH_HANDL_LANG_LIB_LANG_TYPECHECK"
+
+[[repo]]
+name = "handl-lang/lib-otlp-c"
+dir = "/home/luis/GitHub/handl-lang/lib-otlp-c"
+secret_env = "BUPHA_WH_HANDL_LANG_LIB_OTLP_C"
+
+[[repo]]
+name = "handl-lang/lib-otlp-std"
+dir = "/home/luis/GitHub/handl-lang/lib-otlp-std"
+secret_env = "BUPHA_WH_HANDL_LANG_LIB_OTLP_STD"
+
+[[repo]]
+name = "handl-lang/lib-perlin"
+dir = "/home/luis/GitHub/handl-lang/lib-perlin"
+secret_env = "BUPHA_WH_HANDL_LANG_LIB_PERLIN"
+
+[[repo]]
+name = "handl-lang/lib-simplex"
+dir = "/home/luis/GitHub/handl-lang/lib-simplex"
+secret_env = "BUPHA_WH_HANDL_LANG_LIB_SIMPLEX"
+
+[[repo]]
+name = "handl-lang/lib-test"
+dir = "/home/luis/GitHub/handl-lang/lib-test"
+secret_env = "BUPHA_WH_HANDL_LANG_LIB_TEST"
+
 # --- pipeline ------------------------------------------------------------------
 
 # The zero-container path: `bash -c <cmd>` in a detached worktree.
