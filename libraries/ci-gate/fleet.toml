@@ -98,34 +98,42 @@ cmd = "bash scripts/ci.sh"
 [[repo]]
 name = "handl-lang/automation"
 dir = "~/GitHub/handl-lang/automation"
+secret_env = "BUPHA_WEBHOOK_SECRET"
 
 [[repo]]
 name = "handl-lang/compile-dot"
 dir = "~/GitHub/handl-lang/compile-dot"
+secret_env = "BUPHA_WEBHOOK_SECRET"
 
 [[repo]]
 name = "handl-lang/compile-handl"
 dir = "~/GitHub/handl-lang/compile-handl"
+secret_env = "BUPHA_WEBHOOK_SECRET"
 
 [[repo]]
 name = "handl-lang/compile-js"
 dir = "~/GitHub/handl-lang/compile-js"
+secret_env = "BUPHA_WEBHOOK_SECRET"
 
 [[repo]]
 name = "handl-lang/compile-llvm"
 dir = "~/GitHub/handl-lang/compile-llvm"
+secret_env = "BUPHA_WEBHOOK_SECRET"
 
 [[repo]]
 name = "handl-lang/compile-sexp"
 dir = "~/GitHub/handl-lang/compile-sexp"
+secret_env = "BUPHA_WEBHOOK_SECRET"
 
 [[repo]]
 name = "handl-lang/compile-term"
 dir = "~/GitHub/handl-lang/compile-term"
+secret_env = "BUPHA_WEBHOOK_SECRET"
 
 [[repo]]
 name = "handl-lang/compile-triton"
 dir = "~/GitHub/handl-lang/compile-triton"
+secret_env = "BUPHA_WEBHOOK_SECRET"
 
 [[repo]]
 name = "handl-lang/docs"
@@ -140,10 +148,12 @@ cmd = "bash ci/trigger.sh"
 [[repo]]
 name = "handl-lang/egraph"
 dir = "~/GitHub/handl-lang/egraph"
+secret_env = "BUPHA_WEBHOOK_SECRET"
 
 [[repo]]
 name = "handl-lang/engine"
 dir = "~/GitHub/handl-lang/engine"
+secret_env = "BUPHA_WEBHOOK_SECRET"
 
 [[repo]]
 name = "handl-lang/engine-exec"
@@ -223,50 +233,62 @@ cmd = "bash scripts/gates.sh"
 [[repo]]
 name = "handl-lang/ext-compile"
 dir = "~/GitHub/handl-lang/ext-compile"
+secret_env = "BUPHA_WEBHOOK_SECRET"
 
 [[repo]]
 name = "handl-lang/ext-eval"
 dir = "~/GitHub/handl-lang/ext-eval"
+secret_env = "BUPHA_WEBHOOK_SECRET"
 
 [[repo]]
 name = "handl-lang/ext-fmt"
 dir = "~/GitHub/handl-lang/ext-fmt"
+secret_env = "BUPHA_WEBHOOK_SECRET"
 
 [[repo]]
 name = "handl-lang/ext-kit"
 dir = "~/GitHub/handl-lang/ext-kit"
+secret_env = "BUPHA_WEBHOOK_SECRET"
 
 [[repo]]
 name = "handl-lang/ext-lint"
 dir = "~/GitHub/handl-lang/ext-lint"
+secret_env = "BUPHA_WEBHOOK_SECRET"
 
 [[repo]]
 name = "handl-lang/ext-plugin"
 dir = "~/GitHub/handl-lang/ext-plugin"
+secret_env = "BUPHA_WEBHOOK_SECRET"
 
 [[repo]]
 name = "handl-lang/ext-sdkgen"
 dir = "~/GitHub/handl-lang/ext-sdkgen"
+secret_env = "BUPHA_WEBHOOK_SECRET"
 
 [[repo]]
 name = "handl-lang/ext-test"
 dir = "~/GitHub/handl-lang/ext-test"
+secret_env = "BUPHA_WEBHOOK_SECRET"
 
 [[repo]]
 name = "handl-lang/ext-transform"
 dir = "~/GitHub/handl-lang/ext-transform"
+secret_env = "BUPHA_WEBHOOK_SECRET"
 
 [[repo]]
 name = "handl-lang/ext-typecheck"
 dir = "~/GitHub/handl-lang/ext-typecheck"
+secret_env = "BUPHA_WEBHOOK_SECRET"
 
 [[repo]]
 name = "handl-lang/extension-neovim"
 dir = "~/GitHub/handl-lang/extension-neovim"
+secret_env = "BUPHA_WEBHOOK_SECRET"
 
 [[repo]]
 name = "handl-lang/extension-vscode"
 dir = "~/GitHub/handl-lang/extension-vscode"
+secret_env = "BUPHA_WEBHOOK_SECRET"
 
 [[repo]]
 name = "handl-lang/graphopt"
@@ -291,10 +313,12 @@ cmd = "bash scripts/ci.sh"
 [[repo]]
 name = "handl-lang/host-cli"
 dir = "~/GitHub/handl-lang/host-cli"
+secret_env = "BUPHA_WEBHOOK_SECRET"
 
 [[repo]]
 name = "handl-lang/host-lsp"
 dir = "~/GitHub/handl-lang/host-lsp"
+secret_env = "BUPHA_WEBHOOK_SECRET"
 
 [[repo]]
 name = "handl-lang/host-tensor"
@@ -309,18 +333,22 @@ secret_env = "BUPHA_WH_HANDL_LANG_KERNEL"
 [[repo]]
 name = "handl-lang/kernelopt"
 dir = "~/GitHub/handl-lang/kernelopt"
+secret_env = "BUPHA_WEBHOOK_SECRET"
 
 [[repo]]
 name = "handl-lang/kit-data-prelude"
 dir = "~/GitHub/handl-lang/kit-data-prelude"
+secret_env = "BUPHA_WEBHOOK_SECRET"
 
 [[repo]]
 name = "handl-lang/kit-pkg"
 dir = "~/GitHub/handl-lang/kit-pkg"
+secret_env = "BUPHA_WEBHOOK_SECRET"
 
 [[repo]]
 name = "handl-lang/kit-prelude-lang"
 dir = "~/GitHub/handl-lang/kit-prelude-lang"
+secret_env = "BUPHA_WEBHOOK_SECRET"
 
 [[repo]]
 name = "handl-lang/lib-archive"
@@ -510,6 +538,7 @@ secret_env = "BUPHA_WH_HANDL_LANG_LIB_JSON_LIB"
 [[repo]]
 name = "handl-lang/lib-kernel-ir"
 dir = "~/GitHub/handl-lang/lib-kernel-ir"
+secret_env = "BUPHA_WEBHOOK_SECRET"
 
 [[repo]]
 name = "handl-lang/lib-kv-map"
@@ -814,34 +843,42 @@ secret_env = "BUPHA_WH_HANDL_LANG_LIB_WS_WHATWG_WASM"
 [[repo]]
 name = "handl-lang/pitch-2026-fernandes"
 dir = "~/GitHub/handl-lang/pitch-2026-fernandes"
+secret_env = "BUPHA_WEBHOOK_SECRET"
 
 [[repo]]
 name = "handl-lang/pitch-2026-lotufo"
 dir = "~/GitHub/handl-lang/pitch-2026-lotufo"
+secret_env = "BUPHA_WEBHOOK_SECRET"
 
 [[repo]]
 name = "handl-lang/sdkgen-c"
 dir = "~/GitHub/handl-lang/sdkgen-c"
+secret_env = "BUPHA_WEBHOOK_SECRET"
 
 [[repo]]
 name = "handl-lang/sdkgen-cli"
 dir = "~/GitHub/handl-lang/sdkgen-cli"
+secret_env = "BUPHA_WEBHOOK_SECRET"
 
 [[repo]]
 name = "handl-lang/sdkgen-file"
 dir = "~/GitHub/handl-lang/sdkgen-file"
+secret_env = "BUPHA_WEBHOOK_SECRET"
 
 [[repo]]
 name = "handl-lang/sdkgen-python"
 dir = "~/GitHub/handl-lang/sdkgen-python"
+secret_env = "BUPHA_WEBHOOK_SECRET"
 
 [[repo]]
 name = "handl-lang/sdkgen-webidl"
 dir = "~/GitHub/handl-lang/sdkgen-webidl"
+secret_env = "BUPHA_WEBHOOK_SECRET"
 
 [[repo]]
 name = "handl-lang/slidev-theme"
 dir = "~/GitHub/handl-lang/slidev-theme"
+secret_env = "BUPHA_WEBHOOK_SECRET"
 
 [[repo]]
 name = "luisfuturist/blog"
