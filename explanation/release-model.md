@@ -8,16 +8,14 @@ user surface; ADR-0006.) Two deliberate phases:
 ## Phase 1 — the explicit seed
 
 The dev CLI's `bupha deploy release` runs once, by hand: it reads
-cargo metadata,
-topologically orders the workspace's path-dependency graph,
-`cargo publish`es every member, tags `{repo}-v{version}`, and pushes
-the tag.
+cargo metadata, verifies the workspace shares one version, tags
+`{repo}-v{version}`, and pushes the tag. (`--dry-run` prints the
+tag without touching anything.)
 
-Why explicit? Publishing is the **only irreversible step** in the
-whole system. Queues, runs, and statuses are all idempotent and
-local; a crate version on crates.io is forever. Everything else in
-bupha fires on push — the seed doesn't. (`--dry-run` prints the
-order and tag without touching anything.)
+Why explicit? A tag is the boundary of "this sha is a release" —
+everything after it is derived. There is no crates.io publish
+anymore: org policy keeps every repo but tamias off crates.io, and
+the bupha crates are internal lib-only engines anyway.
 
 ## Phase 2 — push-driven forever after
 
@@ -27,12 +25,21 @@ in a detached worktree under the shell runner.
 
 The script:
 
-1. diffs crate paths since the last `bupha-v*` tag
-2. `cargo set-version --bump patch` on touched crates only (the cli
-   republishes on any change — it's the install artifact)
-3. `cargo publish`es them in dep order
-4. tags `bupha-vX.Y.Z`, builds host-arch binaries with `cargo dist`,
-   uploads to a GitHub Release via `gh`
+1. diffs release-worthy paths (crates, `libraries/`, `modules/`,
+   workspace manifests, the script itself) since the last
+   `bupha-v*` tag
+2. `cargo set-version --workspace --bump patch` — every member
+   inherits `version.workspace`, so one bump moves them all, along
+   with the `workspace.dependencies` reqs and `Cargo.lock`
+3. syncs the version refs in `libraries/bupha/tamias.yaml` and the
+   README's install example
+4. commits `release: bump bupha to <ver>`, tags `bupha-v<ver>`,
+   pushes
+
+User-facing distribution is the tamias pack — after the tag the
+operator runs `tamias publish libraries/bupha` to ship
+`9aia:bupha@<ver>` to the org registry (the pack's bundled
+`tamias-driver-bupha` binary is the whole install artifact).
 
 The 5-minute sleep at the top isn't a hack — it's the debounce
 window. Combined with `queue = "latest"` + `cancel_running`, rapid
@@ -49,10 +56,9 @@ get an honest "cancelled" status.
   push loses nothing — the tag lands on HEAD, which contains
   everything. `queue = "all"` is for pipelines where each sha's run
   is individually meaningful.
-- **Explicit over automatic**: a wrong tag or half-published
-  workspace is far worse than a delayed release; the boundary sits
-  exactly at irreversibility.
+- **Tag-only, publish-by-hand**: the irreversible step moved off
+  crates.io entirely — the org registry publish is an explicit
+  operator act (`tamias publish`), not part of the release script.
 
-Host prerequisites: `cargo-edit`, `cargo-dist`, `gh`, and
-`CARGO_REGISTRY_TOKEN` (env → keyring → env file). Multi-arch
-binaries arrive when the remote-runner pair lands — see TODO.
+Host prerequisites: `cargo-edit` and `git`. Multi-arch binaries
+arrive when the remote-runner pair lands — see TODO.

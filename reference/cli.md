@@ -138,7 +138,7 @@ Install-time helpers — no manual file copies
 * `webhook` — Register/update the repo's push webhook via the REST API (token from env/keyring/env file — no `gh` dependency)
 * `env` — Seed ~/.config/bupha/env with the secret names
 * `check` — Verify the whole install: unit, secrets, hook, endpoint, token
-* `release` — One-time seed: cargo publish in dep order + tag {repo}-v{ver}. Explicit — publishing is the irreversible step in the flow
+* `release` — Tag the workspace version `{repo}-v{ver}` and push it. crates.io publish is retired — releases ride the tamias pack
 
 
 
@@ -180,13 +180,13 @@ Verify the whole install: unit, secrets, hook, endpoint, token
 
 ## `bupha deploy release`
 
-One-time seed: cargo publish in dep order + tag {repo}-v{ver}. Explicit — publishing is the irreversible step in the flow
+Tag the workspace version `{repo}-v{ver}` and push it. crates.io publish is retired — releases ride the tamias pack
 
 **Usage:** `bupha deploy release [OPTIONS]`
 
 ###### **Options:**
 
-* `--dry-run` — Print the publish order and tag without doing anything
+* `--dry-run` — Print the tag without creating it
 
 
 
