@@ -136,6 +136,11 @@ dir = "~/GitHub/handl-lang/compile-triton"
 secret_env = "BUPHA_WEBHOOK_SECRET"
 
 [[repo]]
+name = "handl-lang/discovery"
+dir = "/home/luis/GitHub/handl-lang/discovery"
+secret_env = "BUPHA_WEBHOOK_SECRET"
+
+[[repo]]
 name = "handl-lang/docs"
 dir = "/home/luis/GitHub/handl-lang/docs"
 secret_env = "BUPHA_WH_HANDL_LANG_DOCS"
@@ -289,6 +294,26 @@ secret_env = "BUPHA_WEBHOOK_SECRET"
 name = "handl-lang/extension-vscode"
 dir = "~/GitHub/handl-lang/extension-vscode"
 secret_env = "BUPHA_WEBHOOK_SECRET"
+
+[[repo]]
+name = "handl-lang/gamekit"
+dir = "/home/luis/GitHub/handl-lang/gamekit"
+secret_env = "BUPHA_WH_HANDL_LANG_GAMEKIT"
+# Runner override: no ci.sh — the gate is the repo's own verification
+# ladder (AGENTS.md / .github/workflows/ci.yml) run natively: uv sync
+# dev group, ruff lint+format, ty, vulture, the import-linter contract,
+# then the suite under the pyproject coverage floor. `ty` is scoped to
+# packages/gamekit on purpose: `uv sync --group dev` installs only the
+# root + gamekit (benchkit's torch/jinja2/plotly/polars deps stay out —
+# the CUDA torch stack does not fit this host's disk), so an unscoped
+# `ty check` reports unresolved benchkit imports. That is also why the
+# upstream GH gate is red at HEAD — this scope keeps the kernel gate
+# honest without the benchkit dep tree.
+[repo.runner]
+kind = "shell"
+token_env = "BUPHA_TOKEN"
+cancel_running = true
+cmd = "export PATH=\"$HOME/.local/bin:$HOME/.cargo/bin:$PATH\" && uv sync --group dev && .venv/bin/ruff check packages && .venv/bin/ruff format --check packages && .venv/bin/ty check packages/gamekit && .venv/bin/vulture packages && .venv/bin/lint-imports && .venv/bin/coverage run --source=gamekit -m pytest tests/ -q && .venv/bin/coverage report -m"
 
 [[repo]]
 name = "handl-lang/graphopt"
