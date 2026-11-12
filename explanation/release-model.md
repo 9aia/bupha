@@ -3,7 +3,11 @@
 bupha releases itself — there is no hosted CI and no release tool
 in the loop. (The release verbs live on the dev CLI — `bupha
 deploy release`, `scripts/release.sh` — maintainer tooling, not
-user surface; ADR-0006.) Two deliberate phases:
+user surface; ADR-0006.) The org release plane is **tarsi**
+(`tarsi-serve` ops — project ADR-0005): `scripts/release.sh` is
+being converted to a thin shim over it (PL-014 E1), and until then
+this script implements the same tag-only + `tamias publish` model
+directly. Two deliberate phases:
 
 ## Phase 1 — the explicit seed
 
