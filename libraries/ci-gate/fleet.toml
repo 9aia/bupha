@@ -29,15 +29,15 @@ name = "9aia/bupha"
 dir = "~/GitHub/9aia/workspace/repos/bupha"
 branch = "refs/heads/main"
 secret_env = "BUPHA_WH_9AIA_BUPHA"
-# Runner override: the repo has no ./ci.sh — the legacy campaign's
-# "main" job was ./scripts/release.sh (a release pipeline, Phase-2
-# question), so the gate floor here is the xtask check until a real
-# ci.sh lands.
+# Runner override: the repo has no ci.sh and no xtask — the gate is
+# the cargo floor directly (fmt + clippy -D warnings + workspace
+# tests), with the user tool dirs pulled in for the minimal systemd
+# PATH (same trick the 9aia repos' scripts/ci.sh use).
 [repo.runner]
 kind = "shell"
 token_env = "BUPHA_TOKEN"
 cancel_running = true
-cmd = "cargo xtask check"
+cmd = "export PATH=\"$HOME/.local/bin:$HOME/.cargo/bin:$PATH\" && cargo fmt --all --check && cargo clippy --workspace --all-targets -- -D warnings && cargo test --workspace"
 
 [[repo]]
 name = "9aia/tamias"
@@ -847,6 +847,11 @@ dir = "~/GitHub/handl-lang/slidev-theme"
 name = "luisfuturist/blog"
 dir = "~/GitHub/luisfuturist/blog"
 secret_env = "BUPHA_WH_LUISFUTURIST_BLOG"
+[repo.runner]
+kind = "shell"
+token_env = "BUPHA_TOKEN"
+cancel_running = true
+cmd = "bash scripts/ci.sh"
 [[repo]]
 name = "handl-lang/engine-exec-cranelift"
 dir = "/home/luis/GitHub/handl-lang/engine-exec-cranelift"
