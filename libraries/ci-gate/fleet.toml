@@ -29,6 +29,15 @@ name = "9aia/bupha"
 dir = "~/GitHub/9aia/workspace/repos/bupha"
 branch = "refs/heads/main"
 secret_env = "BUPHA_WH_9AIA_BUPHA"
+# Runner override: the repo has no ./ci.sh — the legacy campaign's
+# "main" job was ./scripts/release.sh (a release pipeline, Phase-2
+# question), so the gate floor here is the xtask check until a real
+# ci.sh lands.
+[repo.runner]
+kind = "shell"
+token_env = "BUPHA_TOKEN"
+cancel_running = true
+cmd = "cargo xtask check"
 
 [[repo]]
 name = "9aia/tamias"
@@ -50,6 +59,41 @@ name = "9aia/myco"
 dir = "~/GitHub/9aia/workspace/repos/myco"
 branch = "refs/heads/main"
 secret_env = "BUPHA_WH_9AIA_MYCO"
+# Runner override: myco keeps its gate at scripts/ci.sh, not
+# ./ci.sh (same as tamias).
+[repo.runner]
+kind = "shell"
+token_env = "BUPHA_TOKEN"
+cancel_running = true
+cmd = "bash scripts/ci.sh"
+
+# PL-018 phase 1 — the remaining 9aia repos with a real main-branch
+# gate. sturn/kuda/mimus are skipped: no ci/check script (mimus's
+# scripts/check.sh is a local pre-push floor — "no hosted CI by
+# design").
+[[repo]]
+name = "9aia/peregrin"
+dir = "~/GitHub/9aia/workspace/repos/peregrin"
+branch = "refs/heads/main"
+secret_env = "BUPHA_WH_9AIA_PEREGRIN"
+
+[repo.runner]
+kind = "shell"
+token_env = "BUPHA_TOKEN"
+cancel_running = true
+cmd = "bash scripts/ci.sh"
+
+[[repo]]
+name = "9aia/cuora"
+dir = "~/GitHub/9aia/workspace/repos/cuora"
+branch = "refs/heads/main"
+secret_env = "BUPHA_WH_9AIA_CUORA"
+
+[repo.runner]
+kind = "shell"
+token_env = "BUPHA_TOKEN"
+cancel_running = true
+cmd = "bash scripts/ci.sh"
 
 # --- pipeline ------------------------------------------------------------------
 
