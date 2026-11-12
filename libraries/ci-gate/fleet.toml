@@ -35,22 +35,21 @@ name = "9aia/tamias"
 dir = "~/GitHub/9aia/workspace/repos/tamias"
 branch = "refs/heads/main"
 secret_env = "BUPHA_WH_9AIA_TAMIAS"
+# PR CI for the pr-heal dogfood (PL-015): pull_request jobs so the
+# campaign's ci.enqueue.pr is accepted; runner override because
+# tamias keeps its script at scripts/ci.sh, not ./ci.sh.
+events = ["push", "pull_request"]
+[repo.runner]
+kind = "shell"
+token_env = "BUPHA_TOKEN"
+cancel_running = true
+cmd = "bash scripts/ci.sh"
 
 [[repo]]
 name = "9aia/myco"
 dir = "~/GitHub/9aia/workspace/repos/myco"
 branch = "refs/heads/main"
 secret_env = "BUPHA_WH_9AIA_MYCO"
-
-# PL-015 spike target — disposable private repo exercising the
-# ci-job → agent-fix → merge loop. Runs ./ci.sh (root convention)
-# on push + pull_request.
-[[repo]]
-name = "luisfuturist/pr-heal-spike"
-dir = "~/GitHub/luisfuturist/pr-heal-spike"
-branch = "refs/heads/main"
-secret_env = "BUPHA_WH_LUISFUTURIST_PR_HEAL_SPIKE"
-events = ["push", "pull_request"]
 
 # --- pipeline ------------------------------------------------------------------
 
