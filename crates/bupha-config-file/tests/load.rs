@@ -1,4 +1,3 @@
-use bupha_config::ConfigSource;
 use bupha_config_file::FileSource;
 
 fn tmp(tag: &str) -> std::path::PathBuf {

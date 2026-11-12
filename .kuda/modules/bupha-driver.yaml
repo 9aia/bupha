@@ -5,7 +5,7 @@ api:
 - name: DEFAULT_BASE
   kind: const
   file: crates/bupha-driver/src/data.rs
-  line: 40
+  line: 39
   module: bupha-driver
 - name: DEFAULT_LIMIT
   kind: const
@@ -50,7 +50,7 @@ api:
 - name: MANIFEST
   kind: const
   file: crates/bupha-driver/src/ops.rs
-  line: 1139
+  line: 1136
   module: bupha-driver
 - name: MANIFEST_NAMES
   kind: const
@@ -60,12 +60,12 @@ api:
 - name: MIN_CONFIG
   kind: const
   file: crates/bupha-driver/src/data.rs
-  line: 240
+  line: 239
   module: bupha-driver
 - name: MIN_FLEET
   kind: const
   file: crates/bupha-driver/src/ops.rs
-  line: 1126
+  line: 1123
   module: bupha-driver
 - name: Manifest
   kind: type
@@ -85,7 +85,7 @@ api:
 - name: Plane
   kind: type
   file: crates/bupha-driver/src/data.rs
-  line: 49
+  line: 48
   module: bupha-driver
 - name: Provider
   kind: type
@@ -150,12 +150,12 @@ api:
 - name: WATCH_UNIT
   kind: const
   file: crates/bupha-driver/src/data.rs
-  line: 43
+  line: 42
   module: bupha-driver
 - name: WORKER_UNIT
   kind: const
   file: crates/bupha-driver/src/data.rs
-  line: 44
+  line: 43
   module: bupha-driver
 - name: agent_error_exits
   kind: function
@@ -205,7 +205,6 @@ api:
 api_omitted: 272
 deps:
 - bupha
-- bupha-config
 - bupha-config-file
 - bupha-core
 - bupha-dotenv
@@ -235,7 +234,6 @@ deps:
 - serde_json
 - serde
 - bupha-secret
-- bupha-config
 - bupha-config-file
 - bupha-core
 - clap
@@ -272,12 +270,12 @@ provenance:
   - crates/bupha-driver/tests/verbs.rs
   - crates/bupha-driver/tests/watch.rs
   hashes:
-  - 3e715a5eaff9d7035fa4f1ab9d547cd2a67d209c
-  - 2750262004acbeece286ebddc439b77e8a150b71
+  - ab3af93432c384548c7cb934e03beac7f7317baf
+  - c4e8df90d9d19dda944d36d6086a54bf09ad46ab
   - eb50e437a98225124ef2a0572069b6f80d9834dd
   - aeae9673ae611a66a0146a4227ead239022f61ed
   - d9f35acc6476a1aa976407388bc3f0a565824abb
-  - 58b97e17cab8550a860bb1797778acd98de29338
+  - 65576cf895663df7c89a29d08e4a22efa12300cb
   - 0da6b0651234e4ebbf8510aa9ff4f77ef22eb332
   - d8f6cbd1c8f342af984fc99785f7a9cb9bc54f85
   - 3672b1cfe8132930ac073900e4a4a576f09dba12
@@ -289,6 +287,6 @@ provenance:
   - 12553a9dc152e7e0ffec4a06651592ed38d3ed23
   - fd852737ecb9227ba086e83d6212dc327ab9ac7b
   - 69c188e363454b256787377d8496652dcd4c7a80
-  commit_sha: abb87b40721c7fe6faf27a74f32e3eb702f4c32f
-  generated_at: '1794440686'
+  commit_sha: 269648ea789e65c140727529d749b9bbf66fdab7
+  generated_at: '1794488903'
   generator: kuda-template/0.1.4

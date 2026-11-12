@@ -1,6 +1,6 @@
 [package]
 name = "bupha-config-file"
-description = "File impl of ConfigSource — resolves bupha.yaml/.yml/.toml path, dispatches parse to the per-syntax adapter"
+description = "File impl of the config port — scarab-config discovery (explicit → $BUPHA_CONFIG → ./bupha.* → ~/.config/bupha/) + local TOML/YAML format dispatch for bupha_core::Config"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -9,7 +9,8 @@ keywords = ["ci", "bupha"]
 categories = ["development-tools"]
 
 [dependencies]
-bupha-config.workspace = true
-bupha-config-toml.workspace = true
-bupha-config-yaml.workspace = true
 bupha-core.workspace = true
+scarab-config = { git = "ssh://git@github.com/9aia/scarab.git", rev = "9364df88fad0ca46bd838467717a823893f47438", version = "0.1" }
+scarab-config-file = { git = "ssh://git@github.com/9aia/scarab.git", rev = "9364df88fad0ca46bd838467717a823893f47438", version = "0.1" }
+serde_norway = "0.9"
+toml.workspace = true

@@ -29,7 +29,6 @@ bupha-core.workspace = true
 # The engine lib — `ops` manifest derives from `bupha::command()`
 # and `run`/`cli.*` re-exec through `bupha::run_from`.
 bupha.workspace = true
-bupha-config.workspace = true
 bupha-config-file.workspace = true
 bupha-queue.workspace = true
 bupha-systemd.workspace = true

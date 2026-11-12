@@ -24,7 +24,6 @@ bupha-secret.workspace = true
 bupha-secret-cuora.workspace = true
 bupha-keyring.workspace = true
 bupha-service.workspace = true
-bupha-config.workspace = true
 bupha-config-file.workspace = true
 bupha-runner.workspace = true
 bupha-http.workspace = true

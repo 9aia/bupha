@@ -13,10 +13,7 @@ modules:
 - bupha-cache
 - bupha-cache-sccache
 - bupha-cloudflared
-- bupha-config
 - bupha-config-file
-- bupha-config-toml
-- bupha-config-yaml
 - bupha-container
 - bupha-core
 - bupha-dagger
@@ -51,8 +48,8 @@ modules:
 commands:
 - cargo check
 - cargo test --workspace
-tree_digest: 04ccb667832e4536f20e4b5be5d33660285f7071
-files_total: 233
+tree_digest: 3bfd93c71a2dc6aff21830352a5a777adc9f2343
+files_total: 225
 provenance:
   files:
   - Cargo.toml
@@ -68,10 +65,7 @@ provenance:
   - crates/bupha-cache-sccache/Cargo.toml
   - crates/bupha-cli/Cargo.toml
   - crates/bupha-cloudflared/Cargo.toml
-  - crates/bupha-config/Cargo.toml
   - crates/bupha-config-file/Cargo.toml
-  - crates/bupha-config-toml/Cargo.toml
-  - crates/bupha-config-yaml/Cargo.toml
   - crates/bupha-container/Cargo.toml
   - crates/bupha-core/Cargo.toml
   - crates/bupha-dagger/Cargo.toml
@@ -102,7 +96,7 @@ provenance:
   - crates/bupha-webhook/Cargo.toml
   - modules/dagger/dagger/pyproject.toml
   hashes:
-  - 3254ba5d49ca35c036e7dbec73323128251c78ef
+  - ce6facd74af24f80d4d98cbe2e6b20991bdb9b66
   - f17a54fde9bb1d2a0da827434b00b5dc6c4d7766
   - faa9d3e3b2e30ebed8aecf8da83c4683f33024c8
   - d3b36ada9a99ed7e36e96e47a7beb1f5bf3fe348
@@ -113,17 +107,14 @@ provenance:
   - d46021a5cc4e28ee9eed1d7ca349dd222a5d8306
   - 1e8b72c77e68157b0bceb70cbb4e3ea5c6b4868e
   - 1ce58c0ddf98f4e695cbd71d19541ac6dc19034a
-  - 9d2822caaec377ecef1d6a0239153d4569bb8345
+  - 9d06d193d6de734ad28d5a33d2a743a391ec9383
   - c6468e2b1603699af53234b1fa10040bc21f84b9
-  - b1c0f26fe1cf3ded47e08fa677971c448489f47a
-  - 90556965fe774768db42f410ce6430ce8dd30f55
-  - f1fc22a2f89214a9691ed2fd8d63142b79b58671
-  - 46e2384efb31509bd2112bbe9b1ba6066c9602b1
+  - 2554603bfe365d5bcc00501ca7b197239ae7512f
   - ed119b77d73632bed5f8699fe776993139cce885
   - 2949c06c8e71ef5da170506ce9cd8dfbb7312ce3
   - 6ebc856617d9589fc7fa9c6363696d2e543e5f0b
   - 65cf007ad2f3d1e6517719d11469bc6e97b7326d
-  - 3e715a5eaff9d7035fa4f1ab9d547cd2a67d209c
+  - ab3af93432c384548c7cb934e03beac7f7317baf
   - 130920aec2d9f32d6f8c6d16b35230ba63ddc04f
   - 50261b87b50271a25bf73fe4037897a0d4e97a89
   - 9a8bdeb02a9e8896e60f63d221a83f115d8a5980
@@ -148,6 +139,6 @@ provenance:
   - 3a81d785d77178b64fa3fd85a98f40a70bb6701d
   - cd8e10b771c3960ae45a2b6f7705fa9f1cdc6344
   - a787b6af9e98fd8cae6ece92467308d34e49bbce
-  commit_sha: abb87b40721c7fe6faf27a74f32e3eb702f4c32f
-  generated_at: '1794440686'
+  commit_sha: 269648ea789e65c140727529d749b9bbf66fdab7
+  generated_at: '1794488903'
   generator: kuda/0.1.0

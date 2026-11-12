@@ -2,7 +2,6 @@
 //! `.yaml`/`.yml` → YamlSource, everything else → TomlSource —
 //! and adapter errors surface through the dispatcher.
 
-use bupha_config::ConfigSource;
 use bupha_config_file::FileSource;
 use std::path::{Path, PathBuf};
 

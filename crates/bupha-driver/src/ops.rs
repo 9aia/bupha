@@ -946,7 +946,6 @@ pub fn host(f: &Flags) -> Result<String, String> {
             None,
         ),
     };
-    use bupha_config::ConfigSource;
     let cfg = bupha_config_file::FileSource {
         path: Some(path.to_string_lossy().to_string()),
     }
@@ -990,7 +989,6 @@ pub fn worker(f: &Flags) -> Result<String, String> {
             None,
         ),
     };
-    use bupha_config::ConfigSource;
     use bupha_watch::entity_worker::JobExec as _;
     let cfg = bupha_config_file::FileSource {
         path: Some(path.to_string_lossy().to_string()),
@@ -1121,7 +1119,6 @@ pub fn run(verb: &str, args: &[String]) -> i32 {
 mod tests {
     use super::*;
     use crate::data::tests_util::tmp;
-    use bupha_config::ConfigSource;
 
     const MIN_FLEET: &str = r#"
 [[repo]]

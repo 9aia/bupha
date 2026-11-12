@@ -326,7 +326,6 @@ checksum = "72f5acc6cb2ba439de613abc23857ec3d78374d8ed5ac84e9d11336e87da8649"
 name = "bupha"
 version = "0.2.0"
 dependencies = [
- "bupha-config",
  "bupha-config-file",
  "bupha-core",
  "bupha-gha-runner",
@@ -419,38 +418,14 @@ dependencies = [
 ]
 
 [[package]]
-name = "bupha-config"
-version = "0.2.0"
-dependencies = [
- "bupha-core",
-]
-
-[[package]]
 name = "bupha-config-file"
 version = "0.2.0"
 dependencies = [
- "bupha-config",
- "bupha-config-toml",
- "bupha-config-yaml",
  "bupha-core",
-]
-
-[[package]]
-name = "bupha-config-toml"
-version = "0.2.0"
-dependencies = [
- "bupha-config",
- "bupha-core",
- "toml",
-]
-
-[[package]]
-name = "bupha-config-yaml"
-version = "0.2.0"
-dependencies = [
- "bupha-config",
- "bupha-core",
+ "scarab-config",
+ "scarab-config-file",
  "serde_norway",
+ "toml",
 ]
 
 [[package]]
@@ -492,7 +467,6 @@ name = "bupha-driver"
 version = "0.2.0"
 dependencies = [
  "bupha",
- "bupha-config",
  "bupha-config-file",
  "bupha-core",
  "bupha-dotenv",
@@ -2951,6 +2925,46 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9774ba4a74de5f7b1c1451ed6cd5285a32eddb5cccb8cc655a4e50009e06477f"
 
 [[package]]
+name = "scarab-config"
+version = "0.1.0"
+source = "git+ssh://git@github.com/9aia/scarab.git?rev=9364df88fad0ca46bd838467717a823893f47438#9364df88fad0ca46bd838467717a823893f47438"
+dependencies = [
+ "serde_json",
+]
+
+[[package]]
+name = "scarab-config-file"
+version = "0.1.0"
+source = "git+ssh://git@github.com/9aia/scarab.git?rev=9364df88fad0ca46bd838467717a823893f47438#9364df88fad0ca46bd838467717a823893f47438"
+dependencies = [
+ "scarab-config",
+ "scarab-config-toml",
+ "scarab-config-yaml",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "scarab-config-toml"
+version = "0.1.0"
+source = "git+ssh://git@github.com/9aia/scarab.git?rev=9364df88fad0ca46bd838467717a823893f47438#9364df88fad0ca46bd838467717a823893f47438"
+dependencies = [
+ "scarab-config",
+ "serde",
+ "toml",
+]
+
+[[package]]
+name = "scarab-config-yaml"
+version = "0.1.0"
+source = "git+ssh://git@github.com/9aia/scarab.git?rev=9364df88fad0ca46bd838467717a823893f47438#9364df88fad0ca46bd838467717a823893f47438"
+dependencies = [
+ "scarab-config",
+ "serde",
+ "serde_yaml_ng",
+]
+
+[[package]]
 name = "schannel"
 version = "0.1.30"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3078,6 +3092,19 @@ dependencies = [
  "itoa",
  "ryu",
  "serde",
+]
+
+[[package]]
+name = "serde_yaml_ng"
+version = "0.10.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7b4db627b98b36d4203a7b458cf3573730f2bb591b28871d916dfa9efabfd41f"
+dependencies = [
+ "indexmap",
+ "itoa",
+ "ryu",
+ "serde",
+ "unsafe-libyaml",
 ]
 
 [[package]]
@@ -3696,6 +3723,12 @@ dependencies = [
  "crypto-common 0.2.2",
  "ctutils",
 ]
+
+[[package]]
+name = "unsafe-libyaml"
+version = "0.2.11"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "673aac59facbab8a9007c7f6108d11f63b603f7cabff99fabf650fea5c32b861"
 
 [[package]]
 name = "unsafe-libyaml-norway"

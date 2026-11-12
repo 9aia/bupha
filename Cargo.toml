@@ -24,10 +24,7 @@ members = [
     "crates/bupha-secret-cuora",
     "crates/bupha-keyring",
     "crates/bupha-dotenv",
-    "crates/bupha-config",
     "crates/bupha-config-file",
-    "crates/bupha-config-toml",
-    "crates/bupha-config-yaml",
     "crates/bupha-cache",
     "crates/bupha-cache-sccache",
     "crates/bupha-ssh",
@@ -82,10 +79,7 @@ bupha-secret = { path = "crates/bupha-secret", version = "0.2.0" }
 bupha-secret-cuora = { path = "crates/bupha-secret-cuora", version = "0.2.0" }
 bupha-keyring = { path = "crates/bupha-keyring", version = "0.2.0" }
 bupha-dotenv = { path = "crates/bupha-dotenv", version = "0.2.0" }
-bupha-config = { path = "crates/bupha-config", version = "0.2.0" }
 bupha-config-file = { path = "crates/bupha-config-file", version = "0.2.0" }
-bupha-config-toml = { path = "crates/bupha-config-toml", version = "0.2.0" }
-bupha-config-yaml = { path = "crates/bupha-config-yaml", version = "0.2.0" }
 bupha-cache = { path = "crates/bupha-cache", version = "0.2.0" }
 bupha-cache-sccache = { path = "crates/bupha-cache-sccache", version = "0.2.0" }
 bupha-ssh = { path = "crates/bupha-ssh", version = "0.2.0" }

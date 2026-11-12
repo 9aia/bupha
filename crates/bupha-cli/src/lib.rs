@@ -22,7 +22,6 @@
 //! Config: bupha.yaml/.yml/.toml (secrets come from env). See
 //! bupha-core::Config.
 
-use bupha_config::ConfigSource;
 use bupha_config_file::FileSource;
 use bupha_core::Config;
 use bupha_github::GitHubAdmin;

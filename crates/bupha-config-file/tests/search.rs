@@ -2,7 +2,6 @@
 //! the read-error arm, and the final miss. One test fn — process cwd
 //! and env are global, so the variants must run sequentially.
 
-use bupha_config::ConfigSource;
 use bupha_config_file::FileSource;
 use std::path::PathBuf;
 

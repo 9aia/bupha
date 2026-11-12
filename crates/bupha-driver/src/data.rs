@@ -29,7 +29,6 @@
 
 use std::path::{Path, PathBuf};
 
-use bupha_config::ConfigSource;
 use bupha_config_file::FileSource;
 use bupha_core::Config;
 use bupha_queue::{JsonQueueStore, PersistedQueue, QueueStore};
