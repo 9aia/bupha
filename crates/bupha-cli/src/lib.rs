@@ -325,7 +325,6 @@ fn cmd_init(dir: &Path) {
             Ok(s) if s.success() => {}
             other => {
                 eprintln!("dagger init failed: {other:?} — is dagger installed?");
-                std::process::exit(1);
             }
         }
     }

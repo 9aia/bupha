@@ -195,6 +195,9 @@ fn doctor_variants() {
     let t = tmp("doc");
     let repo_dir = t.join("repo");
     repo(&repo_dir);
+    // `bupha init` converges the managed agent-awareness block the
+    // doctor's `agents-md` check requires.
+    bupha(&["init", repo_dir.to_str().unwrap()], &[]);
     let home = t.join("home");
     std::fs::create_dir_all(&home).unwrap();
     let env: Vec<(&str, String)> = vec![
