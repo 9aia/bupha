@@ -59,8 +59,24 @@ generator lands.
   8), distributes the uses-step's `if:`/`env:` over them, and
   publishes declared outputs as `steps.<id>.outputs.*` when the
   uses step has an `id`. `env:` on any `uses:` step now reaches the
-  action (previously silently dropped). Reusable-workflow
-  `jobs.<id>.uses:` remains an explicit hard error.
+  action (previously silently dropped).
+- **`runner.kind = "gha"` reusable workflows (T-048)** — job-level
+  `uses:` calls another workflow file: `./.github/workflows/*.yml`
+  locally or `owner/repo[/path]@<ref>` remotely (same git-fetch
+  cache as remote actions). The callee's `on.workflow_call`
+  contract binds the caller's `with:` → `inputs.*` (required +
+  defaults enforced) and `secrets:` → `secrets.*`: `inherit`
+  resolves each declared secret to a runtime `printenv` of the
+  same-named runner env var (values never enter the generated
+  script), while an explicit map interpolates in the caller's
+  context — a bare `${{ secrets.X }}` forwards the caller's own
+  bound secret. Callee jobs merge into the caller's graph as
+  `<call>.<job>` with internal `needs:` preserved; the call site's
+  `needs:`/`if:` gate every imported job (`if:` evaluates in the
+  caller context), and a synthesized publisher job carries the call
+  id so `needs.<call>.result`/`outputs.*` work — `on.workflow_call.
+  outputs` map `jobs.*.outputs.*` onto them. A failed imported job
+  fails the call (skipped doesn't); nesting caps at 8.
 - **`runner.kind = "gha"` `docker://` steps + composite
   `timeout-minutes` (T-048)** — `uses: docker://<image>` lowers to
   `docker run` on the host: workspace + `$BUPHA_GHA_TMP`

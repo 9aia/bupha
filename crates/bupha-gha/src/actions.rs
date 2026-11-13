@@ -113,6 +113,63 @@ impl plan::ActionResolver for Actions<'_> {
             self.remote(uses)
         }
     }
+
+    fn workflow_yaml(&self, uses: &str) -> Result<(String, String, bool), String> {
+        if let Some(rel) = uses.strip_prefix("./") {
+            // `./.github/workflows/<file>.yml` — plan shape-checks
+            // the prefix; re-verify path safety here since the
+            // trait is public.
+            let rel_path = Path::new(rel);
+            if rel_path.is_absolute()
+                || rel_path.components().any(|c| {
+                    matches!(
+                        c,
+                        Component::ParentDir | Component::RootDir | Component::Prefix(_)
+                    )
+                })
+            {
+                return Err(format!("`./{rel}` escapes the repo root"));
+            }
+            let f = self.workdir.join(rel_path);
+            let text = std::fs::read_to_string(&f)
+                .map_err(|e| format!("cannot read {}: {e}", f.display()))?;
+            return Ok((uses.to_string(), text, false));
+        }
+        // `owner/repo[/path]@ref` — the whole sub-path is the
+        // workflow *file* (e.g. `.github/workflows/ci.yml`), not a
+        // directory holding action.yml. Same fetch cache as remote
+        // actions: `owner/repo` is the cache key.
+        let (body, refr) = uses.rsplit_once('@').ok_or_else(|| {
+            format!("remote workflows require `owner/repo[/path]@<ref>` — got `{uses}`")
+        })?;
+        let refr = refr.trim();
+        if refr.is_empty()
+            || refr.starts_with('-')
+            || refr.chars().any(|c| c.is_whitespace() || c.is_control())
+        {
+            return Err(format!("`uses: {uses}` has an invalid ref `{refr}`"));
+        }
+        let mut segs = body.split('/');
+        let (Some(owner), Some(repo)) = (segs.next(), segs.next()) else {
+            return Err(format!("`uses: {uses}` is not `owner/repo[/path]@<ref>`"));
+        };
+        let sub = segs.collect::<Vec<_>>().join("/");
+        if sub.is_empty() {
+            return Err(format!(
+                "`uses: {uses}` needs a workflow file path after `owner/repo`"
+            ));
+        }
+        for s in sub.split('/').filter(|s| !s.is_empty()) {
+            if s == "." || s == ".." || s.contains("..") {
+                return Err(format!("`uses: {uses}` has an unsafe path segment `{s}`"));
+            }
+        }
+        let dir = fetch_repo(owner, repo, refr, self.workdir)?;
+        let f = dir.join(&sub);
+        let text = std::fs::read_to_string(&f)
+            .map_err(|e| format!("cannot read workflow {}: {e}", f.display()))?;
+        Ok((uses.to_string(), text, true))
+    }
 }
 
 /// Cache root for fetched action repos:

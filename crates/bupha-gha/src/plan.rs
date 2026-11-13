@@ -34,7 +34,33 @@ pub struct Workflow {
     env: Vec<(String, String)>,
     defaults: Defaults,
     filters: PushFilters,
+    /// `on.workflow_call:` declarations — `Some` when the file is
+    /// callable as a reusable workflow (`jobs.<id>.uses:` target).
+    call: Option<WorkflowCall>,
     jobs: Vec<RawJob>,
+}
+
+/// The `on.workflow_call:` contract of a reusable workflow:
+/// `inputs` bind the caller's `with:`, `outputs` are the
+/// caller-visible `needs.<call>.outputs.*` surface (values are
+/// `jobs.<job>.outputs.*` templates rewritten to `needs.*` at
+/// import), `secrets` declare the names `secrets:` may pass.
+struct WorkflowCall {
+    inputs: Vec<(String, ActionInput)>,
+    /// name → raw value template (`${{ jobs.<job>.outputs.<o> }}`).
+    outputs: Vec<(String, String)>,
+    /// name → `required`.
+    secrets: Vec<(String, bool)>,
+}
+
+/// A bound reusable-workflow secret value. `Lit` inlines like
+/// `env.*`; `Env` defers to a runtime `printenv` of the same-named
+/// runner environment variable (the `secrets: inherit` lowering —
+/// values never enter the generated script's argv).
+#[derive(Clone)]
+pub enum SecretVal {
+    Lit(String),
+    Env(String),
 }
 
 #[derive(Default)]
@@ -78,6 +104,46 @@ struct RawJob {
     /// `needs.*`/`steps.*` refs stay deferred for the renderer.
     outputs: Vec<(String, String)>,
     steps: Vec<RawStep>,
+    /// `jobs.<id>.uses:` — a reusable-workflow call. When `Some`,
+    /// every other execution field is empty (calling jobs can't
+    /// carry `steps`/`runs-on`/`env`/`strategy` — enforced at parse).
+    call: Option<CallSite>,
+}
+
+/// A parsed reusable-workflow call site (`jobs.<id>.uses:` +
+/// `with:`/`secrets:`) with the callee workflow already resolved
+/// and parsed (recursively — callees may themselves call).
+struct CallSite {
+    /// The raw `uses:` target, kept for error messages.
+    uses: String,
+    /// `with:` normalized to value lists (same shape as step `with:`).
+    with: Vec<(String, Vec<String>)>,
+    secrets: CallSecrets,
+    /// The callee workflow file, parsed at the same depth rules.
+    callee: Workflow,
+}
+
+/// The caller's `secrets:` on a reusable-workflow call.
+enum CallSecrets {
+    /// `secrets: inherit` — every secret the callee declares
+    /// resolves to a runtime `printenv` of the same-named runner
+    /// env var.
+    Inherit,
+    /// Explicit `secrets: {NAME: <scalar>}` — raw values,
+    /// interpolated in the caller's context at expand.
+    Map(Vec<(String, String)>),
+}
+
+/// The reusable-call bindings threaded through expansion: this
+/// workflow's `on.workflow_call` inputs/secrets (when it was itself
+/// invoked through `jobs.<id>.uses:`) and the *top-level* workflow
+/// name every expanded job reports under — imported callee jobs
+/// share it so `needs.*`/`steps.*` deferred refs (keyed by
+/// workflow+job id) resolve uniformly across the merged graph.
+struct BindCtx<'a> {
+    inputs: Option<&'a [(String, String)]>,
+    secrets: Option<&'a [(String, SecretVal)]>,
+    wf_name: &'a str,
 }
 
 enum RawStep {
@@ -179,6 +245,15 @@ pub struct Job {
     /// `if:` — parsed + folded (env/github/matrix resolved, needs/
     /// steps refs deferred). `None` → the implicit needs gate.
     pub cond: Option<Cond>,
+    /// Job indices the `if:` gate + status-check functions evaluate
+    /// against — normally `needs`. A reusable-call publisher job
+    /// sets this to the *call site's* needs only: its scheduling
+    /// `needs` also cover the imported callee jobs (so topo order
+    /// waits for them), but the call's gate must not treat a
+    /// callee-internal failure as "needs did not pass" — that case
+    /// is the publisher's synthesized check step's job (it fails
+    /// the call honestly instead of skipping it).
+    pub gate_needs: Option<Vec<usize>>,
     /// `timeout-minutes` in whole seconds — the renderer enforces
     /// it with a watchdog around the job body.
     pub timeout_seconds: Option<u64>,
@@ -285,6 +360,11 @@ pub enum DynRef {
     /// `steps.<id>.conclusion` — `success`/`skipped` (`failure` is
     /// unobservable: a failed step ends the job first).
     StepConclusion { step: String },
+    /// `secrets.*` bound to an env pass-through (`secrets: inherit`
+    /// or a `${{ secrets.X }}` forward) — `name` is the *runner env
+    /// var* to `printenv` at run time, not necessarily the secret
+    /// name the callee declared.
+    Secret { name: String },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -444,21 +524,34 @@ fn parse_push_filters(v: &Value, what: &str) -> Result<PushFilters, String> {
     Ok(f)
 }
 
+/// What `on:` declares: the push filters that decide whether the
+/// workflow fires as a trigger, plus the optional `workflow_call`
+/// contract that makes it callable via `jobs.<id>.uses:`.
+struct OnDecl {
+    filters: PushFilters,
+    call: Option<WorkflowCall>,
+}
+
 /// `on:` may be a string, a list, or a map of trigger → config.
 /// Triggers other than `push` never fire here — ignored, not errors.
-fn parse_on(v: Option<&Value>, what: &str) -> Result<PushFilters, String> {
+/// `workflow_call` is the exception: it's not a trigger, it's the
+/// reusable-workflow contract.
+fn parse_on(v: Option<&Value>, what: &str) -> Result<OnDecl, String> {
     let Some(v) = v else {
         return Err(format!("{what}: missing `on`"));
     };
-    match v {
-        Value::String(s) => Ok(if s == "push" {
-            PushFilters::default()
-        } else {
-            PushFilters {
-                never: true,
-                ..PushFilters::default()
-            }
-        }),
+    let (filters, call) = match v {
+        Value::String(s) => (
+            if s == "push" {
+                PushFilters::default()
+            } else {
+                PushFilters {
+                    never: true,
+                    ..PushFilters::default()
+                }
+            },
+            None,
+        ),
         Value::Sequence(seq) => {
             let mut saw_push = false;
             for item in seq {
@@ -468,25 +561,176 @@ fn parse_on(v: Option<&Value>, what: &str) -> Result<PushFilters, String> {
                     None => return Err(format!("{what}: `on` entries must be strings")),
                 }
             }
-            Ok(PushFilters {
-                never: !saw_push,
-                ..PushFilters::default()
-            })
+            (
+                PushFilters {
+                    never: !saw_push,
+                    ..PushFilters::default()
+                },
+                None,
+            )
         }
         Value::Mapping(m) => {
             let mut filters = PushFilters {
                 never: true,
                 ..PushFilters::default()
             };
+            let mut call = None;
             for (k, v) in m {
-                if k.as_str() == Some("push") {
-                    filters = parse_push_filters(v, &format!("{what}.on.push"))?;
+                match k.as_str() {
+                    Some("push") => filters = parse_push_filters(v, &format!("{what}.on.push"))?,
+                    Some("workflow_call") => {
+                        call = Some(parse_on_call(v, &format!("{what}.on.workflow_call"))?)
+                    }
+                    _ => {}
                 }
             }
-            Ok(filters)
+            (filters, call)
         }
-        _ => Err(format!("{what}: unsupported `on` shape ({})", kind(v))),
+        _ => return Err(format!("{what}: unsupported `on` shape ({})", kind(v))),
+    };
+    Ok(OnDecl { filters, call })
+}
+
+/// Parse `on.workflow_call:` — the reusable-workflow contract.
+/// `inputs`/`outputs`/`secrets` are optional; input `type`/`options`
+/// and secret/input `description` are accepted but not enforced
+/// (the dialect treats every bound value as a string).
+fn parse_on_call(v: &Value, what: &str) -> Result<WorkflowCall, String> {
+    // `workflow_call:` with no body declares an empty contract.
+    if matches!(v, Value::Null) {
+        return Ok(WorkflowCall {
+            inputs: Vec::new(),
+            outputs: Vec::new(),
+            secrets: Vec::new(),
+        });
     }
+    let m = as_map(v, what)?;
+    check_keys(m, &["inputs", "outputs", "secrets"], &[], what)?;
+
+    let mut inputs = Vec::new();
+    if let Some(iv) = get(m, "inputs") {
+        let im = as_map(iv, &format!("{what}.inputs"))?;
+        for (k, iv) in im {
+            let name = k
+                .as_str()
+                .ok_or_else(|| format!("{what}.inputs: names must be strings"))?;
+            if !safe_key(name) {
+                return Err(format!(
+                    "{what}.inputs: invalid input name `{name}` — \
+                     `[A-Za-z0-9_.-]` only"
+                ));
+            }
+            let spec = as_map(iv, &format!("{what}.inputs.{name}"))?;
+            check_keys(
+                spec,
+                &["description", "required", "default", "type"],
+                &[],
+                &format!("{what}.inputs.{name}"),
+            )?;
+            let required = match get(spec, "required") {
+                Some(Value::Bool(b)) => *b,
+                Some(Value::String(s)) => s == "true",
+                Some(other) => {
+                    return Err(format!(
+                        "{what}.inputs.{name}.required: expected a bool, got {}",
+                        kind(other)
+                    ))
+                }
+                None => false,
+            };
+            inputs.push((
+                name.to_string(),
+                ActionInput {
+                    required,
+                    default: get(spec, "default")
+                        .map(|d| scalar(d, &format!("{what}.inputs.{name}.default")))
+                        .transpose()?,
+                },
+            ));
+        }
+    }
+
+    let mut outputs = Vec::new();
+    if let Some(ov) = get(m, "outputs") {
+        let om = as_map(ov, &format!("{what}.outputs"))?;
+        for (k, ov) in om {
+            let name = k
+                .as_str()
+                .ok_or_else(|| format!("{what}.outputs: names must be strings"))?;
+            if !safe_key(name) {
+                return Err(format!(
+                    "{what}.outputs: invalid output name `{name}` — \
+                     `[A-Za-z0-9_.-]` only"
+                ));
+            }
+            let spec = as_map(ov, &format!("{what}.outputs.{name}"))?;
+            check_keys(
+                spec,
+                &["description", "value"],
+                &[],
+                &format!("{what}.outputs.{name}"),
+            )?;
+            let value = get(spec, "value")
+                .ok_or_else(|| format!("{what}.outputs.{name}: missing `value`"))?;
+            outputs.push((
+                name.to_string(),
+                scalar(value, &format!("{what}.outputs.{name}.value"))?,
+            ));
+        }
+    }
+
+    let mut secrets = Vec::new();
+    if let Some(sv) = get(m, "secrets") {
+        let sm = as_map(sv, &format!("{what}.secrets"))?;
+        for (k, sv) in sm {
+            let name = k
+                .as_str()
+                .ok_or_else(|| format!("{what}.secrets: names must be strings"))?;
+            if !safe_key(name) {
+                return Err(format!(
+                    "{what}.secrets: invalid secret name `{name}` — \
+                     `[A-Za-z0-9_.-]` only"
+                ));
+            }
+            // `NAME:` (null) declares an optional secret.
+            let required = match sv {
+                Value::Null => false,
+                Value::Mapping(sm2) => {
+                    check_keys(
+                        sm2,
+                        &["description", "required"],
+                        &[],
+                        &format!("{what}.secrets.{name}"),
+                    )?;
+                    match get(sm2, "required") {
+                        Some(Value::Bool(b)) => *b,
+                        Some(Value::String(s)) => s == "true",
+                        Some(other) => {
+                            return Err(format!(
+                                "{what}.secrets.{name}.required: expected a bool, \
+                                 got {}",
+                                kind(other)
+                            ))
+                        }
+                        None => false,
+                    }
+                }
+                other => {
+                    return Err(format!(
+                        "{what}.secrets.{name}: expected a mapping, got {}",
+                        kind(other)
+                    ))
+                }
+            };
+            secrets.push((name.to_string(), required));
+        }
+    }
+
+    Ok(WorkflowCall {
+        inputs,
+        outputs,
+        secrets,
+    })
 }
 
 // ------------------------------------------------------------------
@@ -571,24 +815,375 @@ impl Workflow {
     /// Fan out matrix combos, interpolate `${{ }}`, resolve `needs`
     /// and topo-order. `ctx` supplies the github.* facts.
     pub fn expand(&self, ctx: GhaContext) -> Result<Vec<Job>, String> {
-        // Matrix fan-out, declaration order preserved.
-        let mut flat: Vec<(usize, Vec<(String, String)>)> = Vec::new();
+        self.expand_inner(ctx, None, None, &self.name, 0)
+    }
+
+    /// [`Workflow::expand`] plus the reusable-call plumbing:
+    /// `inputs`/`secrets` are this workflow's bound
+    /// `on.workflow_call` values when it was itself invoked through
+    /// `jobs.<id>.uses:` (`None` at the top level), `wf_name` is the
+    /// *top-level* workflow's name — every imported job reports
+    /// under it so `needs.*`/`steps.*` deferred refs (keyed by
+    /// workflow+job id) resolve uniformly across the whole merged
+    /// graph — and `depth` bounds nested reusable calls.
+    fn expand_inner(
+        &self,
+        ctx: GhaContext,
+        inputs: Option<&[(String, String)]>,
+        secrets: Option<&[(String, SecretVal)]>,
+        wf_name: &str,
+        depth: usize,
+    ) -> Result<Vec<Job>, String> {
+        // env.* is unavailable while defining env — github.*/
+        // matrix.*/inputs.*/secrets.* only. Computed once for the
+        // call-site evals (calling jobs carry no env of their own).
+        let no_env = Eval {
+            ctx,
+            matrix: &[],
+            env: None,
+            inputs,
+            secrets,
+        };
+        let wf_env = interpolate_pairs(&self.env, &no_env, "env")?;
+
+        // Phase A — per RawJob, either its matrix combos or a fully
+        // expanded+prefixed callee job set plus call-site data.
+        enum Seg<'a> {
+            Normal {
+                ji: usize,
+                combos: Vec<Vec<(String, String)>>,
+            },
+            Call(Box<CallSeg<'a>>),
+        }
+        struct CallSeg<'a> {
+            raw: &'a RawJob,
+            site: &'a CallSite,
+            /// Callee jobs post-prefix: `needs` are LOCAL indices
+            /// into `imported`; ids/refs already rewritten.
+            imported: Vec<Job>,
+            /// The callee's local job ids (pre-prefix) — needed to
+            /// rewrite `jobs.*` refs in `on.workflow_call.outputs`.
+            callee_ids: HashSet<String>,
+            bound_inputs: Vec<(String, String)>,
+            bound_secrets: Vec<(String, SecretVal)>,
+            caller_cond: Option<Cond>,
+        }
+        let mut segs: Vec<Seg> = Vec::with_capacity(self.jobs.len());
         for (ji, j) in self.jobs.iter().enumerate() {
-            for combo in matrix_combos(&j.matrix, &format!("jobs.{}", j.id))? {
-                flat.push((ji, combo));
+            let what = format!("jobs.{}", j.id);
+            let Some(site) = &j.call else {
+                segs.push(Seg::Normal {
+                    ji,
+                    combos: matrix_combos(&j.matrix, &what)?,
+                });
+                continue;
+            };
+            if depth >= MAX_CALL_DEPTH {
+                return Err(format!(
+                    "{what}: reusable workflows nested deeper than \
+                     {MAX_CALL_DEPTH} levels are unsupported"
+                ));
+            }
+            let eval_call = Eval {
+                ctx,
+                matrix: &[],
+                env: Some(&wf_env),
+                inputs,
+                secrets,
+            };
+            // `with:` → callee `on.workflow_call.inputs` — same
+            // bind_inputs contract as composite actions.
+            let pairs = interpolate_with(&site.with, &eval_call, &what)?;
+            let decl = site.callee.call.as_ref().ok_or_else(|| {
+                format!("{what}: internal error — callee has no `on.workflow_call`")
+            })?;
+            let bound_inputs = bind_inputs(&decl.inputs, &pairs, &what)?;
+            // `secrets:` → bound SecretVals. `inherit` maps every
+            // declared secret to a runtime env lookup of the
+            // same-named variable; an explicit map interpolates in
+            // the caller's context (a value that is exactly
+            // `${{ secrets.X }}` stays an env pass-through).
+            let bound_secrets = match &site.secrets {
+                CallSecrets::Inherit => decl
+                    .secrets
+                    .iter()
+                    .map(|(n, _)| {
+                        // `inherit` lowers to `printenv <name>` — the
+                        // declared secret name must be a valid env
+                        // var name or the pass-through can't work.
+                        if !env_name_ok(n) {
+                            Err(format!(
+                                "{what}.secrets: `{}` declares secret `{n}` \
+                                 which isn't a valid env var name — `secrets: \
+                                 inherit` can't pass it; map it explicitly",
+                                site.uses
+                            ))
+                        } else {
+                            Ok((n.clone(), SecretVal::Env(n.clone())))
+                        }
+                    })
+                    .collect::<Result<Vec<_>, String>>()?,
+                CallSecrets::Map(raw) => {
+                    let mut provided = Vec::with_capacity(raw.len());
+                    for (n, rv) in raw {
+                        // A bare `${{ secrets.X }}` forwards the
+                        // caller's own bound secret — env
+                        // pass-throughs stay pass-throughs, literals
+                        // stay literals, nothing materializes.
+                        if let Some(sname) = secret_ref_expr(rv) {
+                            let found = secrets.and_then(|s| {
+                                s.iter().find(|(k, _)| k == &sname).map(|(_, v)| v.clone())
+                            });
+                            match found {
+                                Some(v) => provided.push((n.clone(), v)),
+                                None => {
+                                    return Err(format!(
+                                        "{what}.secrets.{n}: `secrets.{sname}` isn't \
+                                         bound here — top-level workflows have no \
+                                         secrets context; use `secrets: inherit` \
+                                         or pass the value via `env`/`inputs`"
+                                    ))
+                                }
+                            }
+                            continue;
+                        }
+                        let v = interpolate(rv, &eval_call, &format!("{what}.secrets.{n}"))?;
+                        provided.push((n.clone(), SecretVal::Lit(v)));
+                    }
+                    bind_secrets(&decl.secrets, &provided, &what)?
+                }
+            };
+            let mut imported = site.callee.expand_inner(
+                ctx,
+                Some(&bound_inputs),
+                Some(&bound_secrets),
+                wf_name,
+                depth + 1,
+            )?;
+            // Namespace the imported jobs under the call id and
+            // rewrite their `needs.<callee-id>` refs to match —
+            // every deferred ref whose job id is one the callee
+            // produced gets the `<call>.` prefix; refs to caller
+            // jobs (passed through `with:`/`secrets:`/`if:`) keep
+            // their ids and still resolve, since every job in this
+            // expansion shares `wf_name`.
+            let callee_ids: HashSet<String> = imported.iter().map(|j| j.id.clone()).collect();
+            for cj in &mut imported {
+                prefix_imported_job(cj, &j.id, &callee_ids);
+            }
+            // `<call>.<job>` ids must not collide with a job this
+            // workflow declares itself (job ids may contain dots).
+            for cj in &imported {
+                if self.jobs.iter().any(|r| r.id == cj.id) {
+                    return Err(format!(
+                        "{what}: imported job id `{}` collides with a job \
+                         this workflow declares — rename one of them",
+                        cj.id
+                    ));
+                }
+            }
+            // The call site's own `if:` — parsed in the CALLER's
+            // context (workflow env + this workflow's inputs/
+            // secrets, no matrix) — gates the whole call: it is
+            // AND-ed onto every imported job and becomes the
+            // publisher's condition.
+            let caller_cond = j
+                .cond
+                .as_deref()
+                .map(|raw| parse_cond(raw, &eval_call, &format!("{what}.if")))
+                .transpose()?;
+            segs.push(Seg::Call(Box::new(CallSeg {
+                raw: j,
+                site,
+                imported,
+                callee_ids,
+                bound_inputs,
+                bound_secrets,
+                caller_cond,
+            })));
+        }
+
+        // Phase B — expanded positions + the caller-level id map.
+        // Only jobs this workflow itself produces (normal jobs and
+        // call publishers) are referenceable by `needs:`; imported
+        // callee jobs are reachable only through their `<call>.`
+        // prefixed ids, which no caller `needs:` can name.
+        let mut by_id: HashMap<&str, Vec<usize>> = HashMap::new();
+        let mut offset = 0usize;
+        for seg in &segs {
+            match seg {
+                Seg::Normal { ji, combos } => {
+                    for _ in combos {
+                        by_id
+                            .entry(self.jobs[*ji].id.as_str())
+                            .or_default()
+                            .push(offset);
+                        offset += 1;
+                    }
+                }
+                Seg::Call(c) => {
+                    // The publisher sits right after the imported
+                    // block; its id is the call site's job id.
+                    by_id
+                        .entry(c.raw.id.as_str())
+                        .or_default()
+                        .push(offset + c.imported.len());
+                    offset += c.imported.len() + 1;
+                }
             }
         }
-        // needs id → every expanded index of that job.
-        let mut by_id: HashMap<&str, Vec<usize>> = HashMap::new();
-        for (idx, (ji, _)) in flat.iter().enumerate() {
-            by_id
-                .entry(self.jobs[*ji].id.as_str())
-                .or_default()
-                .push(idx);
-        }
-        let mut jobs = Vec::with_capacity(flat.len());
-        for (ji, combo) in &flat {
-            jobs.push(self.build_job(&self.jobs[*ji], combo, &by_id, ctx)?);
+
+        // Phase C — build in segment order; `by_id` indices are the
+        // positions jobs land at, matching the old flat-index
+        // scheme (topo_order re-maps afterwards).
+        let bind = BindCtx {
+            inputs,
+            secrets,
+            wf_name,
+        };
+        let mut jobs = Vec::with_capacity(offset);
+        for seg in segs {
+            match seg {
+                Seg::Normal { ji, combos } => {
+                    for combo in &combos {
+                        jobs.push(self.build_job(&self.jobs[ji], combo, &by_id, ctx, &bind)?);
+                    }
+                }
+                Seg::Call(c) => {
+                    let CallSeg {
+                        raw,
+                        site,
+                        mut imported,
+                        callee_ids,
+                        bound_inputs,
+                        bound_secrets,
+                        caller_cond,
+                    } = *c;
+                    let what = format!("jobs.{}", raw.id);
+                    let base = jobs.len();
+                    let k = imported.len();
+                    let decl = site.callee.call.as_ref().ok_or_else(|| {
+                        format!("{what}: internal error — callee has no `on.workflow_call`")
+                    })?;
+                    // The call site's `needs:` gate the whole call —
+                    // every imported job inherits them (indices +
+                    // the caller `if:` AND-ed on top of its own).
+                    let call_needs: Vec<usize> = raw
+                        .needs
+                        .iter()
+                        .flat_map(|n| by_id.get(n.as_str()).cloned().unwrap_or_default())
+                        .collect();
+                    for cj in &mut imported {
+                        let mut needs: Vec<usize> = cj
+                            .needs
+                            .iter()
+                            .map(|d| base + d)
+                            .chain(call_needs.iter().copied())
+                            .collect();
+                        needs.sort_unstable();
+                        needs.dedup();
+                        cj.needs = needs;
+                        cj.cond = and_conds(caller_cond.clone(), cj.cond.take());
+                    }
+                    jobs.extend(imported);
+                    // The publisher job: id = the call site's job
+                    // id, `needs` = imported block + call needs
+                    // (scheduling edges for topo/groups), `gate_needs`
+                    // = call needs only (the call's `if:`/implicit
+                    // gate must not read callee-internal failures as
+                    // its own needs failing — the synthesized check
+                    // step below turns those into an honest failure).
+                    let mut pneeds: Vec<usize> =
+                        (base..base + k).chain(call_needs.iter().copied()).collect();
+                    pneeds.sort_unstable();
+                    pneeds.dedup();
+                    // The callee's own workflow env, for the
+                    // `on.workflow_call.outputs` eval below.
+                    let callee_no_env = Eval {
+                        ctx,
+                        matrix: &[],
+                        env: None,
+                        inputs: Some(&bound_inputs),
+                        secrets: Some(&bound_secrets),
+                    };
+                    let callee_wf_env = interpolate_pairs(
+                        &site.callee.env,
+                        &callee_no_env,
+                        &format!("{what}.env"),
+                    )?;
+                    let eval_pub = Eval {
+                        ctx,
+                        matrix: &[],
+                        // `on.workflow_call.outputs.*.value`
+                        // evaluates in the CALLEE's context — its
+                        // workflow env + the bound inputs/secrets.
+                        env: Some(&callee_wf_env),
+                        inputs: Some(&bound_inputs),
+                        secrets: Some(&bound_secrets),
+                    };
+                    let mut outputs = Vec::with_capacity(decl.outputs.len());
+                    for (name, tmpl) in &decl.outputs {
+                        outputs.push((
+                            name.clone(),
+                            interpolate(
+                                &rewrite_call_output_refs(
+                                    tmpl,
+                                    &callee_ids,
+                                    &raw.id,
+                                    &format!("{what}.outputs.{name}"),
+                                )?,
+                                &eval_pub,
+                                &format!("{what}.outputs.{name}"),
+                            )?,
+                        ));
+                    }
+                    // `name:` on the call job interpolates in the
+                    // CALLER's context (workflow env + this
+                    // workflow's inputs/secrets).
+                    let eval_caller = Eval {
+                        ctx,
+                        matrix: &[],
+                        env: Some(&wf_env),
+                        inputs,
+                        secrets,
+                    };
+                    let label = match &raw.name {
+                        Some(n) => interpolate(n, &eval_caller, &format!("{what}.name"))?,
+                        None => raw.id.clone(),
+                    };
+                    jobs.push(Job {
+                        workflow: wf_name.to_string(),
+                        id: raw.id.clone(),
+                        label,
+                        runs_on: Vec::new(),
+                        needs: pneeds,
+                        env: Vec::new(),
+                        working_directory: None,
+                        shell: None,
+                        outputs,
+                        cond: caller_cond,
+                        // Always `Some` — even empty — so the gate
+                        // never falls back to the imported jobs'
+                        // statuses (their failures must surface via
+                        // the check step, not skip the publisher).
+                        gate_needs: Some(call_needs),
+                        timeout_seconds: None,
+                        fail_fast: false,
+                        max_parallel: None,
+                        leg: None,
+                        steps: vec![Step::Run(RunStep {
+                            id: None,
+                            cond: None,
+                            timeout_seconds: None,
+                            deadlines: Vec::new(),
+                            shell: None,
+                            working_directory: None,
+                            env: Vec::new(),
+                            script: call_check_script(base, k),
+                        })],
+                    });
+                }
+            }
         }
         topo_order(jobs)
     }
@@ -599,6 +1194,7 @@ impl Workflow {
         combo: &[(String, String)],
         by_id: &HashMap<&str, Vec<usize>>,
         ctx: GhaContext,
+        bind: &BindCtx<'_>,
     ) -> Result<Job, String> {
         let what = format!("jobs.{}", j.id);
         let mut needs: Vec<usize> = j
@@ -615,7 +1211,8 @@ impl Workflow {
             ctx,
             matrix: combo,
             env: None,
-            inputs: None,
+            inputs: bind.inputs,
+            secrets: bind.secrets,
         };
         let wf_env = interpolate_pairs(&self.env, &no_env, &format!("{what}.env"))?;
         let job_env = merge_env(
@@ -626,7 +1223,8 @@ impl Workflow {
             ctx,
             matrix: combo,
             env: Some(&job_env),
-            inputs: None,
+            inputs: bind.inputs,
+            secrets: bind.secrets,
         };
 
         // `if:` evaluates in job context — env.* sees the merged
@@ -685,7 +1283,7 @@ impl Workflow {
             })
             .collect::<Result<Vec<_>, String>>()?;
         Ok(Job {
-            workflow: self.name.clone(),
+            workflow: bind.wf_name.to_string(),
             id: j.id.clone(),
             label: match &j.name {
                 Some(n) => interpolate(n, &eval, &format!("{what}.name"))?,
@@ -702,6 +1300,7 @@ impl Workflow {
             shell: defaults.shell,
             outputs,
             cond,
+            gate_needs: None,
             timeout_seconds: j.timeout_seconds,
             fail_fast: j.fail_fast,
             max_parallel: j.max_parallel,
@@ -750,9 +1349,14 @@ pub struct Eval<'a> {
     pub ctx: GhaContext<'a>,
     pub matrix: &'a [(String, String)],
     pub env: Option<&'a [(String, String)]>,
-    /// `inputs.*` — the composite action's bound inputs. `None`
-    /// outside composite expansion; `Some` inside (possibly empty).
+    /// `inputs.*` — the composite action's bound inputs, or a
+    /// reusable-called workflow's bound `on.workflow_call.inputs`.
+    /// `None` outside either; `Some` inside (possibly empty).
     pub inputs: Option<&'a [(String, String)]>,
+    /// `secrets.*` — the bound reusable-workflow secrets
+    /// (`on.workflow_call.secrets` ← the call site's `secrets:`).
+    /// `None` outside reusable-workflow calls.
+    pub secrets: Option<&'a [(String, SecretVal)]>,
 }
 
 /// The `id:` a built [`Step`] publishes under — `None` for
@@ -886,6 +1490,292 @@ fn bind_inputs(
     Ok(bound)
 }
 
+/// A `secrets:` map value that is exactly `${{ secrets.<name> }}` —
+/// returns the referenced name. Such values forward the *caller's*
+/// bound secret (or, one level up, its env pass-through) instead of
+/// materializing anything.
+fn secret_ref_expr(raw: &str) -> Option<String> {
+    let t = raw.trim();
+    let inner = t.strip_prefix("${{")?.strip_suffix("}}")?.trim();
+    let name = inner.strip_prefix("secrets.")?;
+    if !name.is_empty()
+        && name
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || matches!(c, '_' | '.' | '-'))
+    {
+        Some(name.to_string())
+    } else {
+        None
+    }
+}
+
+/// Runner env-var name — the `secrets: inherit` lowering looks the
+/// same-named variable up with `printenv`, so inherited secret
+/// names must be valid env names.
+fn env_name_ok(name: &str) -> bool {
+    let mut chars = name.chars();
+    match chars.next() {
+        Some(c) if c.is_ascii_alphabetic() || c == '_' => {}
+        _ => return false,
+    }
+    chars.all(|c| c.is_ascii_alphanumeric() || c == '_')
+}
+
+/// Bind a reusable call's `secrets:` against the callee's
+/// `on.workflow_call.secrets` declarations — the secret analogue of
+/// [`bind_inputs`]: undeclared keys error, `required` secrets must
+/// be provided, unprovided optional secrets bind empty.
+fn bind_secrets(
+    decls: &[(String, bool)],
+    provided: &[(String, SecretVal)],
+    what: &str,
+) -> Result<Vec<(String, SecretVal)>, String> {
+    for (k, _) in provided {
+        if !decls.iter().any(|(n, _)| n == k) {
+            let known = decls
+                .iter()
+                .map(|(n, _)| n.as_str())
+                .collect::<Vec<_>>()
+                .join(", ");
+            return Err(format!(
+                "{what}.secrets.{k}: the workflow declares no secret `{k}`{}",
+                if known.is_empty() {
+                    String::new()
+                } else {
+                    format!(" — declared: {known}")
+                }
+            ));
+        }
+    }
+    let mut bound = Vec::with_capacity(decls.len());
+    for (name, required) in decls {
+        match provided.iter().find(|(k, _)| k == name) {
+            Some((_, v)) => bound.push((name.clone(), v.clone())),
+            None if *required => {
+                return Err(format!(
+                    "{what}.secrets.{name}: missing required secret `{name}`"
+                ))
+            }
+            None => bound.push((name.clone(), SecretVal::Lit(String::new()))),
+        }
+    }
+    Ok(bound)
+}
+
+/// The synthesized step a reusable-call publisher job runs: every
+/// imported callee job must have settled non-failed for the call to
+/// pass — `success`/`skipped` are fine (a callee job skipped by its
+/// own `if:` doesn't fail the call, like GitHub), `cancelled`
+/// propagates as cancelled (exit 3 → status 3), anything else fails
+/// the call (exit 1). Reads `jobstatus/` files — self-contained in
+/// the step's child `bash`, like the `needs.*` lookups.
+fn call_check_script(base: usize, k: usize) -> String {
+    let idx = (base..base + k)
+        .map(|i| i.to_string())
+        .collect::<Vec<_>>()
+        .join(" ");
+    format!(
+        "_b_fail=0; _b_cancel=0\n\
+         for _b_i in {idx}; do\n\
+         \x20 case \"$(cat \"$BUPHA_GHA_TMP/jobstatus/$_b_i\" 2>/dev/null)\" in\n\
+         \x20   \"\"|success|skipped) ;;\n\
+         \x20   cancelled) _b_cancel=1 ;;\n\
+         \x20   *) _b_fail=1 ;;\n\
+         \x20 esac\n\
+         done\n\
+         if [ \"$_b_fail\" -eq 1 ]; then\n\
+         \x20 echo \"gha: reusable workflow call failed — an imported job failed\"\n\
+         \x20 exit 1\n\
+         elif [ \"$_b_cancel\" -eq 1 ]; then\n\
+         \x20 exit 3\n\
+         fi\n"
+    )
+}
+
+/// Namespace one imported callee job under its call site: id becomes
+/// `<call>.<job>`, and every deferred `needs.<callee-job>…` ref in
+/// its strings/conditions rewrites to the prefixed id. `ids` is the
+/// set of job ids the callee produced (matrix legs share ids).
+fn prefix_imported_job(j: &mut Job, call: &str, ids: &HashSet<String>) {
+    j.id = format!("{call}.{}", j.id);
+    rewrite_str_refs(&mut j.label, ids, call);
+    for r in &mut j.runs_on {
+        rewrite_str_refs(r, ids, call);
+    }
+    for (_, v) in &mut j.env {
+        rewrite_str_refs(v, ids, call);
+    }
+    if let Some(wd) = &mut j.working_directory {
+        rewrite_str_refs(wd, ids, call);
+    }
+    for (_, t) in &mut j.outputs {
+        rewrite_str_refs(t, ids, call);
+    }
+    if let Some(c) = &mut j.cond {
+        rewrite_cond_refs(c, ids, call);
+    }
+    for s in &mut j.steps {
+        match s {
+            Step::Run(r) => {
+                rewrite_str_refs(&mut r.script, ids, call);
+                for (_, v) in &mut r.env {
+                    rewrite_str_refs(v, ids, call);
+                }
+                if let Some(wd) = &mut r.working_directory {
+                    rewrite_str_refs(wd, ids, call);
+                }
+                if let Some(c) = &mut r.cond {
+                    rewrite_cond_refs(c, ids, call);
+                }
+            }
+            Step::Publish { cond, outputs, .. } => {
+                if let Some(c) = cond {
+                    rewrite_cond_refs(c, ids, call);
+                }
+                for (_, t) in outputs {
+                    rewrite_str_refs(t, ids, call);
+                }
+            }
+            Step::Checkout { cond, .. } => {
+                if let Some(c) = cond {
+                    rewrite_cond_refs(c, ids, call);
+                }
+            }
+        }
+    }
+}
+
+/// Rewrite `needs.<callee-id>…` refs inside one `${{ … }}`-carrying
+/// string. Only deferred refs naming a job the callee produced are
+/// touched — refs to caller jobs (passed through `with:`/`secrets:`)
+/// keep their ids and still resolve, since the whole merged graph
+/// shares the top-level workflow name.
+fn rewrite_str_refs(s: &mut String, ids: &HashSet<String>, call: &str) {
+    if !s.contains("${{") || !s.contains("needs.") {
+        return;
+    }
+    let mut out = String::with_capacity(s.len());
+    let mut rest = s.as_str();
+    while let Some(start) = rest.find("${{") {
+        out.push_str(&rest[..start]);
+        let after = &rest[start + 3..];
+        let Some(end) = after.find("}}") else {
+            // Unclosed — leave verbatim; the renderer errors on it.
+            out.push_str(&rest[start..]);
+            *s = out;
+            return;
+        };
+        let inner = after[..end].trim();
+        out.push_str("${{ ");
+        out.push_str(&rewrite_needs_inner(inner, ids, call));
+        out.push_str(" }}");
+        rest = &after[end + 2..];
+    }
+    out.push_str(rest);
+    *s = out;
+}
+
+/// The inner text of one deferred expression: `needs.<job>…` with a
+/// callee job id gains the `<call>.` prefix. Exact-match against the
+/// callee's id set keeps dotted ids unambiguous.
+fn rewrite_needs_inner(inner: &str, ids: &HashSet<String>, call: &str) -> String {
+    let Some(rest) = inner.strip_prefix("needs.") else {
+        return inner.to_string();
+    };
+    // Longest id first so `a.b` wins over `a` when both exist.
+    let mut sorted: Vec<&String> = ids.iter().collect();
+    sorted.sort_by_key(|id| std::cmp::Reverse(id.len()));
+    for cid in sorted {
+        if let Some(name) = rest.strip_prefix(cid.as_str()) {
+            if let Some(n) = name.strip_prefix(".outputs.") {
+                if !n.is_empty() {
+                    return format!("needs.{call}.{cid}.outputs.{n}");
+                }
+            } else if name == ".result" {
+                return format!("needs.{call}.{cid}.result");
+            }
+        }
+    }
+    inner.to_string()
+}
+
+/// Rewrite `needs.*` job ids inside a parsed [`Cond`] — the
+/// structured counterpart of [`rewrite_str_refs`] for `if:` trees.
+fn rewrite_cond_refs(c: &mut Cond, ids: &HashSet<String>, call: &str) {
+    match c {
+        Cond::Dyn(DynRef::NeedOutput { job, .. } | DynRef::NeedResult { job })
+            if ids.contains(job.as_str()) =>
+        {
+            *job = format!("{call}.{job}");
+        }
+        Cond::Dyn(_) => {}
+        Cond::Call { args, .. } => {
+            for a in args {
+                rewrite_cond_refs(a, ids, call);
+            }
+        }
+        Cond::Bin { l, r, .. } => {
+            rewrite_cond_refs(l, ids, call);
+            rewrite_cond_refs(r, ids, call);
+        }
+        Cond::Not(inner) => rewrite_cond_refs(inner, ids, call),
+        Cond::Lit(_) => {}
+    }
+}
+
+/// Rewrite `on.workflow_call.outputs.*.value` templates: `jobs.<id>.
+/// outputs.<name>` (callee job ids) becomes the deferred
+/// `needs.<call>.<id>.outputs.<name>` the publisher job resolves at
+/// run time. Other expressions (`inputs.*`, `env.*`, literals)
+/// pass through to the callee-context interpolation.
+fn rewrite_call_output_refs(
+    tmpl: &str,
+    ids: &HashSet<String>,
+    call: &str,
+    what: &str,
+) -> Result<String, String> {
+    let mut out = String::with_capacity(tmpl.len());
+    let mut rest = tmpl;
+    while let Some(start) = rest.find("${{") {
+        out.push_str(&rest[..start]);
+        let after = &rest[start + 3..];
+        let Some(end) = after.find("}}") else {
+            return Err(format!("{what}: unclosed `${{{{` in output value"));
+        };
+        let inner = after[..end].trim();
+        if let Some(r) = inner.strip_prefix("jobs.") {
+            // `jobs.<jid>.outputs.<name>` — jid is everything up to
+            // the FIRST `.outputs.` (job ids may contain dots).
+            let rewritten = ids.iter().find_map(|cid| {
+                r.strip_prefix(cid.as_str())
+                    .and_then(|n| n.strip_prefix(".outputs."))
+                    .filter(|n| !n.is_empty())
+                    .map(|n| format!("needs.{call}.{cid}.outputs.{n}"))
+            });
+            match rewritten {
+                Some(w) => {
+                    out.push_str("${{ ");
+                    out.push_str(&w);
+                    out.push_str(" }}");
+                }
+                None => {
+                    return Err(format!(
+                        "{what}: `jobs.*` output refs must name a job the \
+                         callee declares (`{inner}`)"
+                    ));
+                }
+            }
+        } else {
+            out.push_str("${{ ");
+            out.push_str(inner);
+            out.push_str(" }}");
+        }
+        rest = &after[end + 2..];
+    }
+    out.push_str(rest);
+    Ok(out)
+}
+
 /// The `uses:`-step fields a [`RawStep::Composite`] carries —
 /// bundled so [`build_composite`] stays under the arg-count lint.
 struct CompositeCall<'a> {
@@ -928,6 +1818,7 @@ fn build_composite(
         matrix: eval.matrix,
         env: Some(&merged_env),
         inputs: eval.inputs,
+        secrets: eval.secrets,
     };
     // `with:` values evaluate in the *caller's* context — the
     // parent's inputs (when nested), env, github, matrix — before
@@ -940,6 +1831,7 @@ fn build_composite(
         matrix: eval.matrix,
         env: Some(&merged_env),
         inputs: Some(&bound),
+        secrets: eval.secrets,
     };
     // The uses-step's `if:` gates the whole action — distribute it
     // over every inlined step (each keeps its own `if:` too, ANDed).
@@ -1046,6 +1938,7 @@ fn build_single(
                 matrix: eval.matrix,
                 env: Some(&merged_env),
                 inputs: eval.inputs,
+                secrets: eval.secrets,
             };
             let pairs = interpolate_with(with, &with_eval, what)?;
             let script = match kind {
@@ -1095,6 +1988,7 @@ fn build_single(
                 matrix: eval.matrix,
                 env: Some(&step_env),
                 inputs: eval.inputs,
+                secrets: eval.secrets,
             };
             Ok(Step::Run(RunStep {
                 id: id.clone(),
@@ -2495,6 +3389,11 @@ fn topo_order(jobs: Vec<Job>) -> Result<Vec<Job>, String> {
             j.needs = j.needs.iter().map(|&d| out_pos[d]).collect();
             j.needs.sort_unstable();
             j.needs.dedup();
+            if let Some(g) = &mut j.gate_needs {
+                *g = g.iter().map(|&d| out_pos[d]).collect();
+                g.sort_unstable();
+                g.dedup();
+            }
             out.push(j);
         }
     }
@@ -2573,7 +3472,8 @@ fn resolve(inner: &str, eval: &Eval, what: &str) -> Result<String, String> {
         format!(
             "{what}: unsupported expression `${{{{ {inner} }}}}` — supported: \
              env.*, github.{{sha,ref,ref_name,repository,event_name}}, matrix.*, \
-             inputs.* (inside composite actions), \
+             inputs.* (inside composite actions/reusable workflows), \
+             secrets.* (inside reusable workflows), \
              needs.<job>.outputs.<name>, steps.<id>.outputs.<name>"
         )
     };
@@ -2628,7 +3528,8 @@ fn resolve(inner: &str, eval: &Eval, what: &str) -> Result<String, String> {
             }
             let Some(inputs) = eval.inputs else {
                 return Err(format!(
-                    "{what}: `inputs.*` is only available inside composite actions"
+                    "{what}: `inputs.*` is only available inside composite actions \
+                     and reusable workflows"
                 ));
             };
             // Undeclared/unprovided inputs expand empty, like env.*.
@@ -2638,6 +3539,35 @@ fn resolve(inner: &str, eval: &Eval, what: &str) -> Result<String, String> {
                 .find(|(k, _)| k == rest)
                 .map(|(_, v)| v.clone())
                 .unwrap_or_default())
+        }
+        "secrets" => {
+            if rest.is_empty() {
+                return Err(bad());
+            }
+            let Some(secrets) = eval.secrets else {
+                return Err(format!(
+                    "{what}: `secrets.*` is only available inside a reusable \
+                     workflow — pass secrets with `secrets: inherit` or an \
+                     explicit `secrets:` map on the calling job"
+                ));
+            };
+            let Some((_, val)) = secrets.iter().rev().find(|(k, _)| k == rest) else {
+                // Undeclared secrets expand empty, like env.*.
+                return Ok(String::new());
+            };
+            match val {
+                // Literal bound values inline like any other
+                // interpolated value.
+                SecretVal::Lit(v) => Ok(v.clone()),
+                // Env pass-throughs defer to runtime: the emitted
+                // `${{ secrets.<env-name> }}` is an internal marker —
+                // the renderer turns `secrets.*` deferred refs into
+                // `printenv <name>` lookups. The env name (not the
+                // secret name) rides inside so renamed secrets
+                // (`secrets: {A: ${{ secrets.B }}}` chains) still
+                // resolve to the right variable.
+                SecretVal::Env(env) => Ok(format!("${{{{ secrets.{env} }}}}")),
+            }
         }
         "needs" | "steps" => {
             // Runtime refs can't resolve at expand time — the values
@@ -2672,6 +3602,18 @@ fn resolve(inner: &str, eval: &Eval, what: &str) -> Result<String, String> {
 /// action `uses:`.
 pub trait ActionResolver {
     fn action_yaml(&self, uses: &str) -> Result<String, String>;
+
+    /// Resolve a `jobs.<id>.uses:` reusable-workflow target to
+    /// `(source-label, file text, is_remote)`. `./path` reads the
+    /// worktree; `owner/repo[/path]@ref` fetches like remote
+    /// actions. `is_remote` marks callees fetched over git — a
+    /// `./` call *inside* one can't resolve against the caller's
+    /// worktree and is rejected. The default errors —
+    /// [`parse_workflow`] has no resolver, so reusable calls fail
+    /// loudly there.
+    fn workflow_yaml(&self, _uses: &str) -> Result<(String, String, bool), String> {
+        Err("this parse context has no workflow resolver".to_string())
+    }
 }
 
 /// Resolver for [`parse_workflow`] — no action fetching, so every
@@ -2691,6 +3633,10 @@ impl ActionResolver for NoActions {
 /// keeps a cyclic action repo from recursing forever at parse.
 const MAX_ACTION_DEPTH: usize = 8;
 
+/// Nesting cap for reusable workflows calling reusable workflows —
+/// same rationale as [`MAX_ACTION_DEPTH`].
+const MAX_CALL_DEPTH: usize = 8;
+
 /// Parse + validate one workflow file. `source` names the file in
 /// errors. Composite/local/remote action `uses:` fail — use
 /// [`parse_workflow_with`] with an [`ActionResolver`].
@@ -2704,6 +3650,20 @@ pub fn parse_workflow_with(
     source: &str,
     text: &str,
     actions: &dyn ActionResolver,
+) -> Result<Workflow, String> {
+    parse_workflow_depth(source, text, actions, 0, false)
+}
+
+/// [`parse_workflow_with`] plus the reusable-call plumbing:
+/// `depth` bounds nesting and `in_remote` marks a callee fetched
+/// over git — `./` workflow refs inside it can't resolve against
+/// the caller's worktree and are rejected.
+fn parse_workflow_depth(
+    source: &str,
+    text: &str,
+    actions: &dyn ActionResolver,
+    depth: usize,
+    in_remote: bool,
 ) -> Result<Workflow, String> {
     let v: Value =
         serde_norway::from_str(text).map_err(|e| format!("{source}: YAML parse error: {e}"))?;
@@ -2740,7 +3700,7 @@ pub fn parse_workflow_with(
         None => Vec::new(),
     };
     let defaults = parse_defaults(get(top, "defaults"), &format!("{source}.defaults"))?;
-    let filters = parse_on(get(top, "on"), &format!("{source}.on"))?;
+    let on = parse_on(get(top, "on"), &format!("{source}.on"))?;
     let jobs_v = get(top, "jobs").ok_or_else(|| format!("{source}: missing `jobs`"))?;
     let jobs_m = as_map(jobs_v, &format!("{source}.jobs"))?;
     if jobs_m.is_empty() {
@@ -2757,6 +3717,8 @@ pub fn parse_workflow_with(
             &id,
             source,
             actions,
+            depth,
+            in_remote,
         )?);
     }
     let ids: HashSet<&str> = jobs.iter().map(|j| j.id.as_str()).collect();
@@ -2774,7 +3736,8 @@ pub fn parse_workflow_with(
         name,
         env,
         defaults,
-        filters,
+        filters: on.filters,
+        call: on.call,
         jobs,
     })
 }
@@ -2810,33 +3773,21 @@ fn parse_job(
     id: &str,
     source: &str,
     actions: &dyn ActionResolver,
+    depth: usize,
+    in_remote: bool,
 ) -> Result<RawJob, String> {
     let what = format!("{source}.jobs.{id}");
-    // Reusable workflows (`jobs.<id>.uses:` + `secrets:`/`with:`/
-    // `outputs:` plumbing) are a different feature than step-level
-    // `uses:` — name it precisely instead of the generic key error.
-    // What's missing for support: a workflow-file resolver
-    // (`.github/workflows/*.yml`, local `./` and remote
-    // `owner/repo/path@ref` like the action resolver), parsing of
-    // the callee's `on.workflow_call` inputs/secrets declarations,
-    // a job-graph merge (imported jobs need id namespacing,
-    // `needs:` rewriting — the call id fans out to every imported
-    // job — `if:` distribution across caller/callee eval contexts,
-    // and `outputs:` `jobs.*`→`needs.*` rewriting), and the
-    // `secrets:`/`jobs.*` expression contexts the dialect doesn't
-    // have at all.
+    // `jobs.<id>.uses:` is a reusable-workflow call — a different
+    // feature than step-level `uses:`. It resolves + parses the
+    // callee workflow (recursively, depth-capped) and stores the
+    // whole thing on the RawJob; expansion does the graph merge.
     if get(m, "uses").is_some() {
-        return Err(format!(
-            "{what}: reusable workflows (`jobs.<id>.uses:` calling another \
-             workflow file) are unsupported — they need a workflow-file \
-             resolver, `on.workflow_call` input/secret declarations, \
-             job-graph expansion with `needs:`/`if:`/`outputs:` rewriting, \
-             and `secrets:`/`jobs.*` expression contexts the dialect lacks"
-        ));
+        return parse_call_job(m, id, source, actions, depth, in_remote);
     }
     if get(m, "secrets").is_some() {
         return Err(format!(
-            "{what}: `secrets:` is only meaningful on reusable-workflow calls — unsupported"
+            "{what}: `secrets:` is only meaningful on reusable-workflow calls \
+             (`jobs.<id>.uses:`) — unsupported here"
         ));
     }
     check_keys(
@@ -2967,7 +3918,211 @@ fn parse_job(
         timeout_seconds,
         outputs,
         steps,
+        call: None,
     })
+}
+
+/// Parse a `jobs.<id>.uses:` reusable-workflow call. Only
+/// `name`/`if`/`needs`/`uses`/`with`/`secrets` are legal on a calling
+/// job — everything that describes execution (`steps`, `runs-on`,
+/// `env`, `strategy`, `outputs`, …) belongs to the callee and is an
+/// explicit error, like GitHub.
+fn parse_call_job(
+    m: &serde_norway::Mapping,
+    id: &str,
+    source: &str,
+    actions: &dyn ActionResolver,
+    depth: usize,
+    in_remote: bool,
+) -> Result<RawJob, String> {
+    let what = format!("{source}.jobs.{id}");
+    check_keys(
+        m,
+        &["name", "if", "needs", "uses", "with", "secrets"],
+        &[
+            "runs-on",
+            "env",
+            "defaults",
+            "steps",
+            "strategy",
+            "permissions",
+            "outputs",
+            "timeout-minutes",
+            "services",
+            "container",
+            "environment",
+            "concurrency",
+            "continue-on-error",
+        ],
+        &what,
+    )?;
+    let uses = scalar(
+        get(m, "uses").ok_or_else(|| format!("{what}: missing `uses`"))?,
+        &format!("{what}.uses"),
+    )?;
+    let name = get(m, "name")
+        .map(|n| scalar(n, &format!("{what}.name")))
+        .transpose()?;
+    let cond = get(m, "if")
+        .map(|v| scalar(v, &format!("{what}.if")))
+        .transpose()?;
+    let needs = match get(m, "needs") {
+        Some(v) => string_list(v, &format!("{what}.needs"))?,
+        None => Vec::new(),
+    };
+    // `with:` — same normalization as step `with:` (scalar → one
+    // value, sequence → many; bind_inputs enforces single values).
+    let with = match get(m, "with") {
+        Some(Value::Mapping(w)) => {
+            let mut out = Vec::with_capacity(w.len());
+            for (k, v) in w {
+                let key = k
+                    .as_str()
+                    .ok_or_else(|| format!("{what}.with: input names must be strings"))?;
+                let vals = match v {
+                    Value::Sequence(seq) => seq
+                        .iter()
+                        .map(|i| scalar(i, &format!("{what}.with.{key}")))
+                        .collect::<Result<Vec<_>, _>>()?,
+                    _ => vec![scalar(v, &format!("{what}.with.{key}"))?],
+                };
+                out.push((key.to_string(), vals));
+            }
+            out
+        }
+        Some(_) => return Err(format!("{what}.with: expected a mapping")),
+        None => Vec::new(),
+    };
+    // `secrets:` — `inherit` or an explicit name → scalar map.
+    // Values stay raw here; they're interpolated in the caller's
+    // context at expand (a bare `${{ secrets.X }}` forwards the
+    // caller's own bound secret without materializing it).
+    let secrets = match get(m, "secrets") {
+        Some(v) => match v {
+            Value::String(s) if s == "inherit" => CallSecrets::Inherit,
+            Value::Mapping(sm) => {
+                let mut out = Vec::with_capacity(sm.len());
+                for (k, sv) in sm {
+                    let key = k
+                        .as_str()
+                        .ok_or_else(|| format!("{what}.secrets: names must be strings"))?;
+                    out.push((
+                        key.to_string(),
+                        scalar(sv, &format!("{what}.secrets.{key}"))?,
+                    ));
+                }
+                CallSecrets::Map(out)
+            }
+            other => {
+                return Err(format!(
+                    "{what}.secrets: expected `inherit` or a mapping, got {}",
+                    kind(other)
+                ))
+            }
+        },
+        None => CallSecrets::Map(Vec::new()),
+    };
+    if depth >= MAX_CALL_DEPTH {
+        return Err(format!(
+            "{what}: reusable workflows nested deeper than {MAX_CALL_DEPTH} \
+             levels are unsupported"
+        ));
+    }
+    // Resolve + parse the callee. Local calls must live under
+    // `.github/workflows/` (GitHub's rule) and only make sense
+    // against the caller's own worktree — a `./` ref inside a
+    // remotely-fetched callee would silently read the wrong repo,
+    // so it's rejected. Remote calls reuse the action fetch cache
+    // (`owner/repo[/path]@ref`).
+    check_call_uses(&uses, &what, in_remote)?;
+    let (callee_source, callee_text, callee_remote) = actions
+        .workflow_yaml(&uses)
+        .map_err(|e| format!("{what}: cannot resolve `uses: {uses}` — {e}"))?;
+    let callee = parse_workflow_depth(
+        &callee_source,
+        &callee_text,
+        actions,
+        depth + 1,
+        callee_remote,
+    )?;
+    if callee.call.is_none() {
+        return Err(format!(
+            "{what}: `{uses}` has no `on.workflow_call` trigger — it can't \
+             be called as a reusable workflow"
+        ));
+    }
+    Ok(RawJob {
+        id: id.to_string(),
+        name,
+        cond,
+        needs,
+        runs_on: Vec::new(),
+        env: Vec::new(),
+        defaults: Defaults::default(),
+        matrix: Vec::new(),
+        fail_fast: false,
+        max_parallel: None,
+        timeout_seconds: None,
+        outputs: Vec::new(),
+        steps: Vec::new(),
+        call: Some(CallSite {
+            uses,
+            with,
+            secrets,
+            callee,
+        }),
+    })
+}
+
+/// Shape-check a job-level `uses:` target before resolving:
+/// `./.github/workflows/<file>.yml|yaml` locally (no `..`/absolute
+/// escapes), or `owner/repo[/path]@<ref>` remotely.
+fn check_call_uses(uses: &str, what: &str, in_remote: bool) -> Result<(), String> {
+    if let Some(rel) = uses.strip_prefix("./") {
+        if in_remote {
+            return Err(format!(
+                "{what}: `uses: {uses}` — `./` reusable refs inside a \
+                 remotely-fetched workflow can't resolve against the \
+                 caller's worktree; use an `owner/repo[/path]@<ref>` \
+                 target instead"
+            ));
+        }
+        let ok = rel.starts_with(".github/workflows/")
+            && (rel.ends_with(".yml") || rel.ends_with(".yaml"))
+            && !rel.split('/').any(|s| s == ".." || s.contains(".."));
+        if !ok {
+            return Err(format!(
+                "{what}: `uses: {uses}` — local reusable workflows must be \
+                 `./.github/workflows/<file>.yml` inside the repo"
+            ));
+        }
+        return Ok(());
+    }
+    if uses.starts_with('/') || uses.starts_with("docker://") {
+        return Err(format!(
+            "{what}: `uses: {uses}` — reusable workflows are local \
+             `./.github/workflows/*.yml` files or remote \
+             `owner/repo[/path]@<ref>` targets"
+        ));
+    }
+    let Some((body, refr)) = uses.rsplit_once('@') else {
+        return Err(format!(
+            "{what}: `uses: {uses}` — remote reusable workflows require \
+             `owner/repo[/path]@<ref>`"
+        ));
+    };
+    if refr.trim().is_empty()
+        || refr.starts_with('-')
+        || refr.chars().any(|c| c.is_whitespace() || c.is_control())
+    {
+        return Err(format!("{what}: `uses: {uses}` has an invalid ref"));
+    }
+    if !is_remote_action(body) {
+        return Err(format!(
+            "{what}: `uses: {uses}` is not `owner/repo[/path]@<ref>`"
+        ));
+    }
+    Ok(())
 }
 
 /// Parse one step mapping — shared by workflow `steps:` lists and
@@ -3988,7 +5143,8 @@ fn fold_path(w: &str, eval: &Eval, what: &str) -> Result<Cond, String> {
         format!(
             "{what}: unsupported expression `{w}` in `if` — supported: \
              literals, env.*, github.{{sha,ref,ref_name,repository,event_name}}, \
-             matrix.*, inputs.* (inside composite actions), \
+             matrix.*, inputs.* (inside composite actions/reusable workflows), \
+             secrets.* (inside reusable workflows), \
              needs.<job>.{{result,outputs.<name>}}, \
              steps.<id>.{{conclusion,outputs.<name>}}"
         )
@@ -4054,7 +5210,8 @@ fn fold_path(w: &str, eval: &Eval, what: &str) -> Result<Cond, String> {
             }
             let Some(inputs) = eval.inputs else {
                 return Err(format!(
-                    "{what}: `inputs.*` is only available inside composite actions"
+                    "{what}: `inputs.*` is only available inside composite actions \
+                     and reusable workflows"
                 ));
             };
             Ok(Cond::Lit(
@@ -4065,6 +5222,24 @@ fn fold_path(w: &str, eval: &Eval, what: &str) -> Result<Cond, String> {
                     .map(|(_, v)| v.clone())
                     .unwrap_or_default(),
             ))
+        }
+        "secrets" => {
+            if rest.is_empty() {
+                return Err(bad());
+            }
+            let Some(secrets) = eval.secrets else {
+                return Err(format!(
+                    "{what}: `secrets.*` is only available inside a reusable \
+                     workflow"
+                ));
+            };
+            let Some((_, val)) = secrets.iter().rev().find(|(k, _)| k == rest) else {
+                return Ok(Cond::Lit(String::new()));
+            };
+            Ok(match val {
+                SecretVal::Lit(v) => Cond::Lit(v.clone()),
+                SecretVal::Env(env) => Cond::Dyn(DynRef::Secret { name: env.clone() }),
+            })
         }
         "needs" => {
             // `.outputs.` wins over `.result` — same precedence as
@@ -4129,6 +5304,7 @@ mod tests {
             matrix,
             env,
             inputs: None,
+            secrets: None,
         }
     }
 
@@ -4684,11 +5860,22 @@ jobs:
 
     impl ActionResolver for FakeActions {
         fn action_yaml(&self, uses: &str) -> Result<String, String> {
+            if let Some((_, y)) = self.0.iter().find(|(u, _)| u == uses) {
+                return Ok(y.clone());
+            }
+            // A workflow file isn't an action — but tests register
+            // both in one map; only action.yml lookups reach here.
+            Err(format!("no such action `{uses}`"))
+        }
+
+        fn workflow_yaml(&self, uses: &str) -> Result<(String, String, bool), String> {
             self.0
                 .iter()
                 .find(|(u, _)| u == uses)
-                .map(|(_, y)| y.clone())
-                .ok_or_else(|| format!("no such action `{uses}`"))
+                // Fixtures mark remote callees by the `@ref` suffix,
+                // like the real `owner/repo[/path]@ref` grammar.
+                .map(|(u, y)| (u.clone(), y.clone(), uses.contains('@')))
+                .ok_or_else(|| format!("no such workflow `{uses}`"))
         }
     }
 
@@ -4963,13 +6150,15 @@ runs:
 
     #[test]
     fn reusable_workflow_uses_errors_precisely() {
+        // No resolver (plain `parse_workflow`) → loud resolve error.
         let err = parse_workflow(
             "ci.yml",
             "on: push\njobs:\n  call:\n    uses: octo/repo/.github/workflows/ci.yml@v1\n",
         )
         .err()
         .unwrap();
-        assert!(err.contains("reusable workflows"), "{err}");
+        assert!(err.contains("cannot resolve `uses:"), "{err}");
+        // `secrets:` on a non-call job still errors.
         let err = parse_workflow(
             "ci.yml",
             "on: push\njobs:\n  call:\n    secrets: inherit\n    steps:\n      - run: echo hi\n",
@@ -4977,5 +6166,213 @@ runs:
         .err()
         .unwrap();
         assert!(err.contains("secrets"), "{err}");
+        // A local call outside `.github/workflows/` errors before
+        // resolution even with a resolver present.
+        let resolver = FakeActions::new(&[(
+            "./.github/workflows/ci.yml",
+            "on: workflow_call\njobs:\n  j:\n    steps:\n      - run: 'true'\n",
+        )]);
+        let err = expand_err(
+            "on: push\njobs:\n  call:\n    uses: ./.github/actions/notaworkflow.yml\n",
+            &resolver,
+        );
+        assert!(err.contains(".github/workflows"), "{err}");
+    }
+
+    const CALLABLE_WF: &str = r#"
+on:
+  workflow_call:
+    inputs:
+      target:
+        required: true
+      flavor:
+        default: vanilla
+    secrets:
+      API_TOKEN:
+        required: true
+    outputs:
+      result:
+        value: ${{ jobs.build.outputs.out }}
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    outputs:
+      out: ${{ steps.gen.outputs.v }}
+    steps:
+      - id: gen
+        run: echo "v=${{ inputs.target }}-${{ inputs.flavor }}" >> "$GITHUB_OUTPUT"
+  report:
+    needs: build
+    steps:
+      - run: echo "report ${{ needs.build.outputs.out }} ${{ secrets.API_TOKEN }}"
+"#;
+
+    fn call_resolver() -> FakeActions {
+        FakeActions::new(&[("./.github/workflows/reuse.yml", CALLABLE_WF)])
+    }
+
+    #[test]
+    fn reusable_call_merges_jobs_and_binds_inputs() {
+        let jobs = expand_with(
+            r#"
+on: push
+jobs:
+  call:
+    uses: ./.github/workflows/reuse.yml
+    with:
+      target: prod
+    secrets:
+      API_TOKEN: tok-123
+  after:
+    needs: call
+    steps:
+      - run: echo "got ${{ needs.call.outputs.result }}"
+"#,
+            &call_resolver(),
+        )
+        .unwrap();
+        // Imported build+report (prefixed), publisher `call`, caller `after`.
+        let ids: Vec<&str> = jobs.iter().map(|j| j.id.as_str()).collect();
+        assert_eq!(
+            ids,
+            ["call.build", "call.report", "call", "after"],
+            "{ids:?}"
+        );
+        // Internal needs preserved: call.report needs call.build.
+        let report = jobs.iter().find(|j| j.id == "call.report").unwrap();
+        let build_idx = jobs.iter().position(|j| j.id == "call.build").unwrap();
+        assert!(report.needs.contains(&build_idx), "{:?}", report.needs);
+        // Publisher needs the whole imported block + is the handle
+        // `after` depends on.
+        let pub_ = jobs.iter().find(|j| j.id == "call").unwrap();
+        assert!(pub_.needs.contains(&build_idx));
+        assert!(pub_
+            .needs
+            .contains(&jobs.iter().position(|j| j.id == "call.report").unwrap()));
+        assert!(pub_.gate_needs.is_some());
+        let after = jobs.iter().find(|j| j.id == "after").unwrap();
+        assert_eq!(after.needs.len(), 1);
+        assert_eq!(jobs[after.needs[0]].id, "call");
+        // inputs.* bound: build's gen step saw target=prod, default flavor.
+        let Step::Run(r) = &jobs[0].steps[0] else {
+            panic!("expected run step");
+        };
+        assert!(r.script.contains("prod-vanilla"), "{}", r.script);
+        // secrets literal inlined into report's script.
+        let Step::Run(r2) = &report.steps[0] else {
+            panic!("expected run step");
+        };
+        assert!(r2.script.contains("tok-123"), "{}", r2.script);
+        // Publisher exposes the declared output as a deferred
+        // needs.<call>.<job>.outputs.* ref.
+        assert_eq!(pub_.outputs.len(), 1);
+        assert!(
+            pub_.outputs[0].1.contains("needs.call.build.outputs.out"),
+            "{:?}",
+            pub_.outputs[0]
+        );
+        // `after`'s script kept the caller-side needs.call.outputs ref.
+        let Step::Run(r3) = &after.steps[0] else {
+            panic!("expected run step");
+        };
+        assert!(
+            r3.script.contains("needs.call.outputs.result"),
+            "{}",
+            r3.script
+        );
+    }
+
+    #[test]
+    fn reusable_call_secrets_inherit_defers_to_env() {
+        let jobs = expand_with(
+            r#"
+on: push
+jobs:
+  call:
+    uses: ./.github/workflows/reuse.yml
+    with:
+      target: x
+    secrets: inherit
+"#,
+            &call_resolver(),
+        )
+        .unwrap();
+        let report = jobs.iter().find(|j| j.id == "call.report").unwrap();
+        let Step::Run(r) = &report.steps[0] else {
+            panic!("expected run step");
+        };
+        // Env pass-through → internal deferred marker, NOT the value.
+        assert!(
+            r.script.contains("${{ secrets.API_TOKEN }}"),
+            "{}",
+            r.script
+        );
+    }
+
+    #[test]
+    fn reusable_call_caller_if_gates_everything() {
+        let jobs = expand_with(
+            r#"
+on: push
+jobs:
+  call:
+    if: github.ref_name == 'main'
+    uses: ./.github/workflows/reuse.yml
+    with:
+      target: x
+    secrets:
+      API_TOKEN: t
+"#,
+            &call_resolver(),
+        )
+        .unwrap();
+        // Every imported job AND the publisher carry the caller if.
+        for j in &jobs {
+            assert!(j.cond.is_some(), "{} missing cond", j.id);
+        }
+    }
+
+    #[test]
+    fn reusable_call_errors_are_loud() {
+        // Callee without on.workflow_call.
+        let resolver = FakeActions::new(&[(
+            "./.github/workflows/plain.yml",
+            "on: push\njobs:\n  j:\n    steps:\n      - run: 'true'\n",
+        )]);
+        let err = expand_err(
+            "on: push\njobs:\n  call:\n    uses: ./.github/workflows/plain.yml\n",
+            &resolver,
+        );
+        assert!(err.contains("on.workflow_call"), "{err}");
+        // Missing required input.
+        let err = expand_err(
+            "on: push\njobs:\n  call:\n    uses: ./.github/workflows/reuse.yml\n    secrets:\n      API_TOKEN: t\n",
+            &call_resolver(),
+        );
+        assert!(err.contains("target"), "{err}");
+        // Missing required secret.
+        let err = expand_err(
+            "on: push\njobs:\n  call:\n    uses: ./.github/workflows/reuse.yml\n    with:\n      target: x\n",
+            &call_resolver(),
+        );
+        assert!(err.contains("API_TOKEN"), "{err}");
+        // `secrets.*` at top level errors.
+        let err = expand_err(
+            "on: push\njobs:\n  j:\n    steps:\n      - run: echo ${{ secrets.NOPE }}\n",
+            &call_resolver(),
+        );
+        assert!(err.contains("secrets"), "{err}");
+        // A `./` call inside a remotely-fetched callee can't resolve
+        // against the caller's worktree — loud error, not a silent
+        // wrong-repo read.
+        let resolver = FakeActions::new(&[(
+            "org/repo/.github/workflows/outer.yml@v1",
+            "on:\n  workflow_call:\njobs:\n  inner:\n    uses: ./.github/workflows/inner.yml\n",
+        )]);
+        let err = expand_err(
+            "on: push\njobs:\n  call:\n    uses: org/repo/.github/workflows/outer.yml@v1\n",
+            &resolver,
+        );
+        assert!(err.contains("remotely-fetched"), "{err}");
     }
 }

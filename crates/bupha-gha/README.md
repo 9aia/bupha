@@ -69,9 +69,9 @@ workflow.
   `$BUPHA_GHA_TMP/artifacts/` — see boundaries),
   `actions/cache`, `actions/cache/save`, `actions/cache/restore`
   (a persistent keyed store — see boundaries), `docker://<image>`
-  container steps (see boundaries), and **composite
-  actions** via `./local/path` or `owner/repo[/sub/path]@ref`
-  (see boundaries). `env:` on a `uses:` step scopes to the action:
+  container steps (see boundaries), **composite
+  actions** via `./local/path` or `owner/repo[/sub/path]@ref`, and
+  **reusable workflows** via job-level `uses:` (see below). `env:` on a `uses:` step scopes to the action:
   script-lowered targets export it to the synthesized script, and
   composite targets apply it to every inlined step below each
   step's own `env`. `id` is the handle
@@ -80,11 +80,15 @@ workflow.
   `[A-Za-z0-9_.-]`.
 - `${{ }}` expressions — `env.*`, `github.{sha,ref,ref_name,
   repository,event_name}`, `matrix.*`, `inputs.*` (only inside a
-  composite action's own steps/outputs — bound from the caller's
-  `with:`), plus the deferred refs
+  composite action's or reusable workflow's own steps/outputs —
+  bound from the caller's `with:`), `secrets.*` (only inside a
+  reusable workflow — bound from the call site's `secrets:`), plus
+  the deferred refs
   `steps.<id>.outputs.<name>` (same job),
   `needs.<job>.outputs.<name>` (declared job `outputs:` of a
   dependency), `needs.<job>.result`, and `steps.<id>.conclusion`.
+  `on.workflow_call.outputs.*.value` additionally accepts
+  `jobs.<job>.outputs.<name>` refs into the callee's own jobs.
   Deferred refs resolve **at run time**: each step's
   `$GITHUB_OUTPUT` entries land as files under
   `$BUPHA_GHA_TMP/stepouts/`, conclusions under `stepconcl/`, job
@@ -106,6 +110,30 @@ workflow.
 - `runner.workflow = "ci.yml"` (or a list) pins workflow files;
   absent → all `*.yml`/`*.yaml` under `.github/workflows/` are
   discovered and push-filtered.
+- **Reusable workflows** — `jobs.<id>.uses:` calls another
+  workflow file: `./.github/workflows/<file>.yml` locally or
+  `owner/repo[/path]@<ref>` remotely (same git-fetch cache as
+  remote actions). The callee must declare `on.workflow_call:`.
+  Calling jobs accept only `name`, `if`, `needs`, `uses`, `with`,
+  `secrets` — execution keys (`steps`, `runs-on`, `env`,
+  `strategy`, `outputs`, `timeout-minutes`, …) error like GitHub.
+  The callee's jobs merge into the caller's graph namespaced as
+  `<call>.<job>`: internal `needs:` edges are preserved, the call
+  site's `needs:`/`if:` gate every imported job (the `if:` evaluates
+  in the *caller* context), and a synthesized publisher job carries
+  the call id — `needs.<call>.result`/`outputs.*` see it, and its
+  `on.workflow_call.outputs` map `jobs.*.outputs.*` to
+  `needs.<call>.<job>.outputs.*`. A failed imported job fails the
+  call (skipped callee jobs don't); nesting is capped at 8 levels.
+  `with:` binds the callee's declared `inputs` (required/defaults
+  enforced, undeclared keys error). `secrets:` is `inherit` — every
+  declared secret resolves to a runtime `printenv` of the
+  same-named runner env var — or an explicit
+  `secrets: {NAME: <scalar>}` map interpolated in the caller's
+  context; a bare `${{ secrets.X }}` value forwards the caller's
+  own bound secret without materializing it. Secret *values* bound
+  as literals inline like `env.*`; env pass-throughs never enter
+  the generated script — they render as `printenv` lookups.
 
 ## Explicitly unsupported (hard errors at spawn)
 
@@ -119,14 +147,20 @@ workflow.
 `docker://<image>` steps, and composite actions via `./path` or
 `owner/repo[/path]@ref`
 (JS `runs.using: node*` and `docker` action *definitions*,
-unknown actions, other `actions/setup-*` families and
-reusable-workflow `jobs.<id>.uses:` included), `with:` keys outside
+unknown actions, other `actions/setup-*` families),
+reusable-workflow calls whose `uses:` isn't
+`./.github/workflows/*.yml` or `owner/repo[/path]@<ref>`, callees
+without `on.workflow_call:`, execution keys on a calling job
+(`steps`, `runs-on`, `env`, `strategy`, `outputs`,
+`timeout-minutes`, `permissions`, …), `with:`/`secrets:` keys the
+callee doesn't declare, `secrets:` on non-call jobs, `secrets.*` /
+`jobs.*` expressions outside a reusable workflow's own
+`on.workflow_call`/job bodies, `with:` keys outside
 each action's declared inputs and cross-run download inputs
 (`run-id`, `github-token`, `repository`, `run-attempt`),
 `steps.*.outcome`/`steps.*.outputs` (bare) expressions,
 `if:` functions beyond the supported subset (`hashFiles`,
-`fromJSON`, `format`, …), `shell:` values containing `${{ }}`,
-`secrets:`, and any
+`fromJSON`, `format`, …), `shell:` values containing `${{ }}`, and any
 unknown key at any level (including unknown keys in `action.yml`).
 
 ## Honest boundaries

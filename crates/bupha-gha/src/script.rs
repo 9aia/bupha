@@ -179,7 +179,17 @@ fn dyn_word(d: &DynRef, cx: &CondCx) -> Result<String, String> {
                 cx.ji, step
             )
         }
+        DynRef::Secret { name } => secret_lookup(name),
     })
+}
+
+/// A bound reusable-workflow secret as a quoted bash word:
+/// `printenv <env-name>` at run time — the value never enters the
+/// generated script (the `secrets: inherit` / `${{ secrets.X }}`
+/// forward lowering). `name` is the runner env var, already
+/// charset-checked at bind time; `sq` is belt-and-braces.
+fn secret_lookup(name: &str) -> String {
+    format!("\"$(printenv {} 2>/dev/null || :)\"", sq(name))
 }
 
 /// Render all jobs into one bash script. Scheduling is a
@@ -762,16 +772,21 @@ fn job_label(j: &Job) -> String {
 /// function), else the implicit all-needs-passed check. Returns
 /// the bash condition plus the skip reason for the log line.
 fn job_gate(j: &Job, i: usize) -> Result<Option<(String, &'static str)>, String> {
+    // `gate_needs` (reusable-call publishers) is the subset of
+    // `needs` the job's own gate may read: the call site's needs.
+    // The imported callee jobs are scheduling edges only — their
+    // failures surface through the publisher's check step, not the
+    // gate (a failed callee job must fail the call, not skip it).
+    let gate_needs = j.gate_needs.as_deref().unwrap_or(&j.needs);
     if let Some(cond) = &j.cond {
         let cx = CondCx {
             ji: i,
-            needs: &j.needs,
+            needs: gate_needs,
             wf: &j.workflow,
         };
         Ok(Some((cond_bool(cond, &cx)?, "if condition false")))
-    } else if !j.needs.is_empty() {
-        let conds = j
-            .needs
+    } else if !gate_needs.is_empty() {
+        let conds = gate_needs
             .iter()
             .map(|&d| format!("[ \"${{BUPHA_GHA_STATUS[{d}]:-2}}\" -eq 0 ]"))
             .collect::<Vec<_>>()
@@ -1292,6 +1307,18 @@ fn output_lookup(inner: &str, ji: usize, quoted: bool, wf: &str) -> Result<Strin
                 "unsupported deferred expression `${{{{ {inner} }}}}`"
             ));
         }
+    } else if let Some(name) = inner.strip_prefix("secrets.") {
+        // Internal marker emitted by plan for env pass-through
+        // secrets (`secrets: inherit`, `${{ secrets.X }}` forwards):
+        // `name` is the runner env var to read — never a literal
+        // secret name the callee declared. Charset re-checked here
+        // so a malformed marker can't smuggle shell into `printenv`.
+        if name.is_empty() || !name.chars().all(|c| c.is_ascii_alphanumeric() || c == '_') {
+            return Err(format!(
+                "unsupported deferred expression `${{{{ {inner} }}}}`"
+            ));
+        }
+        format!("$(printenv {} 2>/dev/null || :)", sq(name))
     } else {
         return Err(format!(
             "unsupported deferred expression `${{{{ {inner} }}}}`"

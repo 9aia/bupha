@@ -2690,3 +2690,149 @@ fn docker_step_bad_with_key_fails_at_spawn() {
     let err = spawn_err(&d, &sha);
     assert!(err.contains("bogus"), "{err}");
 }
+
+// --- reusable workflows (`jobs.<id>.uses:`) --------------------------
+
+const REUSABLE: &str = r#"
+on:
+  workflow_call:
+    inputs:
+      target:
+        required: true
+    secrets:
+      BUPHA_E2E_SECRET:
+        required: true
+    outputs:
+      result:
+        value: ${{ jobs.build.outputs.out }}
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    outputs:
+      out: ${{ steps.gen.outputs.v }}
+    steps:
+      - id: gen
+        run: echo "v=build-${{ inputs.target }}" >> "$GITHUB_OUTPUT"
+  report:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "report ${{ needs.build.outputs.out }} secret=${{ secrets.BUPHA_E2E_SECRET }}" > report.txt
+"#;
+
+#[test]
+fn reusable_workflow_local_call_runs_and_outputs_flow() {
+    let (d, sha) = repo("reuse");
+    workflow(&d, "reuse.yml", REUSABLE);
+    std::env::set_var("BUPHA_E2E_SECRET", "s3cr3t-fake");
+    workflow(
+        &d,
+        "ci.yml",
+        r#"
+on: push
+jobs:
+  call:
+    uses: ./.github/workflows/reuse.yml
+    with:
+      target: prod
+    secrets: inherit
+  after:
+    needs: call
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "got ${{ needs.call.outputs.result }}" > got.txt
+"#,
+    );
+    assert!(run(&d, &sha).success());
+    // Callee jobs ran in the shared worktree (sequential path).
+    assert_eq!(
+        std::fs::read_to_string(d.join("report.txt")).unwrap(),
+        "report build-prod secret=s3cr3t-fake\n"
+    );
+    // needs.<call>.outputs.* resolved through the publisher job.
+    assert_eq!(
+        std::fs::read_to_string(d.join("got.txt")).unwrap(),
+        "got build-prod\n"
+    );
+}
+
+#[test]
+fn reusable_workflow_caller_if_false_skips_call() {
+    let (d, sha) = repo("reuse-if");
+    workflow(&d, "reuse.yml", REUSABLE);
+    std::env::set_var("BUPHA_E2E_SECRET", "x");
+    workflow(
+        &d,
+        "ci.yml",
+        r#"
+on: push
+jobs:
+  call:
+    if: github.ref_name == 'nope'
+    uses: ./.github/workflows/reuse.yml
+    with:
+      target: prod
+    secrets: inherit
+  after:
+    needs: call
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo ran > after.txt
+"#,
+    );
+    assert!(run(&d, &sha).success());
+    assert!(!d.join("report.txt").exists());
+    assert!(!d.join("after.txt").exists());
+}
+
+#[test]
+fn reusable_workflow_callee_failure_fails_the_call() {
+    let (d, sha) = repo("reuse-fail");
+    workflow(
+        &d,
+        "reuse.yml",
+        r#"
+on:
+  workflow_call:
+jobs:
+  bad:
+    runs-on: ubuntu-latest
+    steps:
+      - run: exit 1
+"#,
+    );
+    workflow(
+        &d,
+        "ci.yml",
+        r#"
+on: push
+jobs:
+  call:
+    uses: ./.github/workflows/reuse.yml
+  after:
+    needs: call
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo ran > after.txt
+"#,
+    );
+    assert!(!run(&d, &sha).success());
+    assert!(!d.join("after.txt").exists());
+}
+
+#[test]
+fn reusable_workflow_missing_file_errors_loudly() {
+    let (d, sha) = repo("reuse-missing");
+    workflow(
+        &d,
+        "ci.yml",
+        r#"
+on: push
+jobs:
+  call:
+    uses: ./.github/workflows/nope.yml
+"#,
+    );
+    let err = spawn_err(&d, &sha);
+    assert!(err.contains("nope.yml"), "{err}");
+}

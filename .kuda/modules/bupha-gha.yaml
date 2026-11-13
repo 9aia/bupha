@@ -5,22 +5,22 @@ api:
 - name: ABSORB_FNS
   kind: const
   file: crates/bupha-gha/src/script.rs
-  line: 1412
+  line: 1439
   module: bupha-gha
 - name: ActionDef
   kind: type
   file: crates/bupha-gha/src/plan.rs
-  line: 142
+  line: 208
   module: bupha-gha
 - name: ActionInput
   kind: type
   file: crates/bupha-gha/src/plan.rs
-  line: 149
+  line: 215
   module: bupha-gha
 - name: ActionResolver
   kind: trait
   file: crates/bupha-gha/src/plan.rs
-  line: 2673
+  line: 3603
   module: bupha-gha
 - name: Actions
   kind: type
@@ -30,22 +30,47 @@ api:
 - name: BinOp
   kind: type
   file: crates/bupha-gha/src/plan.rs
-  line: 291
+  line: 371
+  module: bupha-gha
+- name: BindCtx
+  kind: type
+  file: crates/bupha-gha/src/plan.rs
+  line: 143
   module: bupha-gha
 - name: CACHE_LIB
   kind: const
   file: crates/bupha-gha/src/plan.rs
-  line: 2148
+  line: 3042
+  module: bupha-gha
+- name: CALLABLE_WF
+  kind: const
+  file: crates/bupha-gha/src/plan.rs
+  line: 6154
+  module: bupha-gha
+- name: CallSecrets
+  kind: type
+  file: crates/bupha-gha/src/plan.rs
+  line: 127
+  module: bupha-gha
+- name: CallSeg
+  kind: type
+  file: crates/bupha-gha/src/plan.rs
+  line: 858
+  module: bupha-gha
+- name: CallSite
+  kind: type
+  file: crates/bupha-gha/src/plan.rs
+  line: 116
   module: bupha-gha
 - name: CompositeCall
   kind: type
   file: crates/bupha-gha/src/plan.rs
-  line: 891
+  line: 1781
   module: bupha-gha
 - name: Cond
   kind: type
   file: crates/bupha-gha/src/plan.rs
-  line: 251
+  line: 326
   module: bupha-gha
 - name: CondCx
   kind: type
@@ -55,22 +80,22 @@ api:
 - name: CondParser
   kind: type
   file: crates/bupha-gha/src/plan.rs
-  line: 3772
+  line: 4901
   module: bupha-gha
 - name: Defaults
   kind: type
   file: crates/bupha-gha/src/plan.rs
-  line: 41
+  line: 67
   module: bupha-gha
 - name: DynRef
   kind: type
   file: crates/bupha-gha/src/plan.rs
-  line: 275
+  line: 350
   module: bupha-gha
 - name: Eval
   kind: type
   file: crates/bupha-gha/src/plan.rs
-  line: 749
+  line: 1348
   module: bupha-gha
 - name: Event
   kind: type
@@ -80,17 +105,17 @@ api:
 - name: FakeActions
   kind: type
   file: crates/bupha-gha/src/plan.rs
-  line: 4672
+  line: 5822
   module: bupha-gha
 - name: FetchLock
   kind: type
   file: crates/bupha-gha/src/actions.rs
-  line: 182
+  line: 239
   module: bupha-gha
 - name: GREET_ACTION
   kind: const
   file: crates/bupha-gha/src/plan.rs
-  line: 4695
+  line: 5854
   module: bupha-gha
 - name: GREET_ACTION
   kind: const
@@ -115,94 +140,69 @@ api:
 - name: JP_FNS
   kind: const
   file: crates/bupha-gha/src/script.rs
-  line: 1756
+  line: 1783
   module: bupha-gha
 - name: Job
   kind: type
   file: crates/bupha-gha/src/plan.rs
-  line: 157
+  line: 223
   module: bupha-gha
 - name: MAX_ACTION_DEPTH
   kind: const
   file: crates/bupha-gha/src/plan.rs
-  line: 2692
+  line: 3631
+  module: bupha-gha
+- name: MAX_CALL_DEPTH
+  kind: const
+  file: crates/bupha-gha/src/plan.rs
+  line: 3635
   module: bupha-gha
 - name: MP_FNS
   kind: const
   file: crates/bupha-gha/src/script.rs
-  line: 1680
+  line: 1707
   module: bupha-gha
 - name: NoActions
   kind: type
   file: crates/bupha-gha/src/plan.rs
-  line: 2679
+  line: 3618
+  module: bupha-gha
+- name: OnDecl
+  kind: type
+  file: crates/bupha-gha/src/plan.rs
+  line: 530
   module: bupha-gha
 - name: PExpr
   kind: type
   file: crates/bupha-gha/src/plan.rs
-  line: 3757
+  line: 4886
   module: bupha-gha
 - name: PushFilters
   kind: type
   file: crates/bupha-gha/src/plan.rs
-  line: 47
+  line: 73
+  module: bupha-gha
+- name: REUSABLE
+  kind: const
+  file: crates/bupha-gha/tests/gha.rs
+  line: 2696
   module: bupha-gha
 - name: RawJob
   kind: type
   file: crates/bupha-gha/src/plan.rs
-  line: 56
+  line: 82
   module: bupha-gha
 - name: RawStep
   kind: type
   file: crates/bupha-gha/src/plan.rs
-  line: 83
+  line: 149
   module: bupha-gha
 - name: RunStep
   kind: type
   file: crates/bupha-gha/src/plan.rs
-  line: 219
+  line: 294
   module: bupha-gha
-- name: SIMPLE
-  kind: const
-  file: crates/bupha-gha/tests/gha.rs
-  line: 60
-  module: bupha-gha
-- name: ScriptCtx
-  kind: type
-  file: crates/bupha-gha/src/script.rs
-  line: 19
-  module: bupha-gha
-- name: Step
-  kind: type
-  file: crates/bupha-gha/src/plan.rs
-  line: 198
-  module: bupha-gha
-- name: Strategy
-  kind: type
-  file: crates/bupha-gha/src/plan.rs
-  line: 3539
-  module: bupha-gha
-- name: Tok
-  kind: type
-  file: crates/bupha-gha/src/plan.rs
-  line: 3650
-  module: bupha-gha
-- name: UsesKind
-  kind: type
-  file: crates/bupha-gha/src/plan.rs
-  line: 3157
-  module: bupha-gha
-- name: UsesScript
-  kind: type
-  file: crates/bupha-gha/src/plan.rs
-  line: 3125
-  module: bupha-gha
-- name: UsesTarget
-  kind: type
-  file: crates/bupha-gha/src/plan.rs
-  line: 3168
-  module: bupha-gha
-api_omitted: 277
+api_omitted: 315
 deps:
 - bupha-core
 - bupha-runner
@@ -231,11 +231,11 @@ provenance:
   - crates/bupha-gha/tests/gha.rs
   hashes:
   - 130920aec2d9f32d6f8c6d16b35230ba63ddc04f
-  - 68f2d9483f159c5fb3af354741780974fbaf89cc
+  - 194b7942baee83820107e720277f68b5d2fdc972
   - 266972b0c944e4d33bd9aa5a513db34895e45940
-  - 2ff730687e626bcb52feeb4093e948fb89c86fad
-  - f14758bd6c9908610788aa58c2333f10580194cb
-  - b2d0ae77a5f2b5f8af172a10b2cb6f0cd0c9f566
-  commit_sha: fc193d2a549aa146b6c889c20b567c73b136be3e
-  generated_at: '1794601209'
+  - 6528165b6a87e9ef363c5c8e8d584ac7d968a1ed
+  - de999aa64bcc65cd0776dd88044f54deabbac412
+  - 92a8e4d366429085a9b58a765339215e8fc1ac14
+  commit_sha: ab48619e512f9982a8476770f063a197217d16db
+  generated_at: '1794607359'
   generator: kuda-template/0.1.4
