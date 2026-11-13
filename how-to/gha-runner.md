@@ -163,7 +163,29 @@ parity on a production workflow:
   `gha: ci.yml.jobs.<id>: unsupported key 'services' (outside the
   gha v1 subset)` — loud, names file/job/key.
 
-A full parity pass against a real repo's `ci.yml` (vs. GHA/act)
-is still open — the dialect's hard-error contract means a
-migration is incremental: unsupported keys surface one at a
-time.
+## Real-repo dogfood (PL-013 D5)
+
+`handl-lang/extension-vscode`'s `.github/workflows/ci.yml` — a
+production workflow already mirrored by that repo's `ci.sh`
+shell-runner gate — ran green end-to-end via `bupha run` with
+`runner.kind = "gha"` (2026-11-13, scratch clone):
+
+- `on.push.branches: [main]` discovery; `pull_request` /
+  `workflow_dispatch` triggers present but not exercised by a
+  local push run.
+- `uses: actions/checkout@v4` no-op; `actions/setup-node@v4`
+  with `node-version: "20"` resolved and `cache: npm` accepted
+  as a documented no-op (no cross-run npm cache).
+- `run:` steps (`npm ci`, `npm run typecheck`, `npm test`)
+  executed in order; vitest 32/32 passed; job reported
+  `gha: all jobs passed`.
+
+Parity notes vs. GHA/act: single-job workflows in the supported
+subset are drop-in. Org repos on `oven-sh/setup-bun` or
+`Swatinem/rust-cache`/`astral-sh/setup-uv` are **not** yet —
+those `uses:` hard-error at spawn today (the honest-failure
+contract; add the action to the subset or keep `kind = "shell"`).
+
+A full parity pass against GHA/act output is still open — the
+dialect's hard-error contract means a migration is incremental:
+unsupported keys surface one at a time.
