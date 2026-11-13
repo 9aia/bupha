@@ -13,8 +13,12 @@ Actions as bupha's first CI dialect. Select with `runner.kind = "gha"`.
 The pushed sha's detached worktree is the workspace. Every
 `on.push`-matching workflow runs **sequentially, locally, in one
 spawned bash process**; the aggregate exit status drives the repo's
-commit status. `runs-on` labels are recorded for logs but execution
-is always local — there is no runner fleet inside a workflow.
+commit status, and each expanded job that reaches a verdict
+(additional workflow jobs and every matrix leg) also posts its own
+commit status under `<context>/<workflow>/<job id>[/<matrix>]` —
+see boundaries. `runs-on` labels are recorded for logs but
+execution is always local — there is no runner fleet inside a
+workflow.
 
 ## Supported subset (v1)
 
@@ -75,7 +79,8 @@ is always local — there is no runner fleet inside a workflow.
   `$BUPHA_GHA_TMP/outputs.txt`), plus `GITHUB_WORKSPACE`,
   `GITHUB_STEP_SUMMARY`, `RUNNER_TEMP`.
 - `matrix` — cartesian fan-out executed **sequentially** (each
-  combination is a separate job run, in order).
+  combination is a separate job run, in order; each leg still gets
+  its own commit status — see boundaries).
 - `runner.workflow = "ci.yml"` (or a list) pins workflow files;
   absent → all `*.yml`/`*.yaml` under `.github/workflows/` are
   discovered and push-filtered.
@@ -107,9 +112,31 @@ level.
   runner host.
 - **`strategy.max-parallel`** is parsed and logged but not
   enforced — matrix legs still run sequentially. Real parallelism
-  needs isolated worktrees per leg (they share `$GITHUB_ENV`,
-  `PATH`, and the worktree itself today) plus executor-level
-  concurrency; that's a runner-trait change, deferred.
+  is a designed-but-unimplemented change (see below); the blockers
+  are per-leg workspaces and leg concurrency, not the status
+  plumbing (per-leg statuses already land — see **Statuses**).
+- **Parallel matrix — deferred design.** Legs of one job id are
+  adjacent expanded jobs sharing only `needs` (resolved before the
+  job starts) — they never read each other's outputs, so they *can*
+  fan out. What's missing: (a) **per-leg workspaces** — today all
+  legs share `$BUPHA_WORKDIR`, and steps mutate it (`target/`,
+  generated files); GHA gives each leg a fresh checkout, so honest
+  parallelism needs `git worktree add --detach` per leg (the
+  worktree is itself a linked worktree — nested adds work, but each
+  leg dir must be `git worktree remove`d on exit or the common
+  git dir leaks prunable entries), with `GITHUB_WORKSPACE`/step
+  `cd`s retargeted per leg; (b) **concurrency in the generated
+  script** — emit each leg body as a `set -m` background process
+  group, throttle with a `wait -n`/`jobs -r` loop honoring
+  `max-parallel`, and collect exit codes in the parent (the
+  `BUPHA_GHA_STATUS` array can't cross subshells — statuses must
+  settle parent-side like today); (c) **fail-fast rework** —
+  `kill -- -<pgid>` the group's remaining legs on first failure
+  and mark unstarted legs cancelled; (d) **deterministic
+  `needs.<job>.outputs.*`** — "last leg wins" is undefined under
+  parallelism; pick the highest-index *successful* leg. Cross-job
+  parallelism (independent jobs) is a separate, larger change — a
+  needs-DAG scheduler — and stays out of scope.
 - **`strategy.fail-fast`** (default on) cancels a matrix job's
   remaining legs after one leg fails; legs already running finish
   first since execution is sequential anyway.
@@ -117,11 +144,22 @@ level.
   payload's ref — identical for webhook pushes since matching is
   exact; `""` for sources that can't say (then `branches` filters
   error rather than guess).
-- **Statuses** are per `[[repo]]`/`[[repo.jobs]]` entry, not per
-  gha job. Split workflows across `[[repo.jobs]]` entries with
-  `runner.workflow` to get `ci/bupha/<job>` contexts per
-  workflow; per-gha-job commit statuses need sink plumbing and are
-  a later refinement.
+- **Statuses** come in two layers. The aggregate — one
+  `ci/bupha[/<job>]` context per `[[repo]]`/`[[repo.jobs]]` entry,
+  driven by the run's exit status — is unchanged. On top of it,
+  every expanded job that reaches a verdict (each workflow job,
+  each matrix leg) posts its own commit status at
+  `<context>/<workflow>/<job id>[/<k=v,…>]` — e.g.
+  `ci/bupha/gate/ci/build/os=ubuntu,node=18`. Only `success` and
+  `failure` map through: commit statuses have no neutral state,
+  so legs skipped by `if:`/`needs` or cancelled by fail-fast post
+  nothing (the aggregate still reflects them). Records are written
+  by the generated script to a per-run dir *sibling* of the
+  worktree (`.bupha-gha-status-<worktree>/`, wiped per spawn,
+  consumed by `Runner::status_reports`) — inside the worktree a
+  `git add -A` step could sweep them into a commit. To get
+  per-workflow-file contexts instead, split workflows across
+  `[[repo.jobs]]` entries with `runner.workflow` as before.
 - **Step conclusions** are `success`/`skipped` only — a failed
   step ends its job (`set -e`), so `failure`/`cancelled` step
   conclusions are unobservable, matching v1's stop-on-failure
