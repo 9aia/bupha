@@ -228,6 +228,41 @@ fn status_post_ok_and_transport_error() {
 }
 
 #[test]
+fn status_post_link_sets_target_url() {
+    // ADR-0002 §5 — the terminal status links the attestation.
+    let got = std::sync::Arc::new(std::sync::Mutex::new(String::new()));
+    let g = got.clone();
+    let base = serve(move |req, body| {
+        assert!(req.starts_with("POST") && req.contains("/repos/o/r/statuses/abc1234"));
+        *g.lock().unwrap() = String::from_utf8_lossy(body).into_owned();
+        (201, "{}".into())
+    });
+    let s = GitHubStatus {
+        token: "t".into(),
+        repo: "o/r".into(),
+        context: "ci/bupha".into(),
+        api_base: base,
+    };
+    s.post_link(
+        "abc1234",
+        "success",
+        "ci passed",
+        Some("https://attest.example.com/o-r-abc1234.json"),
+    );
+    let v: serde_json::Value = serde_json::from_str(&got.lock().unwrap()).unwrap();
+    assert_eq!(v["state"], "success");
+    assert_eq!(
+        v["target_url"],
+        "https://attest.example.com/o-r-abc1234.json"
+    );
+
+    // post() (pending/sub-job/superseded) never carries the field.
+    s.post("abc1234", "pending", "ci running");
+    let v: serde_json::Value = serde_json::from_str(&got.lock().unwrap()).unwrap();
+    assert!(v.get("target_url").is_none());
+}
+
+#[test]
 fn log_status_prints() {
     let s = LogStatus {
         context: "ci/bupha".into(),

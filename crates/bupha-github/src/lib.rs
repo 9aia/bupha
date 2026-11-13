@@ -169,27 +169,36 @@ impl StatusSink for GitHubStatus {
     }
 
     fn post(&self, sha: &str, state: &str, desc: &str) {
-        self.post_as(sha, state, desc, &self.context)
+        self.post_as(sha, state, desc, &self.context, None)
     }
 
     fn post_ctx(&self, sha: &str, state: &str, desc: &str, context: &str) {
-        self.post_as(sha, state, desc, context)
+        self.post_as(sha, state, desc, context, None)
+    }
+
+    /// The terminal status carries the attestation URL as
+    /// `target_url` (ADR-0002 §5).
+    fn post_link(&self, sha: &str, state: &str, desc: &str, link: Option<&str>) {
+        self.post_as(sha, state, desc, &self.context, link)
     }
 }
 
 impl GitHubStatus {
-    fn post_as(&self, sha: &str, state: &str, desc: &str, context: &str) {
+    fn post_as(&self, sha: &str, state: &str, desc: &str, context: &str, link: Option<&str>) {
         // The sha is a URL path segment — refuse values that could
         // traverse or reshape the request path.
         if !is_valid_sha(sha) {
             eprintln!("status post skipped — invalid sha {sha:?}");
             return;
         }
-        let body = serde_json::json!({
+        let mut body = serde_json::json!({
             "state": state,
             "context": context,
             "description": desc,
         });
+        if let Some(l) = link {
+            body["target_url"] = serde_json::json!(l);
+        }
         let url = format!("{}/repos/{}/statuses/{sha}", self.api_base, self.repo);
         let res = agent()
             .post(&url)
@@ -220,6 +229,13 @@ impl StatusSink for LogStatus {
 
     fn post_ctx(&self, sha: &str, state: &str, desc: &str, context: &str) {
         println!("[status:{context}] {state} {sha:.12} {desc}");
+    }
+
+    fn post_link(&self, sha: &str, state: &str, desc: &str, link: Option<&str>) {
+        match link {
+            Some(l) => println!("[status:{}] {state} {sha:.12} {desc} {l}", self.context),
+            None => self.post(sha, state, desc),
+        }
     }
 }
 

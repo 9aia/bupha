@@ -18,4 +18,13 @@ pub trait StatusSink: Send + Sync {
         let _ = context;
         self.post(sha, state, desc);
     }
+    /// Post with an optional evidence link — ADR-0002 §5: the
+    /// terminal status carries the attestation URL so a reviewer
+    /// clicking the check reaches the signed predicate. The default
+    /// drops the link and delegates to [`Self::post`]; sinks with a
+    /// link field (GitHub `target_url`) override.
+    fn post_link(&self, sha: &str, state: &str, desc: &str, link: Option<&str>) {
+        let _ = link;
+        self.post(sha, state, desc);
+    }
 }

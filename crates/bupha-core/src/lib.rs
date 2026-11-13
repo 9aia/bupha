@@ -333,6 +333,12 @@ pub struct AttestCfg {
     /// config. Empty/resolved-empty = keyless (Fulcio).
     #[serde(default)]
     pub key_env: String,
+    /// Published base URL the predicate files are reachable under —
+    /// the terminal commit status links `<url_base>/<filename>` as
+    /// its `target_url` (ADR-0002 §5). Absent = attestations stay
+    /// local files and statuses post linkless.
+    #[serde(default)]
+    pub url_base: Option<String>,
 }
 
 fn default_attest_kind() -> String {
@@ -345,6 +351,7 @@ impl Default for AttestCfg {
             kind: default_attest_kind(),
             dir: None,
             key_env: String::new(),
+            url_base: None,
         }
     }
 }

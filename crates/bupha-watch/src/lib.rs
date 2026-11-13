@@ -347,13 +347,16 @@ pub fn run_job(
     worker: &Worker<'_>,
     sha: &str,
     fetch: Option<FetchTarget<'_>>,
+    attest: &Option<Arc<dyn Attest>>,
 ) -> JobEnd {
+    let t0 = std::time::Instant::now();
     // Last-line validation: a hostile sha (persisted store tampering,
     // a fleet peer's bad write) would otherwise steer remove_dir_all
     // outside worktree.base or inject git argv options.
     if !bupha_core::is_valid_sha(sha) {
         // No status post — the bogus value must not reach the
-        // statuses/<sha> URL either.
+        // statuses/<sha> URL either. No attestation either: the sha
+        // names the predicate file, so it must clear the same gate.
         eprintln!("refusing unsafe sha {sha:?} for {}", repo.key);
         return JobEnd::Finished(false);
     }
@@ -384,6 +387,18 @@ pub fn run_job(
     ensure_commit(&vcs, &repo.dir, sha, fetch);
     if !vcs.worktree_add(&repo.dir, &wt, sha) {
         eprintln!("worktree add failed for {sha}");
+        // The predicate still records the infra failure (same as the
+        // settle path always did); the error status itself stays
+        // linkless — only the terminal run outcome links evidence.
+        attest_run(
+            attest,
+            None,
+            runner.name(),
+            &repo.key,
+            sha,
+            &JobEnd::Finished(false),
+            t0.elapsed(),
+        );
         sink.post(sha, "error", "ci infra: worktree failed");
         return JobEnd::Finished(false);
     }
@@ -488,7 +503,20 @@ pub fn run_job(
             );
         }
     }
-    sink.post(sha, state, &desc);
+    // Attest BEFORE the terminal post so the status can carry the
+    // predicate link (ADR-0002 §5). A write failure degrades to a
+    // linkless status — same posture as the history/telemetry
+    // write-paths; it never breaks the run.
+    let link = attest_run(
+        attest,
+        cfg.attest.url_base.as_deref(),
+        runner.name(),
+        &repo.key,
+        sha,
+        &end,
+        t0.elapsed(),
+    );
+    sink.post_link(sha, state, &desc, link.as_deref());
     println!("ci {desc} {sha:.12}");
     vcs.worktree_remove(&repo.dir, &wt);
     end
@@ -761,14 +789,54 @@ pub fn worker_id() -> String {
     )
 }
 
+/// Write the run's attestation predicate (ADR-0002 §5) and resolve
+/// the URL the terminal commit status should link to.
+///
+/// The predicate is written whenever `attest` is configured and the
+/// write succeeds — `url_base` only gates the *link*: absent or
+/// empty means the predicate stays a local file and the status posts
+/// linkless. Returns `None` on no-attest, write failure, or no
+/// `url_base` — callers treat it as "post without a link", never as
+/// an error.
+fn attest_run(
+    attest: &Option<Arc<dyn Attest>>,
+    url_base: Option<&str>,
+    runner_name: &str,
+    key: &str,
+    sha: &str,
+    end: &JobEnd,
+    wall: std::time::Duration,
+) -> Option<String> {
+    let att = attest.as_ref()?;
+    let status = match end {
+        JobEnd::Finished(true) => "success",
+        JobEnd::Finished(false) => "failure",
+        JobEnd::ClaimLost => "claim-lost",
+    };
+    let path = att
+        .attest(&RunAttestation {
+            sha: sha.to_string(),
+            repo: key.to_string(),
+            runner: runner_name.into(),
+            status: status.into(),
+            wall_secs: wall.as_secs(),
+        })
+        .ok()?;
+    let base = url_base?.trim();
+    if base.is_empty() {
+        return None;
+    }
+    let name = path.file_name()?.to_str()?;
+    Some(format!("{}/{}", base.trim_end_matches('/'), name))
+}
+
 /// Post-run bookkeeping shared by the watch worker and the fleet
-/// puller: telemetry, history, attestation.
-#[allow(clippy::too_many_arguments)]
+/// puller: telemetry + history. (Attestation moved into `run_job`
+/// so the terminal status can carry the predicate link — ADR-0002
+/// §5.)
 pub fn settle_run(
     cfg: &Config,
     telemetry: &dyn Telemetry,
-    attest: &Option<Arc<dyn Attest>>,
-    runner_name: &str,
     key: &str,
     sha: &str,
     end: &JobEnd,
@@ -794,15 +862,6 @@ pub fn settle_run(
             wall_secs: wall.as_secs(),
         },
     );
-    if let Some(att) = attest {
-        let _ = att.attest(&RunAttestation {
-            sha: sha.to_string(),
-            repo: key.to_string(),
-            runner: runner_name.into(),
-            status: status.into(),
-            wall_secs: wall.as_secs(),
-        });
-    }
 }
 
 pub fn watch(cfg: Arc<Config>) {
@@ -1026,6 +1085,7 @@ pub fn watch(cfg: Arc<Config>) {
                     // override — pushes and same-repo PRs resolve
                     // through the repo's own remote.
                     None,
+                    &attest,
                 );
                 let wall = t0.elapsed();
                 let status = match &end {
@@ -1100,15 +1160,6 @@ pub fn watch(cfg: Arc<Config>) {
                         wall_secs: wall.as_secs(),
                     },
                 );
-                if let Some(att) = &attest {
-                    let _ = att.attest(&RunAttestation {
-                        sha: sha.clone(),
-                        repo: repo_name.clone(),
-                        runner: runner.name().into(),
-                        status: status.into(),
-                        wall_secs: wall.as_secs(),
-                    });
-                }
             }
         });
     }
@@ -1287,5 +1338,68 @@ mod tests {
             }),
         ));
         let _ = std::fs::remove_dir_all(&tmp);
+    }
+
+    #[test]
+    fn attest_run_links_only_with_url_base() {
+        let dir = std::env::temp_dir().join(format!("bupha-attest-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        let att: Option<Arc<dyn Attest>> = Some(Arc::new(FileAttest { dir: dir.clone() }));
+        let sha = "0123456789abcdef0123456789abcdef01234567";
+        // No url_base → predicate written, link None.
+        let link = attest_run(
+            &att,
+            None,
+            "shell",
+            "o/r",
+            sha,
+            &JobEnd::Finished(true),
+            std::time::Duration::from_secs(3),
+        );
+        assert_eq!(link, None);
+        assert!(dir.join("o-r-0123456789ab.json").exists());
+        // url_base → <base>/<filename>, trailing slash tolerated.
+        let link = attest_run(
+            &att,
+            Some("https://attest.example.com/pred/"),
+            "shell",
+            "o/r",
+            sha,
+            &JobEnd::Finished(false),
+            std::time::Duration::from_secs(1),
+        )
+        .unwrap();
+        assert_eq!(
+            link,
+            "https://attest.example.com/pred/o-r-0123456789ab.json"
+        );
+        // No attest configured → None, nothing written.
+        let none: Option<Arc<dyn Attest>> = None;
+        assert_eq!(
+            attest_run(
+                &none,
+                Some("https://x"),
+                "shell",
+                "o/r",
+                sha,
+                &JobEnd::Finished(true),
+                std::time::Duration::ZERO,
+            ),
+            None
+        );
+        // Whitespace-only base counts as unset.
+        assert_eq!(
+            attest_run(
+                &att,
+                Some("   "),
+                "shell",
+                "o/r",
+                sha,
+                &JobEnd::ClaimLost,
+                std::time::Duration::ZERO,
+            ),
+            None
+        );
+        let _ = std::fs::remove_dir_all(&dir);
     }
 }

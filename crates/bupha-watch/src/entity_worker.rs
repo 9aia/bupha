@@ -586,18 +586,10 @@ impl JobExec for WatchExec {
             },
             sha,
             fetch,
+            &self.attest,
         );
         let wall = t0.elapsed();
-        settle_run(
-            &self.cfg,
-            &*self.telemetry,
-            &self.attest,
-            runner.name(),
-            &repo.key,
-            sha,
-            &end,
-            wall,
-        );
+        settle_run(&self.cfg, &*self.telemetry, &repo.key, sha, &end, wall);
         match end {
             JobEnd::Finished(ok) => ExecEnd::Finished(ok),
             JobEnd::ClaimLost => ExecEnd::ClaimLost,
