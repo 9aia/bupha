@@ -151,7 +151,7 @@ against. For pipelines outside the subset, `runner.kind =
 
 Exercised end-to-end with `bupha run` (`runner.kind = "gha"`)
 against a scratch repo — confirms the spawn path, not GHA/act
- parity on a production workflow:
+parity on a production workflow:
 
 - `on.push` discovery + `steps[].run` in bash — passed.
 - `uses: actions/checkout@v4` — accepted as the pushed-sha
@@ -163,7 +163,7 @@ against a scratch repo — confirms the spawn path, not GHA/act
   `gha: ci.yml.jobs.<id>: unsupported key 'services' (outside the
   gha v1 subset)` — loud, names file/job/key.
 
- A full parity pass against a real repo's `ci.yml` (vs. GHA/act)
- is still open — the dialect's hard-error contract means a
- migration is incremental: unsupported keys surface one at a
+A full parity pass against a real repo's `ci.yml` (vs. GHA/act)
+is still open — the dialect's hard-error contract means a
+migration is incremental: unsupported keys surface one at a
 time.
