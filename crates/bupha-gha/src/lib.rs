@@ -16,6 +16,7 @@
 //! bupha]`) — is reserved the name `gha-runner` (crate
 //! `bupha-gha-runner`); never reuse bare `gha` for it.
 
+mod actions;
 /// The pure workflow core — public so a sibling dialect (gitlab)
 /// or tooling can reuse parse/select/expand without the runner.
 pub mod plan;
@@ -310,6 +311,10 @@ impl Runner for GhaRunner {
 
         // Parse every candidate up front — a broken workflow is a
         // loud spawn failure even if its filters wouldn't match.
+        // The action resolver reads `./` action.yml files from the
+        // worktree and fetches `owner/repo[/path]@ref` composite
+        // actions via git (see actions.rs).
+        let resolver = actions::Actions::new(ctx.workdir);
         let mut workflows: Vec<Workflow> = Vec::new();
         for f in &files {
             let text = std::fs::read_to_string(f)
@@ -319,7 +324,7 @@ impl Runner for GhaRunner {
                 .and_then(|n| n.to_str())
                 .unwrap_or("workflow")
                 .to_string();
-            let wf = plan::parse_workflow(&source, &text)
+            let wf = plan::parse_workflow_with(&source, &text, &resolver)
                 .map_err(|e| io::Error::other(format!("gha: {e}")))?;
             if wf.matches_push(&ev).map_err(io::Error::other)? {
                 workflows.push(wf);

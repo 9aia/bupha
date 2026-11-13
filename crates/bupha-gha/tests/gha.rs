@@ -2362,3 +2362,222 @@ jobs:
     );
     assert!(!run(&d2, &sha2).success());
 }
+
+// --- composite actions (`uses: ./path`) -------------------------------
+
+/// Write a local composite action under `.github/actions/<name>/`.
+fn local_action(dir: &Path, name: &str, action_yml: &str) {
+    let ad = dir.join(".github/actions").join(name);
+    std::fs::create_dir_all(&ad).unwrap();
+    std::fs::write(ad.join("action.yml"), action_yml).unwrap();
+}
+
+const GREET_ACTION: &str = r#"
+name: greet
+inputs:
+  name:
+    required: true
+  punct:
+    default: "!"
+runs:
+  using: composite
+  steps:
+    - run: echo "hello ${{ inputs.name }}${{ inputs.punct }}" > greet.txt
+"#;
+
+#[test]
+fn composite_local_action_runs_with_inputs() {
+    let (d, sha) = repo("composite");
+    local_action(&d, "greet", GREET_ACTION);
+    workflow(
+        &d,
+        "ci.yml",
+        r#"
+on: push
+jobs:
+  t:
+    steps:
+      - uses: ./.github/actions/greet
+        with:
+          name: world
+"#,
+    );
+    assert!(run(&d, &sha).success());
+    assert_eq!(
+        std::fs::read_to_string(d.join("greet.txt")).unwrap(),
+        "hello world!\n"
+    );
+}
+
+#[test]
+fn composite_action_outputs_flow_to_consumers() {
+    let (d, sha) = repo("composite-out");
+    local_action(
+        &d,
+        "mktoken",
+        r#"
+name: mktoken
+inputs:
+  salt:
+    required: true
+outputs:
+  token: ${{ steps.gen.outputs.tok }}
+runs:
+  using: composite
+  steps:
+    - id: gen
+      run: echo "tok=secret-${{ inputs.salt }}" >> "$GITHUB_OUTPUT"
+    - run: echo "made ${{ steps.gen.outputs.tok }}"
+"#,
+    );
+    workflow(
+        &d,
+        "ci.yml",
+        r#"
+on: push
+jobs:
+  produce:
+    outputs:
+      tok: ${{ steps.mk.outputs.token }}
+    steps:
+      - id: mk
+        uses: ./.github/actions/mktoken
+        with:
+          salt: abc
+  consume:
+    needs: produce
+    steps:
+      - run: echo "got ${{ needs.produce.outputs.tok }}" > got.txt
+"#,
+    );
+    assert!(run(&d, &sha).success());
+    assert_eq!(
+        std::fs::read_to_string(d.join("got.txt")).unwrap(),
+        "got secret-abc\n"
+    );
+}
+
+#[test]
+fn composite_uses_if_false_skips_action() {
+    let (d, sha) = repo("composite-if");
+    local_action(&d, "greet", GREET_ACTION);
+    workflow(
+        &d,
+        "ci.yml",
+        r#"
+on: push
+jobs:
+  t:
+    steps:
+      - uses: ./.github/actions/greet
+        if: github.ref_name == 'nope'
+        with:
+          name: world
+      - run: echo done > done.txt
+"#,
+    );
+    assert!(run(&d, &sha).success());
+    assert!(d.join("done.txt").exists());
+    assert!(!d.join("greet.txt").exists());
+}
+
+#[test]
+fn composite_uses_step_env_scopes_to_inlined_steps() {
+    let (d, sha) = repo("composite-env");
+    local_action(
+        &d,
+        "envcheck",
+        r#"
+runs:
+  using: composite
+  steps:
+    - run: echo "g=$GREETING p=$PUNCT" > env.txt
+      env:
+        PUNCT: inner
+"#,
+    );
+    workflow(
+        &d,
+        "ci.yml",
+        r#"
+on: push
+jobs:
+  t:
+    steps:
+      - uses: ./.github/actions/envcheck
+        env:
+          GREETING: hello
+          PUNCT: outer
+"#,
+    );
+    assert!(run(&d, &sha).success());
+    // uses-step env reaches the inlined step; the step's own env
+    // wins on conflicts (PUNCT: inner).
+    assert_eq!(
+        std::fs::read_to_string(d.join("env.txt")).unwrap(),
+        "g=hello p=inner\n"
+    );
+}
+
+#[test]
+fn composite_nested_local_action() {
+    let (d, sha) = repo("composite-nested");
+    local_action(
+        &d,
+        "inner",
+        r#"
+inputs:
+  v:
+    required: true
+runs:
+  using: composite
+  steps:
+    - run: echo "inner-${{ inputs.v }}" > nested.txt
+"#,
+    );
+    local_action(
+        &d,
+        "outer",
+        r#"
+inputs:
+  v:
+    default: dflt
+runs:
+  using: composite
+  steps:
+    - uses: ./.github/actions/inner
+      with:
+        v: ${{ inputs.v }}-x
+"#,
+    );
+    workflow(
+        &d,
+        "ci.yml",
+        "on: push\njobs:\n  t:\n    steps:\n      - uses: ./.github/actions/outer\n",
+    );
+    assert!(run(&d, &sha).success());
+    assert_eq!(
+        std::fs::read_to_string(d.join("nested.txt")).unwrap(),
+        "inner-dflt-x\n"
+    );
+}
+
+#[test]
+fn composite_js_action_errors_loudly() {
+    let (d, sha) = repo("composite-js");
+    local_action(&d, "jsact", "runs:\n  using: node20\n  main: index.js\n");
+    workflow(
+        &d,
+        "ci.yml",
+        "on: push\njobs:\n  t:\n    steps:\n      - uses: ./.github/actions/jsact\n",
+    );
+    let r = GhaRunner::new(GhaCfg { workflow: None });
+    let ctx = RunCtx {
+        workdir: &d,
+        token_env: "BUPHA_TOKEN",
+        key: "o/r",
+        sha: &sha,
+        git_ref: "refs/heads/main",
+    };
+    assert!(r.spawn(&ctx).is_err());
+}

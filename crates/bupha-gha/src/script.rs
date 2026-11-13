@@ -1138,6 +1138,41 @@ fn render_step(
                 ));
             }
         }
+        Step::Publish { id, cond, outputs } => {
+            // A composite action's output publisher: each declared
+            // output's template evaluates now (its `steps.*`/`needs.*`
+            // refs read the stores the inlined steps just wrote) and
+            // lands as a file under stepouts/<job>/<uses-id>/ — the
+            // same store `steps.<id>.outputs.*` reads. Also records
+            // the uses-step's conclusion under its id.
+            let key = step_key(Some(id.as_str()), si);
+            let gate = step_gate(cond, ji, job)?;
+            if let Some(g) = &gate {
+                out.push_str(&format!("    if {g}; then\n"));
+            }
+            out.push_str(&format!(
+                "    mkdir -p \"$BUPHA_GHA_TMP/stepouts/{ji}/{key}\"\n"
+            ));
+            for (name, tmpl) in outputs {
+                let word = shq_exprs(tmpl, ji, &job.workflow)?;
+                out.push_str(&format!(
+                    "    printf '%s' {word} > \"$BUPHA_GHA_TMP/stepouts/{ji}/{key}/{name}\"\n    printf '%s=%s\\n' {} {word} >> \"$BUPHA_GHA_OUTPUTS\"\n",
+                    sq(name)
+                ));
+            }
+            out.push_str(&step_concl_write(ji, &key, "success"));
+            if gate.is_some() {
+                out.push_str(&format!(
+                    "    else\n{}    echo {}\n    fi\n",
+                    step_concl_write(ji, &key, "skipped"),
+                    shq_exprs(
+                        &format!("gha: step '{id}' skipped — if condition false"),
+                        ji,
+                        &job.workflow
+                    )?
+                ));
+            }
+        }
     }
     Ok(out)
 }

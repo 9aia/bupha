@@ -47,6 +47,20 @@ generator lands.
   (0–3); superseded/claim-lost never retry.
 - **`bupha-audit-file`** — decision/outcome JSONL audit sink
   (`[audit]`); **`bupha doctor --json`** — machine-readable checks.
+- **`runner.kind = "gha"` composite + local/remote actions (T-048)**
+  — `uses: ./path` reads the repo's `action.yml`, and
+  `uses: owner/repo[/sub/path]@ref` fetches the action repo over git
+  into a cache (`GITHUB_TOKEN` via `GIT_CONFIG_*` env for private
+  repos). Only `runs.using: composite` definitions run — JS/docker
+  actions and unknown `action.yml` keys hard-error. Declared
+  `inputs:`/`with:`/`outputs:` are enforced strictly (undeclared
+  keys, missing required inputs and multi-value `with:` error);
+  expansion inlines the action's steps (nested composites to depth
+  8), distributes the uses-step's `if:`/`env:` over them, and
+  publishes declared outputs as `steps.<id>.outputs.*` when the
+  uses step has an `id`. `env:` on any `uses:` step now reaches the
+  action (previously silently dropped). `docker://` steps and
+  reusable-workflow `jobs.<id>.uses:` remain explicit hard errors.
 
 ### Changed
 

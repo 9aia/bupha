@@ -109,7 +109,42 @@ enum RawStep {
         cond: Option<String>,
         timeout_seconds: Option<u64>,
         with: Vec<(String, Vec<String>)>,
+        /// `env:` on the `uses:` step — scoped to the synthesized
+        /// script, like GitHub scopes step env to the step.
+        env: Vec<(String, String)>,
     },
+    /// `uses:` naming a composite action (`./local/path` or
+    /// `owner/repo[/path]@ref`) — the resolver fetched its
+    /// `action.yml` at parse time; expansion inlines the action's
+    /// steps with `inputs.*` bound from `with:`.
+    Composite {
+        id: Option<String>,
+        cond: Option<String>,
+        with: Vec<(String, Vec<String>)>,
+        /// `env:` on the `uses:` step — applies to every inlined
+        /// step, below each step's own `env:` (GitHub's scoping).
+        env: Vec<(String, String)>,
+        action: ActionDef,
+    },
+}
+
+/// A resolved composite action's `action.yml`, parsed at workflow
+/// parse time. `inputs` declare the `with:` contract (required +
+/// defaults); `outputs` map output names to value templates
+/// (`${{ steps.<inner-id>.outputs.<name> }}` style — interpolated
+/// with the action's inputs bound, deferred refs survive for the
+/// renderer); `steps` are ordinary workflow-shaped steps,
+/// recursively parsed (nested composites included).
+struct ActionDef {
+    inputs: Vec<(String, ActionInput)>,
+    outputs: Vec<(String, String)>,
+    steps: Vec<RawStep>,
+}
+
+/// One declared `inputs.<name>` entry.
+struct ActionInput {
+    required: bool,
+    default: Option<String>,
 }
 
 /// One runnable job after matrix fan-out, `${{ }}` interpolation and
@@ -162,6 +197,19 @@ pub enum Step {
         id: Option<String>,
         cond: Option<Cond>,
     },
+    /// A composite action's output publisher — emitted after the
+    /// inlined action steps when the `uses:` step declared an `id`.
+    /// Writes each declared output's evaluated template into
+    /// `stepouts/<job>/<uses-id>/` so `steps.<id>.outputs.*` and job
+    /// `outputs:` resolve it, and records the uses-step's own
+    /// conclusion under its id.
+    Publish {
+        id: String,
+        cond: Option<Cond>,
+        /// name → interpolated template; `steps.*`/`needs.*` refs
+        /// inside stay deferred `${{ … }}` for the renderer.
+        outputs: Vec<(String, String)>,
+    },
 }
 
 pub struct RunStep {
@@ -188,7 +236,7 @@ pub struct RunStep {
 /// [`Cond::Lit`] during expand; `needs.*`/`steps.*` stay deferred —
 /// the renderer turns them into lookups against the run's status
 /// arrays and output stores.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Cond {
     /// A folded scalar — truthiness applies (`""`, `"0"`, `"false"`,
     /// `"null"` are falsy, matching GHA's loose rules closely
@@ -212,7 +260,7 @@ pub enum Cond {
 /// The deferred half of a condition — resolved by the renderer
 /// against the run's `jobstatus/`+`jobresult/`+`stepconcl/`+
 /// `stepouts/`+`jobouts/` stores under `$BUPHA_GHA_TMP`.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum DynRef {
     /// `needs.<job>.outputs.<name>` — the producer job's published
     /// output (highest-index successful matrix leg wins).
@@ -556,6 +604,7 @@ impl Workflow {
             ctx,
             matrix: combo,
             env: None,
+            inputs: None,
         };
         let wf_env = interpolate_pairs(&self.env, &no_env, &format!("{what}.env"))?;
         let job_env = merge_env(
@@ -566,6 +615,7 @@ impl Workflow {
             ctx,
             matrix: combo,
             env: Some(&job_env),
+            inputs: None,
         };
 
         // `if:` evaluates in job context — env.* sees the merged
@@ -578,13 +628,27 @@ impl Workflow {
             .transpose()?;
         let mut steps = Vec::with_capacity(j.steps.len());
         for (si, s) in j.steps.iter().enumerate() {
-            steps.push(build_step(
+            steps.extend(build_steps(
                 s,
                 &eval,
                 &job_env,
                 ctx,
                 &format!("{what}.steps[{si}]"),
             )?);
+        }
+        // Step ids — declared or composite-inlined — share one
+        // `steps.<id>` namespace per job (a deliberate simplification
+        // of GHA's per-action scoping): duplicates are ambiguous, so
+        // they're an error like duplicate ids in one `steps:` list.
+        let mut seen: HashSet<&str> = HashSet::new();
+        for s in &steps {
+            if let Some(id) = step_id(s) {
+                if !seen.insert(id) {
+                    return Err(format!(
+                        "{what}: duplicate step id `{id}` (composite action steps share the job's step namespace)"
+                    ));
+                }
+            }
         }
         let defaults = Defaults {
             working_directory: pick(
@@ -675,9 +739,250 @@ pub struct Eval<'a> {
     pub ctx: GhaContext<'a>,
     pub matrix: &'a [(String, String)],
     pub env: Option<&'a [(String, String)]>,
+    /// `inputs.*` — the composite action's bound inputs. `None`
+    /// outside composite expansion; `Some` inside (possibly empty).
+    pub inputs: Option<&'a [(String, String)]>,
 }
 
-fn build_step(
+/// The `id:` a built [`Step`] publishes under — `None` for
+/// id-less steps (their `$GITHUB_OUTPUT` writes stay unreferenced).
+fn step_id(s: &Step) -> Option<&str> {
+    match s {
+        Step::Run(r) => r.id.as_deref(),
+        Step::Checkout { id, .. } => id.as_deref(),
+        Step::Publish { id, .. } => Some(id),
+    }
+}
+
+/// Expand one raw step into runnable [`Step`]s — usually exactly
+/// one, but a composite `uses:` inlines the action's whole step
+/// list (plus its output publisher).
+fn build_steps(
+    s: &RawStep,
+    eval: &Eval,
+    job_env: &[(String, String)],
+    ctx: GhaContext,
+    what: &str,
+) -> Result<Vec<Step>, String> {
+    if let RawStep::Composite {
+        id,
+        cond,
+        with,
+        env,
+        action,
+    } = s
+    {
+        return build_composite(
+            CompositeCall {
+                id,
+                cond,
+                with,
+                env,
+                action,
+            },
+            eval,
+            job_env,
+            ctx,
+            what,
+        );
+    }
+    build_single(s, eval, job_env, ctx, what).map(|st| vec![st])
+}
+
+/// AND two optional conditions — `None` is the identity (no gate).
+fn and_conds(a: Option<Cond>, b: Option<Cond>) -> Option<Cond> {
+    match (a, b) {
+        (Some(x), Some(y)) => Some(Cond::Bin {
+            op: BinOp::And,
+            l: Box::new(x),
+            r: Box::new(y),
+        }),
+        (Some(x), None) | (None, Some(x)) => Some(x),
+        (None, None) => None,
+    }
+}
+
+/// Interpolate a step's raw `with:` pairs — scalars stay one
+/// entry, YAML lists flatten — under `eval`.
+fn interpolate_with(
+    with: &[(String, Vec<String>)],
+    eval: &Eval,
+    what: &str,
+) -> Result<Vec<(String, Vec<String>)>, String> {
+    let mut pairs = Vec::with_capacity(with.len());
+    for (k, vals) in with {
+        let mut out = Vec::with_capacity(vals.len());
+        for v in vals {
+            out.push(interpolate(v, eval, &format!("{what}.with.{k}"))?);
+        }
+        pairs.push((k.clone(), out));
+    }
+    Ok(pairs)
+}
+
+/// Bind a composite action's declared `inputs` against the
+/// interpolated `with:` pairs: provided values win, declared
+/// defaults fill gaps, `required` inputs without either are an
+/// error, and `with:` keys the action doesn't declare are an
+/// error (typo-safe, like GitHub's warning made loud).
+fn bind_inputs(
+    decls: &[(String, ActionInput)],
+    provided: &[(String, Vec<String>)],
+    what: &str,
+) -> Result<Vec<(String, String)>, String> {
+    for (k, vals) in provided {
+        if !decls.iter().any(|(n, _)| n == k) {
+            let known = decls
+                .iter()
+                .map(|(n, _)| n.as_str())
+                .collect::<Vec<_>>()
+                .join(", ");
+            return Err(format!(
+                "{what}.with.{k}: the action declares no input `{k}`{}",
+                if known.is_empty() {
+                    String::new()
+                } else {
+                    format!(" — declared: {known}")
+                }
+            ));
+        }
+        if vals.len() != 1 {
+            return Err(format!(
+                "{what}.with.{k}: expected a single value, got {}",
+                vals.len()
+            ));
+        }
+    }
+    let mut bound = Vec::with_capacity(decls.len());
+    for (name, spec) in decls {
+        let provided_val = provided
+            .iter()
+            .find(|(k, _)| k == name)
+            .map(|(_, v)| v[0].clone());
+        match (provided_val, &spec.default) {
+            (Some(v), _) => bound.push((name.clone(), v)),
+            (None, Some(d)) => bound.push((name.clone(), d.clone())),
+            (None, None) if spec.required => {
+                return Err(format!(
+                    "{what}.with.{name}: missing required input `{name}`"
+                ))
+            }
+            (None, None) => bound.push((name.clone(), String::new())),
+        }
+    }
+    Ok(bound)
+}
+
+/// The `uses:`-step fields a [`RawStep::Composite`] carries —
+/// bundled so [`build_composite`] stays under the arg-count lint.
+struct CompositeCall<'a> {
+    id: &'a Option<String>,
+    cond: &'a Option<String>,
+    with: &'a [(String, Vec<String>)],
+    env: &'a [(String, String)],
+    action: &'a ActionDef,
+}
+
+/// Expand a composite `uses:` step: bind `inputs.*` from `with:`,
+/// inline the action's steps under a child eval, AND the uses-step's
+/// own `if:` onto every inlined step (and the output publisher),
+/// then append the [`Step::Publish`] that exposes the action's
+/// declared `outputs` under the uses-step's `id`.
+fn build_composite(
+    call: CompositeCall<'_>,
+    eval: &Eval,
+    job_env: &[(String, String)],
+    ctx: GhaContext,
+    what: &str,
+) -> Result<Vec<Step>, String> {
+    let CompositeCall {
+        id,
+        cond,
+        with,
+        env,
+        action,
+    } = call;
+    // `env:` on the uses step evaluates in the caller's context
+    // (job env visible via env.*) and applies to every inlined
+    // step — GitHub scopes it like a step env: above job env,
+    // below each action step's own env.
+    let uses_env = interpolate_pairs(env, eval, &format!("{what}.env"))?;
+    let merged_env = merge_env(job_env, &uses_env);
+    let step_eval = Eval {
+        ctx,
+        matrix: eval.matrix,
+        env: Some(&merged_env),
+        inputs: eval.inputs,
+    };
+    // `with:` values evaluate in the *caller's* context — the
+    // parent's inputs (when nested), env, github, matrix — before
+    // the action's own inputs are bound. env.* sees job+uses env,
+    // matching how a run step's script sees its step env.
+    let pairs = interpolate_with(with, &step_eval, what)?;
+    let bound = bind_inputs(&action.inputs, &pairs, what)?;
+    let child_eval = Eval {
+        ctx,
+        matrix: eval.matrix,
+        env: Some(&merged_env),
+        inputs: Some(&bound),
+    };
+    // The uses-step's `if:` gates the whole action — distribute it
+    // over every inlined step (each keeps its own `if:` too, ANDed).
+    let outer = cond
+        .as_deref()
+        .map(|raw| parse_cond(raw, &step_eval, &format!("{what}.if")))
+        .transpose()?;
+    let mut steps = Vec::with_capacity(action.steps.len() + 1);
+    for (ai, sub) in action.steps.iter().enumerate() {
+        let sub_what = format!("{what}.action.steps[{ai}]");
+        let mut produced = build_steps(sub, &child_eval, &merged_env, ctx, &sub_what)?;
+        if let Some(o) = &outer {
+            for st in &mut produced {
+                let gated = match st {
+                    Step::Run(r) => and_conds(Some(o.clone()), r.cond.take()),
+                    Step::Checkout { cond: c, .. } => and_conds(Some(o.clone()), c.take()),
+                    Step::Publish { cond: c, .. } => and_conds(Some(o.clone()), c.take()),
+                };
+                match st {
+                    Step::Run(r) => r.cond = gated,
+                    Step::Checkout { cond: c, .. } => *c = gated,
+                    Step::Publish { cond: c, .. } => *c = gated,
+                }
+            }
+        }
+        // The uses-step's env rides into every inlined run step,
+        // under the step's own env (merge order = precedence).
+        if !uses_env.is_empty() {
+            for st in &mut produced {
+                if let Step::Run(r) = st {
+                    r.env = merge_env(&uses_env, &r.env);
+                }
+            }
+        }
+        steps.extend(produced);
+    }
+    // The uses-step's own handle: publish the action's declared
+    // `outputs` (and record its conclusion) under its `id` — the
+    // same `steps.<id>.{outputs,conclusion}` surface a `run:` step
+    // gets. No `id` → outputs are unreachable, like on GitHub.
+    if let Some(id) = id {
+        let mut outputs = Vec::with_capacity(action.outputs.len());
+        for (name, tmpl) in &action.outputs {
+            outputs.push((
+                name.clone(),
+                interpolate(tmpl, &child_eval, &format!("{what}.outputs.{name}"))?,
+            ));
+        }
+        steps.push(Step::Publish {
+            id: id.clone(),
+            cond: outer,
+            outputs,
+        });
+    }
+    Ok(steps)
+}
+
+fn build_single(
     s: &RawStep,
     eval: &Eval,
     job_env: &[(String, String)],
@@ -698,19 +1003,24 @@ fn build_step(
             cond,
             timeout_seconds,
             with,
+            env,
         } => {
             // Lower to a synthesized run step: interpolate the
             // `with:` inputs, then emit the action's bash. The
             // script itself contains no `${{ }}` — interpolation
             // already happened — so it goes through verbatim.
-            let mut pairs = Vec::with_capacity(with.len());
-            for (k, vals) in with {
-                let mut out = Vec::with_capacity(vals.len());
-                for v in vals {
-                    out.push(interpolate(v, eval, &format!("{what}.with.{k}"))?);
-                }
-                pairs.push((k.clone(), out));
-            }
+            // `env:` on the uses step scopes to this script (job
+            // env < uses env), and `with:` sees it via env.* like
+            // a run step's script sees its step env.
+            let uses_env = interpolate_pairs(env, eval, &format!("{what}.env"))?;
+            let merged_env = merge_env(job_env, &uses_env);
+            let with_eval = Eval {
+                ctx,
+                matrix: eval.matrix,
+                env: Some(&merged_env),
+                inputs: eval.inputs,
+            };
+            let pairs = interpolate_with(with, &with_eval, what)?;
             let script = match kind {
                 UsesScript::RustToolchain => rust_toolchain_script(&pairs, what)?,
                 UsesScript::UploadArtifact => upload_artifact_script(&pairs, what)?,
@@ -729,12 +1039,12 @@ fn build_step(
                 id: id.clone(),
                 cond: cond
                     .as_deref()
-                    .map(|raw| parse_cond(raw, eval, &format!("{what}.if")))
+                    .map(|raw| parse_cond(raw, &with_eval, &format!("{what}.if")))
                     .transpose()?,
                 timeout_seconds: *timeout_seconds,
                 shell: None,
                 working_directory: None,
-                env: Vec::new(),
+                env: uses_env,
                 script,
             }))
         }
@@ -755,6 +1065,7 @@ fn build_step(
                 ctx,
                 matrix: eval.matrix,
                 env: Some(&step_env),
+                inputs: eval.inputs,
             };
             Ok(Step::Run(RunStep {
                 id: id.clone(),
@@ -775,6 +1086,11 @@ fn build_step(
                 script: interpolate(script, &step_eval, &format!("{what}.run"))?,
             }))
         }
+        // `build_steps` intercepts composites before delegating —
+        // reaching here would be a bug.
+        RawStep::Composite { .. } => Err(format!(
+            "{what}: internal error — composite step not expanded"
+        )),
     }
 }
 
@@ -2162,6 +2478,7 @@ fn resolve(inner: &str, eval: &Eval, what: &str) -> Result<String, String> {
         format!(
             "{what}: unsupported expression `${{{{ {inner} }}}}` — supported: \
              env.*, github.{{sha,ref,ref_name,repository,event_name}}, matrix.*, \
+             inputs.* (inside composite actions), \
              needs.<job>.outputs.<name>, steps.<id>.outputs.<name>"
         )
     };
@@ -2210,6 +2527,23 @@ fn resolve(inner: &str, eval: &Eval, what: &str) -> Result<String, String> {
                 .map(|(_, v)| v.clone())
                 .ok_or_else(|| format!("{what}: matrix has no `{rest}` binding"))
         }
+        "inputs" => {
+            if rest.is_empty() {
+                return Err(bad());
+            }
+            let Some(inputs) = eval.inputs else {
+                return Err(format!(
+                    "{what}: `inputs.*` is only available inside composite actions"
+                ));
+            };
+            // Undeclared/unprovided inputs expand empty, like env.*.
+            Ok(inputs
+                .iter()
+                .rev()
+                .find(|(k, _)| k == rest)
+                .map(|(_, v)| v.clone())
+                .unwrap_or_default())
+        }
         "needs" | "steps" => {
             // Runtime refs can't resolve at expand time — the values
             // are produced while the generated program runs. Keep the
@@ -2235,9 +2569,47 @@ fn resolve(inner: &str, eval: &Eval, what: &str) -> Result<String, String> {
 // parsing
 // ------------------------------------------------------------------
 
+/// Resolves a `uses:` target that names an action directory —
+/// `./local/path` or `owner/repo[/sub/path]@ref` — to the action's
+/// `action.yml` *text*. plan stays I/O-free: the runner implements
+/// this (filesystem reads for `./`, git fetch for remote refs);
+/// [`parse_workflow`] uses [`NoActions`], which errors on any
+/// action `uses:`.
+pub trait ActionResolver {
+    fn action_yaml(&self, uses: &str) -> Result<String, String>;
+}
+
+/// Resolver for [`parse_workflow`] — no action fetching, so every
+/// `./`/remote `uses:` is an explicit error.
+struct NoActions;
+
+impl ActionResolver for NoActions {
+    fn action_yaml(&self, uses: &str) -> Result<String, String> {
+        Err(format!(
+            "`uses: {uses}` names an action — this parse context has no action resolver"
+        ))
+    }
+}
+
+/// Nesting cap for composite actions calling composite actions —
+/// GitHub has no documented limit; 8 is far past real usage and
+/// keeps a cyclic action repo from recursing forever at parse.
+const MAX_ACTION_DEPTH: usize = 8;
+
 /// Parse + validate one workflow file. `source` names the file in
-/// errors.
+/// errors. Composite/local/remote action `uses:` fail — use
+/// [`parse_workflow_with`] with an [`ActionResolver`].
 pub fn parse_workflow(source: &str, text: &str) -> Result<Workflow, String> {
+    parse_workflow_with(source, text, &NoActions)
+}
+
+/// [`parse_workflow`] plus an [`ActionResolver`] for `uses:` targets
+/// that name action directories (`./path`, `owner/repo[/path]@ref`).
+pub fn parse_workflow_with(
+    source: &str,
+    text: &str,
+    actions: &dyn ActionResolver,
+) -> Result<Workflow, String> {
     let v: Value =
         serde_norway::from_str(text).map_err(|e| format!("{source}: YAML parse error: {e}"))?;
     let top = as_map(&v, source)?;
@@ -2289,6 +2661,7 @@ pub fn parse_workflow(source: &str, text: &str) -> Result<Workflow, String> {
             as_map(jv, &format!("{source}.jobs.{id}"))?,
             &id,
             source,
+            actions,
         )?);
     }
     let ids: HashSet<&str> = jobs.iter().map(|j| j.id.as_str()).collect();
@@ -2337,8 +2710,28 @@ fn parse_defaults(v: Option<&Value>, what: &str) -> Result<Defaults, String> {
     })
 }
 
-fn parse_job(m: &serde_norway::Mapping, id: &str, source: &str) -> Result<RawJob, String> {
+fn parse_job(
+    m: &serde_norway::Mapping,
+    id: &str,
+    source: &str,
+    actions: &dyn ActionResolver,
+) -> Result<RawJob, String> {
     let what = format!("{source}.jobs.{id}");
+    // Reusable workflows (`jobs.<id>.uses:` + `secrets:`/`with:`/
+    // `outputs:` plumbing) are a different feature than step-level
+    // `uses:` — name it precisely instead of the generic key error.
+    if get(m, "uses").is_some() {
+        return Err(format!(
+            "{what}: reusable workflows (`jobs.<id>.uses:` calling another \
+             workflow file) are unsupported — they need job-level expansion \
+             plus `secrets:`/`with:`/`outputs:` plumbing the dialect doesn't have"
+        ));
+    }
+    if get(m, "secrets").is_some() {
+        return Err(format!(
+            "{what}: `secrets:` is only meaningful on reusable-workflow calls — unsupported"
+        ));
+    }
     check_keys(
         m,
         &[
@@ -2431,95 +2824,7 @@ fn parse_job(m: &serde_norway::Mapping, id: &str, source: &str) -> Result<RawJob
     for (si, sv) in seq.iter().enumerate() {
         let sw = format!("{what}.steps[{si}]");
         let sm = as_map(sv, &sw)?;
-        // `id:` is the steps.<id>.outputs.* handle — it becomes a
-        // path component in the renderer's output store, so it gets
-        // the same charset rule as job output names. Duplicate ids
-        // are ambiguous, like on GitHub.
-        let id = get(sm, "id")
-            .map(|s| scalar(s, &format!("{sw}.id")))
-            .transpose()?;
-        if let Some(id) = &id {
-            if !safe_key(id) {
-                return Err(format!(
-                    "{sw}.id: invalid step id `{id}` — `[A-Za-z0-9_.-]` only"
-                ));
-            }
-            if !step_ids.insert(id.clone()) {
-                return Err(format!("{sw}.id: duplicate step id `{id}`"));
-            }
-        }
-        check_keys(
-            sm,
-            &[
-                "id",
-                "name",
-                "if",
-                "run",
-                "uses",
-                "with",
-                "working-directory",
-                "env",
-                "shell",
-                "timeout-minutes",
-            ],
-            &["continue-on-error"],
-            &sw,
-        )?;
-        let cond = get(sm, "if")
-            .map(|v| scalar(v, &format!("{sw}.if")))
-            .transpose()?;
-        let timeout_seconds = get(sm, "timeout-minutes")
-            .map(|v| timeout_minutes(v, &format!("{sw}.timeout-minutes")))
-            .transpose()?;
-        let run = get(sm, "run");
-        let uses = get(sm, "uses");
-        match (run, uses) {
-            (Some(_), Some(_)) => {
-                return Err(format!("{sw}: step cannot have both `run` and `uses`"))
-            }
-            (None, None) => return Err(format!("{sw}: step needs `run` or `uses`")),
-            (Some(rv), None) => {
-                if get(sm, "with").is_some() {
-                    return Err(format!("{sw}: `with` requires `uses`"));
-                }
-                let Value::String(script) = rv else {
-                    return Err(format!("{sw}.run: expected a string"));
-                };
-                let env = match get(sm, "env") {
-                    Some(Value::Mapping(em)) => env_map(em, &format!("{sw}.env"))?,
-                    Some(v) => {
-                        return Err(format!("{sw}.env: expected a mapping, got {}", kind(v)))
-                    }
-                    None => Vec::new(),
-                };
-                steps.push(RawStep::Run {
-                    id,
-                    cond,
-                    timeout_seconds,
-                    shell: get(sm, "shell")
-                        .map(|s| scalar(s, &format!("{sw}.shell")))
-                        .transpose()?,
-                    working_directory: get(sm, "working-directory")
-                        .map(|s| scalar(s, &format!("{sw}.working-directory")))
-                        .transpose()?,
-                    env,
-                    script: script.clone(),
-                });
-            }
-            (None, Some(uv)) => {
-                let uses = scalar(uv, &format!("{sw}.uses"))?;
-                match parse_uses(&uses, sm, &sw)? {
-                    UsesKind::Checkout => steps.push(RawStep::Checkout { id, cond }),
-                    UsesKind::Script(kind, with) => steps.push(RawStep::Script {
-                        kind,
-                        id,
-                        cond,
-                        timeout_seconds,
-                        with,
-                    }),
-                }
-            }
-        }
+        steps.push(parse_step(sm, &sw, &mut step_ids, actions, 0, false)?);
     }
     // `actions/cache` saves in a GitHub post-step — append the
     // job-end flush that drains the pending specs its step wrote.
@@ -2538,6 +2843,7 @@ fn parse_job(m: &serde_norway::Mapping, id: &str, source: &str) -> Result<RawJob
             cond: None,
             timeout_seconds: None,
             with: Vec::new(),
+            env: Vec::new(),
         });
     }
     Ok(RawJob {
@@ -2555,6 +2861,149 @@ fn parse_job(m: &serde_norway::Mapping, id: &str, source: &str) -> Result<RawJob
         outputs,
         steps,
     })
+}
+
+/// Parse one step mapping — shared by workflow `steps:` lists and
+/// composite actions' `runs.steps:` (`in_action` drops
+/// `timeout-minutes`, which GitHub doesn't support there). `ids`
+/// collects declared step ids for the duplicate check; `depth` is
+/// the composite-nesting level (0 = workflow).
+fn parse_step(
+    sm: &serde_norway::Mapping,
+    what: &str,
+    ids: &mut HashSet<String>,
+    actions: &dyn ActionResolver,
+    depth: usize,
+    in_action: bool,
+) -> Result<RawStep, String> {
+    // `id:` is the steps.<id>.outputs.* handle — it becomes a
+    // path component in the renderer's output store, so it gets
+    // the same charset rule as job output names. Duplicate ids
+    // are ambiguous, like on GitHub.
+    let id = get(sm, "id")
+        .map(|s| scalar(s, &format!("{what}.id")))
+        .transpose()?;
+    if let Some(id) = &id {
+        if !safe_key(id) {
+            return Err(format!(
+                "{what}.id: invalid step id `{id}` — `[A-Za-z0-9_.-]` only"
+            ));
+        }
+        if !ids.insert(id.clone()) {
+            return Err(format!("{what}.id: duplicate step id `{id}`"));
+        }
+    }
+    let (allowed, unsupported): (&[&str], &[&str]) = if in_action {
+        (
+            &[
+                "id",
+                "name",
+                "if",
+                "run",
+                "uses",
+                "with",
+                "working-directory",
+                "env",
+                "shell",
+            ],
+            &["continue-on-error", "timeout-minutes"],
+        )
+    } else {
+        (
+            &[
+                "id",
+                "name",
+                "if",
+                "run",
+                "uses",
+                "with",
+                "working-directory",
+                "env",
+                "shell",
+                "timeout-minutes",
+            ],
+            &["continue-on-error"],
+        )
+    };
+    check_keys(sm, allowed, unsupported, what)?;
+    let cond = get(sm, "if")
+        .map(|v| scalar(v, &format!("{what}.if")))
+        .transpose()?;
+    let timeout_seconds = get(sm, "timeout-minutes")
+        .map(|v| timeout_minutes(v, &format!("{what}.timeout-minutes")))
+        .transpose()?;
+    let run = get(sm, "run");
+    let uses = get(sm, "uses");
+    match (run, uses) {
+        (Some(_), Some(_)) => Err(format!("{what}: step cannot have both `run` and `uses`")),
+        (None, None) => Err(format!("{what}: step needs `run` or `uses`")),
+        (Some(rv), None) => {
+            if get(sm, "with").is_some() {
+                return Err(format!("{what}: `with` requires `uses`"));
+            }
+            let Value::String(script) = rv else {
+                return Err(format!("{what}.run: expected a string"));
+            };
+            let env = match get(sm, "env") {
+                Some(Value::Mapping(em)) => env_map(em, &format!("{what}.env"))?,
+                Some(v) => return Err(format!("{what}.env: expected a mapping, got {}", kind(v))),
+                None => Vec::new(),
+            };
+            Ok(RawStep::Run {
+                id,
+                cond,
+                timeout_seconds,
+                shell: get(sm, "shell")
+                    .map(|s| scalar(s, &format!("{what}.shell")))
+                    .transpose()?,
+                working_directory: get(sm, "working-directory")
+                    .map(|s| scalar(s, &format!("{what}.working-directory")))
+                    .transpose()?,
+                env,
+                script: script.clone(),
+            })
+        }
+        (None, Some(uv)) => {
+            let uses = scalar(uv, &format!("{what}.uses"))?;
+            // `env:` on a `uses:` step scopes to the action — for
+            // script-lowered and composite targets it rides into the
+            // synthesized steps; checkout is a verification no-op so
+            // env can't have an observable effect there.
+            let env = match get(sm, "env") {
+                Some(Value::Mapping(em)) => env_map(em, &format!("{what}.env"))?,
+                Some(v) => return Err(format!("{what}.env: expected a mapping, got {}", kind(v))),
+                None => Vec::new(),
+            };
+            match parse_uses(&uses, sm, what, actions, depth)? {
+                UsesKind::Checkout => Ok(RawStep::Checkout { id, cond }),
+                UsesKind::Script(kind, with) => Ok(RawStep::Script {
+                    kind,
+                    id,
+                    cond,
+                    timeout_seconds,
+                    with,
+                    env,
+                }),
+                UsesKind::Action(action, with) => {
+                    // `timeout-minutes` wraps one step's shell — a
+                    // composite is many steps, so there's no single
+                    // deadline to hang it on.
+                    if timeout_seconds.is_some() {
+                        return Err(format!(
+                            "{what}: `timeout-minutes` on a composite `uses:` step is unsupported"
+                        ));
+                    }
+                    Ok(RawStep::Composite {
+                        id,
+                        cond,
+                        with,
+                        env,
+                        action,
+                    })
+                }
+            }
+        }
+    }
 }
 
 /// `timeout-minutes:` → whole seconds. GitHub accepts floats
@@ -2606,16 +3055,35 @@ enum UsesKind {
     /// Script-lowered `uses:` + `with:` pairs normalized to value
     /// lists.
     Script(UsesScript, Vec<(String, Vec<String>)>),
+    /// Composite action resolved through the [`ActionResolver`] +
+    /// `with:` pairs normalized the same way.
+    Action(ActionDef, Vec<(String, Vec<String>)>),
+}
+
+/// What a `uses:` target lowers to before `with:` normalization.
+enum UsesTarget {
+    Checkout,
+    Script(UsesScript),
+    Action(ActionDef),
 }
 
 /// `uses:` — `actions/checkout` is a verification no-op (the
 /// worktree is already at the pushed sha); `dtolnay/rust-toolchain`,
 /// the `actions/setup-{node,python,go,java,dotnet}` toolchain
 /// actions, `actions/{upload,download}-artifact` and the
-/// `actions/cache*` family lower to synthesized bash steps.
-/// Everything else — docker/local/composite uses, reusable
-/// workflows and other `actions/setup-*` — is an explicit error.
-fn parse_uses(uses: &str, sm: &serde_norway::Mapping, what: &str) -> Result<UsesKind, String> {
+/// `actions/cache*` family lower to synthesized bash steps;
+/// `./local/path` and `owner/repo[/path]@ref` resolve through the
+/// [`ActionResolver`] to a composite `action.yml`. Everything else —
+/// `docker://` images, JS (`runs.using: node*`) and docker actions,
+/// unknown actions and reusable-workflow `uses:` — is an explicit
+/// error.
+fn parse_uses(
+    uses: &str,
+    sm: &serde_norway::Mapping,
+    what: &str,
+    actions: &dyn ActionResolver,
+    depth: usize,
+) -> Result<UsesKind, String> {
     let unsupported = || {
         format!(
             "{what}: unsupported `uses: {uses}` — v1 supports \
@@ -2624,48 +3092,123 @@ fn parse_uses(uses: &str, sm: &serde_norway::Mapping, what: &str) -> Result<Uses
              `actions/setup-go`, `actions/setup-java`, \
              `actions/setup-dotnet`, `actions/upload-artifact`, \
              `actions/download-artifact`, `actions/cache`, \
-             `actions/cache/save` and `actions/cache/restore` \
-             (docker://, local paths, composite actions, reusable \
-             workflows and other actions are unsupported)"
+             `actions/cache/save`, `actions/cache/restore`, \
+             composite actions via `./path` or `owner/repo[/path]@ref` \
+             (docker:// images, JS/docker actions, unknown actions \
+             and reusable workflows are unsupported)"
         )
     };
-    let body = uses.split('@').next().unwrap_or(uses);
-    if body.starts_with("docker://") || body.starts_with("./") || body.starts_with('/') {
-        return Err(unsupported());
+    // Local actions: `./path` relative to the repo root — the whole
+    // string is the path (GitHub allows no `@ref` there).
+    if uses.starts_with("./") {
+        return finish_uses(
+            UsesTarget::Action(resolve_action(uses, what, actions, depth)?),
+            sm,
+            what,
+        );
     }
-    let script = if body.eq_ignore_ascii_case("actions/checkout") {
-        None
+    let body = uses.split('@').next().unwrap_or(uses);
+    if body.starts_with("docker://") {
+        return Err(format!(
+            "{what}: `uses: {uses}` — `docker://` steps are unsupported: \
+             they need image pull plus env/port/credential plumbing the \
+             local runner doesn't have"
+        ));
+    }
+    if body.starts_with('/') {
+        return Err(format!(
+            "{what}: `uses: {uses}` — absolute-path actions are unsupported; \
+             use `./` relative to the repo root"
+        ));
+    }
+    let target = if body.eq_ignore_ascii_case("actions/checkout") {
+        UsesTarget::Checkout
     } else if body.eq_ignore_ascii_case("dtolnay/rust-toolchain") {
-        Some(UsesScript::RustToolchain)
+        UsesTarget::Script(UsesScript::RustToolchain)
     } else if body.eq_ignore_ascii_case("actions/upload-artifact") {
-        Some(UsesScript::UploadArtifact)
+        UsesTarget::Script(UsesScript::UploadArtifact)
     } else if body.eq_ignore_ascii_case("actions/download-artifact") {
-        Some(UsesScript::DownloadArtifact)
+        UsesTarget::Script(UsesScript::DownloadArtifact)
     } else if body.eq_ignore_ascii_case("actions/setup-node") {
-        Some(UsesScript::SetupNode)
+        UsesTarget::Script(UsesScript::SetupNode)
     } else if body.eq_ignore_ascii_case("actions/setup-python") {
-        Some(UsesScript::SetupPython)
+        UsesTarget::Script(UsesScript::SetupPython)
     } else if body.eq_ignore_ascii_case("actions/setup-go") {
-        Some(UsesScript::SetupGo)
+        UsesTarget::Script(UsesScript::SetupGo)
     } else if body.eq_ignore_ascii_case("actions/setup-java") {
-        Some(UsesScript::SetupJava)
+        UsesTarget::Script(UsesScript::SetupJava)
     } else if body.eq_ignore_ascii_case("actions/setup-dotnet") {
-        Some(UsesScript::SetupDotnet)
+        UsesTarget::Script(UsesScript::SetupDotnet)
     } else if body.eq_ignore_ascii_case("actions/cache/restore") {
-        Some(UsesScript::CacheRestore)
+        UsesTarget::Script(UsesScript::CacheRestore)
     } else if body.eq_ignore_ascii_case("actions/cache/save") {
-        Some(UsesScript::CacheSave)
+        UsesTarget::Script(UsesScript::CacheSave)
     } else if body.eq_ignore_ascii_case("actions/cache") {
-        Some(UsesScript::Cache)
+        UsesTarget::Script(UsesScript::Cache)
+    } else if is_remote_action(body) {
+        UsesTarget::Action(resolve_action(uses, what, actions, depth)?)
     } else {
         return Err(unsupported());
     };
+    finish_uses(target, sm, what)
+}
+
+/// `owner/repo[/sub/path]` shape — the remote-action `uses:` form.
+/// Segment names are restricted so a malformed ref errors here
+/// instead of inside the resolver's fetch.
+fn is_remote_action(body: &str) -> bool {
+    let seg_ok = |s: &str| {
+        !s.is_empty()
+            && s.chars()
+                .all(|c| c.is_ascii_alphanumeric() || matches!(c, '_' | '.' | '-'))
+    };
+    let mut segs = body.split('/');
+    match (segs.next(), segs.next()) {
+        (Some(owner), Some(repo)) => {
+            // GitHub owners are alnum+hyphen; repos allow `.`/`_`.
+            let owner_ok =
+                !owner.is_empty() && owner.chars().all(|c| c.is_ascii_alphanumeric() || c == '-');
+            seg_ok(repo) && owner_ok && segs.all(|s| seg_ok(s) && !s.contains("..") && s != ".")
+        }
+        _ => false,
+    }
+}
+
+/// Fetch + parse the `action.yml` behind a `uses:` target. `depth`
+/// is the containing action's nesting level — the cap keeps cyclic
+/// action repos from recursing forever.
+fn resolve_action(
+    uses: &str,
+    what: &str,
+    actions: &dyn ActionResolver,
+    depth: usize,
+) -> Result<ActionDef, String> {
+    if depth >= MAX_ACTION_DEPTH {
+        return Err(format!(
+            "{what}: `uses: {uses}` — composite actions nested deeper than \
+             {MAX_ACTION_DEPTH} levels are unsupported"
+        ));
+    }
+    let text = actions
+        .action_yaml(uses)
+        .map_err(|e| format!("{what}: cannot resolve `uses: {uses}` — {e}"))?;
+    parse_action(uses, &text, actions, depth, what)
+}
+
+/// Shared tail of [`parse_uses`]: `actions/checkout`'s `with.path`
+/// check, then `with:` normalization to value lists for the
+/// script-lowered and composite kinds.
+fn finish_uses(
+    target: UsesTarget,
+    sm: &serde_norway::Mapping,
+    what: &str,
+) -> Result<UsesKind, String> {
     let with = match get(sm, "with") {
         Some(Value::Mapping(w)) => Some(w),
         Some(_) => return Err(format!("{what}.with: expected a mapping")),
         None => None,
     };
-    let Some(kind) = script else {
+    if matches!(target, UsesTarget::Checkout) {
         // actions/checkout — `with.path` errors (the worktree root
         // is fixed); other inputs (ref, fetch-depth, token, …)
         // don't change local semantics: the sha is checked out.
@@ -2678,9 +3221,10 @@ fn parse_uses(uses: &str, sm: &serde_norway::Mapping, what: &str) -> Result<Uses
             }
         }
         return Ok(UsesKind::Checkout);
-    };
-    // Script-lowered uses: — normalize `with:` values to lists
-    // (scalar → one entry, sequence of scalars → many).
+    }
+    // Normalize `with:` values to lists (scalar → one entry,
+    // sequence of scalars → many) — shared by script-lowered and
+    // composite actions.
     let mut out = Vec::new();
     if let Some(w) = with {
         out.reserve(w.len());
@@ -2698,7 +3242,186 @@ fn parse_uses(uses: &str, sm: &serde_norway::Mapping, what: &str) -> Result<Uses
             out.push((key.to_string(), vals));
         }
     }
-    Ok(UsesKind::Script(kind, out))
+    match target {
+        UsesTarget::Script(kind) => Ok(UsesKind::Script(kind, out)),
+        UsesTarget::Action(def) => Ok(UsesKind::Action(def, out)),
+        // Handled by the early return above — `with:` on checkout
+        // was already vetted there.
+        UsesTarget::Checkout => Ok(UsesKind::Checkout),
+    }
+}
+
+/// Parse a composite action's `action.yml`. Only
+/// `runs.using: composite` is supported — JS (`node*`) and `docker`
+/// actions are explicit errors. `inputs`/`outputs`/`runs.steps`
+/// follow the workflow subset (`runs.steps` entries are ordinary
+/// steps minus `timeout-minutes`; nested `uses:` recurse through
+/// the same resolver).
+fn parse_action(
+    uses: &str,
+    text: &str,
+    actions: &dyn ActionResolver,
+    depth: usize,
+    what: &str,
+) -> Result<ActionDef, String> {
+    let awhat = format!("{what} (action `{uses}`)");
+    let v: Value = serde_norway::from_str(text)
+        .map_err(|e| format!("{awhat}: action.yml parse error: {e}"))?;
+    let top = as_map(&v, &awhat)?;
+    check_keys(
+        top,
+        &[
+            "name",
+            "description",
+            "author",
+            "branding",
+            "inputs",
+            "outputs",
+            "runs",
+        ],
+        &[],
+        &awhat,
+    )?;
+    let runs_v = get(top, "runs").ok_or_else(|| format!("{awhat}: missing `runs`"))?;
+    let runs = as_map(runs_v, &format!("{awhat}.runs"))?;
+    let using = get(runs, "using")
+        .map(|u| scalar(u, &format!("{awhat}.runs.using")))
+        .transpose()?
+        .unwrap_or_default();
+    if using != "composite" {
+        return Err(format!(
+            "{awhat}: `runs.using: {using}` — only composite actions are \
+             supported (JS `node*` and `docker` actions are not)"
+        ));
+    }
+    check_keys(
+        runs,
+        &["using", "steps"],
+        &[
+            "main",
+            "pre",
+            "post",
+            "pre-entrypoint",
+            "post-entrypoint",
+            "image",
+            "args",
+            "entrypoint",
+        ],
+        &format!("{awhat}.runs"),
+    )?;
+    let inputs = match get(top, "inputs") {
+        Some(Value::Mapping(im)) => {
+            let mut out = Vec::with_capacity(im.len());
+            for (k, iv) in im {
+                let name = k
+                    .as_str()
+                    .ok_or_else(|| format!("{awhat}.inputs: names must be strings"))?;
+                if !safe_key(name) {
+                    return Err(format!(
+                        "{awhat}.inputs: invalid input name `{name}` — `[A-Za-z0-9_.-]` only"
+                    ));
+                }
+                let mut spec = ActionInput {
+                    required: false,
+                    default: None,
+                };
+                match iv {
+                    Value::Null => {}
+                    Value::Mapping(mm) => {
+                        check_keys(
+                            mm,
+                            &["description", "required", "default", "type", "options"],
+                            &[],
+                            &format!("{awhat}.inputs.{name}"),
+                        )?;
+                        if let Some(rv) = get(mm, "required") {
+                            spec.required = match rv {
+                                Value::Bool(b) => *b,
+                                Value::String(s) => s == "true",
+                                _ => {
+                                    return Err(format!(
+                                        "{awhat}.inputs.{name}.required: expected a bool"
+                                    ))
+                                }
+                            };
+                        }
+                        if let Some(dv) = get(mm, "default") {
+                            spec.default =
+                                Some(scalar(dv, &format!("{awhat}.inputs.{name}.default"))?);
+                        }
+                    }
+                    _ => {
+                        return Err(format!(
+                            "{awhat}.inputs.{name}: expected a mapping or null, got {}",
+                            kind(iv)
+                        ))
+                    }
+                }
+                out.push((name.to_string(), spec));
+            }
+            out
+        }
+        Some(v) => {
+            return Err(format!(
+                "{awhat}.inputs: expected a mapping, got {}",
+                kind(v)
+            ))
+        }
+        None => Vec::new(),
+    };
+    let outputs = match get(top, "outputs") {
+        Some(Value::Mapping(om)) => {
+            let mut out = Vec::with_capacity(om.len());
+            for (k, v) in om {
+                let key = k
+                    .as_str()
+                    .ok_or_else(|| format!("{awhat}.outputs: names must be strings"))?;
+                if !safe_key(key) {
+                    return Err(format!(
+                        "{awhat}.outputs: invalid output name `{key}` — `[A-Za-z0-9_.-]` only"
+                    ));
+                }
+                out.push((
+                    key.to_string(),
+                    scalar(v, &format!("{awhat}.outputs.{key}"))?,
+                ));
+            }
+            out
+        }
+        Some(v) => {
+            return Err(format!(
+                "{awhat}.outputs: expected a mapping, got {}",
+                kind(v)
+            ))
+        }
+        None => Vec::new(),
+    };
+    let steps_v = get(runs, "steps").ok_or_else(|| format!("{awhat}.runs: missing `steps`"))?;
+    let Value::Sequence(seq) = steps_v else {
+        return Err(format!("{awhat}.runs.steps: expected a sequence"));
+    };
+    if seq.is_empty() {
+        return Err(format!("{awhat}.runs.steps: empty"));
+    }
+    let mut steps = Vec::with_capacity(seq.len());
+    let mut step_ids: HashSet<String> = HashSet::new();
+    for (si, sv) in seq.iter().enumerate() {
+        let sw = format!("{awhat}.runs.steps[{si}]");
+        let sm = as_map(sv, &sw)?;
+        steps.push(parse_step(
+            sm,
+            &sw,
+            &mut step_ids,
+            actions,
+            depth + 1,
+            true,
+        )?);
+    }
+    Ok(ActionDef {
+        inputs,
+        outputs,
+        steps,
+    })
 }
 
 struct Strategy {
@@ -3153,7 +3876,8 @@ fn fold_path(w: &str, eval: &Eval, what: &str) -> Result<Cond, String> {
         format!(
             "{what}: unsupported expression `{w}` in `if` — supported: \
              literals, env.*, github.{{sha,ref,ref_name,repository,event_name}}, \
-             matrix.*, needs.<job>.{{result,outputs.<name>}}, \
+             matrix.*, inputs.* (inside composite actions), \
+             needs.<job>.{{result,outputs.<name>}}, \
              steps.<id>.{{conclusion,outputs.<name>}}"
         )
     };
@@ -3211,6 +3935,24 @@ fn fold_path(w: &str, eval: &Eval, what: &str) -> Result<Cond, String> {
                 .find(|(k, _)| k == rest)
                 .map(|(_, v)| Cond::Lit(v.clone()))
                 .ok_or_else(|| format!("{what}: matrix has no `{rest}` binding in `if`"))
+        }
+        "inputs" => {
+            if rest.is_empty() {
+                return Err(bad());
+            }
+            let Some(inputs) = eval.inputs else {
+                return Err(format!(
+                    "{what}: `inputs.*` is only available inside composite actions"
+                ));
+            };
+            Ok(Cond::Lit(
+                inputs
+                    .iter()
+                    .rev()
+                    .find(|(k, _)| k == rest)
+                    .map(|(_, v)| v.clone())
+                    .unwrap_or_default(),
+            ))
         }
         "needs" => {
             // `.outputs.` wins over `.result` — same precedence as
@@ -3274,6 +4016,7 @@ mod tests {
             },
             matrix,
             env,
+            inputs: None,
         }
     }
 
@@ -3745,5 +4488,294 @@ jobs:
         assert_eq!(jobs.len(), 2);
         assert!(!jobs[0].fail_fast);
         assert_eq!(jobs[0].max_parallel, Some(2));
+    }
+
+    // --- composite actions (`uses: ./path`, `owner/repo[/path]@ref`) ---
+
+    /// Fake resolver — `uses` → canned action.yml text.
+    struct FakeActions(Vec<(String, String)>);
+
+    impl FakeActions {
+        fn new(pairs: &[(&str, &str)]) -> Self {
+            Self(
+                pairs
+                    .iter()
+                    .map(|(u, y)| (u.to_string(), y.to_string()))
+                    .collect(),
+            )
+        }
+    }
+
+    impl ActionResolver for FakeActions {
+        fn action_yaml(&self, uses: &str) -> Result<String, String> {
+            self.0
+                .iter()
+                .find(|(u, _)| u == uses)
+                .map(|(_, y)| y.clone())
+                .ok_or_else(|| format!("no such action `{uses}`"))
+        }
+    }
+
+    const GREET_ACTION: &str = r#"
+name: greet
+inputs:
+  name:
+    required: true
+  punct:
+    default: "!"
+outputs:
+  greeting: ${{ steps.gen.outputs.text }}
+runs:
+  using: composite
+  steps:
+    - id: gen
+      run: echo "text=hi ${{ inputs.name }}${{ inputs.punct }}" >> "$GITHUB_OUTPUT"
+"#;
+
+    fn expand_with(text: &str, resolver: &dyn ActionResolver) -> Result<Vec<Job>, String> {
+        let wf = parse_workflow_with("ci.yml", text, resolver)?;
+        wf.expand(GhaContext {
+            sha: "s",
+            git_ref: "refs/heads/main",
+            repository: "o/r",
+            event_name: "push",
+        })
+    }
+
+    /// Expansion error text — `Job` has no `Debug`, so `unwrap_err`
+    /// can't be used on the `Ok` side.
+    fn expand_err(text: &str, resolver: &dyn ActionResolver) -> String {
+        match expand_with(text, resolver) {
+            Err(e) => e,
+            Ok(_) => panic!("expected an expansion error"),
+        }
+    }
+
+    #[test]
+    fn composite_local_action_inlines_steps_and_outputs() {
+        let resolver = FakeActions::new(&[("./.github/actions/greet", GREET_ACTION)]);
+        let jobs = expand_with(
+            r#"
+on: push
+jobs:
+  t:
+    steps:
+      - id: greet
+        uses: ./.github/actions/greet
+        with:
+          name: world
+"#,
+            &resolver,
+        )
+        .unwrap();
+        // inner run step + the Publish step for the uses-id.
+        assert_eq!(jobs[0].steps.len(), 2);
+        let Step::Run(r) = &jobs[0].steps[0] else {
+            panic!("expected inner run step");
+        };
+        assert_eq!(r.id.as_deref(), Some("gen"));
+        assert!(
+            r.script.contains("hi world!"),
+            "input not interpolated: {}",
+            r.script
+        );
+        let Step::Publish { id, outputs, .. } = &jobs[0].steps[1] else {
+            panic!("expected publish step");
+        };
+        assert_eq!(id, "greet");
+        // The output template's steps.* ref stays deferred.
+        assert_eq!(
+            outputs,
+            &vec![(
+                "greeting".to_string(),
+                "${{ steps.gen.outputs.text }}".to_string()
+            )]
+        );
+    }
+
+    #[test]
+    fn composite_remote_action_resolves_same_way() {
+        let resolver = FakeActions::new(&[("octo/actions/greet@v1", GREET_ACTION)]);
+        let jobs = expand_with(
+            "on: push\njobs:\n  t:\n    steps:\n      - uses: octo/actions/greet@v1\n        with:\n          name: octo\n",
+            &resolver,
+        )
+        .unwrap();
+        // No uses-step id → no publish step; just the inner run.
+        assert_eq!(jobs[0].steps.len(), 1);
+        let Step::Run(r) = &jobs[0].steps[0] else {
+            panic!("expected run step");
+        };
+        assert!(r.script.contains("hi octo!"), "{}", r.script);
+    }
+
+    #[test]
+    fn composite_inputs_contract_is_enforced() {
+        let resolver = FakeActions::new(&[("./a", GREET_ACTION)]);
+        // required input missing
+        let err = expand_err(
+            "on: push\njobs:\n  t:\n    steps:\n      - uses: ./a\n",
+            &resolver,
+        );
+        assert!(err.contains("name"), "{err}");
+        // undeclared with: key
+        let err = expand_err(
+            "on: push\njobs:\n  t:\n    steps:\n      - uses: ./a\n        with:\n          name: x\n          bogus: 1\n",
+            &resolver,
+        );
+        assert!(err.contains("bogus"), "{err}");
+        // default fills in when not provided
+        let jobs = expand_with(
+            "on: push\njobs:\n  t:\n    steps:\n      - uses: ./a\n        with:\n          name: bob\n",
+            &resolver,
+        )
+        .unwrap();
+        let Step::Run(r) = &jobs[0].steps[0] else {
+            panic!("expected run step");
+        };
+        assert!(r.script.contains("bob!"), "{}", r.script);
+    }
+
+    #[test]
+    fn composite_nested_actions_and_uses_if_gate() {
+        let inner = r#"
+inputs:
+  v:
+    required: true
+runs:
+  using: composite
+  steps:
+    - run: echo "inner ${{ inputs.v }}" > inner.txt
+"#;
+        let outer = r#"
+inputs:
+  v:
+    default: dflt
+runs:
+  using: composite
+  steps:
+    - uses: ./inner
+      with:
+        v: ${{ inputs.v }}-x
+"#;
+        let resolver = FakeActions::new(&[("./outer", outer), ("./inner", inner)]);
+        let jobs = expand_with(
+            "on: push\njobs:\n  t:\n    steps:\n      - uses: ./outer\n        if: github.ref_name == 'main'\n",
+            &resolver,
+        )
+        .unwrap();
+        // outer uses has no id → inner run step only, gated by the
+        // distributed uses-step `if:` (ANDed with implicit success()).
+        assert_eq!(jobs[0].steps.len(), 1);
+        let Step::Run(r) = &jobs[0].steps[0] else {
+            panic!("expected run step");
+        };
+        assert!(r.script.contains("inner dflt-x"), "{}", r.script);
+        let dbg = format!("{:?}", r.cond);
+        assert!(dbg.contains("Lit(\"main\")"), "{dbg}");
+    }
+
+    #[test]
+    fn composite_unsupported_shapes_error() {
+        let resolver = FakeActions::new(&[
+            ("./js", "runs:\n  using: node20\n  main: index.js\n"),
+            ("./docker", "runs:\n  using: docker\n  image: alpine\n"),
+        ]);
+        for uses in ["./js", "./docker"] {
+            let wf = format!("on: push\njobs:\n  t:\n    steps:\n      - uses: {uses}\n");
+            let err = expand_err(&wf, &resolver);
+            assert!(err.contains("composite"), "{uses}: {err}");
+        }
+        // missing action.yml → resolver error surfaces
+        let err = expand_err(
+            "on: push\njobs:\n  t:\n    steps:\n      - uses: ./missing\n",
+            &resolver,
+        );
+        assert!(err.contains("cannot resolve"), "{err}");
+        // timeout-minutes on a composite uses step
+        let resolver2 = FakeActions::new(&[("./ok", GREET_ACTION)]);
+        let err = expand_err(
+            "on: push\njobs:\n  t:\n    steps:\n      - uses: ./ok\n        with:\n          name: x\n        timeout-minutes: 5\n",
+            &resolver2,
+        );
+        assert!(err.contains("timeout-minutes"), "{err}");
+    }
+
+    #[test]
+    fn inputs_context_outside_composite_errors() {
+        let err = expand_err(
+            "on: push\njobs:\n  t:\n    steps:\n      - run: echo ${{ inputs.x }}\n",
+            &FakeActions::new(&[]),
+        );
+        assert!(err.contains("inputs"), "{err}");
+    }
+
+    #[test]
+    fn uses_step_env_scopes_to_action_steps() {
+        // Script-lowered uses: `env:` lands on the synthesized
+        // RunStep (previously it was silently dropped).
+        let wf = parse_workflow(
+            "ci.yml",
+            "on: push\njobs:\n  t:\n    steps:\n      - uses: actions/setup-node@v4\n        with:\n          node-version: '22'\n        env:\n          NODE_ENV: test\n",
+        )
+        .unwrap();
+        let jobs = wf
+            .expand(GhaContext {
+                sha: "s",
+                git_ref: "refs/heads/main",
+                repository: "o/r",
+                event_name: "push",
+            })
+            .unwrap();
+        let Step::Run(r) = &jobs[0].steps[0] else {
+            panic!("expected run step");
+        };
+        assert!(
+            r.env
+                .contains(&("NODE_ENV".to_string(), "test".to_string())),
+            "{:?}",
+            r.env
+        );
+
+        // Composite uses: env applies to every inlined step, under
+        // each step's own env (step env wins on conflicts).
+        let action = "runs:\n  using: composite\n  steps:\n    - run: echo x\n      env:\n        PUNCT: inner\n";
+        let resolver = FakeActions::new(&[("./a", action)]);
+        let jobs = expand_with(
+            "on: push\njobs:\n  t:\n    steps:\n      - uses: ./a\n        env:\n          GREETING: hi\n          PUNCT: outer\n",
+            &resolver,
+        )
+        .unwrap();
+        let Step::Run(r) = &jobs[0].steps[0] else {
+            panic!("expected run step");
+        };
+        assert!(
+            r.env.contains(&("GREETING".to_string(), "hi".to_string())),
+            "{:?}",
+            r.env
+        );
+        assert!(
+            r.env.contains(&("PUNCT".to_string(), "inner".to_string())),
+            "{:?}",
+            r.env
+        );
+    }
+
+    #[test]
+    fn reusable_workflow_uses_errors_precisely() {
+        let err = parse_workflow(
+            "ci.yml",
+            "on: push\njobs:\n  call:\n    uses: octo/repo/.github/workflows/ci.yml@v1\n",
+        )
+        .err()
+        .unwrap();
+        assert!(err.contains("reusable workflows"), "{err}");
+        let err = parse_workflow(
+            "ci.yml",
+            "on: push\njobs:\n  call:\n    secrets: inherit\n    steps:\n      - run: echo hi\n",
+        )
+        .err()
+        .unwrap();
+        assert!(err.contains("secrets"), "{err}");
     }
 }

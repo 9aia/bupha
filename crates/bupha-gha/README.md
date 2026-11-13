@@ -66,13 +66,21 @@ workflow.
   (official release tarballs / Microsoft's dotnet-install script
   into a per-run toolcache — see boundaries), `actions/upload-artifact` and
   `actions/download-artifact` (a per-run tar store under
-  `$BUPHA_GHA_TMP/artifacts/` — see boundaries), and
+  `$BUPHA_GHA_TMP/artifacts/` — see boundaries),
   `actions/cache`, `actions/cache/save`, `actions/cache/restore`
-  (a persistent keyed store — see boundaries). `id` is the handle
-  `steps.<id>.outputs.*` references; ids must be unique per job and
+  (a persistent keyed store — see boundaries), and **composite
+  actions** via `./local/path` or `owner/repo[/sub/path]@ref`
+  (see boundaries). `env:` on a `uses:` step scopes to the action:
+  script-lowered targets export it to the synthesized script, and
+  composite targets apply it to every inlined step below each
+  step's own `env`. `id` is the handle
+  `steps.<id>.outputs.*` references; ids must be unique per job
+  (composite-inlined steps share the job's namespace) and
   `[A-Za-z0-9_.-]`.
 - `${{ }}` expressions — `env.*`, `github.{sha,ref,ref_name,
-  repository,event_name}`, `matrix.*`, plus the deferred refs
+  repository,event_name}`, `matrix.*`, `inputs.*` (only inside a
+  composite action's own steps/outputs — bound from the caller's
+  `with:`), plus the deferred refs
   `steps.<id>.outputs.<name>` (same job),
   `needs.<job>.outputs.<name>` (declared job `outputs:` of a
   dependency), `needs.<job>.result`, and `steps.<id>.conclusion`.
@@ -106,17 +114,18 @@ workflow.
 `actions/checkout`, `dtolnay/rust-toolchain`,
 `actions/setup-{node,python,go,java,dotnet}`,
 `actions/upload-artifact`, `actions/download-artifact`,
-`actions/cache`, `actions/cache/save` and `actions/cache/restore`
-(other `actions/setup-*`, `docker://image`, local `./path`,
-`owner/repo/path@ref` composite actions and reusable-workflow
-`uses:` included), `with:` keys outside each action's
-allowlist and cross-run download inputs (`run-id`, `github-token`,
-`repository`, `run-attempt`),
+`actions/cache`, `actions/cache/save` and `actions/cache/restore`,
+and composite actions via `./path` or `owner/repo[/path]@ref`
+(`docker://image`, JS `runs.using: node*` and `docker` action
+definitions, unknown actions, other `actions/setup-*` families and
+reusable-workflow `jobs.<id>.uses:` included), `with:` keys outside
+each action's declared inputs and cross-run download inputs
+(`run-id`, `github-token`, `repository`, `run-attempt`),
 `steps.*.outcome`/`steps.*.outputs` (bare) expressions,
 `if:` functions beyond the supported subset (`hashFiles`,
 `fromJSON`, `format`, …), `shell:` values containing `${{ }}`,
-`secrets:`, docker/local `uses:` paths, and any unknown key at any
-level.
+`secrets:`, `timeout-minutes` on a composite `uses:` step, and any
+unknown key at any level (including unknown keys in `action.yml`).
 
 ## Honest boundaries
 
@@ -233,6 +242,31 @@ level.
   `node-version`, `python-version`, `go-version`, `dotnet-version`
   are published; python also exports `Python*_ROOT_DIR`/`LD_LIBRARY_PATH` via
   `$GITHUB_ENV`, go exports `GOROOT`, and java exports `JAVA_HOME`.
+- **Composite actions** resolve at parse time: `./path` reads
+  `action.yml`/`action.yaml` under the worktree (repo-root-relative,
+  `..` rejected); `owner/repo[/sub/path]@ref` fetches the repo over
+  git into a cache (`$BUPHA_GHA_ACTIONS_DIR` →
+  `$XDG_CACHE_HOME/bupha/gha-actions` → `~/.cache/bupha/gha-actions`
+  → `<worktree>/../.bupha-gha-actions`), re-fetching every parse so
+  branch refs track their head, with `GITHUB_TOKEN` passed to git
+  via `GIT_CONFIG_*` env (never argv) for private repos. Only
+  `runs.using: composite` action.yml files work — `node*`/`docker`
+  definitions and unknown `action.yml` keys hard-error. The
+  `inputs:`/`outputs:` contract is strict: undeclared `with:` keys,
+  missing `required` inputs and multi-value `with:` entries error;
+  defaults fill gaps. Expansion inlines the action's steps into the
+  job (nested composites recurse, capped at depth 8), ANDs the
+  uses-step's `if:` onto every inlined step, applies its `env:` to
+  all of them (below each step's own env), and — when the uses step
+  has an `id` — appends a publisher step exposing the declared
+  `outputs:` as `steps.<id>.outputs.*` plus the uses-step's own
+  `steps.<id>.conclusion`. Inlined step ids share the job's
+  `steps.<id>` namespace (duplicates error); `timeout-minutes` on a
+  composite `uses:` step errors (no single deadline spans the
+  inlined steps); `uses:` inside `action.yml` may name any supported
+  target including the built-in script actions. There is no
+  per-action env scoping beyond step env, no `pre`/`post` entry
+  points, and no composite-action caching of its own.
 - **`actions/cache*` persists under the worker's state dir** —
   `${BUPHA_GHA_CACHE_DIR:-${XDG_DATA_HOME:-$HOME/.local/share}/bupha/gha-cache}/<repo>/<sha256(key)>.tar`
   with a sibling `.key` file holding the plaintext key (prefix
