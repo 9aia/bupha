@@ -8,5 +8,6 @@
 - [ ] T-073 fork-PR head shas — ci-job indexDoc lacks clone\_url/PR head ref so fork pull\_requests can't be checked out from base clone (T-067 remainder) · created:2026-11-12
 - [ ] T-044 rotate CARGO\_REGISTRY\_TOKEN — was at .env 0644 (now 600); treat as exposed · status:blocked · pri:high · owner:human:Luis-Emidio · created:2026-11-03
 - [ ] T-076 peregrin campaign listener-run failures are silent — dead ingress invisible until shutdown (follow-up T-075) · created:2026-11-13 · links:T-075
+- [ ] T-077 retire remaining generic-infra crates per T-053 audit now that T-055/T-056 gates resolved — bupha-{cloudflared,tunnel,service,systemd,dotenv,keyring} MIGRATE/DIE + bupha-{secret,webhook} port decisions; consumers: bupha-watch dev harness, bupha-cli, bupha-driver secret chain (cuora canonical, legacy legs removable after T-059 verification) · pri:high · created:2026-11-13
 
 ## open
