@@ -1104,6 +1104,13 @@ node = "http://127.0.0.1:18787"
 # token. The live node binds 0.0.0.0 and requires it; a loopback
 # dev node may drop this line (unauthenticated).
 node_token_env = "PEREGRIN_TOKEN"
+# Full `ci.job.completed` ingest URL — retargets the emit off the
+# entity node's ingest (which reaches kind="campaign" entities but
+# NOT campaigns supervised by `peregrin campaign serve`). Points at
+# the campaign serve shared listener's /api/events/inject route
+# (peregrin commit 399947d6; bearer-gated on the same
+# PEREGRIN_TOKEN). `BUPHA_WORKER_EVENTS_URL`/`--events-url` override.
+events_url = "http://127.0.0.1:29173/api/events/inject"
 # Private-fork git credential for fork-PR ci-jobs (T-073 remainder):
 # a fork of a private repo is itself private, so `git fetch
 # <cloneUrl>` needs auth the box's origin machinery may not provide.
