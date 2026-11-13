@@ -61,6 +61,20 @@ node_token_env = "PEREGRIN_TOKEN"   # secret NAME, never the value
 labels = ["arch=arm64"]             # this box's claim labels
 ```
 
+**Fork-PR checkout.** A `pull_request` ci-job may carry optional
+`cloneUrl`/`headRef` indexDoc fields — the head repo's clone URL and
+head ref, set by ci-ingress only for fork deliveries. When the job's
+sha isn't already in `repo.dir`, the worker fetches
+`git fetch <cloneUrl> <headRef>` (then the bare sha — forges
+allowing reachable-sha wants resolve it even after the head branch
+is gone), then a bare-sha fetch from `origin` (GitHub serves PR
+heads, forks included, under `refs/pull/*` on the base repo), and
+only then the usual remote `sync`. Pushes and same-repo PRs leave
+both fields absent and keep the single-remote path. Both fields are
+argv-validated at the plane's trust boundary (`is_safe_remote` /
+`is_safe_ref_name` — no option injection, no `ext::` transport
+escapes, no refspec writes).
+
 ## Label routing (multi-arch)
 
 `runs_on` on a `[[repo]]`/`[[repo.jobs]]` entry becomes the
