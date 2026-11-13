@@ -718,6 +718,8 @@ fn build_step(
                 UsesScript::SetupNode => setup_node_script(&pairs, what)?,
                 UsesScript::SetupPython => setup_python_script(&pairs, what)?,
                 UsesScript::SetupGo => setup_go_script(&pairs, what)?,
+                UsesScript::SetupJava => setup_java_script(&pairs, what)?,
+                UsesScript::SetupDotnet => setup_dotnet_script(&pairs, what)?,
                 UsesScript::CacheRestore => cache_restore_script(&pairs, what)?,
                 UsesScript::CacheSave => cache_save_script(&pairs, what)?,
                 UsesScript::Cache => cache_script(&pairs, what)?,
@@ -1485,6 +1487,307 @@ if [ "$updenv" = "1" ]; then echo "$tc/bin" >> "$GITHUB_PATH"; fi
 } >> "$GITHUB_ENV"
 printf 'python-version=%s\n' "$ver" >> "$GITHUB_OUTPUT"
 echo "gha: setup-python — python $ver (linux-${distro:-cached}-$a) at $tc"
+"#,
+    );
+    Ok(s)
+}
+
+/// `actions/setup-java` lowered to bash: resolve `java-version`
+/// (major `x` → `binary/latest/<x>`; partial `x.y`/exact `x.y.z[+b]`
+/// → `info/release_names` prefix match + `binary/version/<name>` —
+/// both 307 to the Temurin tarball; `jdkFile` extracts a
+/// workspace-local tarball instead) and unpack into the per-run
+/// toolcache (`$BUPHA_GHA_TMP/toolcache/java/<release>`).
+/// `JAVA_HOME` goes to
+/// `$GITHUB_ENV`, `bin/` to `$GITHUB_PATH`. `distribution` is
+/// allowlisted to temurin (`adopt`/`adoptopenjdk` are aliases);
+/// other vendors hard-error at plan time. Maven `settings.*`,
+/// `server-*`, `gpg-*`, `mvn-toolchain-*`, `check-latest`, `token`
+/// and `cache*` inputs are accepted no-ops — no Maven settings.xml
+/// or cross-run cache in the local lowering.
+fn setup_java_script(pairs: &[(String, Vec<String>)], what: &str) -> Result<String, String> {
+    check_with_keys(
+        pairs,
+        &[
+            "java-version",
+            "java-version-file",
+            "distribution",
+            "java-package",
+            "architecture",
+            "jdkFile",
+            "check-latest",
+            "server-id",
+            "server-username",
+            "server-password",
+            "settings-path",
+            "overwrite-settings",
+            "gpg-private-key",
+            "gpg-passphrase",
+            "cache",
+            "cache-dependency-path",
+            "job-status",
+            "token",
+            "mvn-toolchain-id",
+            "mvn-toolchain-vendor",
+        ],
+        what,
+    )?;
+    let ver = with_one(pairs, "java-version", what)?;
+    let vfile = with_one(pairs, "java-version-file", what)?;
+    let jdkfile = with_one(pairs, "jdkFile", what)?;
+    if ver.is_none() && vfile.is_none() && jdkfile.is_none() {
+        return Err(format!(
+            "{what}.with: `java-version`/`java-version-file` or `jdkFile` is required"
+        ));
+    }
+    if let Some(v) = ver {
+        check_no_ctl(v, "java-version", what)?;
+    }
+    if let Some(v) = vfile {
+        check_version_file(v, "java-version-file", what)?;
+    }
+    if let Some(v) = jdkfile {
+        check_version_file(v, "jdkFile", what)?;
+    }
+    let dist = with_one(pairs, "distribution", what)?.unwrap_or("temurin");
+    match dist.to_ascii_lowercase().as_str() {
+        "temurin" | "adopt" | "adoptopenjdk" => {}
+        other => {
+            return Err(format!(
+                "{what}.with.distribution: `{other}` is unsupported — the v1 \
+                 lowering supports temurin only (adopt/adoptopenjdk alias; \
+                 zulu/corretto/oracle/semeru/… deferred)"
+            ))
+        }
+    }
+    let pkg = with_one(pairs, "java-package", what)?.unwrap_or("jdk");
+    if !matches!(pkg, "jdk" | "jre") {
+        return Err(format!(
+            "{what}.with.java-package: expected `jdk` or `jre`, got `{pkg}`"
+        ));
+    }
+    let arch = with_one(pairs, "architecture", what)?.unwrap_or("");
+    check_no_ctl(arch, "architecture", what)?;
+
+    let mut s = String::from("set -e\n");
+    s.push_str(&noop_warnings(
+        pairs,
+        &[
+            "check-latest",
+            "server-id",
+            "server-username",
+            "server-password",
+            "settings-path",
+            "overwrite-settings",
+            "gpg-private-key",
+            "gpg-passphrase",
+            "cache",
+            "cache-dependency-path",
+            "job-status",
+            "token",
+            "mvn-toolchain-id",
+            "mvn-toolchain-vendor",
+        ],
+        "setup-java",
+    ));
+    s.push_str(&format!("want={}\n", bash_sq(ver.unwrap_or(""))));
+    s.push_str(&format!("vfile={}\n", bash_sq(vfile.unwrap_or(""))));
+    s.push_str(&format!("jdkfile={}\n", bash_sq(jdkfile.unwrap_or(""))));
+    s.push_str(&format!("arch={}\n", bash_sq(arch)));
+    s.push_str(&format!("pkg={}\n", bash_sq(pkg)));
+    s.push_str(
+        r#"if [ -n "$jdkfile" ]; then
+  # jdkFile — extract the workspace-local JDK archive, no API lookup.
+  tc="$BUPHA_GHA_TMP/toolcache/java/jdkfile-$(printf '%s' "$jdkfile" | cksum | cut -d' ' -f1)"
+  if [ ! -x "$tc/bin/java" ]; then
+    [ -f "$jdkfile" ] || { echo "gha: setup-java — jdkFile '$jdkfile' not found"; exit 1; }
+    mkdir -p "$tc"
+    if ! tar -xzf "$jdkfile" -C "$tc" --strip-components=1 2>/dev/null; then
+      echo "gha: setup-java — cannot extract jdkFile '$jdkfile' (expected a .tar.gz JDK)"; exit 1
+    fi
+  fi
+  echo "JAVA_HOME=$tc" >> "$GITHUB_ENV"
+  echo "$tc/bin" >> "$GITHUB_PATH"
+  echo "gha: setup-java — JDK from '$jdkfile' at $tc"
+  exit 0
+fi
+if [ -z "$want" ]; then
+  if [ -z "$vfile" ]; then
+    echo "gha: setup-java — java-version or java-version-file is required"; exit 1
+  fi
+  if [ ! -f "$vfile" ]; then
+    echo "gha: setup-java — version file '$vfile' not found"; exit 1
+  fi
+  # .java-version / sdkman-style lines may carry a vendor or
+  # build suffix ("temurin-21.0.7+6", "17.0.2-zulu") — keep the
+  # first numeric semver token.
+  want=$(grep -m1 -vE '^[[:space:]]*(#|$)' "$vfile" | head -1 | grep -oE '[0-9]+(\.[0-9]+){0,2}(\+[0-9]+)?' | head -1)
+fi
+case "$want" in
+  ''|.*|*.|*..*|*.*.*.*.*|*[!0-9.+]*)
+    echo "gha: setup-java — unsupported java-version '$want' (exact x.y.z[+build] or partial x / x.y numeric versions only)"; exit 1 ;;
+esac
+if [ "$(uname -s)" != "Linux" ]; then
+  echo "gha: setup-java — linux runners only"; exit 1
+fi
+a="$arch"
+[ -z "$a" ] && a=$(uname -m)
+case "$a" in x86_64|amd64|x64) a=x64 ;; aarch64|arm64) a=aarch64 ;; esac
+case "$a" in
+  x64|aarch64) ;;
+  *) echo "gha: setup-java — unsupported architecture '$a' (x64, aarch64)"; exit 1 ;;
+esac
+# Resolve to a release name + download URL. `binary/latest/<major>`
+# 307-redirects to the newest GA build (the Location basename names
+# the release); partial/full specs go through `info/release_names`
+# (one JSON list, newest first) matched on a `.`/`+` boundary, then
+# `binary/version/<jdk-x.y.z+build>`.
+dots=$(printf '%s' "$want" | tr -cd '.' | wc -c)
+if [ "$dots" -eq 0 ]; then
+  loc=$(curl -fsSI --max-time 30 "https://api.adoptium.net/v3/binary/latest/$want/ga/linux/$a/$pkg/hotspot/normal/eclipse" | tr -d '\r' | sed -n 's/^[Ll]ocation: //p' | head -1)
+  [ -n "$loc" ] || { echo "gha: setup-java — no Temurin $pkg for java-version '$want' (linux-$a)"; exit 1; }
+  rel=${loc##*/}
+  rel=${rel%.tar.gz}
+  url=$loc
+else
+  names=$(curl -fsSL --max-time 30 'https://api.adoptium.net/v3/info/release_names?project=jdk&release_type=ga') || {
+    echo "gha: setup-java — cannot reach api.adoptium.net"; exit 1; }
+  rel=$(printf '%s\n' "$names" | grep -oE '"jdk-[0-9][^"]*"' | while IFS= read -r n; do
+    v=${n#\"jdk-}; v=${v%\"}
+    case "$v" in "$want"*) ;; *) continue ;; esac
+    rest=${v#$want}
+    case "$rest" in ""|+*|.*) printf '%s\n' "$n" ;; esac
+  done | head -1)
+  rel=${rel#\"}; rel=${rel%\"}
+  [ -n "$rel" ] || { echo "gha: setup-java — no Temurin $pkg release matching java-version '$want'"; exit 1; }
+  url="https://api.adoptium.net/v3/binary/version/${rel//+/%2B}/linux/$a/$pkg/hotspot/normal/eclipse"
+fi
+tc="$BUPHA_GHA_TMP/toolcache/java/$rel"
+if [ ! -x "$tc/bin/java" ]; then
+  mkdir -p "$tc"
+  tmp=$(mktemp -d)
+  if ! curl -fsSL --max-time 600 "$url" -o "$tmp/jdk.tar.gz"; then
+    echo "gha: setup-java — download failed: $url"; rm -rf "$tmp"; exit 1
+  fi
+  tar -xzf "$tmp/jdk.tar.gz" -C "$tc" --strip-components=1
+  rm -rf "$tmp"
+fi
+echo "JAVA_HOME=$tc" >> "$GITHUB_ENV"
+echo "$tc/bin" >> "$GITHUB_PATH"
+echo "gha: setup-java — temurin $rel (linux-$a $pkg) at $tc"
+"#,
+    );
+    Ok(s)
+}
+
+/// `actions/setup-dotnet` lowered to bash: fetch Microsoft's
+/// `dotnet-install.sh` and install into the per-run toolcache
+/// (`$BUPHA_GHA_TMP/toolcache/dotnet/<spec>`). `dotnet-version`
+/// maps to `-Channel` (partial/wildcard specs → latest in the
+/// channel) or `-Version` (full `x.y.z`); absent → `global.json`'s
+/// `sdk.version` (repo root or `global-json-file`). `dotnet-quality`
+/// passes through to `-Quality` (`ga` default; `signed`/`validated`
+/// are NuGet-signature options the SDK installer doesn't take and
+/// hard-error). NuGet-auth inputs (`source-url`, `owner`,
+/// `config-file`), `cache*` and the `cache-hit`/`dotnet-version`
+/// outputs' side effects are accepted no-ops — `dotnet-version` is
+/// still published when resolvable.
+fn setup_dotnet_script(pairs: &[(String, Vec<String>)], what: &str) -> Result<String, String> {
+    check_with_keys(
+        pairs,
+        &[
+            "dotnet-version",
+            "dotnet-quality",
+            "global-json-file",
+            "source-url",
+            "owner",
+            "config-file",
+            "cache",
+            "cache-dependency-path",
+        ],
+        what,
+    )?;
+    let ver = with_one(pairs, "dotnet-version", what)?;
+    let quality = with_one(pairs, "dotnet-quality", what)?.unwrap_or("ga");
+    if !matches!(
+        quality.to_ascii_lowercase().as_str(),
+        "ga" | "daily" | "preview" | "all"
+    ) {
+        return Err(format!(
+            "{what}.with.dotnet-quality: `{quality}` unsupported — \
+             the SDK installer takes ga/daily/preview/all \
+             (signed/validated are NuGet-signature options)"
+        ));
+    }
+    let gjfile = with_one(pairs, "global-json-file", what)?;
+    if let Some(v) = ver {
+        check_no_ctl(v, "dotnet-version", what)?;
+    }
+    if let Some(v) = gjfile {
+        check_version_file(v, "global-json-file", what)?;
+    }
+
+    let mut s = String::from("set -e\n");
+    s.push_str(&noop_warnings(
+        pairs,
+        &[
+            "source-url",
+            "owner",
+            "config-file",
+            "cache",
+            "cache-dependency-path",
+        ],
+        "setup-dotnet",
+    ));
+    s.push_str(&format!("want={}\n", bash_sq(ver.unwrap_or(""))));
+    s.push_str(&format!("quality={}\n", bash_sq(quality)));
+    s.push_str(&format!("gjfile={}\n", bash_sq(gjfile.unwrap_or(""))));
+    s.push_str(
+        r#"q=$(printf '%s' "$quality" | tr '[:lower:]' '[:upper:]')
+case "$q" in GA) q=ga ;; DAILY) q=daily ;; PREVIEW) q=preview ;; ALL) q=all ;; esac
+if [ -z "$want" ]; then
+  gf="$gjfile"
+  [ -z "$gf" ] && [ -f global.json ] && gf=global.json
+  if [ -n "$gf" ]; then
+    [ -f "$gf" ] || { echo "gha: setup-dotnet — global-json-file '$gf' not found"; exit 1; }
+    want=$(grep -oE '"version"[[:space:]]*:[[:space:]]*"[^"]+"' "$gf" | head -1 | sed -E 's/.*"([^"]+)"[[:space:]]*$/\1/')
+  fi
+fi
+[ -n "$want" ] || { echo "gha: setup-dotnet — dotnet-version or a global.json sdk.version is required"; exit 1; }
+case "$want" in
+  *[!0-9.xX]*)
+    echo "gha: setup-dotnet — unsupported dotnet-version '$want' (numeric x[.y[.z]] or channel specs like 8.0.x only)"; exit 1 ;;
+esac
+# Full x.y.z → -Version pin; partial/wildcard → -Channel major.minor.
+dots=$(printf '%s' "$want" | tr -cd '.' | wc -c)
+case "$want" in
+  *[xX]*) iswild=1 ;;
+  *) iswild=0 ;;
+esac
+if [ "$iswild" = "1" ] || [ "$dots" -lt 2 ]; then
+  majmin=$(printf '%s' "$want" | grep -oE '^[0-9]+(\.[0-9]+)?' | head -1)
+  case "$majmin" in *.*) ;; *) majmin="$majmin.0" ;; esac
+  sel=(-Channel "$majmin")
+else
+  sel=(-Version "$want")
+fi
+dir="$BUPHA_GHA_TMP/toolcache/dotnet/${want//[^A-Za-z0-9._-]/_}"
+if [ ! -x "$dir/dotnet" ]; then
+  tmp=$(mktemp -d)
+  if ! curl -fsSL --max-time 120 https://dot.net/v1/dotnet-install.sh -o "$tmp/install.sh"; then
+    echo "gha: setup-dotnet — cannot fetch https://dot.net/v1/dotnet-install.sh"; rm -rf "$tmp"; exit 1
+  fi
+  mkdir -p "$dir"
+  if ! bash "$tmp/install.sh" --install-dir "$dir" -Quality "$q" "${sel[@]}"; then
+    rm -rf "$tmp"; echo "gha: setup-dotnet — dotnet-install failed for '$want' (quality $q)"; exit 1
+  fi
+  rm -rf "$tmp"
+fi
+echo "$dir" >> "$GITHUB_PATH"
+echo "DOTNET_ROOT=$dir" >> "$GITHUB_ENV"
+ver_out=$("$dir/dotnet" --version 2>/dev/null || true)
+[ -n "$ver_out" ] && printf 'dotnet-version=%s\n' "$ver_out" >> "$GITHUB_OUTPUT"
+echo "gha: setup-dotnet — dotnet $ver_out at $dir"
 "#,
     );
     Ok(s)
@@ -2283,6 +2586,11 @@ enum UsesScript {
     SetupPython,
     /// `actions/setup-go` → go.dev tarball + toolcache.
     SetupGo,
+    /// `actions/setup-java` → Adoptium API tarball + toolcache
+    /// (temurin only).
+    SetupJava,
+    /// `actions/setup-dotnet` → dot.net dotnet-install.sh + toolcache.
+    SetupDotnet,
     /// `actions/cache/restore` → persistent keyed store lookup.
     CacheRestore,
     /// `actions/cache/save` → persistent keyed store write.
@@ -2302,21 +2610,23 @@ enum UsesKind {
 
 /// `uses:` — `actions/checkout` is a verification no-op (the
 /// worktree is already at the pushed sha); `dtolnay/rust-toolchain`,
-/// the `actions/setup-{node,python,go}` toolchain actions,
-/// `actions/{upload,download}-artifact` and the `actions/cache*`
-/// family lower to synthesized bash steps. Everything else —
-/// docker/local/composite uses and other `actions/setup-*` — is an
-/// explicit error.
+/// the `actions/setup-{node,python,go,java,dotnet}` toolchain
+/// actions, `actions/{upload,download}-artifact` and the
+/// `actions/cache*` family lower to synthesized bash steps.
+/// Everything else — docker/local/composite uses, reusable
+/// workflows and other `actions/setup-*` — is an explicit error.
 fn parse_uses(uses: &str, sm: &serde_norway::Mapping, what: &str) -> Result<UsesKind, String> {
     let unsupported = || {
         format!(
             "{what}: unsupported `uses: {uses}` — v1 supports \
              `actions/checkout`, `dtolnay/rust-toolchain`, \
              `actions/setup-node`, `actions/setup-python`, \
-             `actions/setup-go`, `actions/upload-artifact`, \
+             `actions/setup-go`, `actions/setup-java`, \
+             `actions/setup-dotnet`, `actions/upload-artifact`, \
              `actions/download-artifact`, `actions/cache`, \
              `actions/cache/save` and `actions/cache/restore` \
-             (docker://, local paths and other actions are unsupported)"
+             (docker://, local paths, composite actions, reusable \
+             workflows and other actions are unsupported)"
         )
     };
     let body = uses.split('@').next().unwrap_or(uses);
@@ -2337,6 +2647,10 @@ fn parse_uses(uses: &str, sm: &serde_norway::Mapping, what: &str) -> Result<Uses
         Some(UsesScript::SetupPython)
     } else if body.eq_ignore_ascii_case("actions/setup-go") {
         Some(UsesScript::SetupGo)
+    } else if body.eq_ignore_ascii_case("actions/setup-java") {
+        Some(UsesScript::SetupJava)
+    } else if body.eq_ignore_ascii_case("actions/setup-dotnet") {
+        Some(UsesScript::SetupDotnet)
     } else if body.eq_ignore_ascii_case("actions/cache/restore") {
         Some(UsesScript::CacheRestore)
     } else if body.eq_ignore_ascii_case("actions/cache/save") {
@@ -3267,9 +3581,16 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version: '1.22'
+      - uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: temurin
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
 "#,
         );
-        assert_eq!(scripts.len(), 3);
+        assert_eq!(scripts.len(), 5);
         assert!(scripts[0].contains("nodejs.org/dist"), "{}", scripts[0]);
         assert!(scripts[0].contains("toolcache/node"), "{}", scripts[0]);
         assert!(
@@ -3279,6 +3600,10 @@ jobs:
         );
         assert!(scripts[2].contains("go.dev/dl"), "{}", scripts[2]);
         assert!(scripts[2].contains("GOROOT"), "{}", scripts[2]);
+        assert!(scripts[3].contains("api.adoptium.net"), "{}", scripts[3]);
+        assert!(scripts[3].contains("JAVA_HOME"), "{}", scripts[3]);
+        assert!(scripts[4].contains("dotnet-install.sh"), "{}", scripts[4]);
+        assert!(scripts[4].contains("DOTNET_ROOT"), "{}", scripts[4]);
     }
 
     #[test]
@@ -3347,6 +3672,18 @@ jobs:
                 "on: push\njobs:\n  t:\n    steps:\n      - uses: actions/setup-go@v5\n",
                 "go-version",
             ),
+            (
+                "on: push\njobs:\n  t:\n    steps:\n      - uses: actions/setup-java@v4\n",
+                "java-version",
+            ),
+            (
+                "on: push\njobs:\n  t:\n    steps:\n      - uses: actions/setup-java@v4\n        with:\n          java-version: '21'\n          distribution: zulu\n",
+                "zulu",
+            ),
+            (
+                "on: push\njobs:\n  t:\n    steps:\n      - uses: actions/setup-dotnet@v4\n        with:\n          dotnet-version: '8.0.x'\n          dotnet-quality: signed\n",
+                "dotnet-quality",
+            ),
             // version-file must stay in the worktree
             (
                 "on: push\njobs:\n  t:\n    steps:\n      - uses: actions/setup-node@v4\n        with:\n          node-version-file: ../x\n",
@@ -3371,11 +3708,11 @@ jobs:
     #[test]
     fn unsupported_uses_still_error() {
         for uses in [
-            "actions/setup-java@v4",
-            "actions/setup-dotnet@v4",
+            "actions/setup-haskell@v2",
             "docker://alpine:3.20",
             "./local/action",
             "octo/repo/.github/actions/x@v1",
+            "octo/repo/.github/workflows/ci.yml@v1",
         ] {
             let wf = format!("on: push\njobs:\n  t:\n    steps:\n      - uses: {uses}\n");
             assert!(parse_workflow("ci.yml", &wf).is_err(), "{uses}");

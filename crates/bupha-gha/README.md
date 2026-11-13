@@ -57,9 +57,10 @@ workflow.
   pushed sha; `with.path` errors), `dtolnay/rust-toolchain`
   (lowers to `rustup toolchain install` + `default` with the
   `toolchain`/`targets`/`components`/`profile` inputs; rustup must
-  be on `PATH`), `actions/setup-node`, `actions/setup-python` and
-  `actions/setup-go` (official release tarballs into a per-run
-  toolcache — see boundaries), `actions/upload-artifact` and
+  be on `PATH`), `actions/setup-node`, `actions/setup-python`,
+  `actions/setup-go`, `actions/setup-java` and `actions/setup-dotnet`
+  (official release tarballs / Microsoft's dotnet-install script
+  into a per-run toolcache — see boundaries), `actions/upload-artifact` and
   `actions/download-artifact` (a per-run tar store under
   `$BUPHA_GHA_TMP/artifacts/` — see boundaries), and
   `actions/cache`, `actions/cache/save`, `actions/cache/restore`
@@ -99,11 +100,12 @@ workflow.
 `continue-on-error:`, `matrix.include`/`exclude`,
 `on.push.{tags,types,workflows}`, any `uses:` other than
 `actions/checkout`, `dtolnay/rust-toolchain`,
-`actions/setup-{node,python,go}`, `actions/upload-artifact`,
-`actions/download-artifact`, `actions/cache`, `actions/cache/save`
-and `actions/cache/restore` (other `actions/setup-*`,
-`docker://image`, local `./path` and `owner/repo/path@ref`
-composite uses included), `with:` keys outside each action's
+`actions/setup-{node,python,go,java,dotnet}`,
+`actions/upload-artifact`, `actions/download-artifact`,
+`actions/cache`, `actions/cache/save` and `actions/cache/restore`
+(other `actions/setup-*`, `docker://image`, local `./path`,
+`owner/repo/path@ref` composite actions and reusable-workflow
+`uses:` included), `with:` keys outside each action's
 allowlist and cross-run download inputs (`run-id`, `github-token`,
 `repository`, `run-attempt`),
 `steps.*.outcome`/`steps.*.outputs` (bare) expressions,
@@ -174,15 +176,29 @@ level.
   `?mode=json` respectively); `*-version-file` reads
   `.nvmrc`/`.python-version`/`go.mod`-style files, `stable`/`latest`
   work for go, and `lts/*`, semver ranges, `tip` and non-numeric
-  specs hard-error at run time. `architecture` maps to the dist
-  arch (`x64`/`arm64`; go also `x86`/`arm`). Registry/npm inputs
+  specs hard-error at run time. `java-version` accepts `x`/`x.y`/
+  `x.y.z[+build]` resolved through the Adoptium API
+  (`binary/latest/<major>` for majors, `info/release_names` +
+  `binary/version/<jdk-…>` for partials/exacts);
+  `distribution` is temurin-only (`adopt`/`adoptopenjdk` alias —
+  other vendors hard-error at plan time), `jdkFile` extracts a
+  workspace-local tarball, and `JAVA_HOME` is exported. Java 8's
+  `8uXXX-bYY` release naming means only major `8` resolves —
+  `8.0.x` finds no match. `setup-dotnet` shells out to Microsoft's
+  `dotnet-install.sh`: partial/wildcard `dotnet-version` →
+  `-Channel`, full `x.y.z` → `-Version`, absent → `global.json`'s
+  `sdk.version`; `dotnet-quality` takes `ga`/`daily`/`preview`/`all`
+  (`signed`/`validated` hard-error), and the `dotnet-version`
+  output is published when resolvable. `architecture` maps to the
+  dist arch (`x64`/`arm64`; go also `x86`/`arm`, java
+  `x64`/`aarch64`). Registry/npm inputs
   (`registry-url`, `scope`, `token`, `always-auth`), `cache`,
   `cache-dependency-path`, `check-latest` and `update-environment`
   (python: honored — it gates the PATH prepend) are accepted
   no-ops or honored as documented per action. Step outputs:
-  `node-version`, `python-version`, `go-version` are published;
-  python also exports `Python*_ROOT_DIR`/`LD_LIBRARY_PATH` via
-  `$GITHUB_ENV` and go exports `GOROOT`.
+  `node-version`, `python-version`, `go-version`, `dotnet-version`
+  are published; python also exports `Python*_ROOT_DIR`/`LD_LIBRARY_PATH` via
+  `$GITHUB_ENV`, go exports `GOROOT`, and java exports `JAVA_HOME`.
 - **`actions/cache*` persists under the worker's state dir** —
   `${BUPHA_GHA_CACHE_DIR:-${XDG_DATA_HOME:-$HOME/.local/share}/bupha/gha-cache}/<repo>/<sha256(key)>.tar`
   with a sibling `.key` file holding the plaintext key (prefix

@@ -15,7 +15,7 @@ api:
 - name: CACHE_LIB
   kind: const
   file: crates/bupha-gha/src/plan.rs
-  line: 1499
+  line: 1802
   module: bupha-gha
 - name: Cond
   kind: type
@@ -30,7 +30,7 @@ api:
 - name: CondParser
   kind: type
   file: crates/bupha-gha/src/plan.rs
-  line: 2623
+  line: 2937
   module: bupha-gha
 - name: Defaults
   kind: type
@@ -80,7 +80,7 @@ api:
 - name: PExpr
   kind: type
   file: crates/bupha-gha/src/plan.rs
-  line: 2608
+  line: 2922
   module: bupha-gha
 - name: PushFilters
   kind: type
@@ -120,27 +120,27 @@ api:
 - name: Strategy
   kind: type
   file: crates/bupha-gha/src/plan.rs
-  line: 2390
+  line: 2704
   module: bupha-gha
 - name: Tok
   kind: type
   file: crates/bupha-gha/src/plan.rs
-  line: 2501
+  line: 2815
   module: bupha-gha
 - name: UsesKind
   kind: type
   file: crates/bupha-gha/src/plan.rs
-  line: 2296
+  line: 2604
   module: bupha-gha
 - name: UsesScript
   kind: type
   file: crates/bupha-gha/src/plan.rs
-  line: 2273
+  line: 2576
   module: bupha-gha
 - name: W
   kind: type
   file: crates/bupha-gha/tests/gha.rs
-  line: 725
+  line: 726
   module: bupha-gha
 - name: Workflow
   kind: type
@@ -160,37 +160,37 @@ api:
 - name: artifact_download_defaults_to_named_dir
   kind: function
   file: crates/bupha-gha/tests/gha.rs
-  line: 1425
+  line: 1426
   module: bupha-gha
 - name: artifact_download_missing_fails
   kind: function
   file: crates/bupha-gha/tests/gha.rs
-  line: 1551
+  line: 1552
   module: bupha-gha
 - name: artifact_name_ok
   kind: function
   file: crates/bupha-gha/src/plan.rs
-  line: 917
+  line: 919
   module: bupha-gha
 - name: artifact_pattern_download_and_overwrite
   kind: function
   file: crates/bupha-gha/tests/gha.rs
-  line: 1459
+  line: 1460
   module: bupha-gha
 - name: artifact_plan_errors
   kind: function
   file: crates/bupha-gha/tests/gha.rs
-  line: 1571
+  line: 1572
   module: bupha-gha
 - name: artifact_upload_download_roundtrip
   kind: function
   file: crates/bupha-gha/tests/gha.rs
-  line: 1387
+  line: 1388
   module: bupha-gha
 - name: artifact_upload_missing_files_modes
   kind: function
   file: crates/bupha-gha/tests/gha.rs
-  line: 1504
+  line: 1505
   module: bupha-gha
 - name: as_map
   kind: function
@@ -200,9 +200,9 @@ api:
 - name: bash_sq
   kind: function
   file: crates/bupha-gha/src/plan.rs
-  line: 863
+  line: 865
   module: bupha-gha
-api_omitted: 192
+api_omitted: 197
 deps:
 - bupha-core
 - bupha-runner
@@ -230,9 +230,9 @@ provenance:
   hashes:
   - 130920aec2d9f32d6f8c6d16b35230ba63ddc04f
   - 436826c283566448df66adfd788503781dfb851c
-  - d635aef343fb60cd498944a67a33581c8272ad2f
+  - c1f811fd2687a2f35c0b003326cdf1bc6e0db4cf
   - 45c3635aca6878c155c08f8b1c0b154e9dff6404
-  - 312dd2142b36f0d405b61d1ceaf5ea86112b17c6
-  commit_sha: a0c52ce3db0efeddb92be06eb9047d147f6f448c
-  generated_at: '1794577041'
+  - a3680ec88b43d3b9e5fa140b79dfa08e0b3b1bc7
+  commit_sha: 2c877de870d176d7d0e2f08ec75438566384c1b7
+  generated_at: '1794582729'
   generator: kuda-template/0.1.4

@@ -523,14 +523,15 @@ fn unsupported_if_expression_fails_loudly() {
 
 #[test]
 fn unsupported_uses_fails() {
-    // setup-java is still outside the supported subset (other
-    // setup-* families, docker:// and local paths hard-error too —
-    // plan::tests::unsupported_uses_still_error covers the list).
+    // setup-haskell is still outside the supported subset (other
+    // setup-*, docker://, local paths and composite/reusable uses
+    // hard-error too — plan::tests::unsupported_uses_still_error
+    // covers the list).
     let (d, sha) = repo("uses");
     workflow(
         &d,
         "ci.yml",
-        "on: push\njobs:\n  t:\n    steps:\n      - uses: actions/setup-java@v4\n",
+        "on: push\njobs:\n  t:\n    steps:\n      - uses: actions/setup-haskell@v2\n",
     );
     let r = GhaRunner::new(GhaCfg { workflow: None });
     let ctx = RunCtx {
@@ -1725,6 +1726,86 @@ jobs:
     assert!(!run(&d, &sha).success());
     let v = std::fs::read_to_string(d.join("node.txt")).unwrap();
     assert!(v.starts_with("v22."), "{v}");
+}
+
+#[test]
+fn setup_java_provisions_jdk_on_path() {
+    if !net_ok("https://api.adoptium.net/v3/info/available_releases") {
+        eprintln!("setup_java: no network — skipped");
+        return;
+    }
+    let (d, sha) = repo("setup-java");
+    workflow(
+        &d,
+        "ci.yml",
+        r#"
+on: push
+jobs:
+  t:
+    steps:
+      - uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: temurin
+      - run: java -version > java.txt 2>&1 && echo "JAVA_HOME=$JAVA_HOME" >> java.txt
+"#,
+    );
+    assert!(run(&d, &sha).success());
+    let v = std::fs::read_to_string(d.join("java.txt")).unwrap();
+    assert!(v.contains("21."), "{v}");
+    assert!(v.contains("JAVA_HOME="), "{v}");
+}
+
+#[test]
+fn setup_dotnet_provisions_sdk_on_path() {
+    if !net_ok("https://dot.net/v1/dotnet-install.sh") {
+        eprintln!("setup_dotnet: no network — skipped");
+        return;
+    }
+    let (d, sha) = repo("setup-dotnet");
+    workflow(
+        &d,
+        "ci.yml",
+        r#"
+on: push
+jobs:
+  t:
+    steps:
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - run: dotnet --version > dotnet.txt
+"#,
+    );
+    assert!(run(&d, &sha).success());
+    let v = std::fs::read_to_string(d.join("dotnet.txt")).unwrap();
+    assert!(v.trim().starts_with("8.0."), "{v}");
+}
+
+#[test]
+fn setup_java_bad_inputs_fail() {
+    // Unknown vendor and missing version both hard-error before
+    // any download — no network needed.
+    let (d, sha) = repo("setup-java-err");
+    workflow(
+        &d,
+        "ci.yml",
+        r#"
+on: push
+jobs:
+  bad-dist:
+    steps:
+      - uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: zulu
+  no-version:
+    steps:
+      - uses: actions/setup-java@v4
+"#,
+    );
+    let err = spawn_err(&d, &sha);
+    assert!(err.contains("zulu"), "{err}");
 }
 
 #[test]
