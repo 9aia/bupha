@@ -48,9 +48,8 @@ use bupha_status::StatusSink;
 use bupha_telemetry::{NoopTelemetry, RunEvent, Telemetry};
 use bupha_telemetry_otel::OtelTelemetry;
 use bupha_trigger::{Emit, Push, Source, Stop, Trigger, Verdict};
-use bupha_cloudflared::CloudflaredTunnel;
-use bupha_tunnel::Tunnel;
-use bupha_webhook::WebhookSource;
+use tunnel::{CloudflaredTunnel, Tunnel};
+use webhook::WebhookSource;
 use hypha_dotenv::DotenvSecrets;
 use hypha_keyring::KeyringSecrets;
 use hypha_secret::Secrets;
@@ -65,6 +64,10 @@ use std::sync::{Arc, Condvar, Mutex};
 /// through the same `run_job` pipeline; used by
 /// `tamias-driver-bupha worker`.
 pub mod entity_worker;
+/// Standalone/dev-mode ingress helpers (ADR-0007): the `Tunnel`
+/// port + cloudflared impl, and the `/hook` webhook `Source`.
+pub mod tunnel;
+pub mod webhook;
 
 pub fn build_runner(rc: &bupha_core::RunnerCfg, cache: &bupha_core::CacheCfg) -> Arc<dyn Runner> {
     // Impls own their config shape — `rc.extra` deserializes into the

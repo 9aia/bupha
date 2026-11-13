@@ -30,11 +30,11 @@ bupha-ssh.workspace = true
 bupha-http.workspace = true
 bupha-container.workspace = true
 bupha-gha.workspace = true
-bupha-tunnel.workspace = true
-bupha-cloudflared.workspace = true
+# tiny_http backs the standalone/dev-mode /hook listener
+# (src/webhook.rs — ex-bupha-webhook, T-077).
+tiny_http = "0.12"
 bupha-github.workspace = true
 bupha-sturn.workspace = true
-bupha-webhook.workspace = true
 bupha-cache.workspace = true
 bupha-cache-sccache.workspace = true
 bupha-access.workspace = true

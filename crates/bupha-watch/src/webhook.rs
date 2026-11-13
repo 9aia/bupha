@@ -1,5 +1,6 @@
-//! bupha-webhook — the forge-webhook `Source` impl: a tiny_http
-//! listener that drives a `Trigger` port impl. One accept loop,
+//! Forge-webhook `Source` impl — a tiny_http listener that drives a
+//! `Trigger` port impl (inlined from the retired `bupha-webhook`
+//! crate, T-077). One accept loop,
 //! one request thread per delivery: route `/hook`, read the body
 //! (≤ 2 MiB), repo-hint → secret select → signature verify →
 //! delivery-id dedup → parse → emit the push. New forges plug in

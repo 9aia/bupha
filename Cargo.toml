@@ -28,11 +28,8 @@ members = [
     "crates/bupha-runner",
     "crates/bupha-dagger",
     "crates/bupha-shell",
-    "crates/bupha-tunnel",
-    "crates/bupha-cloudflared",
     "crates/bupha-http",
     "crates/bupha-sturn",
-    "crates/bupha-webhook",
     "crates/bupha-watch",
     "crates/bupha-driver",
     "crates/bupha-plane",
@@ -79,13 +76,10 @@ serde_json = "1"
 toml = "0.8"
 bupha-status = { path = "crates/bupha-status", version = "0.2.0" }
 bupha-runner = { path = "crates/bupha-runner", version = "0.2.0" }
-bupha-tunnel = { path = "crates/bupha-tunnel", version = "0.2.0" }
 bupha-dagger = { path = "crates/bupha-dagger", version = "0.2.0" }
 bupha-shell = { path = "crates/bupha-shell", version = "0.2.0" }
 bupha-github = { path = "crates/bupha-github", version = "0.2.0" }
-bupha-cloudflared = { path = "crates/bupha-cloudflared", version = "0.2.0" }
 bupha-sturn = { path = "crates/bupha-sturn", version = "0.2.0" }
-bupha-webhook = { path = "crates/bupha-webhook", version = "0.2.0" }
 bupha-watch = { path = "crates/bupha-watch", version = "0.2.0" }
 bupha-driver = { path = "crates/bupha-driver", version = "0.2.0" }
 bupha = { path = "crates/bupha-cli", version = "0.2.0" }

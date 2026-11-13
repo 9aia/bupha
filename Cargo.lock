@@ -409,14 +409,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "bupha-cloudflared"
-version = "0.2.0"
-dependencies = [
- "bupha-core",
- "bupha-tunnel",
-]
-
-[[package]]
 name = "bupha-config-file"
 version = "0.2.0"
 dependencies = [
@@ -635,10 +627,6 @@ name = "bupha-trigger"
 version = "0.2.0"
 
 [[package]]
-name = "bupha-tunnel"
-version = "0.2.0"
-
-[[package]]
 name = "bupha-watch"
 version = "0.2.0"
 dependencies = [
@@ -651,7 +639,6 @@ dependencies = [
  "bupha-audit-file",
  "bupha-cache",
  "bupha-cache-sccache",
- "bupha-cloudflared",
  "bupha-container",
  "bupha-core",
  "bupha-dagger",
@@ -670,8 +657,6 @@ dependencies = [
  "bupha-telemetry",
  "bupha-telemetry-otel",
  "bupha-trigger",
- "bupha-tunnel",
- "bupha-webhook",
  "chrono",
  "hypha-dotenv",
  "hypha-keyring",
@@ -680,18 +665,10 @@ dependencies = [
  "lasius-vcs",
  "lasius-vcs-git",
  "serde_json",
+ "tiny_http",
  "tokio",
  "toml",
  "ureq",
-]
-
-[[package]]
-name = "bupha-webhook"
-version = "0.2.0"
-dependencies = [
- "bupha-core",
- "bupha-trigger",
- "tiny_http",
 ]
 
 [[package]]
