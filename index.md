@@ -39,7 +39,7 @@ features:
     linkText: architecture
   - icon: 🔐
     title: Secrets stay secret
-    details: env var → cuora (`cuora://bupha/<NAME>`, canonical) → OS keyring → env file (retired); config holds names, never values; tokens never reach argv
+    details: env var → cuora (`cuora://bupha/<NAME>`, canonical) → `~/.config/bupha/env` (dev-mode / no-cuora fallback; the OS-keyring leg was dropped post-T-077); config holds names, never values; tokens never reach argv
     link: /getting-started
     linkText: setup
 ---

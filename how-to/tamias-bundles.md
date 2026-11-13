@@ -42,9 +42,10 @@ fight over the listener port and double-run pushes.
 Secrets are env-var **names** everywhere (`secret_env`,
 `token_env`); values resolve env → **cuora**
 (`cuora://bupha/<NAME>` via the `cuora` CLI — canonical, T-056;
-every fleet secret migrated there in T-059) → OS keyring →
-`~/.config/bupha/env` (legacy code fallback — the file is retired
-and no unit sets `EnvironmentFile`). Seed/rotate with
+every fleet secret migrated there in T-059) → `~/.config/bupha/env`
+(the dev-mode / no-cuora fallback — the OS-keyring leg was
+dropped post-T-077; the file is retired and no unit sets
+`EnvironmentFile`). Seed/rotate with
 `printf '%s' "$VALUE" | cuora put cuora://bupha/<NAME>`.
 Never a value in either file.
 

@@ -43,7 +43,7 @@ the oxpecker on your repo's back — headless CI
 * `watch` — Serve the source → queue → runner loop (forge webhook, sturn WAL poller — every configured source)
 * `agent` — Serve the remote-run agent — accepts jobs from `kind="http"` runners and executes them with this box's [runner]
 * `gha-runner` — Serve as a GitHub Actions self-hosted runner — registers with a repo (once), then polls GitHub's broker protocol and runs the jobs it is offered (`runs-on: [self-hosted, bupha]`). Uses bupha-gha-runner's own config file, not bupha.yaml
-* `init` — Scaffold dagger CI in a repo (dagger init + pinned module + delegate). For the script runner, a ci.sh is enough
+* `init` — Scaffold dagger CI in a repo (dagger init, pinned module, delegate template) and converge its AGENTS.md to the managed agent-awareness block. For the script runner, a ci.sh is enough
 * `doctor` — Check what the loaded config actually needs on this box
 * `run` — Run the pipeline locally — in the watched repo's `dir`, not cwd
 * `deploy` — Install-time helpers — no manual file copies
@@ -90,7 +90,7 @@ Serve as a GitHub Actions self-hosted runner — registers with a repo (once), t
 
 ## `bupha init`
 
-Scaffold dagger CI in a repo (dagger init + pinned module + delegate). For the script runner, a ci.sh is enough
+Scaffold dagger CI in a repo (dagger init, pinned module, delegate template) and converge its AGENTS.md to the managed agent-awareness block. For the script runner, a ci.sh is enough
 
 **Usage:** `bupha init [DIR]`
 
@@ -135,7 +135,7 @@ Install-time helpers — no manual file copies
 ###### **Subcommands:**
 
 * `service` — Write + enable the systemd user unit (needs enable-linger for boot persistence)
-* `webhook` — Register/update the repo's push webhook via the REST API (token from env/keyring/env file — no `gh` dependency)
+* `webhook` — Register/update the repo's push webhook via the REST API (token resolved env → cuora → env file — no `gh` dependency)
 * `env` — Seed ~/.config/bupha/env with the secret names
 * `check` — Verify the whole install: unit, secrets, hook, endpoint, token
 * `release` — Tag the workspace version `{repo}-v{ver}` and push it. crates.io publish is retired — releases ride the tamias pack
@@ -156,7 +156,7 @@ Write + enable the systemd user unit (needs enable-linger for boot persistence)
 
 ## `bupha deploy webhook`
 
-Register/update the repo's push webhook via the REST API (token from env/keyring/env file — no `gh` dependency)
+Register/update the repo's push webhook via the REST API (token resolved env → cuora → env file — no `gh` dependency)
 
 **Usage:** `bupha deploy webhook`
 

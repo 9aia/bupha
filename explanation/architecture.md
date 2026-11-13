@@ -164,8 +164,9 @@ the queue moving.
 - webhook takeover is exact-URL only; hook API calls are timed out
 - config names secrets (`secret_env`/`token_env`) — values resolve
   env → cuora (`cuora://bupha/<NAME>`, canonical, T-056; fleet
-  secrets migrated, T-059) → OS keyring → `~/.config/bupha/env`
-  (0600, retired — legacy code fallback); the runner gets
+  secrets migrated, T-059) → `~/.config/bupha/env`
+  (0600 — dev-mode / no-cuora fallback; keyring leg dropped
+  post-T-077); the runner gets
   the token through its own mechanism (`env://` for dagger)
 
 ## Extending
