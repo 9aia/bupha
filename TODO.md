@@ -4,9 +4,9 @@
 - [ ] T-031 presentation deck — pending: run via ~/.9aia-pres pipeline (pres kick bupha or supervisor); agent writes presentation/ on branch presentation/initial, slidev build verify, push; no PR (sturn flow) — the pushed branch is the deliverable; merge is a human/sturn call; status board: ~/.9aia-pres/STATUS.md · created:2026-11-02
 - [ ] T-032 agent-awareness managed block — bupha's repo contract (myco check in gate pipelines, Item: T-NNN commit trailers) should live in a \<!-- bupha:agent-awareness --> block written by init + validated by check — pattern: myco init/check · created:2026-11-02
 - [ ] T-048 gha runner follow-ups — parallel matrix, actions/setup-\* + other uses:, if: conditions, needs.\*.outputs, per-gha-job commit statuses, timeout-minutes enforcement, multi-commit paths filters (PL-013 D-deferred) · status:in-progress · owner:devin · created:2026-11-10 · #ci · #gha
-- [ ] T-073 fork-PR head shas — ci-job indexDoc lacks clone\_url/PR head ref so fork pull\_requests can't be checked out from base clone (T-067 remainder) · created:2026-11-12
 - [ ] T-044 rotate CARGO\_REGISTRY\_TOKEN — was at .env 0644 (now 600); treat as exposed · status:blocked · pri:high · owner:human:Luis-Emidio · created:2026-11-03
 - [ ] T-076 peregrin campaign listener-run failures are silent — dead ingress invisible until shutdown (follow-up T-075) · created:2026-11-13 · links:T-075
 - [ ] T-077 retire remaining generic-infra crates per T-053 audit now that T-055/T-056 gates resolved — bupha-{cloudflared,tunnel,service,systemd,dotenv,keyring} MIGRATE/DIE + bupha-{secret,webhook} port decisions; consumers: bupha-watch dev harness, bupha-cli, bupha-driver secret chain (cuora canonical, legacy legs removable after T-059 verification) · pri:high · created:2026-11-13
+- [ ] T-073 fork-PR head shas — ci-job indexDoc lacks clone\_url/PR head ref so fork pull\_requests can't be checked out from base clone (T-067 remainder) · status:claimed · owner:devin · created:2026-11-12
 
 ## open
