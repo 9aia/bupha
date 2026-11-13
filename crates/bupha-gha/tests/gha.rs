@@ -317,11 +317,14 @@ fn unsupported_if_expression_fails_loudly() {
 
 #[test]
 fn unsupported_uses_fails() {
+    // setup-java is still outside the supported subset (other
+    // setup-* families, docker:// and local paths hard-error too —
+    // plan::tests::unsupported_uses_still_error covers the list).
     let (d, sha) = repo("uses");
     workflow(
         &d,
         "ci.yml",
-        "on: push\njobs:\n  t:\n    steps:\n      - uses: actions/setup-node@v4\n",
+        "on: push\njobs:\n  t:\n    steps:\n      - uses: actions/setup-java@v4\n",
     );
     let r = GhaRunner::new(GhaCfg { workflow: None });
     let ctx = RunCtx {
@@ -1388,4 +1391,294 @@ fn artifact_plan_errors() {
         let err = spawn_err(&d, &sha);
         assert!(err.contains(needle), "case {i}: {err} lacks `{needle}`");
     }
+}
+
+// --- setup-* toolchain actions ---------------------------------------
+
+/// True when the dist host answers — toolchain tests download real
+/// tarballs, so they skip (not fail) on network-less hosts.
+fn net_ok(url: &str) -> bool {
+    Command::new("curl")
+        .args(["-fsSI", "--max-time", "8", url])
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false)
+}
+
+#[test]
+fn setup_node_provisions_node_on_path() {
+    if !net_ok("https://nodejs.org/dist/") {
+        eprintln!("setup_node: no network — skipped");
+        return;
+    }
+    let (d, sha) = repo("setup-node");
+    workflow(
+        &d,
+        "ci.yml",
+        r#"
+on: push
+jobs:
+  t:
+    steps:
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --version > node.txt
+"#,
+    );
+    assert!(run(&d, &sha).success());
+    let v = std::fs::read_to_string(d.join("node.txt")).unwrap();
+    assert!(v.starts_with("v22."), "{v}");
+}
+
+#[test]
+fn setup_go_provisions_go_on_path() {
+    if !net_ok("https://go.dev/dl/") {
+        eprintln!("setup_go: no network — skipped");
+        return;
+    }
+    let (d, sha) = repo("setup-go");
+    workflow(
+        &d,
+        "ci.yml",
+        r#"
+on: push
+jobs:
+  t:
+    steps:
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+      - run: go version > go.txt
+"#,
+    );
+    assert!(run(&d, &sha).success());
+    let v = std::fs::read_to_string(d.join("go.txt")).unwrap();
+    assert!(v.contains("go1.22."), "{v}");
+}
+
+#[test]
+fn setup_python_provisions_python_on_path() {
+    if !net_ok("https://github.com") {
+        eprintln!("setup_python: no network — skipped");
+        return;
+    }
+    let (d, sha) = repo("setup-python");
+    workflow(
+        &d,
+        "ci.yml",
+        r#"
+on: push
+jobs:
+  t:
+    steps:
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python3 --version > py.txt
+"#,
+    );
+    assert!(run(&d, &sha).success());
+    let v = std::fs::read_to_string(d.join("py.txt")).unwrap();
+    assert!(v.contains("3.12."), "{v}");
+}
+
+#[test]
+fn setup_node_version_file_and_bad_version() {
+    // .nvmrc-style resolution works; a nonsense spec fails the job
+    // before any download is attempted.
+    let (d, sha) = repo("setup-nodefile");
+    std::fs::write(d.join(".nvmrc"), "22\n").unwrap();
+    workflow(
+        &d,
+        "ci.yml",
+        r#"
+on: push
+jobs:
+  ok:
+    steps:
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+      - run: node --version > node.txt
+  bad:
+    steps:
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 'lts/*'
+"#,
+    );
+    // `bad` fails on the unsupported spec — but `ok` downloads
+    // first; gate the whole test on network like the others.
+    if !net_ok("https://nodejs.org/dist/") {
+        eprintln!("setup_nodefile: no network — skipped");
+        return;
+    }
+    assert!(!run(&d, &sha).success());
+    let v = std::fs::read_to_string(d.join("node.txt")).unwrap();
+    assert!(v.starts_with("v22."), "{v}");
+}
+
+#[test]
+fn setup_unknown_with_key_fails_at_spawn() {
+    let (d, sha) = repo("setup-err");
+    workflow(
+        &d,
+        "ci.yml",
+        r#"
+on: push
+jobs:
+  t:
+    steps:
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+          bogus: 1
+"#,
+    );
+    let err = spawn_err(&d, &sha);
+    assert!(err.contains("bogus"), "{err}");
+}
+
+// --- actions/cache* ----------------------------------------------------
+
+/// One cache dir per test process, exported to the generated
+/// scripts — proves entries persist across `run()` invocations
+/// (runs) the way they would under ~/.local/share/bupha.
+fn shared_cache_dir() -> PathBuf {
+    let d = std::env::temp_dir().join(format!("bupha-gha-cache-{}", std::process::id()));
+    std::fs::create_dir_all(&d).unwrap();
+    std::env::set_var("BUPHA_GHA_CACHE_DIR", &d);
+    d
+}
+
+#[test]
+fn cache_combined_roundtrip_across_runs() {
+    shared_cache_dir();
+    let (d, sha) = repo("cache-combined");
+    workflow(
+        &d,
+        "ci.yml",
+        r#"
+on: push
+jobs:
+  t:
+    steps:
+      - uses: actions/cache@v4
+        with:
+          key: combined-test-blob
+          path: .cache/
+      - run: 'if [ -f .cache/blob ]; then cat .cache/blob > seen.txt; else mkdir -p .cache && echo built > .cache/blob; fi'
+"#,
+    );
+    // Run 1: miss → step builds the file → job-end flush saves.
+    assert!(run(&d, &sha).success());
+    assert_eq!(
+        std::fs::read_to_string(d.join(".cache/blob")).unwrap(),
+        "built\n"
+    );
+    // Simulate a fresh checkout: the payload is gone, only the
+    // persistent cache store still has it.
+    std::fs::remove_dir_all(d.join(".cache")).unwrap();
+    // Run 2: exact-key restore brings .cache/blob back.
+    assert!(run(&d, &sha).success());
+    assert_eq!(
+        std::fs::read_to_string(d.join("seen.txt")).unwrap(),
+        "built\n"
+    );
+}
+
+#[test]
+fn cache_save_restore_actions_roundtrip() {
+    shared_cache_dir();
+    let (d, sha) = repo("cache-actions");
+    workflow(
+        &d,
+        "ci.yml",
+        r#"
+on: push
+jobs:
+  build:
+    steps:
+      - run: mkdir -p .cache && echo payload > .cache/blob
+      - uses: actions/cache/save@v4
+        with:
+          key: actions-test-blob
+          path: .cache/
+  consume:
+    needs: build
+    steps:
+      - run: rm -rf .cache
+      - uses: actions/cache/restore@v4
+        with:
+          key: actions-test-blob
+          path: .cache/
+          restore-keys: actions-test
+          fail-on-cache-miss: true
+      - run: cat .cache/blob > check.txt
+"#,
+    );
+    assert!(run(&d, &sha).success());
+    assert_eq!(
+        std::fs::read_to_string(d.join("check.txt")).unwrap(),
+        "payload\n"
+    );
+}
+
+#[test]
+fn cache_restore_keys_prefix_and_miss() {
+    shared_cache_dir();
+    let (d, sha) = repo("cache-keys");
+    workflow(
+        &d,
+        "ci.yml",
+        r#"
+on: push
+jobs:
+  build:
+    steps:
+      - run: mkdir -p .cache && echo v1 > .cache/blob
+      - uses: actions/cache/save@v4
+        with:
+          key: prefixed-cache-1
+          path: .cache/
+  consume:
+    needs: build
+    steps:
+      - run: rm -rf .cache
+      - uses: actions/cache/restore@v4
+        with:
+          key: prefixed-cache-2
+          path: .cache/
+          restore-keys: |
+            prefixed-cache-
+          fail-on-cache-miss: true
+      - run: cat .cache/blob > check.txt
+"#,
+    );
+    assert!(run(&d, &sha).success());
+    assert_eq!(
+        std::fs::read_to_string(d.join("check.txt")).unwrap(),
+        "v1\n"
+    );
+
+    // A restore with no exact key and no matching prefix fails
+    // under fail-on-cache-miss.
+    let (d2, sha2) = repo("cache-miss");
+    workflow(
+        &d2,
+        "ci.yml",
+        r#"
+on: push
+jobs:
+  t:
+    steps:
+      - uses: actions/cache/restore@v4
+        with:
+          key: never-saved-key
+          path: .cache/
+          fail-on-cache-miss: true
+"#,
+    );
+    assert!(!run(&d2, &sha2).success());
 }

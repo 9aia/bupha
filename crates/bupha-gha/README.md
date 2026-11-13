@@ -57,9 +57,13 @@ workflow.
   pushed sha; `with.path` errors), `dtolnay/rust-toolchain`
   (lowers to `rustup toolchain install` + `default` with the
   `toolchain`/`targets`/`components`/`profile` inputs; rustup must
-  be on `PATH`), `actions/upload-artifact` and
+  be on `PATH`), `actions/setup-node`, `actions/setup-python` and
+  `actions/setup-go` (official release tarballs into a per-run
+  toolcache — see boundaries), `actions/upload-artifact` and
   `actions/download-artifact` (a per-run tar store under
-  `$BUPHA_GHA_TMP/artifacts/` — see boundaries). `id` is the handle
+  `$BUPHA_GHA_TMP/artifacts/` — see boundaries), and
+  `actions/cache`, `actions/cache/save`, `actions/cache/restore`
+  (a persistent keyed store — see boundaries). `id` is the handle
   `steps.<id>.outputs.*` references; ids must be unique per job and
   `[A-Za-z0-9_.-]`.
 - `${{ }}` expressions — `env.*`, `github.{sha,ref,ref_name,
@@ -94,10 +98,13 @@ workflow.
 `continue-on-error:`, `matrix.include`/`exclude`,
 `on.push.{tags,types,workflows}`, any `uses:` other than
 `actions/checkout`, `dtolnay/rust-toolchain`,
-`actions/upload-artifact` and `actions/download-artifact`
-(`actions/setup-*` included), artifact `with:` keys outside each
-action's allowlist and cross-run download inputs (`run-id`,
-`github-token`, `repository`, `run-attempt`),
+`actions/setup-{node,python,go}`, `actions/upload-artifact`,
+`actions/download-artifact`, `actions/cache`, `actions/cache/save`
+and `actions/cache/restore` (other `actions/setup-*`,
+`docker://image`, local `./path` and `owner/repo/path@ref`
+composite uses included), `with:` keys outside each action's
+allowlist and cross-run download inputs (`run-id`, `github-token`,
+`repository`, `run-attempt`),
 `steps.*.outcome`/`steps.*.outputs` (bare) expressions,
 `if:` functions beyond the supported subset (`hashFiles`,
 `fromJSON`, `format`, …), `shell:` values containing `${{ }}`,
@@ -157,6 +164,42 @@ level.
   no-ops — the tar never leaves the host. `run-id`/`github-token`/
   `repository`/`run-attempt` on download hard-error: cross-run
   artifacts don't exist locally.
+- **`setup-*` toolchains are linux/x64+arm64 only.** Each lowering
+  resolves the version, downloads the official tarball into a
+  per-run toolcache (`$BUPHA_GHA_TMP/toolcache/<tool>/<ver>` —
+  wiped with the run, shared by later jobs *within* the run), and
+  prepends `bin/` via `$GITHUB_PATH`. `node-version`/`python-version`/
+  `go-version` accept exact `x.y.z` or partial `x`/`x.y` (resolved
+  to the latest matching release via nodejs.org's `index.json`,
+  `git ls-remote` on `actions/python-versions`, and go.dev's
+  `?mode=json` respectively); `*-version-file` reads
+  `.nvmrc`/`.python-version`/`go.mod`-style files, `stable`/`latest`
+  work for go, and `lts/*`, semver ranges, `tip` and non-numeric
+  specs hard-error at run time. `architecture` maps to the dist
+  arch (`x64`/`arm64`; go also `x86`/`arm`). Registry/npm inputs
+  (`registry-url`, `scope`, `token`, `always-auth`), `cache`,
+  `cache-dependency-path`, `check-latest` and `update-environment`
+  (python: honored — it gates the PATH prepend) are accepted
+  no-ops or honored as documented per action. Step outputs:
+  `node-version`, `python-version`, `go-version` are published;
+  python also exports `Python*_ROOT_DIR`/`LD_LIBRARY_PATH` via
+  `$GITHUB_ENV` and go exports `GOROOT`.
+- **`actions/cache*` persists under the worker's state dir** —
+  `${BUPHA_GHA_CACHE_DIR:-${XDG_DATA_HOME:-$HOME/.local/share}/bupha/gha-cache}/<repo>/<sha256(key)>.tar`
+  with a sibling `.key` file holding the plaintext key (prefix
+  scans for `restore-keys`). `key`+`path` are required; `path` is
+  a workspace-relative glob list like upload-artifact's. Exact key
+  hits restore newest-first; `restore-keys` are prefix matches tried
+  in order (newest entry inside the first matching prefix wins).
+  `cache-hit`/`cache-primary-key` step outputs and
+  `fail-on-cache-miss`/`lookup-only` are honored;
+  `enableCrossOsArchive`/`upload-chunk-size` are accepted no-ops.
+  `actions/cache/save` errors when the key exists (GitHub's
+  immutable-cache rule); `actions/cache` restores immediately and
+  registers a save that a runner-appended end-of-job step performs
+  — a job that fails before its last step saves nothing, and there
+  is no cross-job ordering or eviction (the store grows until
+  pruned by hand).
 - **`strategy.fail-fast`** (default on) cancels a matrix job's
   remaining legs after one leg fails; legs already running finish
   first since execution is sequential anyway.

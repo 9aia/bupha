@@ -715,6 +715,13 @@ fn build_step(
                 UsesScript::RustToolchain => rust_toolchain_script(&pairs, what)?,
                 UsesScript::UploadArtifact => upload_artifact_script(&pairs, what)?,
                 UsesScript::DownloadArtifact => download_artifact_script(&pairs, what)?,
+                UsesScript::SetupNode => setup_node_script(&pairs, what)?,
+                UsesScript::SetupPython => setup_python_script(&pairs, what)?,
+                UsesScript::SetupGo => setup_go_script(&pairs, what)?,
+                UsesScript::CacheRestore => cache_restore_script(&pairs, what)?,
+                UsesScript::CacheSave => cache_save_script(&pairs, what)?,
+                UsesScript::Cache => cache_script(&pairs, what)?,
+                UsesScript::CacheFlush => cache_flush_script(&pairs, what)?,
             };
             Ok(Step::Run(RunStep {
                 id: id.clone(),
@@ -1098,6 +1105,641 @@ fn download_artifact_script(pairs: &[(String, Vec<String>)], what: &str) -> Resu
          echo \"gha: download-artifact — restored ${#_arts[@]} artifact(s) into '$dest'\"\n",
     );
     Ok(s)
+}
+
+/// `echo` warnings for `with:` inputs that are valid on the real
+/// action but have no local effect — emitted into the synthesized
+/// script so the no-op is visible in logs. `ignored` is a fixed
+/// list, so nothing user-controlled reaches the bash unquoted.
+fn noop_warnings(pairs: &[(String, Vec<String>)], ignored: &[&str], action: &str) -> String {
+    let mut s = String::new();
+    for k in ignored {
+        if pairs.iter().any(|(pk, _)| pk == k) {
+            s.push_str(&format!(
+                "echo \"gha: {action} — `{k}` accepted but is a no-op in the local lowering\"\n"
+            ));
+        }
+    }
+    s
+}
+
+/// A `*-version-file:` input must stay inside the worktree.
+fn check_version_file(path: &str, key: &str, what: &str) -> Result<(), String> {
+    if path.is_empty()
+        || path.starts_with('/')
+        || path.split('/').any(|c| c == "..")
+        || path.chars().any(|c| c.is_control())
+    {
+        return Err(format!(
+            "{what}.with.{key}: `{path}` must be a worktree-relative path"
+        ));
+    }
+    Ok(())
+}
+
+/// Reject control characters in single-line `with:` values (cache
+/// keys, version specs) — they'd break the synthesized bash or the
+/// on-disk cache layout. `\n` is allowed for the multi-line `path`/
+/// `restore-keys` blocks.
+fn check_no_ctl(v: &str, key: &str, what: &str) -> Result<(), String> {
+    if v.chars().any(|c| c.is_control() && c != '\n') {
+        return Err(format!(
+            "{what}.with.{key}: control characters are unsupported"
+        ));
+    }
+    Ok(())
+}
+
+/// `actions/setup-node` lowered to bash: resolve `node-version`
+/// (exact `x.y.z` or partial `x`/`x.y` → latest matching via
+/// nodejs.org's index.json; `lts/*` and semver ranges error),
+/// download the official linux tarball into the per-run toolcache
+/// (`$BUPHA_GHA_TMP/toolcache/node/<ver>` — shared by later jobs in
+/// the same run), and prepend its `bin/` via `$GITHUB_PATH`.
+/// `node-version-file` reads `.nvmrc`-style files at run time.
+/// npm-registry inputs and `cache` are accepted no-ops (no secrets,
+/// no cross-run cache for npm here).
+fn setup_node_script(pairs: &[(String, Vec<String>)], what: &str) -> Result<String, String> {
+    check_with_keys(
+        pairs,
+        &[
+            "node-version",
+            "node-version-file",
+            "architecture",
+            "check-latest",
+            "registry-url",
+            "scope",
+            "token",
+            "always-auth",
+            "cache",
+            "cache-dependency-path",
+        ],
+        what,
+    )?;
+    let ver = with_one(pairs, "node-version", what)?;
+    let vfile = with_one(pairs, "node-version-file", what)?;
+    if ver.is_none() && vfile.is_none() {
+        return Err(format!(
+            "{what}.with: `node-version` or `node-version-file` is required"
+        ));
+    }
+    if let Some(v) = ver {
+        check_no_ctl(v, "node-version", what)?;
+    }
+    if let Some(v) = vfile {
+        check_version_file(v, "node-version-file", what)?;
+    }
+    let arch = with_one(pairs, "architecture", what)?.unwrap_or("");
+    check_no_ctl(arch, "architecture", what)?;
+
+    let mut s = String::from("set -e\n");
+    s.push_str(&noop_warnings(
+        pairs,
+        &[
+            "registry-url",
+            "scope",
+            "always-auth",
+            "token",
+            "cache",
+            "cache-dependency-path",
+        ],
+        "setup-node",
+    ));
+    s.push_str(&format!("want={}\n", bash_sq(ver.unwrap_or(""))));
+    s.push_str(&format!("vfile={}\n", bash_sq(vfile.unwrap_or(""))));
+    s.push_str(&format!("arch={}\n", bash_sq(arch)));
+    s.push_str(
+        r#"if [ -z "$want" ]; then
+  if [ -z "$vfile" ]; then
+    echo "gha: setup-node — node-version or node-version-file is required"; exit 1
+  fi
+  if [ ! -f "$vfile" ]; then
+    echo "gha: setup-node — version file '$vfile' not found"; exit 1
+  fi
+  want=$(grep -m1 -vE '^[[:space:]]*(#|$)' "$vfile" | head -1 | tr -d '[:space:]')
+  want=${want#v}
+fi
+case "$want" in
+  ''|.*|*.|*..*|*.*.*.*|*[!0-9.]*)
+    echo "gha: setup-node — unsupported node-version '$want' (exact x.y.z or partial x / x.y numeric versions only; lts/* and ranges unsupported)"; exit 1 ;;
+esac
+dots=$(printf '%s' "$want" | tr -cd '.' | wc -c)
+if [ "$dots" -eq 2 ]; then
+  full="v$want"
+else
+  idx=$(curl -fsSL --max-time 30 https://nodejs.org/dist/index.json) || {
+    echo "gha: setup-node — cannot fetch https://nodejs.org/dist/index.json"; exit 1; }
+  full=$(printf '%s\n' "$idx" | grep -oE '"version":"v[0-9]+\.[0-9]+\.[0-9]+' | cut -d'"' -f4 | grep "^v${want}\." | head -1)
+  [ -n "$full" ] || { echo "gha: setup-node — no Node.js '$want' release found"; exit 1; }
+fi
+if [ "$(uname -s)" != "Linux" ]; then
+  echo "gha: setup-node — linux runners only"; exit 1
+fi
+a="$arch"
+[ -z "$a" ] && a=$(uname -m)
+case "$a" in x86_64) a=x64 ;; aarch64) a=arm64 ;; esac
+case "$a" in
+  x64|arm64) ;;
+  *) echo "gha: setup-node — unsupported architecture '$a' (x64, arm64)"; exit 1 ;;
+esac
+tc="$BUPHA_GHA_TMP/toolcache/node/$full"
+if [ ! -x "$tc/bin/node" ]; then
+  mkdir -p "$tc"
+  tmp=$(mktemp -d)
+  if ! curl -fsSL --max-time 300 "https://nodejs.org/dist/$full/node-$full-linux-$a.tar.xz" -o "$tmp/node.tar.xz"; then
+    echo "gha: setup-node — download failed: node-$full-linux-$a.tar.xz"; rm -rf "$tmp"; exit 1
+  fi
+  tar -xJf "$tmp/node.tar.xz" -C "$tc" --strip-components=1
+  rm -rf "$tmp"
+fi
+echo "$tc/bin" >> "$GITHUB_PATH"
+printf 'node-version=%s\n' "${full#v}" >> "$GITHUB_OUTPUT"
+echo "gha: setup-node — node $full (linux-$a) at $tc/bin"
+"#,
+    );
+    Ok(s)
+}
+
+/// `actions/setup-go` lowered to bash: resolve `go-version` (exact
+/// `x.y.z`, partial `x`/`x.y` → latest via go.dev's `?mode=json`,
+/// `stable`/`latest` → newest; `tip` errors — it needs a source
+/// build), download the official `go<ver>.linux-<arch>.tar.gz`
+/// into the per-run toolcache, prepend `bin/` via `$GITHUB_PATH`
+/// and publish `GOROOT` via `$GITHUB_ENV`.
+fn setup_go_script(pairs: &[(String, Vec<String>)], what: &str) -> Result<String, String> {
+    check_with_keys(
+        pairs,
+        &[
+            "go-version",
+            "go-version-file",
+            "architecture",
+            "check-latest",
+            "cache",
+            "cache-dependency-path",
+            "token",
+        ],
+        what,
+    )?;
+    let ver = with_one(pairs, "go-version", what)?;
+    let vfile = with_one(pairs, "go-version-file", what)?;
+    if ver.is_none() && vfile.is_none() {
+        return Err(format!(
+            "{what}.with: `go-version` or `go-version-file` is required"
+        ));
+    }
+    if let Some(v) = ver {
+        check_no_ctl(v, "go-version", what)?;
+    }
+    if let Some(v) = vfile {
+        check_version_file(v, "go-version-file", what)?;
+    }
+    let arch = with_one(pairs, "architecture", what)?.unwrap_or("");
+    check_no_ctl(arch, "architecture", what)?;
+
+    let mut s = String::from("set -e\n");
+    s.push_str(&noop_warnings(
+        pairs,
+        &["cache", "cache-dependency-path", "token"],
+        "setup-go",
+    ));
+    s.push_str(&format!("want={}\n", bash_sq(ver.unwrap_or(""))));
+    s.push_str(&format!("vfile={}\n", bash_sq(vfile.unwrap_or(""))));
+    s.push_str(&format!("arch={}\n", bash_sq(arch)));
+    s.push_str(
+        r#"if [ -z "$want" ]; then
+  if [ -z "$vfile" ]; then
+    echo "gha: setup-go — go-version or go-version-file is required"; exit 1
+  fi
+  if [ ! -f "$vfile" ]; then
+    echo "gha: setup-go — version file '$vfile' not found"; exit 1
+  fi
+  want=$(sed -n 's/^[[:space:]]*go[[:space:]][[:space:]]*\([^[:space:]]*\).*/\1/p' "$vfile" | head -1)
+  [ -n "$want" ] || want=$(sed -n 's/^[[:space:]]*toolchain[[:space:]][[:space:]]*go\([^[:space:]]*\).*/\1/p' "$vfile" | head -1)
+fi
+want=${want#go}
+case "$want" in
+  stable|latest) ;;
+  tip) echo "gha: setup-go — 'tip' needs a source build; unsupported"; exit 1 ;;
+  ''|.*|*.|*..*|*.*.*.*|*[!0-9.]*)
+    echo "gha: setup-go — unsupported go-version '$want' (exact x.y.z or partial x / x.y numeric versions, or stable/latest)"; exit 1 ;;
+esac
+dots=$(printf '%s' "$want" | tr -cd '.' | wc -c)
+if [ "$dots" -eq 2 ]; then
+  full="go$want"
+else
+  list=$(curl -fsSL --max-time 30 'https://go.dev/dl/?mode=json') || {
+    echo "gha: setup-go — cannot fetch https://go.dev/dl/?mode=json"; exit 1; }
+  vers=$(printf '%s\n' "$list" | grep -oE '"version":"go[0-9]+\.[0-9]+\.[0-9]+"' | cut -d'"' -f4 | sort -uV)
+  case "$want" in
+    stable|latest) full=$(printf '%s\n' "$vers" | tail -1) ;;
+    *) full=$(printf '%s\n' "$vers" | grep "^go${want}\." | tail -1) ;;
+  esac
+  [ -n "$full" ] || { echo "gha: setup-go — no Go '$want' release found"; exit 1; }
+fi
+if [ "$(uname -s)" != "Linux" ]; then
+  echo "gha: setup-go — linux runners only"; exit 1
+fi
+a="$arch"
+[ -z "$a" ] && a=$(uname -m)
+case "$a" in x86_64|amd64) a=amd64 ;; i686|i386|x86) a=386 ;; aarch64|arm64) a=arm64 ;; armv7l|armv6l|arm) a=arm ;; esac
+case "$a" in
+  amd64|arm64|386|arm) ;;
+  *) echo "gha: setup-go — unsupported architecture '$a'"; exit 1 ;;
+esac
+tc="$BUPHA_GHA_TMP/toolcache/go/$full"
+if [ ! -x "$tc/go/bin/go" ]; then
+  mkdir -p "$tc"
+  tmp=$(mktemp -d)
+  if ! curl -fsSL --max-time 300 "https://go.dev/dl/$full.linux-$a.tar.gz" -o "$tmp/go.tar.gz"; then
+    echo "gha: setup-go — download failed: $full.linux-$a.tar.gz"; rm -rf "$tmp"; exit 1
+  fi
+  tar -xzf "$tmp/go.tar.gz" -C "$tc"
+  rm -rf "$tmp"
+fi
+root="$tc/go"
+echo "$root/bin" >> "$GITHUB_PATH"
+echo "GOROOT=$root" >> "$GITHUB_ENV"
+printf 'go-version=%s\n' "${full#go}" >> "$GITHUB_OUTPUT"
+echo "gha: setup-go — go $full (linux-$a) at $root"
+"#,
+    );
+    Ok(s)
+}
+
+/// `actions/setup-python` lowered to bash: resolve `python-version`
+/// (exact `x.y.z` or partial `x`/`x.y` → latest matching) against
+/// `actions/python-versions` git tags via `git ls-remote` (one call,
+/// no API rate limit), pick the newest matching release, then probe
+/// the linux distro builds (24.04 → 22.04 → 26.04 → rhel-10 →
+/// rhel-9) for a downloadable asset. Installs into the per-run
+/// toolcache; `update-environment` (default true) controls the
+/// `$GITHUB_PATH` prepend, the `Python*_ROOT_DIR`/`LD_LIBRARY_PATH`
+/// env writes happen either way.
+fn setup_python_script(pairs: &[(String, Vec<String>)], what: &str) -> Result<String, String> {
+    check_with_keys(
+        pairs,
+        &[
+            "python-version",
+            "python-version-file",
+            "architecture",
+            "check-latest",
+            "token",
+            "cache",
+            "cache-dependency-path",
+            "update-environment",
+        ],
+        what,
+    )?;
+    let ver = with_one(pairs, "python-version", what)?;
+    let vfile = with_one(pairs, "python-version-file", what)?;
+    if ver.is_none() && vfile.is_none() {
+        return Err(format!(
+            "{what}.with: `python-version` or `python-version-file` is required"
+        ));
+    }
+    if let Some(v) = ver {
+        check_no_ctl(v, "python-version", what)?;
+    }
+    if let Some(v) = vfile {
+        check_version_file(v, "python-version-file", what)?;
+    }
+    let arch = with_one(pairs, "architecture", what)?.unwrap_or("");
+    check_no_ctl(arch, "architecture", what)?;
+    let updenv = with_flag(pairs, "update-environment", what)?.unwrap_or(true);
+
+    let mut s = String::from("set -e\n");
+    s.push_str(&noop_warnings(
+        pairs,
+        &["token", "cache", "cache-dependency-path"],
+        "setup-python",
+    ));
+    s.push_str(&format!("want={}\n", bash_sq(ver.unwrap_or(""))));
+    s.push_str(&format!("vfile={}\n", bash_sq(vfile.unwrap_or(""))));
+    s.push_str(&format!("arch={}\n", bash_sq(arch)));
+    s.push_str(&format!("updenv={}\n", if updenv { "1" } else { "0" }));
+    s.push_str(
+        r#"if [ -z "$want" ]; then
+  if [ -z "$vfile" ]; then
+    echo "gha: setup-python — python-version or python-version-file is required"; exit 1
+  fi
+  if [ ! -f "$vfile" ]; then
+    echo "gha: setup-python — version file '$vfile' not found"; exit 1
+  fi
+  want=$(grep -m1 -vE '^[[:space:]]*(#|$)' "$vfile" | head -1 | tr -d '[:space:]')
+  want=${want#python}
+  want=${want#py}
+  want=${want#-}
+fi
+case "$want" in
+  ''|.*|*.|*..*|*.*.*.*|*[!0-9.-]*)
+    echo "gha: setup-python — unsupported python-version '$want' (exact x.y.z or partial x / x.y numeric versions only; pypy/pyenv specs unsupported)"; exit 1 ;;
+esac
+if [ "$(uname -s)" != "Linux" ]; then
+  echo "gha: setup-python — linux runners only"; exit 1
+fi
+a="$arch"
+[ -z "$a" ] && a=$(uname -m)
+case "$a" in x86_64|amd64) a=x64 ;; aarch64|arm64) a=arm64 ;; *) echo "gha: setup-python — unsupported architecture '$a' (x64, arm64)"; exit 1 ;; esac
+# Resolve the release tag: actions/python-versions tags look like
+# <version>-<buildid> (e.g. 3.12.10-40336797752); the asset name
+# uses the bare version. Partial specs match the newest stable.
+dots=$(printf '%s' "$want" | tr -cd '.' | wc -c)
+case "$dots" in
+  0) pat="^${want}\.[0-9]+\.[0-9]+$" ;;
+  1) pat="^${want}\.[0-9]+$" ;;
+  *) pat="^${want}$" ;;
+esac
+refs=$(git ls-remote --tags https://github.com/actions/python-versions 2>/dev/null) || {
+  echo "gha: setup-python — cannot reach github.com (git ls-remote failed)"; exit 1; }
+match=$(printf '%s\n' "$refs" | sed -n 's|^[0-9a-f]*[[:space:]]\+refs/tags/\(.*\)$|\1|p' | grep -v '\^{}$' | while IFS= read -r tag; do
+  ver=${tag%-[0-9]*}
+  case "$ver" in [0-9]*) ;; *) continue ;; esac
+  if [ "$dots" -lt 2 ] && [ "${ver#*-}" != "$ver" ]; then continue; fi
+  printf '%s' "$ver" | grep -qE "$pat" || continue
+  printf '%s %s\n' "$ver" "$tag"
+done | sort -k1,1V -k2,2V | tail -1)
+[ -n "$match" ] || { echo "gha: setup-python — no CPython '$want' release found"; exit 1; }
+ver=${match%% *}
+tag=${match##* }
+tc="$BUPHA_GHA_TMP/toolcache/python/$ver"
+distro=""
+if [ ! -x "$tc/bin/python3" ] && [ ! -x "$tc/bin/python" ]; then
+  mkdir -p "$tc"
+  tmp=$(mktemp -d)
+  for d in 24.04 22.04 26.04 rhel-10 rhel-9; do
+    url="https://github.com/actions/python-versions/releases/download/$tag/python-$ver-linux-$d-$a.tar.gz"
+    if curl -fsSL --max-time 300 "$url" -o "$tmp/py.tar.gz"; then distro=$d; break; fi
+  done
+  if [ -z "$distro" ]; then
+    echo "gha: setup-python — no linux-$a build of python $ver"; rm -rf "$tmp"; exit 1
+  fi
+  tar -xzf "$tmp/py.tar.gz" -C "$tc" --strip-components=1
+  rm -rf "$tmp"
+fi
+if [ "$updenv" = "1" ]; then echo "$tc/bin" >> "$GITHUB_PATH"; fi
+{
+  echo "Python_ROOT_DIR=$tc"
+  echo "Python2_ROOT_DIR=$tc"
+  echo "Python3_ROOT_DIR=$tc"
+  echo "LD_LIBRARY_PATH=$tc/lib"
+} >> "$GITHUB_ENV"
+printf 'python-version=%s\n' "$ver" >> "$GITHUB_OUTPUT"
+echo "gha: setup-python — python $ver (linux-${distro:-cached}-$a) at $tc"
+"#,
+    );
+    Ok(s)
+}
+
+/// Bash helpers shared by the `actions/cache*` lowerings: the
+/// persistent store root (`$BUPHA_GHA_CACHE_DIR` override →
+/// `$XDG_DATA_HOME`/`~/.local/share` → `bupha/gha-cache`), one
+/// directory per repo, one `<sha256(key)>.tar` + `<sha256(key)>.key`
+/// pair per cache entry so exact lookups hash the key while
+/// `restore-keys` prefix scans read the `.key` files.
+const CACHE_LIB: &str = r#"
+bupha_cache_repo_dir() {
+  local root="${BUPHA_GHA_CACHE_DIR:-${XDG_DATA_HOME:-$HOME/.local/share}/bupha/gha-cache}"
+  printf '%s/%s' "$root" "$(printf '%s' "$GITHUB_REPOSITORY" | tr -c 'A-Za-z0-9._-' '_')"
+}
+
+# $1 = key, $2 = newline-separated paths block, $3 = strict
+# (1 = error when the key already exists, like actions/cache/save).
+bupha_cache_save() {
+  local skey="$1" supaths="$2" strict="$3"
+  local repo_dir kh star skeyf tmp _e _m
+  repo_dir=$(bupha_cache_repo_dir)
+  kh=$(printf '%s' "$skey" | sha256sum | cut -d' ' -f1)
+  star="$repo_dir/$kh.tar"
+  skeyf="$repo_dir/$kh.key"
+  if [ -e "$star" ]; then
+    if [ "$strict" = "1" ]; then
+      echo "gha: cache/save — key '$skey' already exists"; return 1
+    fi
+    echo "gha: cache — key '$skey' already cached; skipping save"; return 0
+  fi
+  mkdir -p "$repo_dir"
+  shopt -s dotglob nullglob
+  local -a _matches=() _uniq=()
+  local -A _seen=()
+  while IFS= read -r _e; do
+    _e="${_e#"${_e%%[![:space:]]*}"}"
+    _e="${_e%"${_e##*[![:space:]]}"}"
+    [ -z "$_e" ] && continue
+    case "$_e" in
+      "$GITHUB_WORKSPACE"/*) _e="${_e#"$GITHUB_WORKSPACE"/}" ;;
+      /*) echo "gha: cache — absolute path '$_e' is unsupported (paths are workspace-relative)"; return 1 ;;
+    esac
+    while IFS= read -r _m; do _matches+=("$_m"); done < <(compgen -G "$_e")
+  done < <(printf '%s\n' "$supaths")
+  if [ "${#_matches[@]}" -eq 0 ]; then
+    echo "gha: cache — no files matched the given path(s); nothing saved"; return 0
+  fi
+  for _m in "${_matches[@]}"; do
+    if [ -z "${_seen[$_m]:-}" ]; then _seen[$_m]=1; _uniq+=("$_m"); fi
+  done
+  tmp=$(mktemp -d)
+  if ! tar -cf "$tmp/c.tar" -C "$GITHUB_WORKSPACE" -- "${_uniq[@]}"; then
+    rm -rf "$tmp"; return 1
+  fi
+  mv "$tmp/c.tar" "$star"
+  printf '%s' "$skey" > "$skeyf"
+  rm -rf "$tmp"
+  echo "gha: cache — saved '$skey' (${#_uniq[@]} path(s)) under $repo_dir"
+}
+
+# $1 = key, $2 = newline-separated restore-keys, $3 = lookup-only
+# (1 = report the hit without extracting), $4 = fail-on-cache-miss.
+bupha_cache_restore() {
+  local key="$1" rkeys="$2" lookup="$3" failmiss="$4"
+  local repo_dir kh hit="" hitkey="" exact=0 rk kf ck ct cm best bestm bestkey hitout
+  repo_dir=$(bupha_cache_repo_dir)
+  kh=$(printf '%s' "$key" | sha256sum | cut -d' ' -f1)
+  if [ -f "$repo_dir/$kh.tar" ] && [ -f "$repo_dir/$kh.key" ]; then
+    hit="$repo_dir/$kh.tar"; hitkey=$(cat "$repo_dir/$kh.key"); exact=1
+  else
+    while IFS= read -r rk; do
+      rk="${rk#"${rk%%[![:space:]]*}"}"
+      rk="${rk%"${rk##*[![:space:]]}"}"
+      [ -n "$rk" ] || continue
+      best=""; bestm=0; bestkey=""
+      for kf in "$repo_dir"/*.key; do
+        [ -f "$kf" ] || continue
+        ck=$(cat "$kf")
+        case "$ck" in "$rk"*) ;; *) continue ;; esac
+        ct="${kf%.key}.tar"; [ -f "$ct" ] || continue
+        cm=$(stat -c %Y "$ct" 2>/dev/null); cm=${cm:-0}
+        if [ "$cm" -gt "$bestm" ]; then bestm=$cm; best="$ct"; bestkey="$ck"; fi
+      done
+      if [ -n "$best" ]; then hit="$best"; hitkey="$bestkey"; break; fi
+    done < <(printf '%s\n' "$rkeys")
+  fi
+  if [ -n "$hit" ]; then
+    if [ "$lookup" != "1" ]; then
+      tar -xf "$hit" -C "$GITHUB_WORKSPACE" || {
+        echo "gha: cache — restore extract failed for '$hitkey'"; return 1; }
+    fi
+    echo "gha: cache — restored key '${hitkey:-$key}'"
+  else
+    echo "gha: cache — miss for key '$key'"
+  fi
+  hitout=false
+  [ "$exact" = "1" ] && hitout=true
+  printf 'cache-hit=%s\ncache-primary-key=%s\n' "$hitout" "${hitkey:-$key}" >> "$GITHUB_OUTPUT"
+  if [ "$failmiss" = "1" ] && [ -z "$hit" ]; then
+    echo "gha: cache — fail-on-cache-miss and no cache matched"; return 1
+  fi
+}
+"#;
+
+/// Shared `with:` validation for the cache actions: `key` and `path`
+/// are required single values; `restore-keys` flattens to a
+/// newline-separated block (each YAML-list entry or line is one
+/// prefix). Control characters other than `\n` are rejected.
+fn cache_key_path(
+    pairs: &[(String, Vec<String>)],
+    what: &str,
+) -> Result<(String, String, String), String> {
+    let key = with_one(pairs, "key", what)?
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .ok_or_else(|| format!("{what}.with.key: required"))?;
+    check_no_ctl(key, "key", what)?;
+    // `path` accepts a multiline string or a YAML list — both flatten
+    // to the same newline-separated block the bash expands.
+    let path = pairs
+        .iter()
+        .find(|(k, _)| k == "path")
+        .map(|(_, v)| v.join("\n"))
+        .map(|p| p.trim().to_string())
+        .filter(|s| !s.is_empty())
+        .ok_or_else(|| format!("{what}.with.path: required"))?;
+    check_no_ctl(&path, "path", what)?;
+    let rkeys = pairs
+        .iter()
+        .find(|(k, _)| k == "restore-keys")
+        .map(|(_, v)| v.join("\n"))
+        .unwrap_or_default();
+    check_no_ctl(&rkeys, "restore-keys", what)?;
+    Ok((key.to_string(), path.to_string(), rkeys))
+}
+
+/// `actions/cache/restore` → `bupha_cache_restore`: exact key hit,
+/// else `restore-keys` prefix match (first matching prefix wins,
+/// newest entry inside it), extract into the workspace root.
+/// `lookup-only` reports the hit without extracting;
+/// `fail-on-cache-miss` turns a miss into a step failure. Emits the
+/// `cache-hit`/`cache-primary-key` step outputs.
+fn cache_restore_script(pairs: &[(String, Vec<String>)], what: &str) -> Result<String, String> {
+    check_with_keys(
+        pairs,
+        &[
+            "key",
+            "path",
+            "restore-keys",
+            "enableCrossOsArchive",
+            "fail-on-cache-miss",
+            "lookup-only",
+        ],
+        what,
+    )?;
+    let (key, _path, rkeys) = cache_key_path(pairs, what)?;
+    let lookup = with_flag(pairs, "lookup-only", what)?.unwrap_or(false);
+    let failmiss = with_flag(pairs, "fail-on-cache-miss", what)?.unwrap_or(false);
+
+    let mut s = String::from("set -e\n");
+    s.push_str(&noop_warnings(
+        pairs,
+        &["enableCrossOsArchive"],
+        "cache/restore",
+    ));
+    s.push_str(CACHE_LIB);
+    s.push_str(&format!(
+        "bupha_cache_restore {} {} {} {}\n",
+        bash_sq(&key),
+        bash_sq(&rkeys),
+        if lookup { "1" } else { "0" },
+        if failmiss { "1" } else { "0" },
+    ));
+    Ok(s)
+}
+
+/// `actions/cache/save` → `bupha_cache_save` strict: tars the
+/// `path` globs into the persistent store under `key`; errors when
+/// the key already exists (GitHub's immutable-cache rule).
+fn cache_save_script(pairs: &[(String, Vec<String>)], what: &str) -> Result<String, String> {
+    check_with_keys(
+        pairs,
+        &["key", "path", "upload-chunk-size", "enableCrossOsArchive"],
+        what,
+    )?;
+    let (key, path, _) = cache_key_path(pairs, what)?;
+
+    let mut s = String::from("set -e\n");
+    s.push_str(&noop_warnings(
+        pairs,
+        &["upload-chunk-size", "enableCrossOsArchive"],
+        "cache/save",
+    ));
+    s.push_str(CACHE_LIB);
+    s.push_str(&format!(
+        "bupha_cache_save {} {} 1\n",
+        bash_sq(&key),
+        bash_sq(&path),
+    ));
+    Ok(s)
+}
+
+/// `actions/cache` → restore now, save at job end. GitHub does the
+/// save in a post-step; the lowering registers a pending spec under
+/// `$RUNNER_TEMP/bupha-cache-pending/` and the runner-appended
+/// `CacheFlush` step (end of the job's steps) performs it — so
+/// files produced by later steps are captured. A job that fails
+/// before its last step saves nothing (documented divergence: the
+/// real post-step runs even on failure).
+fn cache_script(pairs: &[(String, Vec<String>)], what: &str) -> Result<String, String> {
+    check_with_keys(
+        pairs,
+        &["key", "path", "restore-keys", "enableCrossOsArchive"],
+        what,
+    )?;
+    let (key, path, rkeys) = cache_key_path(pairs, what)?;
+
+    let mut s = String::from("set -e\n");
+    s.push_str(&noop_warnings(pairs, &["enableCrossOsArchive"], "cache"));
+    s.push_str(CACHE_LIB);
+    s.push_str(&format!(
+        "bupha_cache_restore {} {} 0 0\n",
+        bash_sq(&key),
+        bash_sq(&rkeys),
+    ));
+    s.push_str(&format!("key={}\n", bash_sq(&key)));
+    s.push_str(&format!("upaths={}\n", bash_sq(&path)));
+    s.push_str(
+        "pend=\"$RUNNER_TEMP/bupha-cache-pending\"\n\
+         mkdir -p \"$pend\"\n\
+         printf '%s\\n%s' \"$key\" \"$upaths\" > \"$pend/$(date +%s%N)-$RANDOM\"\n",
+    );
+    s.push_str("echo \"gha: cache — restore done; save of the key scheduled at job end\"\n");
+    Ok(s)
+}
+
+/// The job-end step `parse_job` appends when a job uses
+/// `actions/cache`: drains every pending spec the job's cache steps
+/// wrote and saves each (non-strict — an already-existing key, e.g.
+/// an exact-hit restore, is skipped like GitHub's post-step).
+fn cache_flush_script(_pairs: &[(String, Vec<String>)], _what: &str) -> Result<String, String> {
+    Ok(format!(
+        "set -e\n\
+         pend=\"$RUNNER_TEMP/bupha-cache-pending\"\n\
+         [ -d \"$pend\" ] || exit 0\n{CACHE_LIB}\
+         for spec in \"$pend\"/*; do\n\
+         \x20 [ -f \"$spec\" ] || continue\n\
+         \x20 skey=$(head -n 1 \"$spec\")\n\
+         \x20 supaths=$(tail -n +2 \"$spec\")\n\
+         \x20 bupha_cache_save \"$skey\" \"$supaths\" 0\n\
+         done\n\
+         echo \"gha: cache — pending saves flushed\"\n"
+    ))
 }
 
 /// Kahn topo sort, declaration order breaking ties. Indices in
@@ -1576,6 +2218,25 @@ fn parse_job(m: &serde_norway::Mapping, id: &str, source: &str) -> Result<RawJob
             }
         }
     }
+    // `actions/cache` saves in a GitHub post-step — append the
+    // job-end flush that drains the pending specs its step wrote.
+    if steps.iter().any(|s| {
+        matches!(
+            s,
+            RawStep::Script {
+                kind: UsesScript::Cache,
+                ..
+            }
+        )
+    }) {
+        steps.push(RawStep::Script {
+            kind: UsesScript::CacheFlush,
+            id: None,
+            cond: None,
+            timeout_seconds: None,
+            with: Vec::new(),
+        });
+    }
     Ok(RawJob {
         id: id.to_string(),
         name,
@@ -1616,6 +2277,20 @@ enum UsesScript {
     UploadArtifact,
     /// `actions/download-artifact` → restore from the per-run store.
     DownloadArtifact,
+    /// `actions/setup-node` → nodejs.org tarball + toolcache PATH.
+    SetupNode,
+    /// `actions/setup-python` → python-versions tarball + toolcache.
+    SetupPython,
+    /// `actions/setup-go` → go.dev tarball + toolcache.
+    SetupGo,
+    /// `actions/cache/restore` → persistent keyed store lookup.
+    CacheRestore,
+    /// `actions/cache/save` → persistent keyed store write.
+    CacheSave,
+    /// `actions/cache` → restore now + pending save at job end.
+    Cache,
+    /// Runner-appended job-end drain of pending cache saves.
+    CacheFlush,
 }
 
 enum UsesKind {
@@ -1627,16 +2302,21 @@ enum UsesKind {
 
 /// `uses:` — `actions/checkout` is a verification no-op (the
 /// worktree is already at the pushed sha); `dtolnay/rust-toolchain`,
-/// `actions/upload-artifact` and `actions/download-artifact` lower
-/// to synthesized bash steps. Everything else, `actions/setup-*`
-/// included, is an explicit error.
+/// the `actions/setup-{node,python,go}` toolchain actions,
+/// `actions/{upload,download}-artifact` and the `actions/cache*`
+/// family lower to synthesized bash steps. Everything else —
+/// docker/local/composite uses and other `actions/setup-*` — is an
+/// explicit error.
 fn parse_uses(uses: &str, sm: &serde_norway::Mapping, what: &str) -> Result<UsesKind, String> {
     let unsupported = || {
         format!(
             "{what}: unsupported `uses: {uses}` — v1 supports \
              `actions/checkout`, `dtolnay/rust-toolchain`, \
-             `actions/upload-artifact` and `actions/download-artifact` \
-             (`actions/setup-*` is a later milestone)"
+             `actions/setup-node`, `actions/setup-python`, \
+             `actions/setup-go`, `actions/upload-artifact`, \
+             `actions/download-artifact`, `actions/cache`, \
+             `actions/cache/save` and `actions/cache/restore` \
+             (docker://, local paths and other actions are unsupported)"
         )
     };
     let body = uses.split('@').next().unwrap_or(uses);
@@ -1651,6 +2331,18 @@ fn parse_uses(uses: &str, sm: &serde_norway::Mapping, what: &str) -> Result<Uses
         Some(UsesScript::UploadArtifact)
     } else if body.eq_ignore_ascii_case("actions/download-artifact") {
         Some(UsesScript::DownloadArtifact)
+    } else if body.eq_ignore_ascii_case("actions/setup-node") {
+        Some(UsesScript::SetupNode)
+    } else if body.eq_ignore_ascii_case("actions/setup-python") {
+        Some(UsesScript::SetupPython)
+    } else if body.eq_ignore_ascii_case("actions/setup-go") {
+        Some(UsesScript::SetupGo)
+    } else if body.eq_ignore_ascii_case("actions/cache/restore") {
+        Some(UsesScript::CacheRestore)
+    } else if body.eq_ignore_ascii_case("actions/cache/save") {
+        Some(UsesScript::CacheSave)
+    } else if body.eq_ignore_ascii_case("actions/cache") {
+        Some(UsesScript::Cache)
     } else {
         return Err(unsupported());
     };
@@ -2524,6 +3216,170 @@ jobs:
         assert!(r.script.contains("rustup"), "{}", r.script);
         assert!(r.script.contains("1.85.0"), "{}", r.script);
         assert!(r.script.contains("clippy"), "{}", r.script);
+    }
+
+    /// Parse + expand; returns the error text on failure.
+    fn plan_err(text: &str) -> String {
+        let wf = parse_workflow("ci.yml", text).unwrap();
+        match wf.expand(GhaContext {
+            sha: "s",
+            git_ref: "refs/heads/main",
+            repository: "o/r",
+            event_name: "push",
+        }) {
+            Err(e) => e,
+            Ok(_) => panic!("expected a plan error"),
+        }
+    }
+
+    fn expanded_scripts(text: &str) -> Vec<String> {
+        let wf = parse_workflow("ci.yml", text).unwrap();
+        wf.expand(GhaContext {
+            sha: "s",
+            git_ref: "refs/heads/main",
+            repository: "o/r",
+            event_name: "push",
+        })
+        .unwrap()
+        .into_iter()
+        .flat_map(|j| j.steps)
+        .filter_map(|s| match s {
+            Step::Run(r) => Some(r.script),
+            _ => None,
+        })
+        .collect()
+    }
+
+    #[test]
+    fn setup_actions_lower_to_toolchain_scripts() {
+        let scripts = expanded_scripts(
+            r#"
+on: push
+jobs:
+  t:
+    steps:
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+"#,
+        );
+        assert_eq!(scripts.len(), 3);
+        assert!(scripts[0].contains("nodejs.org/dist"), "{}", scripts[0]);
+        assert!(scripts[0].contains("toolcache/node"), "{}", scripts[0]);
+        assert!(
+            scripts[1].contains("actions/python-versions"),
+            "{}",
+            scripts[1]
+        );
+        assert!(scripts[2].contains("go.dev/dl"), "{}", scripts[2]);
+        assert!(scripts[2].contains("GOROOT"), "{}", scripts[2]);
+    }
+
+    #[test]
+    fn cache_actions_lower_and_append_flush() {
+        // actions/cache is restore-now + job-end save: the job gains
+        // a runner-appended flush step, so 3 uses: → 4 run steps.
+        let scripts = expanded_scripts(
+            r#"
+on: push
+jobs:
+  t:
+    steps:
+      - uses: actions/cache/restore@v4
+        with:
+          key: k1
+          path: .cache/
+      - uses: actions/cache/save@v4
+        with:
+          key: k2
+          path: .cache/
+      - uses: actions/cache@v4
+        with:
+          key: k3
+          path: .cache/
+          restore-keys: k
+"#,
+        );
+        assert_eq!(scripts.len(), 4, "{scripts:?}");
+        assert!(scripts[0].contains("bupha_cache_restore"), "{}", scripts[0]);
+        assert!(scripts[1].contains("bupha_cache_save"), "{}", scripts[1]);
+        assert!(scripts[2].contains("bupha-cache-pending"), "{}", scripts[2]);
+        assert!(scripts[3].contains("bupha-cache-pending"), "{}", scripts[3]);
+        assert!(scripts[3].contains("bupha_cache_save"), "{}", scripts[3]);
+    }
+
+    #[test]
+    fn setup_and_cache_with_key_errors() {
+        let cases: &[(&str, &str)] = &[
+            // unknown with: keys hard-error per action
+            (
+                "on: push\njobs:\n  t:\n    steps:\n      - uses: actions/setup-node@v4\n        with:\n          node-version: '22'\n          bogus: 1\n",
+                "bogus",
+            ),
+            (
+                "on: push\njobs:\n  t:\n    steps:\n      - uses: actions/setup-python@v5\n        with:\n          python-version: '3.12'\n          bogus: 1\n",
+                "bogus",
+            ),
+            (
+                "on: push\njobs:\n  t:\n    steps:\n      - uses: actions/setup-go@v5\n        with:\n          go-version: '1.22'\n          bogus: 1\n",
+                "bogus",
+            ),
+            (
+                "on: push\njobs:\n  t:\n    steps:\n      - uses: actions/cache@v4\n        with:\n          key: k\n          path: p\n          bogus: 1\n",
+                "bogus",
+            ),
+            // version inputs required
+            (
+                "on: push\njobs:\n  t:\n    steps:\n      - uses: actions/setup-node@v4\n",
+                "node-version",
+            ),
+            (
+                "on: push\njobs:\n  t:\n    steps:\n      - uses: actions/setup-python@v5\n",
+                "python-version",
+            ),
+            (
+                "on: push\njobs:\n  t:\n    steps:\n      - uses: actions/setup-go@v5\n",
+                "go-version",
+            ),
+            // version-file must stay in the worktree
+            (
+                "on: push\njobs:\n  t:\n    steps:\n      - uses: actions/setup-node@v4\n        with:\n          node-version-file: ../x\n",
+                "node-version-file",
+            ),
+            // cache key/path required
+            (
+                "on: push\njobs:\n  t:\n    steps:\n      - uses: actions/cache/save@v4\n        with:\n          path: p\n",
+                "key",
+            ),
+            (
+                "on: push\njobs:\n  t:\n    steps:\n      - uses: actions/cache/restore@v4\n        with:\n          key: k\n",
+                "path",
+            ),
+        ];
+        for (i, (wf, needle)) in cases.iter().enumerate() {
+            let err = plan_err(wf);
+            assert!(err.contains(needle), "case {i}: {err} lacks `{needle}`");
+        }
+    }
+
+    #[test]
+    fn unsupported_uses_still_error() {
+        for uses in [
+            "actions/setup-java@v4",
+            "actions/setup-dotnet@v4",
+            "docker://alpine:3.20",
+            "./local/action",
+            "octo/repo/.github/actions/x@v1",
+        ] {
+            let wf = format!("on: push\njobs:\n  t:\n    steps:\n      - uses: {uses}\n");
+            assert!(parse_workflow("ci.yml", &wf).is_err(), "{uses}");
+        }
     }
 
     #[test]
