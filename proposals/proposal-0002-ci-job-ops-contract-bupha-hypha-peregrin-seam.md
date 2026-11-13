@@ -1,7 +1,7 @@
 +++
 id = "P-002"
 title = "ci-job ops contract — bupha↔hypha/peregrin seam"
-status = "open"
+status = "in-progress"
 created = "2026-11-11"
 owner = "devin"
 priority = "high"
