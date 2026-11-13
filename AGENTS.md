@@ -39,3 +39,18 @@
   cards are the checked-in source of truth.
 
 <!-- /kuda:agent-awareness -->
+
+<!-- bupha:agent-awareness -->
+
+## Bupha awareness
+
+- This repo is gated by bupha — pushes to the watched branch run
+  the configured pipeline in a detached worktree; keep it green.
+- Gate pipelines should run `myco check` — ledger hygiene is part
+  of CI, not a manual step.
+- Commits that move a ledger item carry an `Item: T-NNN` trailer
+  naming the myco item — runs and history stay attributable.
+- `bupha init <dir>` scaffolds the gate and writes this block;
+  `bupha doctor` validates it.
+
+<!-- /bupha:agent-awareness -->

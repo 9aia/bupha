@@ -35,6 +35,7 @@ use hypha_secret::Secrets;
 use lasius_vcs::Vcs;
 use lasius_vcs_git::GitVcs;
 
+mod agentmd;
 mod campaign_import;
 mod deploy;
 use std::path::{Path, PathBuf};
@@ -74,8 +75,10 @@ enum Cmd {
         /// flag, and clap arg ids must stay unique per command.
         file: PathBuf,
     },
-    /// Scaffold dagger CI in a repo (dagger init + pinned module
-    /// + delegate). For the script runner, a ci.sh is enough.
+    /// Scaffold dagger CI in a repo (dagger init, pinned module,
+    /// delegate template) and converge its AGENTS.md to the managed
+    /// agent-awareness block. For the script runner, a ci.sh is
+    /// enough.
     Init {
         /// Repo dir to initialize (default: cwd).
         #[arg(default_value = ".")]
@@ -407,6 +410,19 @@ fn cmd_init(dir: &Path) {
         .unwrap_or_else(|e| eprintln!("template: {e}"));
         println!("wrote {}", main_py.display());
     }
+    // Converge AGENTS.md to the managed agent-awareness block —
+    // markers scoped, prose untouched, idempotent (same pattern as
+    // `myco init`/`sturn init`).
+    match agentmd::sync(dir) {
+        Ok(agentmd::Change::Created) => {
+            println!("wrote AGENTS.md (bupha agent-awareness block)")
+        }
+        Ok(agentmd::Change::Updated) => {
+            println!("updated AGENTS.md agent-awareness block")
+        }
+        Ok(agentmd::Change::Unchanged) => {}
+        Err(e) => eprintln!("AGENTS.md: {e}"),
+    }
     println!("next: `dagger call ci --token env://BUPHA_TOKEN` to run the gate");
 }
 
@@ -485,12 +501,31 @@ fn cmd_doctor(cfg: &Config, json: bool) {
             // One check per repo — a multi-job repo shares one dir.
             let mut seen: std::collections::HashSet<&str> = Default::default();
             for r in ws.iter().filter(|r| seen.insert(r.name.as_str())) {
+                let dir_ok = r.dir.is_dir();
                 check(
                     &format!("repo {}", r.name),
-                    r.dir.is_dir(),
+                    dir_ok,
                     &r.dir.display().to_string(),
                     &mut out,
                 );
+                // The repo contract: a bupha-gated repo carries the
+                // managed agent-awareness block — `bupha init`
+                // writes it, this check is the validation leg.
+                if dir_ok {
+                    let state = agentmd::block_state(&r.dir);
+                    let (ok, detail) = match state {
+                        agentmd::State::Ok => (true, "canonical".to_string()),
+                        s => (
+                            false,
+                            format!(
+                                "{} — `bupha init {}` converges it",
+                                s.as_str(),
+                                r.dir.display()
+                            ),
+                        ),
+                    };
+                    check(&format!("agents-md {}", r.name), ok, &detail, &mut out);
+                }
             }
         }
         Err(e) => check("repos", false, &e, &mut out),
