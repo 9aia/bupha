@@ -105,7 +105,11 @@ filters) passes **fully green**, including correct skip of a
 > `uses: docker://<image>` steps and composite `timeout-minutes`
 > have since landed too (`docker run` on the host — docker CLI
 > required; the composite timeout is a deadline spanning the
-> inlined steps). The bullets below are
+> inlined steps). **Reusable workflows** (`jobs.<id>.uses:` →
+> `./.github/workflows/*.yml` or `owner/repo[/path]@<ref>`, with
+> `on.workflow_call` inputs/secrets/outputs, graph merge and
+> `secrets: inherit`/explicit maps) have since landed as well —
+> details in the crate README. The bullets below are
 > annotated where they changed.
 
 - **`$GITHUB_ENV` / `$GITHUB_OUTPUT` / `$GITHUB_PATH` /
@@ -141,12 +145,25 @@ filters) passes **fully green**, including correct skip of a
   dotnet}`, `actions/cache*`, composite `uses:` and `docker://`
   steps have since landed; JS/docker action *definitions*, other
   setup families and reusable-workflow `uses:` still error.)*
+  *(Superseded again: reusable-workflow `uses:` has since landed —
+  local `./.github/workflows/*.yml` and remote
+  `owner/repo[/path]@<ref>` targets, `on.workflow_call` contracts,
+  `secrets: inherit`/explicit maps; see the crate README.)*
 - **Expression language grew but stays a subset.** `==`, `!=`,
   `&&`, `||`, `!`, parens, `contains`/`startsWith`/`endsWith`,
   status functions and the `needs.*.result`/`steps.*.conclusion`
   refs now work in `if:` and `${{ }}` (T-048); no ternary,
   `hashFiles`, `format`, `fromJSON`, or object/array contexts.
-- **Reusable workflows** (`jobs.<id>.uses:`) unsupported.
+- **Reusable workflows landed with honest edges** (T-048) —
+  `jobs.<id>.uses:` now resolves local `./.github/workflows/*.yml`
+  and remote `owner/repo[/path]@<ref>` callees, binds
+  `with:`→`inputs.*` and `secrets:`→`secrets.*`, merges the callee
+  graph under `<call>.<job>` ids, and exposes
+  `on.workflow_call.outputs` as `needs.<call>.outputs.*`. Still
+  unsupported: execution keys on the calling job, callees without
+  `on.workflow_call:`, `secrets.*`/`jobs.*` outside the contract,
+  nesting past depth 8, and `secrets:` values that aren't scalars
+  or `${{ secrets.X }}` forwards.
 - **`paths` filters infer `before`** (T-048): remote-tracking
   ref → reflog → local branch → merge-base, falling back to the
   tip commit. Multi-commit pushes are covered when the repo still
