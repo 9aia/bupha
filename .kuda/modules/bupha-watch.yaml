@@ -5,7 +5,7 @@ api:
 - name: CancelExec
   kind: type
   file: crates/bupha-watch/src/entity_worker.rs
-  line: 1111
+  line: 1119
   module: bupha-watch
 - name: ChildSlot
   kind: type
@@ -15,7 +15,7 @@ api:
 - name: ClaimFilter
   kind: type
   file: crates/bupha-watch/src/entity_worker.rs
-  line: 609
+  line: 617
   module: bupha-watch
 - name: ClaimOutcome
   kind: type
@@ -60,12 +60,17 @@ api:
 - name: FakeApi
   kind: type
   file: crates/bupha-watch/src/entity_worker.rs
-  line: 814
+  line: 822
   module: bupha-watch
 - name: FakeExec
   kind: type
   file: crates/bupha-watch/src/entity_worker.rs
-  line: 965
+  line: 973
+  module: bupha-watch
+- name: FetchTarget
+  kind: type
+  file: crates/bupha-watch/src/lib.rs
+  line: 287
   module: bupha-watch
 - name: HeldClaim
   kind: type
@@ -75,7 +80,7 @@ api:
 - name: Ingest
   kind: type
   file: crates/bupha-watch/src/lib.rs
-  line: 467
+  line: 528
   module: bupha-watch
 - name: JobApi
   kind: trait
@@ -95,22 +100,22 @@ api:
 - name: Poll
   kind: type
   file: crates/bupha-watch/src/lib.rs
-  line: 341
+  line: 402
   module: bupha-watch
 - name: Shared
   kind: type
   file: crates/bupha-watch/src/lib.rs
-  line: 439
+  line: 500
   module: bupha-watch
 - name: SkipExec
   kind: type
   file: crates/bupha-watch/src/entity_worker.rs
-  line: 1275
+  line: 1283
   module: bupha-watch
 - name: Step
   kind: type
   file: crates/bupha-watch/src/entity_worker.rs
-  line: 676
+  line: 684
   module: bupha-watch
 - name: WatchExec
   kind: type
@@ -125,12 +130,12 @@ api:
 - name: build_attest
   kind: function
   file: crates/bupha-watch/src/lib.rs
-  line: 613
+  line: 674
   module: bupha-watch
 - name: build_audit
   kind: function
   file: crates/bupha-watch/src/lib.rs
-  line: 643
+  line: 704
   module: bupha-watch
 - name: build_runner
   kind: function
@@ -140,17 +145,17 @@ api:
 - name: build_runners
   kind: function
   file: crates/bupha-watch/src/lib.rs
-  line: 685
+  line: 746
   module: bupha-watch
 - name: build_sinks
   kind: function
   file: crates/bupha-watch/src/lib.rs
-  line: 658
+  line: 719
   module: bupha-watch
 - name: build_telemetry
   kind: function
   file: crates/bupha-watch/src/lib.rs
-  line: 594
+  line: 655
   module: bupha-watch
 - name: bupha-watch
   kind: module
@@ -160,22 +165,22 @@ api:
 - name: cancel_during_run_settles_cancelled
   kind: function
   file: crates/bupha-watch/src/entity_worker.rs
-  line: 1093
+  line: 1101
   module: bupha-watch
 - name: candidates
   kind: function
   file: crates/bupha-watch/src/entity_worker.rs
-  line: 650
+  line: 658
   module: bupha-watch
 - name: candidates_apply_ref_event_gate
   kind: function
   file: crates/bupha-watch/src/entity_worker.rs
-  line: 1198
+  line: 1206
   module: bupha-watch
 - name: candidates_filters_and_orders
   kind: function
   file: crates/bupha-watch/src/entity_worker.rs
-  line: 1157
+  line: 1165
   module: bupha-watch
 - name: cfg_dir
   kind: function
@@ -190,19 +195,14 @@ api:
 - name: claim
   kind: function
   file: crates/bupha-watch/src/entity_worker.rs
-  line: 884
+  line: 892
   module: bupha-watch
 - name: claim_from_body
   kind: function
   file: crates/bupha-watch/src/entity_worker.rs
   line: 241
   module: bupha-watch
-- name: claim_from_doc
-  kind: function
-  file: crates/bupha-watch/src/entity_worker.rs
-  line: 218
-  module: bupha-watch
-api_omitted: 79
+api_omitted: 85
 deps:
 - bupha-access
 - bupha-access-file
@@ -289,8 +289,8 @@ provenance:
   - crates/bupha-watch/src/lib.rs
   hashes:
   - 3a81d785d77178b64fa3fd85a98f40a70bb6701d
-  - f3da4b6116fecd6991b79d085f85726c0e468ce1
-  - 9a26ec064b2fa582ed42039bcd1d8383b2d5a276
-  commit_sha: ab5350dc122b52b54b870a567e71b9a7932020ec
-  generated_at: '1794544949'
+  - 8d77549c50290ca2ac81a7fca70785c1595cd899
+  - a295c6bd6ef5ed57092dd87947867291c539d84a
+  commit_sha: 44d6f3c6be1ec72b4a013fec597421ac040813da
+  generated_at: '1794547490'
   generator: kuda-template/0.1.4

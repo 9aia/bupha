@@ -896,6 +896,8 @@ fn clone_for_retry(old: &CiJob, attempt: u32, now: &str) -> CiJob {
         git_ref: old.git_ref.clone(),
         sha: old.sha.clone(),
         event: old.event.clone(),
+        clone_url: old.clone_url.clone(),
+        head_ref: old.head_ref.clone(),
         sender: old.sender.clone(),
         delivery_id: old.delivery_id.clone(),
         queue: old.queue.clone(),

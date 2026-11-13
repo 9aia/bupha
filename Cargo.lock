@@ -2151,16 +2151,16 @@ dependencies = [
 
 [[package]]
 name = "lasius-vcs"
-version = "0.3.0"
-source = "git+ssh://git@github.com/9aia/lasius.git?rev=782c10840149d9a62ac9aa2d0c3a440233ffc86b#782c10840149d9a62ac9aa2d0c3a440233ffc86b"
+version = "0.4.0"
+source = "git+ssh://git@github.com/9aia/lasius.git?rev=52d8150bc40070f130c14b114da396fc8f570cb6#52d8150bc40070f130c14b114da396fc8f570cb6"
 dependencies = [
  "serde",
 ]
 
 [[package]]
 name = "lasius-vcs-git"
-version = "0.3.0"
-source = "git+ssh://git@github.com/9aia/lasius.git?rev=782c10840149d9a62ac9aa2d0c3a440233ffc86b#782c10840149d9a62ac9aa2d0c3a440233ffc86b"
+version = "0.4.0"
+source = "git+ssh://git@github.com/9aia/lasius.git?rev=52d8150bc40070f130c14b114da396fc8f570cb6#52d8150bc40070f130c14b114da396fc8f570cb6"
 dependencies = [
  "lasius-vcs",
 ]

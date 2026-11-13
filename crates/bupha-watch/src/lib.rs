@@ -278,6 +278,66 @@ pub enum JobEnd {
     ClaimLost,
 }
 
+/// Where `run_job` fetches a sha the local clone doesn't have —
+/// `None` = the repo's configured remote (pushes, same-repo PRs);
+/// `Some` = an explicit remote (+ optional ref) tried first. The
+/// ci-job entity path fills this from `cloneUrl`/`headRef` — a
+/// fork-PR head lives on the fork, not the base clone (T-073).
+#[derive(Debug, Clone, Copy)]
+pub struct FetchTarget<'a> {
+    /// Remote passed to `git fetch` — URL or path, argv-validated at
+    /// the ci-job trust boundary (`bupha_core::is_safe_remote`).
+    pub url: &'a str,
+    /// Ref fetched first (the PR head branch); the bare `sha` is
+    /// tried after — forges allowing reachable-sha wants (GitHub)
+    /// resolve it even when the head branch is gone.
+    pub git_ref: Option<&'a str>,
+}
+
+/// Make `sha` resolvable in `repo_dir`'s object store — the
+/// precondition `worktree_add` needs. Order: the job's explicit
+/// fetch target (`cloneUrl`/`headRef` — fork heads), then a bare
+/// sha fetch from `origin` (GitHub serves reachable shas,
+/// including fork heads published under `refs/pull/*` on the base
+/// repo), then the repo's own `sync`. Returns whether the commit
+/// is present afterwards; callers still let `worktree_add` report
+/// the failure so the status pipeline stays uniform.
+fn ensure_commit(vcs: &GitVcs, repo_dir: &Path, sha: &str, fetch: Option<FetchTarget<'_>>) -> bool {
+    if vcs.has_commit(repo_dir, sha) {
+        return true;
+    }
+    // Never block on a credential prompt — a fork remote this box
+    // can't auth just falls through to the next source.
+    std::env::set_var("GIT_TERMINAL_PROMPT", "0");
+    if let Some(f) = fetch {
+        let mut specs: Vec<&str> = Vec::with_capacity(2);
+        if let Some(r) = f.git_ref {
+            specs.push(r);
+        }
+        if !specs.contains(&sha) {
+            specs.push(sha);
+        }
+        for spec in specs {
+            if vcs.has_commit(repo_dir, sha) {
+                return true;
+            }
+            if let Err(e) = vcs.fetch(repo_dir, f.url, &[spec]) {
+                eprintln!("fetch {spec} from {}: {e}", f.url);
+            }
+        }
+    }
+    if !vcs.has_commit(repo_dir, sha) {
+        if let Err(e) = vcs.fetch(repo_dir, "origin", &[sha]) {
+            eprintln!("fetch {sha} from origin: {e}");
+        }
+    }
+    if !vcs.has_commit(repo_dir, sha) {
+        vcs.sync(repo_dir, None);
+    }
+    vcs.has_commit(repo_dir, sha)
+}
+
+#[allow(clippy::too_many_arguments)]
 pub fn run_job(
     cfg: &Config,
     repo: &bupha_core::WatchedRepo,
@@ -286,6 +346,7 @@ pub fn run_job(
     shared: &Mutex<Shared>,
     worker: &Worker<'_>,
     sha: &str,
+    fetch: Option<FetchTarget<'_>>,
 ) -> JobEnd {
     // Last-line validation: a hostile sha (persisted store tampering,
     // a fleet peer's bad write) would otherwise steer remove_dir_all
@@ -317,10 +378,10 @@ pub fn run_job(
     let _ = std::fs::remove_dir_all(&wt);
     let vcs = GitVcs;
     vcs.worktree_prune(&repo.dir);
-    // The pushed sha usually isn't in the local clone yet.
-    if !vcs.has_commit(&repo.dir, sha) {
-        vcs.sync(&repo.dir, None);
-    }
+    // The pushed sha usually isn't in the local clone yet — a
+    // fork-PR job's head lives on the fork (`cloneUrl`/`headRef`),
+    // so `ensure_commit` tries the job's remote before the repo's.
+    ensure_commit(&vcs, &repo.dir, sha, fetch);
     if !vcs.worktree_add(&repo.dir, &wt, sha) {
         eprintln!("worktree add failed for {sha}");
         sink.post(sha, "error", "ci infra: worktree failed");
@@ -961,6 +1022,10 @@ pub fn watch(cfg: Arc<Config>) {
                         id: &worker_id,
                     },
                     &sha,
+                    // The standalone ingest path carries no fetch
+                    // override — pushes and same-repo PRs resolve
+                    // through the repo's own remote.
+                    None,
                 );
                 let wall = t0.elapsed();
                 let status = match &end {
@@ -1135,5 +1200,92 @@ pub fn watch(cfg: Arc<Config>) {
                 std::thread::sleep(std::time::Duration::from_millis(50));
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    #![allow(clippy::unwrap_used)]
+    use super::*;
+    use std::process::Command;
+
+    fn git(dir: &Path, args: &[&str]) -> String {
+        let o = Command::new("git")
+            .arg("-C")
+            .arg(dir)
+            .args(args)
+            .output()
+            .unwrap();
+        assert!(
+            o.status.success(),
+            "git {args:?} in {} failed: {}",
+            dir.display(),
+            String::from_utf8_lossy(&o.stderr)
+        );
+        String::from_utf8_lossy(&o.stdout).trim().to_string()
+    }
+
+    /// `git init` + one commit (unique content per dir — two
+    /// `--allow-empty` commits in the same second hash identically);
+    /// returns the commit sha.
+    fn repo_with_commit(dir: &Path) -> String {
+        std::fs::create_dir_all(dir).unwrap();
+        git(dir, &["init", "-b", "main"]);
+        std::fs::write(dir.join("f"), dir.display().to_string()).unwrap();
+        git(dir, &["add", "f"]);
+        git(
+            dir,
+            &[
+                "-c",
+                "user.email=t@t",
+                "-c",
+                "user.name=t",
+                "commit",
+                "-m",
+                "c1",
+            ],
+        );
+        git(dir, &["rev-parse", "HEAD"])
+    }
+
+    #[test]
+    fn ensure_commit_fetches_fork_head() {
+        let tmp = std::env::temp_dir().join(format!("bupha-ensure-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&tmp);
+        let fork = tmp.join("fork");
+        let base = tmp.join("base");
+        // The "fork" head sha exists only in the fork repo — the
+        // base clone has never seen it (the T-073 gap).
+        let fork_sha = repo_with_commit(&fork);
+        repo_with_commit(&base);
+        let vcs = GitVcs;
+        assert!(!vcs.has_commit(&base, &fork_sha));
+        // No fetch target → unreachable (no origin remote either).
+        assert!(!ensure_commit(&vcs, &base, &fork_sha, None));
+        // cloneUrl + headRef → the fork's main resolves the sha.
+        let url = fork.to_string_lossy().into_owned();
+        assert!(ensure_commit(
+            &vcs,
+            &base,
+            &fork_sha,
+            Some(FetchTarget {
+                url: &url,
+                git_ref: Some("main"),
+            }),
+        ));
+        assert!(vcs.has_commit(&base, &fork_sha));
+        // Already-present sha short-circuits — a bogus remote is
+        // never touched.
+        let bogus = "/nonexistent".to_string();
+        assert!(ensure_commit(
+            &vcs,
+            &base,
+            &fork_sha,
+            Some(FetchTarget {
+                url: &bogus,
+                git_ref: None,
+            }),
+        ));
+        let _ = std::fs::remove_dir_all(&tmp);
     }
 }

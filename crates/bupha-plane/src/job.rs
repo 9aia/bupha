@@ -9,7 +9,7 @@
 //! `MemWorkQueue::enqueue` re-checks hostile shas). All state
 //! transitions and lane math live in [`crate::CiJobPlane`].
 
-use bupha_core::{is_valid_key, is_valid_sha};
+use bupha_core::{is_safe_ref_name, is_safe_remote, is_valid_key, is_valid_sha};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -116,6 +116,21 @@ pub struct CiJob {
     /// `Push.event` — closed set `"push"|"pull_request"`.
     #[serde(default = "default_event")]
     pub event: String,
+    /// Remote the worker fetches `sha`/`head_ref` from when the
+    /// commit isn't already in `repo.dir`'s object store — fork-PR
+    /// heads live on the fork, not the base clone (ci-ingress sets
+    /// this from `pull_request.head.repo`). `None` = the repo's own
+    /// remote. Wire name `cloneUrl`; argv-validated
+    /// (`is_safe_remote`) at the trust boundary.
+    #[serde(default)]
+    pub clone_url: Option<String>,
+    /// Ref fetched from `clone_url` — the PR head branch/ref.
+    /// When absent the bare `sha` is fetched (forges allowing
+    /// reachable-sha wants, e.g. GitHub). Ignored without
+    /// `clone_url`. Wire name `headRef`; argv-validated
+    /// (`is_safe_ref_name`).
+    #[serde(default)]
+    pub head_ref: Option<String>,
     /// `Push.sender` — forge-attested.
     #[serde(default)]
     pub sender: String,
@@ -216,6 +231,18 @@ impl CiJob {
     pub fn from_index_doc(value: &Value, now: &str) -> Result<Self, String> {
         let mut job: CiJob = serde_json::from_value(value.clone())
             .map_err(|e| format!("invalid ci-job indexDoc: {e}"))?;
+        // Empty strings carry no information — store None so
+        // `cloneUrl`/`headRef`/`deliveryId` stay absent-or-real on
+        // the wire. Runs BEFORE validate so "" reads as absent.
+        if job.clone_url.as_deref() == Some("") {
+            job.clone_url = None;
+        }
+        if job.head_ref.as_deref() == Some("") {
+            job.head_ref = None;
+        }
+        if job.delivery_id.as_deref() == Some("") {
+            job.delivery_id = None;
+        }
         job.validate()?;
         if job.repo.is_empty() {
             job.repo = repo_part(&job.key).to_string();
@@ -225,11 +252,6 @@ impl CiJob {
                 Some(job_name) => format!("ci/bupha/{job_name}"),
                 None => "ci/bupha".to_string(),
             };
-        }
-        // An empty delivery id carries no information — store None
-        // so `deliveryId` stays absent-or-real on the wire.
-        if job.delivery_id.as_deref() == Some("") {
-            job.delivery_id = None;
         }
         if job.enqueued_at.is_empty() {
             job.enqueued_at = now.to_string();
@@ -275,6 +297,18 @@ impl CiJob {
         }
         if self.attempt == 0 {
             return Err("attempt must be >= 1".to_string());
+        }
+        // `cloneUrl`/`headRef` reach `git fetch` argv at checkout —
+        // same option-injection guard `is_valid_sha` gives shas.
+        if let Some(url) = &self.clone_url {
+            if !is_safe_remote(url) {
+                return Err(format!("invalid cloneUrl '{url}'"));
+            }
+        }
+        if let Some(r) = &self.head_ref {
+            if !is_safe_ref_name(r) {
+                return Err(format!("invalid headRef '{r}'"));
+            }
         }
         if !(1..=MAX_ATTEMPTS).contains(&self.max_attempts) {
             return Err(format!(
@@ -389,6 +423,54 @@ mod tests {
     }
 
     #[test]
+    fn clone_url_and_head_ref_roundtrip() {
+        let mut d = doc();
+        d["event"] = json!("pull_request");
+        d["cloneUrl"] = json!("https://github.com/owner/fork.git");
+        d["headRef"] = json!("feature/x");
+        let job = CiJob::from_index_doc(&d, "2026-01-01T00:00:00Z").unwrap();
+        assert_eq!(
+            job.clone_url.as_deref(),
+            Some("https://github.com/owner/fork.git")
+        );
+        assert_eq!(job.head_ref.as_deref(), Some("feature/x"));
+        let v = job.to_index_doc();
+        assert_eq!(v["cloneUrl"], json!("https://github.com/owner/fork.git"));
+        assert_eq!(v["headRef"], json!("feature/x"));
+        // Empty strings normalize to absent — same rule as deliveryId.
+        d["cloneUrl"] = json!("");
+        d["headRef"] = json!("");
+        let job = CiJob::from_index_doc(&d, "t").unwrap();
+        assert!(job.clone_url.is_none());
+        assert!(job.head_ref.is_none());
+        // Absent entirely → None.
+        let job = CiJob::from_index_doc(&doc(), "t").unwrap();
+        assert!(job.clone_url.is_none());
+        assert!(job.head_ref.is_none());
+    }
+
+    #[test]
+    fn rejects_hostile_clone_url_and_head_ref() {
+        for (field, bad) in [
+            ("cloneUrl", "--upload-pack=touch /tmp/x"),
+            ("cloneUrl", "ext::sh -c id"),
+            ("cloneUrl", "https://h/x y"),
+            ("headRef", "+refs/heads/x:refs/heads/y"),
+            ("headRef", "refs/heads/*"),
+            ("headRef", "-delete"),
+            ("headRef", "a..b"),
+        ] {
+            let mut d = doc();
+            d[field] = json!(bad);
+            let err = CiJob::from_index_doc(&d, "t").unwrap_err();
+            assert!(
+                err.contains(&format!("invalid {field}")),
+                "{field}={bad:?} → {err}"
+            );
+        }
+    }
+
+    #[test]
     fn index_doc_matches_p002_shape() {
         let job = CiJob::from_index_doc(&doc(), "2026-01-01T00:00:00Z").unwrap();
         let v = job.to_index_doc();
@@ -398,6 +480,8 @@ mod tests {
             "ref",
             "sha",
             "event",
+            "cloneUrl",
+            "headRef",
             "sender",
             "deliveryId",
             "queue",

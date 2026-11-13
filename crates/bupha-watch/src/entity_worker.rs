@@ -35,7 +35,7 @@ use serde_json::{json, Value};
 
 use crate::{
     build_attest, build_audit, build_runners, build_sinks, build_telemetry, run_job, secret,
-    settle_run, worker_id, ChildSlot, JobEnd, Shared, Worker,
+    settle_run, worker_id, ChildSlot, FetchTarget, JobEnd, Shared, Worker,
 };
 
 /// Default claim lease — the plane's `DEFAULT_LEASE_SECS` (5 min,
@@ -566,6 +566,13 @@ impl JobExec for WatchExec {
             sha: sha.to_string(),
         });
         let t0 = std::time::Instant::now();
+        // Fork-PR checkout override (T-073): `cloneUrl`/`headRef`
+        // name the remote+ref the head sha is fetched from when it
+        // isn't in `repo.dir` — absent for pushes and same-repo PRs.
+        let fetch = ej.job.clone_url.as_deref().map(|url| FetchTarget {
+            url,
+            git_ref: ej.job.head_ref.as_deref(),
+        });
         let end = run_job(
             &self.cfg,
             repo,
@@ -578,6 +585,7 @@ impl JobExec for WatchExec {
                 id: &self.worker,
             },
             sha,
+            fetch,
         );
         let wall = t0.elapsed();
         settle_run(

@@ -37,6 +37,38 @@ pub fn is_valid_key(key: &str) -> bool {
             .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'-' | b'_' | b'.' | b'/' | b':'))
 }
 
+/// A `cloneUrl` remote — argv-safe for `git fetch <remote>`: no
+/// leading `-` (option injection), no `::` (git's `ext::`/`fd::`
+/// transport escapes shell out local commands), no whitespace or
+/// control bytes (URLs and scp-style `host:path` remotes never
+/// need them). Length-capped like the other wire strings.
+pub fn is_safe_remote(url: &str) -> bool {
+    !url.is_empty()
+        && url.len() <= 1024
+        && !url.starts_with('-')
+        && !url.contains("::")
+        && url
+            .bytes()
+            .all(|b| !b.is_ascii_control() && !b.is_ascii_whitespace())
+}
+
+/// A fetch ref (`headRef`) — a branch name or full ref like
+/// `refs/pull/12/head`, fetched as `git fetch <remote> <ref>`.
+/// Refspec-hostile shapes are rejected up front: `:` would write a
+/// local ref dst, `+`/`*` force/glob, a leading `-` parses as a git
+/// option, `..`/leading-trailing `/` are invalid ref syntax, and
+/// whitespace/control bytes never appear in a ref name.
+pub fn is_safe_ref_name(r: &str) -> bool {
+    !r.is_empty()
+        && r.len() <= 1024
+        && !r.starts_with('-')
+        && !r.starts_with('/')
+        && !r.ends_with('/')
+        && !r.contains("..")
+        && r.bytes()
+            .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'/' | b'.' | b'_' | b'-'))
+}
+
 /// An env-var NAME — the shape remote run scripts need for
 /// `export K=V` lines. `[A-Za-z_][A-Za-z0-9_]*`.
 pub fn is_valid_env_name(s: &str) -> bool {
@@ -979,7 +1011,10 @@ pub fn publish_order(members: &[String], deps: &[(String, String)]) -> Result<Ve
 
 #[cfg(test)]
 mod tests {
-    use super::{is_valid_env_name, is_valid_key, is_valid_sha, publish_order};
+    use super::{
+        is_safe_ref_name, is_safe_remote, is_valid_env_name, is_valid_key, is_valid_sha,
+        publish_order,
+    };
 
     #[test]
     fn sha_rejects_path_and_option_injection() {
@@ -1011,6 +1046,35 @@ mod tests {
         assert!(!is_valid_env_name("A;rm"));
         assert!(!is_valid_env_name("A=B"));
         assert!(!is_valid_env_name(""));
+    }
+
+    #[test]
+    fn remote_and_ref_name_validation() {
+        // cloneUrl — URLs, scp-style, and local paths all pass.
+        assert!(is_safe_remote("https://github.com/o/r.git"));
+        assert!(is_safe_remote("git@github.com:o/r.git"));
+        assert!(is_safe_remote("ssh://git@host:2222/o/r.git"));
+        assert!(is_safe_remote("/srv/repos/fork"));
+        // option injection / transport escapes / whitespace
+        assert!(!is_safe_remote("--upload-pack=touch /tmp/x"));
+        assert!(!is_safe_remote("-oProxyCommand=x"));
+        assert!(!is_safe_remote("ext::sh -c touch%20/tmp/x"));
+        assert!(!is_safe_remote("fd::-"));
+        assert!(!is_safe_remote("https://h/x y"));
+        assert!(!is_safe_remote(""));
+        // headRef — branch names and full refs pass.
+        assert!(is_safe_ref_name("feature/x"));
+        assert!(is_safe_ref_name("refs/pull/12/head"));
+        assert!(is_safe_ref_name("release-1.2"));
+        // refspec writes / globs / option injection / bad ref syntax
+        assert!(!is_safe_ref_name("+refs/heads/x:refs/heads/y"));
+        assert!(!is_safe_ref_name("refs/heads/*"));
+        assert!(!is_safe_ref_name("-delete"));
+        assert!(!is_safe_ref_name("a..b"));
+        assert!(!is_safe_ref_name("/abs"));
+        assert!(!is_safe_ref_name("trail/"));
+        assert!(!is_safe_ref_name("has space"));
+        assert!(!is_safe_ref_name(""));
     }
 
     #[test]

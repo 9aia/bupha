@@ -69,8 +69,8 @@ bupha-attest = { path = "crates/bupha-attest", version = "0.2.0" }
 bupha-history = { path = "crates/bupha-history", version = "0.2.0" }
 bupha-core = { path = "crates/bupha-core", version = "0.2.0" }
 bupha-trigger = { path = "crates/bupha-trigger", version = "0.2.0" }
-lasius-vcs = { git = "ssh://git@github.com/9aia/lasius.git", rev = "782c10840149d9a62ac9aa2d0c3a440233ffc86b" }
-lasius-vcs-git = { git = "ssh://git@github.com/9aia/lasius.git", rev = "782c10840149d9a62ac9aa2d0c3a440233ffc86b" }
+lasius-vcs = { git = "ssh://git@github.com/9aia/lasius.git", rev = "52d8150bc40070f130c14b114da396fc8f570cb6" }
+lasius-vcs-git = { git = "ssh://git@github.com/9aia/lasius.git", rev = "52d8150bc40070f130c14b114da396fc8f570cb6" }
 bupha-gha = { path = "crates/bupha-gha", version = "0.2.0" }
 bupha-gha-runner = { path = "crates/bupha-gha-runner", version = "0.2.0" }
 bupha-queue = { path = "crates/bupha-queue", version = "0.2.0" }
