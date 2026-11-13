@@ -38,8 +38,9 @@ workflow.
 
 v1 covers the common CI shape: `on.push` (branches/paths
 filters), `jobs` with `needs` (fail-fast DAG), `env`,
-`defaults.run`, `steps` (`run` + `uses:` — `actions/checkout`
-and `dtolnay/rust-toolchain` only, with `id:`), job `outputs:`
+`defaults.run`, `steps` (`run` + `uses:` — `actions/checkout`,
+`dtolnay/rust-toolchain`, `actions/upload-artifact` and
+`actions/download-artifact`, with `id:`), job `outputs:`
 maps, job/step `if:` (a real expression subset — literals,
 `==`/`!=`/`&&`/`||`/`!`, `contains`/`startsWith`/`endsWith`,
 `success()`/`failure()`/`cancelled()`/`always()`, plus
@@ -54,8 +55,13 @@ parallel (`max-parallel` parses but isn't enforced).
 Everything else is a **hard error at spawn**, naming the
 unsupported key — `services:`, `container:`, `environment:`,
 `concurrency:`, `continue-on-error:`, `matrix.include`/`exclude`,
-`uses:` other than `actions/checkout` and
-`dtolnay/rust-toolchain` (`actions/setup-*` included),
+`uses:` other than `actions/checkout`,
+`dtolnay/rust-toolchain`, `actions/upload-artifact` and
+`actions/download-artifact` (`actions/setup-*`,
+`actions/cache`, `docker://…`, and local/composite action
+paths included), artifact `with:` keys outside each action's
+allowlist and cross-run download inputs (`run-id`,
+`github-token`, `repository`, `run-attempt`),
 `on.push.{tags,types,workflows}`, `secrets:`, `if:` functions
 beyond the subset (`hashFiles`, `fromJSON`, `format`, …), and
 unknown keys at any level. The full list and honest boundaries
@@ -72,7 +78,10 @@ What changes:
 
 - **No marketplace.** `uses:` is limited to `actions/checkout`
   (a verification no-op — the worktree is already at the pushed
-  sha) and `dtolnay/rust-toolchain` (lowers to rustup calls).
+  sha), `dtolnay/rust-toolchain` (lowers to rustup calls), and
+  the two artifact actions — `upload-artifact`/`download-artifact`
+  share a per-run tar store under the run's tmp dir (same-run
+  only; nothing persists across runs, no artifact browser).
   Everything else installs via `run:` steps (`curl`,
   `cargo install`, your own scripts) or is already on the box.
 - **Sequential, local.** Matrix combinations and independent jobs

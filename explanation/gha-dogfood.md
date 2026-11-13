@@ -42,7 +42,7 @@ Every real workflow hit the same wall, in roughly this order:
 | `strategy.fail-fast` | anyhow L25,57; serde L44,61,85; ripgrep L51 | hard error `unsupported key 'fail-fast'` |
 | step `if:` | anyhow L37,40,45; serde L75,79; ripgrep L123,131,143,159,185,193,201,240,258,273,281,293 | hard error `unsupported key 'if'` |
 | step `continue-on-error` | anyhow L49; serde L29 | hard error `unsupported key 'continue-on-error'` |
-| `uses:` ≠ `actions/checkout` | `dtolnay/rust-toolchain` (everywhere), `dtolnay/install`, `actions/upload-artifact`, `docker/setup-docker-action`, `actions/cache`, `actions/setup-node`, `docker://pandoc/…` | hard error `unsupported 'uses: …'` |
+| `uses:` ≠ `actions/checkout` | `dtolnay/rust-toolchain` (everywhere), `dtolnay/install`, `actions/upload-artifact`, `docker/setup-docker-action`, `actions/cache`, `actions/setup-node`, `docker://pandoc/…` | hard error `unsupported 'uses: …'` — *`dtolnay/rust-toolchain` and the artifact actions have since landed; `actions/setup-*`/`actions/cache`/`docker://`/local paths still error* |
 | `strategy.matrix.include` | ripgrep L53–117, mdBook main.yml | `expected a scalar, got mapping` |
 | complex `${{ }}` expressions | serde L58 job name (`matrix.os == 'windows' && … \|\| ''`), ripgrep `startsWith(...)`, `hashFiles(...)`, `steps.*.outputs.*` | hard error `unsupported expression` — *`steps.*.outputs.*`/`needs.*.outputs.*` since wired (T-069); the rest still error* |
 | `env:` null values | ripgrep L40–42 (`TARGET_FLAGS:` empty) | **was a bug — fixed** (null now coerces to `""`) |
@@ -91,8 +91,11 @@ filters) passes **fully green**, including correct skip of a
 > status under `<context>/<workflow>/<job id>[/<matrix>]` — the
 > aggregate `ci/bupha[/<job>]` context is unchanged. Parallel
 > matrix remains deferred with a written design (per-leg
-> worktrees + in-script concurrency) in the crate README. The
-> bullets below are annotated where they changed.
+> worktrees + in-script concurrency) in the crate README.
+> `actions/upload-artifact`/`actions/download-artifact` also landed
+> since (per-run tar store under the run's tmp dir — same-run
+> only; see the crate README boundaries). The bullets below are
+> annotated where they changed.
 
 - **`$GITHUB_ENV` / `$GITHUB_OUTPUT` / `$GITHUB_PATH` /
   `$RUNNER_TEMP` are unset.** `run: echo X=1 >> $GITHUB_ENV` fails
@@ -115,10 +118,13 @@ filters) passes **fully green**, including correct skip of a
   `hashFiles`, `fromJSON`, `format`, ternary, `runner.*`,
   `strategy.*`, `steps.*.outcome` — still hard-errors loudly.
 - **Third-party actions are still mostly the hard wall.**
-  `actions/setup-*`, `actions/cache`, `actions/upload-artifact`,
-  `docker://…`, reusable-workflow `uses:` all error;
-  `dtolnay/rust-toolchain` is the one mapped action (T-048).
-  Toolchain setup beyond rustup still needs manual porting.
+  `actions/setup-*`, `actions/cache`, `docker://…`,
+  local/composite `uses:` paths and reusable-workflow `uses:` all
+  error; `dtolnay/rust-toolchain` lowers to rustup calls and
+  `actions/upload-artifact`/`actions/download-artifact` share a
+  per-run tar store (same-run only — nothing persists across
+  runs). Toolchain setup beyond rustup still needs manual
+  porting.
 - **Expression language grew but stays a subset.** `==`, `!=`,
   `&&`, `||`, `!`, parens, `contains`/`startsWith`/`endsWith`,
   status functions and the `needs.*.result`/`steps.*.conclusion`
