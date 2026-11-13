@@ -25,3 +25,4 @@
 - T-074 ci-ingress watches repos with no worker fleet coverage — kuda/mimus/sturn ci-job entities pend forever · created:2026-11-13 · links:T-067
 - T-049 migrate queue/cache/lease impls out of bupha — redb/redis queue becomes hypha-side impl; bupha keeps thin port or none (ADR-0006) · pri:high · created:2026-11-10
 - T-073 fork-PR head shas — ci-job indexDoc lacks clone\_url/PR head ref so fork pull\_requests can't be checked out from base clone (T-067 remainder) · owner:devin · created:2026-11-12
+- T-027 status signature/attestation link in commit-status body (ADR-0002 compliance) · created:2026-10-31
