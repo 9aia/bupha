@@ -63,7 +63,7 @@ and status sinks never see the difference.
   tunnel (`cloudflared` | `direct` | `none`), forge
   (`github` today), VCS (`git`), queue store (`json` dev file),
   service
-  (`systemd`), secrets (`cuora` | `keyring` | env file), config
+  (`systemd`), secrets (`cuora` | env file), config
   (`toml`), cache (`sccache`) — ports/impls are separate crates
 - persistent queue across restarts (dev JSON store; durable queue
   state is the ci-job entity plane); detached-git-worktree isolation

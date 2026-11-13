@@ -105,8 +105,8 @@ provenance:
   - crates/bupha-trigger/tests/defaults.rs
   hashes:
   - 5049aec6b8565aa211bac21b52c0f690c0509d63
-  - 42ee46e9419c1a22757faa351866919a9721d9d4
+  - 8690851426c4f18e1a39925d6d2ead8417cf8d85
   - 9534343ce359af5f9a079a28e2620b91d5058dd9
-  commit_sha: abb87b40721c7fe6faf27a74f32e3eb702f4c32f
-  generated_at: '1794440686'
+  commit_sha: 8557f4ed298a7b8915e5d53af5d09834dc776d86
+  generated_at: '1794576747'
   generator: kuda-template/0.1.4

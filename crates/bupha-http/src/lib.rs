@@ -31,7 +31,7 @@ pub struct HttpCfg {
     /// Agent base URL, e.g. `http://runner-box:29174`.
     pub agent_url: String,
     /// Env var NAME holding the shared HMAC secret (resolved via the
-    /// usual env -> keyring -> env-file chain by the caller).
+    /// usual env -> cuora -> env-file chain by the caller).
     #[serde(default = "default_secret_env")]
     pub secret_env: String,
     /// Informational pipeline name sent to the agent (its own runner

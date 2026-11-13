@@ -40,9 +40,9 @@ bupha-github.workspace = true
 # `host` verb — the watcher engine, shared verbatim with `bupha watch`.
 bupha-watch.workspace = true
 # Secrets port + impls live in hypha now (T-077) — git deps, same
-# rule as bupha-watch's hypha-node-api.
+# rule as bupha-watch's hypha-node-api. No keyring: the chain is
+# env → cuora → ~/.config/bupha/env.
 hypha-secret = { git = "https://github.com/9aia/hypha.git", branch = "main" }
-hypha-keyring = { git = "https://github.com/9aia/hypha.git", branch = "main" }
 hypha-dotenv = { git = "https://github.com/9aia/hypha.git", branch = "main" }
 bupha-secret-cuora.workspace = true
 serde = { version = "1", features = ["derive"] }

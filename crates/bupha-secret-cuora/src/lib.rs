@@ -21,7 +21,7 @@
 //!
 //! A missing `cuora` binary, a denied op, or an absent ref all
 //! answer `None` — "not here" — so the caller's chain falls through
-//! to the legacy stores exactly like a keyring miss on a headless
+//! to the env-file leg exactly like a missing ref on a headless
 //! box, on either transport.
 //!
 //! Env knobs: `BUPHA_CUORA_BIN` overrides the binary path (tests

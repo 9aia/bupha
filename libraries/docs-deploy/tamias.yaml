@@ -59,9 +59,10 @@ provider:
       exec: >-
         ~/.local/share/tamias/drivers/tamias-driver-bupha host --config ~/.config/bupha/bundles/docs-deploy.toml
       # Secrets resolve env → cuora (`cuora://bupha/<NAME>`,
-      # canonical, T-056/T-059) → keyring. The legacy
-      # `~/.config/bupha/env` file is retired — every fleet secret
-      # lives in the cuora vault, so no `env_file:` here. The
+      # canonical, T-056/T-059) → `~/.config/bupha/env` (dev-mode /
+      # no-cuora fallback; keyring leg dropped post-T-077). Fleet
+      # secrets don't use that fallback — every one lives in the
+      # cuora vault, so no `env_file:` here. The
       # watcher still needs `cuora` on PATH (systemd's minimal
       # PATH — same caveat as the driver binary above).
       workdir: "~"

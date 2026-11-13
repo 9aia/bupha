@@ -57,7 +57,7 @@ systemctl --user enable --now peregrin-campaign.service
 
 Secrets resolve through the campaign's secret chain — **cuora is
 canonical** (`cuora://peregrin/<NAME>` or `cuora://bupha/*`), with
-process env / keyring as fallback; the bundle declares no
+process env / env file as fallback; the bundle declares no
 `env_file`. Needed names:
 
 - `PEREGRIN_NODE_TOKEN` — bearer for the entity node's `/api/entities`

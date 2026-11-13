@@ -80,7 +80,7 @@
 //! - `hooks register|uninstall [--dry-run] [--api-base <url>]
 //!   [--token-env <NAME>]` — upsert/remove the GitHub webhooks
 //!   `provider.ingress[].hooks[]` declare, via `bupha_github`'s REST
-//!   path. Secrets resolve by NAME (env → cuora → keyring →
+//!   path. Secrets resolve by NAME (env → cuora →
 //!   `~/.config/bupha/env`; cuora canonical per T-056); values are
 //!   never printed.
 //!   **Standalone mode** (ADR-0007): registers hooks at the bupha

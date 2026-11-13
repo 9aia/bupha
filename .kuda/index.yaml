@@ -40,8 +40,8 @@ modules:
 commands:
 - cargo check
 - cargo test --workspace
-tree_digest: 8f3cc6c673cd9fb00635c3991900a1d6b12f86a9
-files_total: 210
+tree_digest: b35210b71e269c3331779d4c6f6486b6184f9dd5
+files_total: 211
 provenance:
   files:
   - Cargo.toml
@@ -81,7 +81,7 @@ provenance:
   - modules/dagger/dagger/pyproject.toml
   hashes:
   - 92952cd84e1b9e3741328c28fb836bbe1832826e
-  - 5d5e26b41c66a44a7a3d9e514c48dd5e4b9c737c
+  - 8abf29cacba563a369b27c61b65e185beb9475a8
   - faa9d3e3b2e30ebed8aecf8da83c4683f33024c8
   - d3b36ada9a99ed7e36e96e47a7beb1f5bf3fe348
   - 977aa09725741778eef33809aaf4414e789e3f02
@@ -96,7 +96,7 @@ provenance:
   - ed119b77d73632bed5f8699fe776993139cce885
   - 2949c06c8e71ef5da170506ce9cd8dfbb7312ce3
   - 6ebc856617d9589fc7fa9c6363696d2e543e5f0b
-  - b88c837b1a4cdad05401250ce8b6399ff574cc67
+  - 8d588195b81dadd7e8024161eb89018f9fdf3c0d
   - 130920aec2d9f32d6f8c6d16b35230ba63ddc04f
   - 50261b87b50271a25bf73fe4037897a0d4e97a89
   - 9a8bdeb02a9e8896e60f63d221a83f115d8a5980
@@ -113,8 +113,8 @@ provenance:
   - fbe2fdbccfd7b8538a701e654208633efa99e493
   - 2a36671c2aaaac449a8e23391a72f3473f9fe3c9
   - 5049aec6b8565aa211bac21b52c0f690c0509d63
-  - 715f30ad0b0174c954edc60974b199104abd988d
+  - 266224915f8ff4c7c2cad0aba28a95b57a819a43
   - a787b6af9e98fd8cae6ece92467308d34e49bbce
-  commit_sha: 79cd0a9d987f30c0f9514a5a745c83f0bb042b70
-  generated_at: '1794574256'
+  commit_sha: 8557f4ed298a7b8915e5d53af5d09834dc776d86
+  generated_at: '1794576747'
   generator: kuda/0.1.0

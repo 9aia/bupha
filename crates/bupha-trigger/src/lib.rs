@@ -114,7 +114,7 @@ pub enum PushOutcome {
 /// surface; the watcher calls this instead of knowing GitHub.
 pub trait ForgeAdmin: Send + Sync {
     /// Register the push webhook for `repo` pointing at `url`.
-    /// `token`/`secret` are resolved values (env/keyring/file).
+    /// `token`/`secret` are resolved values (env/cuora/env-file).
     fn register_hook(&self, url: &str, secret: &str, token: &str) -> Result<String, String>;
     /// Remove the webhook at `url` for `repo` (exact-match).
     fn remove_hook(&self, url: &str, token: &str) -> Result<String, String>;

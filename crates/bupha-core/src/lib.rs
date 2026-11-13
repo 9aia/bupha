@@ -328,8 +328,8 @@ pub struct AttestCfg {
     /// Default: "<worktree.base>/attest".
     #[serde(default)]
     pub dir: Option<String>,
-    /// Signing key env-var name (kind = "sigstore") — env/keyring/
-    /// file chain resolves the value; the key itself never enters the
+    /// Signing key env-var name (kind = "sigstore") — env/cuora/
+    /// env-file chain resolves the value; the key itself never enters the
     /// config. Empty/resolved-empty = keyless (Fulcio).
     #[serde(default)]
     pub key_env: String,
@@ -407,7 +407,7 @@ pub struct WorkerCfg {
     #[serde(default)]
     pub node: Option<String>,
     /// Env-var NAME holding the node's bearer credential — resolved
-    /// through the secret chain (env → cuora → keyring →
+    /// through the secret chain (env → cuora →
     /// `~/.config/bupha/env`), the same rule as `token_env`/
     /// `secret_env`: the config stores the NAME, never the value.
     /// `peregrin pair`/`hypha pair` mints the token; store it under

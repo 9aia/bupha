@@ -15,7 +15,7 @@ Do not open public issues for security reports.
 - Secrets (`BUPHA_WEBHOOK_SECRET`, `BUPHA_TOKEN`, `PEREGRIN_TOKEN`,
   `BUPHA_WH_*`) resolve via env var
   → cuora (`cuora://bupha/<NAME>`, canonical per T-056; every fleet
-  secret migrated there in T-059) → OS keyring
+  secret migrated there in T-059) → `~/.config/bupha/env`
   (`secret-tool`) → `~/.config/bupha/env` (chmod 600, retired —
   legacy code fallback only);
   values never appear in config files and are passed to runners only

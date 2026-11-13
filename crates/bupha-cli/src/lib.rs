@@ -29,9 +29,9 @@ use bupha_queue::{JsonQueueStore, QueueStore};
 use bupha_runner::RunCtx;
 use bupha_secret_cuora::CuoraSecrets;
 use bupha_trigger::ForgeAdmin;
+use clap::{Parser, Subcommand};
 use hypha_keyring::KeyringSecrets;
 use hypha_secret::Secrets;
-use clap::{Parser, Subcommand};
 use lasius_vcs::Vcs;
 use lasius_vcs_git::GitVcs;
 
@@ -157,7 +157,7 @@ enum DeploySub {
         no_start: bool,
     },
     /// Register/update the repo's push webhook via the REST API
-    /// (token from env/keyring/env file — no `gh` dependency).
+    /// (token resolved env → cuora → env file — no `gh` dependency).
     Webhook,
     /// Seed ~/.config/bupha/env with the secret names.
     Env,
@@ -205,12 +205,8 @@ enum ServiceSub {
 /// tarred worktrees + specs, runs them with this box's runner and
 /// exposes job status. HMAC-verified against the shared secret.
 fn cmd_agent(cfg: Arc<Config>) {
-    let secret = bupha_watch::secret(&cfg.agent.token_env).unwrap_or_else(|| {
-        panic!(
-            "{} required (env, cuora, keyring or env file)",
-            cfg.agent.token_env
-        )
-    });
+    let secret = bupha_watch::secret(&cfg.agent.token_env)
+        .unwrap_or_else(|| panic!("{} required (env, cuora or env file)", cfg.agent.token_env));
     let runner = bupha_watch::build_runner(&cfg.runner, &cfg.cache);
     println!("bupha agent listening on {}", cfg.agent.listen);
     let _ = std::fs::create_dir_all(&cfg.worktree.base);
@@ -237,7 +233,7 @@ fn cmd_agent(cfg: Arc<Config>) {
 /// half of the crate; a tamias service entry can wrap it later.
 ///
 /// Secrets are *names*, never values: `token_env`/`pat_env` resolve
-/// through the canonical chain (env → cuora → keyring →
+/// through the canonical chain (env → cuora →
 /// `~/.config/bupha/env`) and are injected into this process's env
 /// for the runner lib, which only reads env vars and files.
 ///
@@ -610,7 +606,7 @@ fn cmd_doctor(cfg: &Config, json: bool) {
                 .any(|l| l.starts_with(&format!("{name}=")) && l.len() > name.len() + 1)
     };
     // Global secret plus every per-repo override — each name must
-    // resolve (env, cuora, keyring, or the env file).
+    // resolve (env, cuora, or the env file).
     for name in bupha_watch::webhook_secret_names(cfg) {
         check("webhook secret", has(name), name, &mut out);
     }
@@ -951,44 +947,57 @@ fn cmd_deploy(cfg: &Config, sub: &DeploySub, cli_config: Option<String>) {
         DeploySub::Env => {
             let names: Vec<String> = bupha_watch::secret_names(cfg);
             let names: Vec<&str> = names.iter().map(String::as_str).collect();
-            match deploy::write_env_skeleton(&cfg_dir, &names) {
-                Ok(p) => println!(
-                    "env file: {} (fill the secrets — canonical store is cuora: \
-                     printf '%s' \"$VALUE\" | cuora put cuora://bupha/<NAME>)",
-                    p.display()
-                ),
+            let env_path = match deploy::write_env_skeleton(&cfg_dir, &names) {
+                Ok(p) => {
+                    println!(
+                        "env file: {} (fill the secrets — canonical store is cuora: \
+                         printf '%s' \"$VALUE\" | cuora put cuora://bupha/<NAME>)",
+                        p.display()
+                    );
+                    p
+                }
                 Err(e) => {
                     eprintln!("env: {e}");
                     std::process::exit(1);
                 }
-            }
-            // If values are already in the environment, migrate them
-            // into the canonical store — cuora (T-056) — falling back
-            // to the OS keyring on hosts without it
-            // (resolution order: env > cuora > keyring > file).
+            };
+            // Migrate into the canonical store — cuora (T-056). The
+            // OS keyring is no longer a runtime leg (env → cuora →
+            // env file): env-held values go to cuora, and pre-cuora
+            // keyring entries (service="bupha") get a one-shot read
+            // here so they aren't orphaned. Whatever cuora can't
+            // take stays in the env file the operator fills in.
+            let cuora = CuoraSecrets::shared_default();
+            let keyring = KeyringSecrets {
+                service: "bupha".into(),
+            };
             for name in names {
+                // An empty env var doesn't count — the runtime chain
+                // filters it the same way, so a keyring entry below
+                // is still worth migrating.
                 if let Ok(v) = std::env::var(name) {
-                    if v.is_empty() {
-                        continue;
-                    }
-                    if CuoraSecrets::default().set(name, &v).is_ok() {
-                        println!("{name}: stored in cuora (cuora://bupha/{name})");
-                        continue;
-                    }
-                    // service="bupha" matches the watch/driver chain.
-                    let ok = KeyringSecrets {
-                        service: "bupha".into(),
-                    }
-                    .set(name, &v)
-                    .is_ok();
-                    println!(
-                        "{name}: {}",
-                        if ok {
-                            "stored in keyring"
+                    if !v.is_empty() {
+                        if cuora.set(name, &v).is_ok() {
+                            println!("{name}: stored in cuora (cuora://bupha/{name})");
                         } else {
-                            "cuora/keyring unavailable (env file is the fallback)"
+                            println!(
+                                "{name}: cuora unavailable — add it to {} (mode 600)",
+                                env_path.display()
+                            );
                         }
-                    );
+                        continue;
+                    }
+                }
+                if let Some(v) = keyring.get(name) {
+                    if cuora.set(name, &v).is_ok() {
+                        println!("{name}: migrated keyring → cuora (cuora://bupha/{name})");
+                    } else {
+                        println!(
+                            "{name}: keyring entry found but cuora unavailable — \
+                             move it to {}",
+                            env_path.display()
+                        );
+                    }
                 }
             }
         }
@@ -1050,7 +1059,7 @@ fn cmd_deploy(cfg: &Config, sub: &DeploySub, cli_config: Option<String>) {
                     // repo's secret_env when set, else the global.
                     let env = r.secret_env.as_deref().unwrap_or(&cfg.trigger.secret_env);
                     let wh_secret = bupha_watch::secret(env).unwrap_or_else(|| {
-                        eprintln!("{env} required (env, cuora, keyring or env file)");
+                        eprintln!("{env} required (env, cuora or env file)");
                         std::process::exit(1);
                     });
                     let msg = (GitHubAdmin {

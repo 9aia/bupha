@@ -36,7 +36,7 @@
 //! delete.
 //!
 //! Secrets are env-var NAMES only (`secret_env`, `token_env`) —
-//! values resolve env → cuora → OS keyring → `~/.config/bupha/env`
+//! values resolve env → cuora → `~/.config/bupha/env`
 //! (cuora canonical per T-056), the same chain `bupha` itself uses,
 //! and are never printed or written.
 
@@ -455,9 +455,10 @@ fn env_file() -> PathBuf {
 }
 
 /// Secret resolution chain, mirroring `bupha`'s own `secret()`
-/// (T-056 — cuora canonical): env var → cuora broker
-/// (`cuora://bupha/<NAME>` via the `cuora` CLI) → OS keyring →
-/// `~/.config/bupha/env` (both LEGACY fallbacks). Values are used
+/// (T-056 — cuora canonical; keyring leg dropped post-T-077):
+/// env var → cuora broker (`cuora://bupha/<NAME>` via the `cuora`
+/// CLI) → `~/.config/bupha/env` (the dev-mode / no-cuora fallback,
+/// also the provider unit's `EnvironmentFile`). Values are used
 /// in-flight only — never printed, never written to configs.
 fn secret(name: &str) -> Option<String> {
     use hypha_secret::Secrets;
@@ -465,19 +466,11 @@ fn secret(name: &str) -> Option<String> {
         .ok()
         .filter(|v| !v.is_empty())
         .or_else(|| bupha_secret_cuora::CuoraSecrets::default().get(name))
-        // service="bupha" matches the watch/cli chain — pre-cuora
-        // keyring entries still resolve.
-        .or_else(|| {
-            hypha_keyring::KeyringSecrets {
-                service: "bupha".into(),
-            }
-            .get(name)
-        })
         .or_else(|| hypha_dotenv::DotenvSecrets { path: env_file() }.get(name))
 }
 
 fn missing_secret(name: &str) -> String {
-    format!("{name} required (env, cuora, keyring or ~/.config/bupha/env)")
+    format!("{name} required (env, cuora or ~/.config/bupha/env)")
 }
 
 // --- hooks -------------------------------------------------------------------
@@ -837,7 +830,7 @@ pub fn config_schema() -> Result<String, String> {
             "status_repo": {"type": "string"},
             "runner": {"type": "object", "description": "Per-repo runner override — a full [runner] table."},
             "queue": {"type": "string", "enum": ["latest", "all"], "default": "latest"},
-            "secret_env": {"type": "string", "description": "Webhook-secret env NAME for this repo (resolved env → cuora → keyring → ~/.config/bupha/env (cuora canonical, T-056)). Never a value."},
+            "secret_env": {"type": "string", "description": "Webhook-secret env NAME for this repo (resolved env → cuora → ~/.config/bupha/env (cuora canonical, T-056)). Never a value."},
             "runs_on": {"type": "array", "items": {"type": "string"}, "description": "Fleet labels a claiming worker must carry."},
             "retry": {"type": "integer", "minimum": 0, "maximum": 3},
             "sturn": {"type": "boolean", "description": "Opt into the [trigger.sturn] WAL poller."},
@@ -919,7 +912,7 @@ pub fn config_schema() -> Result<String, String> {
                 "properties": {
                     "labels": {"type": "array", "items": {"type": "string"}},
                     "node": {"type": "string", "description": "Hypha/peregrin node base URL for the `worker` verb's ci-job poll (P-002). Also settable via --node / BUPHA_WORKER_NODE."},
-                    "node_token_env": {"type": "string", "description": "Secret NAME (env → cuora → keyring → env file) holding the node bearer credential; BUPHA_NODE_TOKEN is a direct-token fallback."}
+                    "node_token_env": {"type": "string", "description": "Secret NAME (env → cuora → env file) holding the node bearer credential; BUPHA_NODE_TOKEN is a direct-token fallback."}
                 }
             },
             "agent": {"type": "object"}
@@ -979,7 +972,7 @@ pub fn host(f: &Flags) -> Result<String, String> {
 /// Node endpoint resolution: `--node` → `BUPHA_WORKER_NODE` →
 /// `[worker] node` in the operator config. Credential: `--node-token-env`
 /// / `[worker] node_token_env` names a secret resolved through the
-/// usual chain (env → cuora → keyring → `~/.config/bupha/env`);
+/// usual chain (env → cuora → `~/.config/bupha/env`);
 /// `BUPHA_NODE_TOKEN` is a direct-token escape hatch; neither set =
 /// unauthenticated (dev nodes).
 ///
@@ -1016,19 +1009,19 @@ pub fn worker(f: &Flags) -> Result<String, String> {
         .ok_or_else(|| {
             "worker: no node endpoint — set [worker] node, --node, or BUPHA_WORKER_NODE".to_string()
         })?;
-    let token =
-        match f
-            .node_token_env
-            .clone()
-            .or_else(|| cfg.worker.node_token_env.clone())
-        {
-            Some(name) => Some(bupha_watch::secret(&name).ok_or_else(|| {
-                format!("worker: {name} required (env, cuora, keyring or env file)")
-            })?),
-            None => std::env::var("BUPHA_NODE_TOKEN")
-                .ok()
-                .filter(|s| !s.is_empty()),
-        };
+    let token = match f
+        .node_token_env
+        .clone()
+        .or_else(|| cfg.worker.node_token_env.clone())
+    {
+        Some(name) => Some(
+            bupha_watch::secret(&name)
+                .ok_or_else(|| format!("worker: {name} required (env, cuora or env file)"))?,
+        ),
+        None => std::env::var("BUPHA_NODE_TOKEN")
+            .ok()
+            .filter(|s| !s.is_empty()),
+    };
 
     let api = bupha_watch::entity_worker::EntityJobApi::http(&node, token)
         .map_err(|e| format!("worker: {e}"))?;

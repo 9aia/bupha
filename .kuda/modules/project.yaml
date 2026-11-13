@@ -115,72 +115,72 @@ api:
 - name: T-008
   kind: record
   file: project/BACKLOG.md
-  line: 13
+  line: 11
   module: project
 - name: T-009
   kind: record
   file: project/BACKLOG.md
-  line: 17
+  line: 15
   module: project
 - name: T-010
   kind: record
   file: project/BACKLOG.md
-  line: 18
+  line: 16
   module: project
 - name: T-011
   kind: record
   file: project/BACKLOG.md
-  line: 19
+  line: 17
   module: project
 - name: T-012
   kind: record
   file: project/BACKLOG.md
-  line: 20
+  line: 18
   module: project
 - name: T-013
   kind: record
   file: project/BACKLOG.md
-  line: 21
+  line: 19
   module: project
 - name: T-014
   kind: record
   file: project/BACKLOG.md
-  line: 22
+  line: 20
   module: project
 - name: T-015
   kind: record
   file: project/BACKLOG.md
-  line: 23
+  line: 21
   module: project
 - name: T-016
   kind: record
   file: project/BACKLOG.md
-  line: 24
+  line: 22
   module: project
 - name: T-017
   kind: record
   file: project/BACKLOG.md
-  line: 25
+  line: 23
   module: project
 - name: T-018
   kind: record
   file: project/BACKLOG.md
-  line: 26
+  line: 24
   module: project
 - name: T-019
   kind: record
   file: project/BACKLOG.md
-  line: 30
+  line: 28
   module: project
 - name: T-020
   kind: record
   file: project/BACKLOG.md
-  line: 31
+  line: 29
   module: project
 - name: T-021
   kind: record
   file: project/BACKLOG.md
-  line: 32
+  line: 30
   module: project
 - name: T-027
   kind: record
@@ -202,7 +202,7 @@ api:
   file: project/TODO.md
   line: 3
   module: project
-api_omitted: 59
+api_omitted: 61
 deps: []
 notes: ''
 verify:
@@ -248,11 +248,13 @@ provenance:
   - project/handoffs/T-067.md
   - project/handoffs/T-068.md
   - project/handoffs/T-069.md
+  - project/handoffs/T-070.md
   - project/handoffs/T-071.md
   - project/handoffs/T-072.md
   - project/handoffs/T-073.md
   - project/handoffs/T-074.md
   - project/handoffs/T-075.md
+  - project/handoffs/T-077.md
   - project/handoffs/archive/T-029.md
   - project/index.md
   - project/issues/issue-0001-ci-jobs-run-in-the-watcher-cgroup-oom-kills-the-watcher-and-re-runs-forever.md
@@ -271,9 +273,9 @@ provenance:
   - project/proposals/proposal-0002-ci-job-ops-contract-bupha-hypha-peregrin-seam.md
   - project/proposals/proposal-0003-bupha-runner-port-is-load-bearing-keep-redundancy-is-queue-store-t-049-and-worktree-plumbing.md
   hashes:
-  - 0c114ae20a3b247a677807d75548dc3e0d5e0883
-  - 8a1758c990c3b98704ec8d67e0b9590c0fd33692
-  - 9e736c2cfb2de068aedc699f84404d17771b0925
+  - 86871dd5e3ab8cc46e9106ec24227ae7415f36a8
+  - 16f31d056f83ca538453dd1bfa858a510ffa2099
+  - 8e04f836a7ae2dd0c2135d3528fa80585543e5c3
   - 2369700a1a6e99c56d28b0d38e76ab053b37bd6d
   - c29950d6fd46cd166cee477e9f1bd125ac1b283a
   - 5d22a78ab0e5a33a834acb59d44080bc09bceefd
@@ -297,15 +299,17 @@ provenance:
   - 9db8abb85bfcc987d7d80d67cb1344a379a3dd4b
   - 8beb096a8090242c6736d3abba9882368c110ee2
   - b11dbe5775b6ba867733a191024ef3778500002b
-  - 063ca31c199506697495c2e40e908dace00ad912
+  - 915bddc64f93f1da5c26d24f253ba9a6edc79854
   - 636889ea22d1cec19072ec1b4d9e133c2a201115
   - 37d569fa6a63a22d2e230d909da8b3ca5c17a980
   - 8206059f41cc337b706e7c9ddba64aa890b568b5
+  - 0f15dc4f9c23085bacb0721c644dd299af5ca5b8
   - 174cdab0c2f9fe7f272bd2fb94a9f69e9e8f4602
   - d7f877733cb2e87c430de164332c020926bee1ca
   - 8acce8a32f7eb2570c50e1c470176d1efaff38dc
   - c1d6e4e743d9e7455fc17ea2071425220a15f8cb
   - 2f02822ff44dd986802aeab152bca1a7b61390e8
+  - adc7889db61362e1dae99a9ed2f0effe11ff715e
   - d3f12670f3e871b0c2a499668a4cd1e3bb3d7815
   - 3091ed43775d9ade33d06ad35e6b788b98afa4d5
   - 52d8d4834c8a14b6d2a45689e9dd401b65bb7c95
@@ -323,6 +327,6 @@ provenance:
   - d7ce1cb6d95ae71a26ec4c6bdabdc5f318d8a21f
   - 64bb8eeec2c83135075727fb9aec32780e212939
   - 47479681f7ca7db300bbd8f998bd0918a4db0010
-  commit_sha: 255c0ebbd6460737dd3b15424b96c0d8ef08540a
-  generated_at: '1794549653'
+  commit_sha: 8557f4ed298a7b8915e5d53af5d09834dc776d86
+  generated_at: '1794576747'
   generator: kuda-template/0.1.4

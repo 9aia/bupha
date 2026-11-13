@@ -14,12 +14,11 @@ lasius-vcs.workspace = true
 lasius-vcs-git.workspace = true
 bupha-queue.workspace = true
 bupha-secret-cuora.workspace = true
-# Secrets port + legacy fallback impls — hypha crates (git dep, same
-# rule as hypha-node-api below; the bupha-{secret,keyring,dotenv}
-# crates were retired in T-077). Keyring keeps service="bupha" so
-# pre-cuora entries still resolve.
+# Secrets port + fallback impl — hypha crates (git dep, same rule
+# as hypha-node-api below; the bupha-{secret,keyring,dotenv} crates
+# were retired in T-077). The OS-keyring leg was dropped post-T-077:
+# env → cuora → ~/.config/bupha/env is the whole chain now.
 hypha-secret = { git = "https://github.com/9aia/hypha.git", branch = "main" }
-hypha-keyring = { git = "https://github.com/9aia/hypha.git", branch = "main" }
 hypha-dotenv = { git = "https://github.com/9aia/hypha.git", branch = "main" }
 bupha-trigger.workspace = true
 bupha-status.workspace = true

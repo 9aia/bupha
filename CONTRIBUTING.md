@@ -14,7 +14,8 @@ sink), `bupha-shell`/`bupha-dagger`/`bupha-ssh` (runners);
 (`tunnel`/`webhook` modules — T-077 folded the ex-`bupha-tunnel`,
 `-cloudflared`, `-webhook` crates in). Generic infra is *not*
 bupha's: secrets resolve env → cuora (`bupha-secret-cuora`) →
-`hypha-keyring`/`hypha-dotenv` fallbacks, and systemd units go
+`hypha-dotenv` fallback (the keyring leg was dropped post-T-077 —
+`deploy env` migrates pre-cuora keyring entries into cuora), and systemd units go
 through `hypha-systemd` (T-077 — the `bupha-{secret,keyring,
 dotenv,service,systemd}` crates are retired);
 `bupha` (package `bupha`, crate dir `bupha-cli`) is the engine

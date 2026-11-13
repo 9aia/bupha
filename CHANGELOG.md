@@ -57,6 +57,23 @@ generator lands.
   `env_file:` lines are gone from both bundle manifests. Resolution
   order is unchanged (env → cuora → keyring → env file); the last
   two legs remain only as no-cuora fallbacks.
+- **OS-keyring secret leg dropped (post-T-077)** — the chain is now
+  env → cuora → `~/.config/bupha/env` everywhere (`bupha watch`,
+  `tamias-driver-bupha` ops, webhook/hook secret resolution). The
+  env file stays: it's the dev-mode / no-cuora fallback and the
+  provider unit's `EnvironmentFile`. `bupha deploy env` no longer
+  writes keyring entries — it migrates pre-cuora `service="bupha"`
+  keyring entries into cuora (one-shot read) and points anything
+  cuora can't take at the env file.
+- **`runner.kind = "gha"` parallel matrix** — matrix legs now fan
+  out as background process groups (each in a private `git
+  worktree` checkout), throttled by `strategy.max-parallel`
+  (default: all legs; `1` keeps the old sequential shared-worktree
+  path). `fail-fast` kills surviving leg groups; per-leg statuses
+  still post; `needs.<job>.outputs.*` resolves to the
+  highest-index successful leg. Note the honest boundary: files a
+  parallel leg writes to its workspace stay in that leg's
+  worktree — they no longer land in the shared workdir.
 
 ### Fixed
 

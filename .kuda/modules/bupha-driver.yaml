@@ -25,32 +25,32 @@ api:
 - name: Flags
   kind: type
   file: crates/bupha-driver/src/ops.rs
-  line: 66
+  line: 67
   module: bupha-driver
 - name: HOOK_PATH
   kind: const
   file: crates/bupha-driver/src/ops.rs
-  line: 58
+  line: 59
   module: bupha-driver
 - name: Hook
   kind: type
   file: crates/bupha-driver/src/ops.rs
-  line: 199
+  line: 200
   module: bupha-driver
 - name: HookTarget
   kind: type
   file: crates/bupha-driver/src/ops.rs
-  line: 486
+  line: 480
   module: bupha-driver
 - name: Ingress
   kind: type
   file: crates/bupha-driver/src/ops.rs
-  line: 187
+  line: 188
   module: bupha-driver
 - name: MANIFEST
   kind: const
   file: crates/bupha-driver/src/ops.rs
-  line: 1143
+  line: 1137
   module: bupha-driver
 - name: MANIFEST_NAMES
   kind: const
@@ -65,12 +65,12 @@ api:
 - name: MIN_FLEET
   kind: const
   file: crates/bupha-driver/src/ops.rs
-  line: 1130
+  line: 1124
   module: bupha-driver
 - name: Manifest
   kind: type
   file: crates/bupha-driver/src/ops.rs
-  line: 157
+  line: 158
   module: bupha-driver
 - name: N
   kind: const
@@ -90,7 +90,7 @@ api:
 - name: Provider
   kind: type
   file: crates/bupha-driver/src/ops.rs
-  line: 167
+  line: 168
   module: bupha-driver
 - name: QUEUE_COLS
   kind: const
@@ -135,7 +135,7 @@ api:
 - name: Service
   kind: type
   file: crates/bupha-driver/src/ops.rs
-  line: 177
+  line: 178
   module: bupha-driver
 - name: Svc
   kind: type
@@ -160,12 +160,12 @@ api:
 - name: agent_error_exits
   kind: function
   file: crates/bupha-driver/tests/watch.rs
-  line: 1348
+  line: 1311
   module: bupha-driver
 - name: agent_serves_and_http_runner_arm
   kind: function
   file: crates/bupha-driver/tests/watch.rs
-  line: 1269
+  line: 1232
   module: bupha-driver
 - name: argv
   kind: function
@@ -202,7 +202,7 @@ api:
   file: crates/bupha-driver/tests/ops.rs
   line: 9
   module: bupha-driver
-api_omitted: 272
+api_omitted: 273
 deps:
 - bupha
 - bupha-config-file
@@ -213,7 +213,6 @@ deps:
 - bupha-watch
 - clap
 - hypha-dotenv
-- hypha-keyring
 - hypha-secret
 - hypha-systemd
 - pavo-driver-kit
@@ -270,15 +269,15 @@ provenance:
   - crates/bupha-driver/tests/verbs.rs
   - crates/bupha-driver/tests/watch.rs
   hashes:
-  - b88c837b1a4cdad05401250ce8b6399ff574cc67
+  - 8d588195b81dadd7e8024161eb89018f9fdf3c0d
   - ed51e1e54e2387ffa046313bb9edd2fd4b6867f1
   - 198a3778c07393c79598b08916cb8095bd165727
   - aeae9673ae611a66a0146a4227ead239022f61ed
-  - d9f35acc6476a1aa976407388bc3f0a565824abb
-  - b331a13051436563fe4fb8c2cc831a6ab1d78281
+  - 34e6bd08e4b00e1af9cd5950150075c0a6ff7da5
+  - 5938d756886463c3c0c6c80324859d5f190c5510
   - 0da6b0651234e4ebbf8510aa9ff4f77ef22eb332
   - d8f6cbd1c8f342af984fc99785f7a9cb9bc54f85
-  - ae825cd78b5ab2f1c7d3c81aeb8a02ac97bcfda2
+  - 843383cb8a7007dd4371ab44995c75c38fe6ca86
   - 39c206d85acc5c3cc6a666f4b3547eb240197a0a
   - 184e61c6b7e3dc41de9097f159fc4c13d7a11313
   - 00e06cb9f62e8955fc1b6f9e82e6df42540f420c
@@ -286,7 +285,7 @@ provenance:
   - eef1d35d7cd370db4426fbaca5c7f364f73510a3
   - 12553a9dc152e7e0ffec4a06651592ed38d3ed23
   - fd852737ecb9227ba086e83d6212dc327ab9ac7b
-  - 69c188e363454b256787377d8496652dcd4c7a80
-  commit_sha: 255c0ebbd6460737dd3b15424b96c0d8ef08540a
-  generated_at: '1794549653'
+  - a5bca4d891c4971f8071159624a0452a057e3efa
+  commit_sha: 8557f4ed298a7b8915e5d53af5d09834dc776d86
+  generated_at: '1794576747'
   generator: kuda-template/0.1.4

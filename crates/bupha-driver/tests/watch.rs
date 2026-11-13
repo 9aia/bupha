@@ -743,7 +743,7 @@ fn config_kind_rejections() {
     let base = t.join("wt");
     let mk = |extra: &str| cfg_text(free_port(), "", &base, &repo_dir, extra);
 
-    // No secret anywhere (env, keyring, env file) -> panic arm.
+    // No secret anywhere (env, cuora, env file) -> panic arm.
     {
         let p = t.join("nosec.toml");
         std::fs::write(&p, mk("")).unwrap();
@@ -756,8 +756,7 @@ fn config_kind_rejections() {
             .output()
             .unwrap();
         assert_eq!(out.status.code(), Some(101));
-        assert!(String::from_utf8_lossy(&out.stderr)
-            .contains("required (env, cuora, keyring or env file)"));
+        assert!(String::from_utf8_lossy(&out.stderr).contains("required (env, cuora or env file)"));
     }
 
     let cfg = mk("").replacen("kind = \"github\"\nlisten", "kind = \"forge-x\"\nlisten", 1);
@@ -816,28 +815,16 @@ fn watch_boot_failures() {
 }
 
 #[test]
-fn secret_fallbacks_keyring_and_file() {
-    // (a) keyring: no env secret; stub secret-tool answers lookups.
-    let t = tmp("kr");
+fn secret_fallback_env_file() {
+    // env file: secret lives in ~/.config/bupha/env — the dev-mode /
+    // no-cuora leg (the OS-keyring leg was dropped post-T-077).
+    let t = tmp("df");
     let repo_dir = t.join("repo");
     std::fs::create_dir_all(&repo_dir).unwrap();
     let _ = repo(&repo_dir, 1);
-    let stubs = t.join("bin");
-    std::fs::create_dir_all(&stubs).unwrap();
-    std::fs::write(
-        stubs.join("secret-tool"),
-        "#!/bin/bash\necho s3cr3t\nexit 0\n",
-    )
-    .unwrap();
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::PermissionsExt;
-        std::fs::set_permissions(
-            stubs.join("secret-tool"),
-            std::fs::Permissions::from_mode(0o755),
-        )
-        .unwrap();
-    }
+    let cfgd = t.join(".config/bupha");
+    std::fs::create_dir_all(&cfgd).unwrap();
+    std::fs::write(cfgd.join("env"), "E2E_SECRET=s3cr3t\n").unwrap();
     let port = free_port();
     let cfg = cfg_text(port, "", &t.join("wt"), &repo_dir, "");
     let cfg_path = t.join("bupha.toml");
@@ -847,32 +834,8 @@ fn secret_fallbacks_keyring_and_file() {
         &cfg_path,
         &shutdown,
         &[
-            ("PATH", &format!("{}:/usr/bin:/bin", stubs.display())),
-            ("HOME", &t.display().to_string()),
-        ],
-    );
-    wait_listen(port);
-    stop(svc, &shutdown);
-
-    // (b) env file: secret lives in ~/.config/bupha/env, no keyring.
-    let t2 = tmp("df");
-    let repo_dir = t2.join("repo");
-    std::fs::create_dir_all(&repo_dir).unwrap();
-    let _ = repo(&repo_dir, 1);
-    let cfgd = t2.join(".config/bupha");
-    std::fs::create_dir_all(&cfgd).unwrap();
-    std::fs::write(cfgd.join("env"), "E2E_SECRET=s3cr3t\n").unwrap();
-    let port = free_port();
-    let cfg = cfg_text(port, "", &t2.join("wt"), &repo_dir, "");
-    let cfg_path = t2.join("bupha.toml");
-    std::fs::write(&cfg_path, &cfg).unwrap();
-    let shutdown = t2.join("down");
-    let svc = spawn_watch(
-        &cfg_path,
-        &shutdown,
-        &[
             ("PATH", "/usr/bin:/bin"),
-            ("HOME", &t2.display().to_string()),
+            ("HOME", &t.display().to_string()),
         ],
     );
     wait_listen(port);

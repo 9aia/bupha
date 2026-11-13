@@ -43,7 +43,7 @@ tags; `init`/`import`/`run` write configs or execute the
 pipeline. Read-only ops: `doctor`, `runs`, `log`, `explain`,
 `deploy check`, `service status|logs`. Secrets are env-var NAMES
 only — values resolve inside the child through the canonical chain
-(env → cuora → keyring → `~/.config/bupha/env`), never argv.
+(env → cuora → `~/.config/bupha/env`), never argv.
 
 ## tamias verbs (`type: bupha`)
 
@@ -56,7 +56,7 @@ tamias dispatches `<verb> --dir <payload> --name <pkg> [--config <f>]`:
 | `host [--config <f>]` | engine-host mode — run the watcher pipeline (`bupha-watch`, the same code `bupha watch` runs) in-process against the deployed operator config; blocks until the sources stop. What provider units exec |
 | `worker [--config <f>] [--node <url>] [--node-token-env <NAME>]` | the `ci-job` consumption loop (P-002 §4.1) — polls `kind="ci-job"` entities on a hypha/peregrin node, `ci.claim`s pending jobs this box's `[worker] labels` cover, runs them through the same `bupha-watch` pipeline (worktree → runner → status sink), renews the lease mid-run, `ci.complete`s the result. The **second service** a fleet deployment runs — worker boxes execute jobs the entity plane hands out; in peregrin-hosted mode the plane lives on the node and `host` isn't needed at all |
 | `uninstall` | remove the deployed config (`--config` overrides the path) |
-| `hooks register\|uninstall [--dry-run] [--api-base <url>] [--token-env <NAME>]` | upsert/remove the GitHub webhooks `provider.ingress[].hooks[]` declare, via `bupha_github`'s REST path (exact-URL match). `--dry-run` prints the plan and resolves no secrets. Register needs the forge token + each repo's webhook secret **by NAME** (env → cuora → keyring → `~/.config/bupha/env`, cuora canonical — T-056/T-059) |
+| `hooks register\|uninstall [--dry-run] [--api-base <url>] [--token-env <NAME>]` | upsert/remove the GitHub webhooks `provider.ingress[].hooks[]` declare, via `bupha_github`'s REST path (exact-URL match). `--dry-run` prints the plan and resolves no secrets. Register needs the forge token + each repo's webhook secret **by NAME** (env → cuora → `~/.config/bupha/env`, cuora canonical — T-056/T-059) |
 | `health` | JSON `{ok, probes[]}` — webhook `ping` per ingress `listen`+`path` (`POST …/hook` + `X-GitHub-Event: ping` → `200 pong`), else `systemctl --user is-active` per provider unit |
 | `status` | JSON per-unit `is-active`/`is-enabled` (`<provider>-<service>.service`) |
 | `logs [--lines N]` | `journalctl --user` over the provider units |
@@ -82,7 +82,7 @@ Config resolution (first hit wins):
 | --- | --- |
 | operator config | `--config <f>` → `~/.config/bupha/bundles/<name>.toml` (`--name`) — same file `host` consumes |
 | node URL | `--node` → `BUPHA_WORKER_NODE` → `[worker] node` in the config |
-| node credential | `--node-token-env <NAME>` / `[worker] node_token_env` → secret resolved by NAME through the usual chain (env → cuora → keyring → `~/.config/bupha/env`); `BUPHA_NODE_TOKEN` is a direct-token fallback; neither = unauthenticated (dev nodes) |
+| node credential | `--node-token-env <NAME>` / `[worker] node_token_env` → secret resolved by NAME through the usual chain (env → cuora → `~/.config/bupha/env`); `BUPHA_NODE_TOKEN` is a direct-token fallback; neither = unauthenticated (dev nodes) |
 | claim labels | `[worker] labels` — must cover each job's `runsOn` |
 | lease / poll | `BUPHA_ENTITY_LEASE_SECS` (default 300), `BUPHA_WORKER_POLL_MS` (default 1000), `BUPHA_WATCH_SHUTDOWN_FILE` (e2e shutdown hook, same as `host`) |
 

@@ -1,8 +1,9 @@
 # bupha.yaml — YAML twin of bupha.toml.example (same fields, maps for
 # tables, lists for arrays). YAML is preferred at each search step;
 # TOML is permanent. Secrets resolve via env var -> cuora
-# (cuora://bupha/<NAME>, canonical) -> OS keyring ->
-# ~/.config/bupha/env (legacy); never this file.
+# (cuora://bupha/<NAME>, canonical) -> ~/.config/bupha/env
+# (dev-mode / no-cuora fallback; keyring leg dropped post-T-077);
+# never this file.
 
 # Watched repos — one pending slot each, one shared worker.
 # `name` must match the payload's repository.full_name.
@@ -138,7 +139,7 @@ worktree:
 #
 # Remote execution: runner kind "http" posts the spec to a
 # `bupha agent` and ships the tarred worktree. secret_env names the
-# shared HMAC secret — the value resolves via env/cuora/keyring/env file.
+# shared HMAC secret — the value resolves via env/cuora/env file.
 #
 # runner:
 #   kind: http

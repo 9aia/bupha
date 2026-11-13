@@ -46,7 +46,7 @@ tamias uninstall ci-gate        # remove the unit; driver uninstall removes bund
 
 Names only, never values. Resolution order env → **cuora**
 (`cuora://bupha/<NAME>` via the `cuora` CLI — canonical, T-056) →
-OS keyring → `~/.config/bupha/env` (legacy code fallback; the file
+`~/.config/bupha/env` (legacy code fallback; the file
 is retired — T-059 — and no unit sets `EnvironmentFile`):
 
 - `BUPHA_TOKEN` — forge token for statuses + hook management

@@ -14,8 +14,8 @@
 //!
 //! Config arrives already loaded (`bupha_core::Config`); secret
 //! *values* resolve through the same chain the CLI uses — env →
-//! cuora → OS keyring → `~/.config/bupha/env` (cuora canonical per
-//! T-056) — by NAME only.
+//! cuora → `~/.config/bupha/env` (cuora canonical per T-056) — by
+//! NAME only.
 //!
 //! **Standalone/dev mode** (ADR-0007): the trigger-listener path
 //! (`trigger.kind` forge webhook, `[trigger.sturn]` poller) is the
@@ -48,16 +48,15 @@ use bupha_status::StatusSink;
 use bupha_telemetry::{NoopTelemetry, RunEvent, Telemetry};
 use bupha_telemetry_otel::OtelTelemetry;
 use bupha_trigger::{Emit, Push, Source, Stop, Trigger, Verdict};
-use tunnel::{CloudflaredTunnel, Tunnel};
-use webhook::WebhookSource;
 use hypha_dotenv::DotenvSecrets;
-use hypha_keyring::KeyringSecrets;
 use hypha_secret::Secrets;
 use lasius_vcs::Vcs;
 use lasius_vcs_git::GitVcs;
 use std::collections::VecDeque;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Condvar, Mutex};
+use tunnel::{CloudflaredTunnel, Tunnel};
+use webhook::WebhookSource;
 
 /// The `ci-job` entity-plane worker (P-002 §4.1) — polls
 /// `kind="ci-job"` entities on a hypha/peregrin node and runs them
@@ -130,12 +129,8 @@ pub fn build_runner(rc: &bupha_core::RunnerCfg, cache: &bupha_core::CacheCfg) ->
                 eprintln!("runner config (http): {e}");
                 std::process::exit(2)
             });
-            let s = secret(&hc.secret_env).unwrap_or_else(|| {
-                panic!(
-                    "{} required (env, cuora, keyring or env file)",
-                    hc.secret_env
-                )
-            });
+            let s = secret(&hc.secret_env)
+                .unwrap_or_else(|| panic!("{} required (env, cuora or env file)", hc.secret_env));
             Arc::new(bupha_http::HttpRunner::new(hc, s))
         }
 
@@ -207,24 +202,19 @@ pub fn cfg_dir() -> PathBuf {
     base.join("bupha")
 }
 
-/// Secret resolution chain (T-056 — cuora is canonical):
+/// Secret resolution chain (T-056 — cuora is canonical; the OS
+/// keyring leg was dropped post-T-077 — `deploy env` migrates
+/// pre-cuora keyring entries into cuora):
 /// process env (explicit operator override, e.g. `cuora run` or a
 /// unit `EnvironmentFile`) → **cuora broker** (`cuora://bupha/<NAME>`
-/// via the `cuora` CLI) → OS keyring → `~/.config/bupha/env`.
-/// The last two legs are LEGACY fallbacks for hosts without cuora;
-/// a missing `cuora` binary or denied op is a miss, never an error.
+/// via the `cuora` CLI) → `~/.config/bupha/env` (the dev-mode /
+/// no-cuora fallback — also the unit's `EnvironmentFile`).
+/// A missing `cuora` binary or denied op is a miss, never an error.
 pub fn secret(name: &str) -> Option<String> {
     std::env::var(name)
         .ok()
         .filter(|v| !v.is_empty())
         .or_else(|| CuoraSecrets::default().get(name))
-        // service="bupha" keeps pre-cuora keyring entries resolving.
-        .or_else(|| {
-            KeyringSecrets {
-                service: "bupha".into(),
-            }
-            .get(name)
-        })
         .or_else(|| {
             DotenvSecrets {
                 path: cfg_dir().join("env"),
@@ -901,7 +891,7 @@ pub fn watch(cfg: Arc<Config>) {
     let (wh_secret, secrets) = if trigger.is_some() {
         let wh = secret(&cfg.trigger.secret_env).unwrap_or_else(|| {
             panic!(
-                "{} required (env, cuora, keyring or env file)",
+                "{} required (env, cuora or env file)",
                 cfg.trigger.secret_env
             )
         });
@@ -909,7 +899,7 @@ pub fn watch(cfg: Arc<Config>) {
         for r in watched.iter() {
             if let Some(name) = &r.secret_env {
                 let v = secret(name)
-                    .unwrap_or_else(|| panic!("{name} required (env, cuora, keyring or env file)"));
+                    .unwrap_or_else(|| panic!("{name} required (env, cuora or env file)"));
                 map.insert(r.name.clone(), v);
             }
         }

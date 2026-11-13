@@ -97,8 +97,8 @@ rejected with `queue = "all"`).
 
 Config holds env-var **names** only (`secret_env`, `token_env`).
 Values resolve: process env → **cuora** (`cuora://bupha/<NAME>`
-via the `cuora` CLI — canonical, T-056) → OS keyring
-(`secret-tool`) → `~/.config/bupha/env` (legacy fallback, seeded
+via the `cuora` CLI — canonical, T-056) →
+`~/.config/bupha/env` (dev-mode / no-cuora fallback, seeded
 by the dev CLI's `bupha deploy env`). Seed values with
 `printf '%s' "$VALUE" | cuora put cuora://bupha/<NAME>`. Never a
 secret value in `bupha.toml` — it's committed or shared.

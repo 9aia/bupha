@@ -11,8 +11,9 @@
 # Secrets are env-var NAMES only — never put a value in this file.
 # Canonical resolution (T-056/T-059): process env → cuora broker
 # (`cuora://bupha/<NAME>` via the `cuora` CLI — sealed, audited) →
-# OS keyring → ~/.config/bupha/env (both LEGACY fallbacks for hosts
-# without cuora). Migration is DONE (T-059): every fleet secret
+# ~/.config/bupha/env (the dev-mode / no-cuora fallback; the
+# OS-keyring leg was dropped post-T-077 — `deploy env` migrates
+# pre-cuora keyring entries into cuora). Migration is DONE (T-059): every fleet secret
 # lives in the cuora vault and the ~/.config/bupha/env file is
 # retired (no `env_file:` in tamias.yaml). To (re)store a value:
 #   printf '%s' "$VALUE" | cuora put cuora://bupha/<NAME>
@@ -127,8 +128,8 @@ base = "~/.local/share/bupha/worktrees-docs"
 # override.
 node = "http://127.0.0.1:18787"
 # Env-var NAME holding the node's bearer credential — value via the
-# usual chain (env → cuora `cuora://bupha/PEREGRIN_TOKEN` → keyring
-# → ~/.config/bupha/env). See ci-gate's fleet.toml for the full
+# usual chain (env → cuora `cuora://bupha/PEREGRIN_TOKEN` →
+# ~/.config/bupha/env). See ci-gate's fleet.toml for the full
 # note; drop the line only for unauthenticated dev nodes.
 node_token_env = "PEREGRIN_TOKEN"
 

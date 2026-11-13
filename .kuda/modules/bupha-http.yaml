@@ -229,8 +229,8 @@ provenance:
   - crates/bupha-http/tests/http.rs
   hashes:
   - 324f2f1667132e7b9ede9def54a162c77381e0ca
-  - 9fa2ced45d8cadf59befe3603ecdb4238de8eeb3
+  - f0484d92368a2b04932db9bce50699eda7edc32e
   - 1cb8d4b692e40b84370159964d16a182f3228c31
-  commit_sha: abb87b40721c7fe6faf27a74f32e3eb702f4c32f
-  generated_at: '1794440686'
+  commit_sha: 8557f4ed298a7b8915e5d53af5d09834dc776d86
+  generated_at: '1794576747'
   generator: kuda-template/0.1.4

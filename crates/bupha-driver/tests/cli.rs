@@ -573,7 +573,8 @@ fn deploy_env_variants() {
     let home = t.join("home");
     let cfgp = cfg(&t, "");
 
-    // env var set -> keyring store; empty -> skipped
+    // env var set + cuora missing (NO_CUORA) -> "cuora unavailable"
+    // note pointing at the env file; empty -> skipped
     let o = bupha(
         &["deploy", "env", "--config", cfgp.to_str().unwrap()],
         &[
@@ -585,12 +586,12 @@ fn deploy_env_variants() {
         ],
     );
     assert!(o.status.success(), "{}", out_ok(&o));
-    assert!(out_ok(&o).contains("stored in keyring"));
+    assert!(out_ok(&o).contains("cuora unavailable"));
     // XDG_CONFIG_HOME beats HOME/.config for the env file location.
     assert!(t.join("xdg/bupha/env").exists());
 
     // per-repo secret_env names are seeded into the env file and
-    // migrated to the keyring like the global
+    // reported like the global when cuora can't take them
     let home4 = t.join("home4");
     let cfg4 = t.join("persec.toml");
     std::fs::write(&cfg4,
@@ -605,13 +606,14 @@ fn deploy_env_variants() {
         ],
     );
     assert!(o.status.success(), "{}", out_ok(&o));
-    assert!(out_ok(&o).contains("REPO_WH: stored in keyring"));
+    assert!(out_ok(&o).contains("REPO_WH: cuora unavailable"));
     let env_body = std::fs::read_to_string(home4.join(".config/bupha/env")).unwrap();
     assert!(env_body.contains("REPO_WH=") && env_body.contains("BUPHA_WEBHOOK_SECRET="));
 
-    // no secret-tool -> keyring unavailable note. PATH must be a
-    // dir guaranteed empty of secret-tool: /usr/bin may legitimately
-    // carry it (libsecret is a base install on some distros).
+    // no cuora -> "cuora unavailable" note for every env-held
+    // secret. PATH must be a dir guaranteed empty of helpers: the
+    // keyring-migration probe shells secret-tool, and /usr/bin may
+    // legitimately carry it (libsecret is a base install).
     let home2 = t.join("home2");
     let no_tools = t.join("no-tools");
     std::fs::create_dir_all(&no_tools).unwrap();
@@ -624,7 +626,7 @@ fn deploy_env_variants() {
             ("BUPHA_WEBHOOK_SECRET", "sek".into()),
         ],
     );
-    assert!(out_ok(&o).contains("keyring unavailable"));
+    assert!(out_ok(&o).contains("cuora unavailable"));
 
     // env skeleton error: .config/bupha exists as a file
     let home3 = t.join("home3");
@@ -661,8 +663,8 @@ fn deploy_env_variants() {
 #[test]
 fn deploy_env_cuora_store() {
     // T-056: cuora is the canonical store — `deploy env` migrates
-    // env values through `cuora put` (BUPHA_CUORA_BIN stub) before
-    // ever touching the keyring.
+    // env values through `cuora put` (BUPHA_CUORA_BIN stub); the
+    // keyring is only read for the pre-cuora migration probe.
     let t = tmp("dcua");
     let cuora = t.join("cuora");
     std::fs::write(&cuora, "#!/bin/bash\ncat > \"$STUB_OUT\"\nexit 0\n").unwrap();
@@ -688,6 +690,43 @@ fn deploy_env_cuora_store() {
     assert!(out_ok(&o).contains("stored in cuora"));
     // The value went to cuora's stdin — never argv, never the env file.
     assert_eq!(std::fs::read_to_string(&put_log).unwrap(), "sekrit");
+}
+
+#[test]
+fn deploy_env_keyring_migration() {
+    // Post-T-077 the keyring is not a runtime leg — `deploy env`
+    // reads pre-cuora keyring entries (service="bupha") once and
+    // moves them into cuora so they aren't orphaned.
+    let t = tmp("dkrm");
+    let bin = t.join("bin");
+    std::fs::create_dir_all(&bin).unwrap();
+    // lookup -> a value; store -> swallow stdin.
+    stub(&bin, "secret-tool", "echo kr-secret\nexit 0");
+    let cuora = t.join("cuora");
+    std::fs::write(&cuora, "#!/bin/bash\ncat > \"$STUB_OUT\"\nexit 0\n").unwrap();
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::set_permissions(&cuora, std::fs::Permissions::from_mode(0o755)).unwrap();
+    }
+    let put_log = t.join("put.log");
+    let home = t.join("home");
+    let cfgp = cfg(&t, "");
+    let o = bupha(
+        &["deploy", "env", "--config", cfgp.to_str().unwrap()],
+        &[
+            ("HOME", home.display().to_string()),
+            ("PATH", stubbed_path(&bin)),
+            ("BUPHA_CUORA_BIN", cuora.display().to_string()),
+            ("STUB_OUT", put_log.display().to_string()),
+        ],
+    );
+    assert!(o.status.success(), "{}", out_ok(&o));
+    // Both secret names (BUPHA_TOKEN + BUPHA_WEBHOOK_SECRET) hit the
+    // keyring stub and migrate — sorted, webhook last, so its value
+    // is what the cuora stub captured last.
+    assert_eq!(out_ok(&o).matches("migrated keyring → cuora").count(), 2);
+    assert_eq!(std::fs::read_to_string(&put_log).unwrap(), "kr-secret");
 }
 
 #[test]

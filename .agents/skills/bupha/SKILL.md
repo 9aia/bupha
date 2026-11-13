@@ -14,7 +14,7 @@ engine where pluggable
 true` per repo) — land events on the queue, shas batch
 (latest-wins or bounded FIFO), the pipeline runs in a detached
 worktree of the pushed sha, and commit statuses post back.
-Secrets by env-var NAME only, resolved env → cuora → keyring →
+Secrets by env-var NAME only, resolved env → cuora →
 `~/.config/bupha/env` (env file is the legacy fallback — cuora is
 canonical, T-056).
 
@@ -169,7 +169,7 @@ a valid standalone config — merge its `[[repo]]` entry into the
 shared watcher config, or run a dedicated instance with
 `bupha watch --config bupha.yaml` (dev) on a free `trigger.listen`
 port. Secrets are env-var **names** resolved env → cuora
-(`cuora://bupha/<NAME>`) → OS keyring → `~/.config/bupha/env`
+(`cuora://bupha/<NAME>`) → `~/.config/bupha/env`
 (legacy fallback) — never values in the config.
 
 ## Tamias bundles (`libraries/`)

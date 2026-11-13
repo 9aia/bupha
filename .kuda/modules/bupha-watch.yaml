@@ -10,7 +10,7 @@ api:
 - name: ChildSlot
   kind: type
   file: crates/bupha-watch/src/lib.rs
-  line: 260
+  line: 250
   module: bupha-watch
 - name: ClaimFilter
   kind: type
@@ -60,12 +60,12 @@ api:
 - name: FailWait
   kind: type
   file: crates/bupha-watch/src/lib.rs
-  line: 157
+  line: 152
   module: bupha-watch
 - name: FailWaitRunner
   kind: type
   file: crates/bupha-watch/src/lib.rs
-  line: 155
+  line: 150
   module: bupha-watch
 - name: FakeApi
   kind: type
@@ -80,7 +80,7 @@ api:
 - name: FetchTarget
   kind: type
   file: crates/bupha-watch/src/lib.rs
-  line: 296
+  line: 286
   module: bupha-watch
 - name: G
   kind: type
@@ -95,7 +95,7 @@ api:
 - name: Ingest
   kind: type
   file: crates/bupha-watch/src/lib.rs
-  line: 565
+  line: 555
   module: bupha-watch
 - name: Inner
   kind: type
@@ -110,7 +110,7 @@ api:
 - name: JobEnd
   kind: type
   file: crates/bupha-watch/src/lib.rs
-  line: 283
+  line: 273
   module: bupha-watch
 - name: JobExec
   kind: trait
@@ -135,12 +135,12 @@ api:
 - name: Poll
   kind: type
   file: crates/bupha-watch/src/lib.rs
-  line: 426
+  line: 416
   module: bupha-watch
 - name: Shared
   kind: type
   file: crates/bupha-watch/src/lib.rs
-  line: 537
+  line: 527
   module: bupha-watch
 - name: SkipExec
   kind: type
@@ -170,7 +170,7 @@ api:
 - name: Worker
   kind: type
   file: crates/bupha-watch/src/lib.rs
-  line: 263
+  line: 253
   module: bupha-watch
 - name: args_of
   kind: function
@@ -180,27 +180,27 @@ api:
 - name: attest_run
   kind: function
   file: crates/bupha-watch/src/lib.rs
-  line: 810
+  line: 800
   module: bupha-watch
 - name: attest_run_links_only_with_url_base
   kind: function
   file: crates/bupha-watch/src/lib.rs
-  line: 1353
+  line: 1343
   module: bupha-watch
 - name: build_attest
   kind: function
   file: crates/bupha-watch/src/lib.rs
-  line: 711
+  line: 701
   module: bupha-watch
 - name: build_audit
   kind: function
   file: crates/bupha-watch/src/lib.rs
-  line: 741
+  line: 731
   module: bupha-watch
 - name: build_runner
   kind: function
   file: crates/bupha-watch/src/lib.rs
-  line: 72
+  line: 71
   module: bupha-watch
 api_omitted: 120
 deps:
@@ -233,7 +233,6 @@ deps:
 - bupha-trigger
 - chrono
 - hypha-dotenv
-- hypha-keyring
 - hypha-node-api
 - hypha-secret
 - lasius-vcs
@@ -267,13 +266,12 @@ deps:
 - bupha-secret-cuora
 - bupha-shell
 - bupha-telemetry-otel
-- tunnel
-- webhook
 - hypha_dotenv
-- hypha_keyring
 - hypha_secret
 - lasius_vcs
 - lasius_vcs_git
+- tunnel
+- webhook
 notes: ''
 verify:
 - crates/bupha-watch/Cargo.toml
@@ -291,12 +289,12 @@ provenance:
   - crates/bupha-watch/src/webhook.rs
   - crates/bupha-watch/tests/tunnel.rs
   hashes:
-  - 715f30ad0b0174c954edc60974b199104abd988d
+  - 266224915f8ff4c7c2cad0aba28a95b57a819a43
   - 28a4e4957ea8f1bf344b05519254850d30ed2d86
-  - e36c57299a9c98da9f9201941f434a67d8a2e57e
+  - 14c683e2d967ec2d02435ff06ce024a25e68db5e
   - 0ebbe5f4cbdcd4ef1d8da46e9120a81e1f81812b
   - 762216f0144384abf6afb630748d50671eaae648
   - 4366e8ed513f0a454134ec46f31111ab2dbafc11
-  commit_sha: 255c0ebbd6460737dd3b15424b96c0d8ef08540a
-  generated_at: '1794549653'
+  commit_sha: 8557f4ed298a7b8915e5d53af5d09834dc776d86
+  generated_at: '1794576747'
   generator: kuda-template/0.1.4

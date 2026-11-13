@@ -25,7 +25,7 @@ api:
 - name: DELEGATE_TEMPLATE
   kind: const
   file: crates/bupha-cli/src/lib.rs
-  line: 423
+  line: 419
   module: bupha
 - name: DeploySub
   kind: type
@@ -40,7 +40,7 @@ api:
 - name: DocOut
   kind: type
   file: crates/bupha-cli/src/lib.rs
-  line: 449
+  line: 445
   module: bupha
 - name: Job
   kind: type
@@ -50,7 +50,7 @@ api:
 - name: MODULE_REF
   kind: const
   file: crates/bupha-cli/src/lib.rs
-  line: 421
+  line: 417
   module: bupha
 - name: ServiceSub
   kind: type
@@ -90,7 +90,7 @@ api:
 - name: check
   kind: function
   file: crates/bupha-cli/src/lib.rs
-  line: 455
+  line: 451
   module: bupha
 - name: cmd_agent
   kind: function
@@ -100,67 +100,67 @@ api:
 - name: cmd_deploy
   kind: function
   file: crates/bupha-cli/src/lib.rs
-  line: 948
+  line: 944
   module: bupha
 - name: cmd_deploy_release
   kind: function
   file: crates/bupha-cli/src/lib.rs
-  line: 1081
+  line: 1090
   module: bupha
 - name: cmd_destroy
   kind: function
   file: crates/bupha-cli/src/lib.rs
-  line: 1146
+  line: 1155
   module: bupha
 - name: cmd_doctor
   kind: function
   file: crates/bupha-cli/src/lib.rs
-  line: 467
+  line: 463
   module: bupha
 - name: cmd_explain
   kind: function
   file: crates/bupha-cli/src/lib.rs
-  line: 1389
+  line: 1398
   module: bupha
 - name: cmd_gha_runner
   kind: function
   file: crates/bupha-cli/src/lib.rs
-  line: 248
+  line: 244
   module: bupha
 - name: cmd_import
   kind: function
   file: crates/bupha-cli/src/lib.rs
-  line: 877
+  line: 873
   module: bupha
 - name: cmd_init
   kind: function
   file: crates/bupha-cli/src/lib.rs
-  line: 309
+  line: 305
   module: bupha
 - name: cmd_log
   kind: function
   file: crates/bupha-cli/src/lib.rs
-  line: 1374
+  line: 1383
   module: bupha
 - name: cmd_run
   kind: function
   file: crates/bupha-cli/src/lib.rs
-  line: 723
+  line: 719
   module: bupha
 - name: cmd_runs
   kind: function
   file: crates/bupha-cli/src/lib.rs
-  line: 1347
+  line: 1356
   module: bupha
 - name: cmd_service
   kind: function
   file: crates/bupha-cli/src/lib.rs
-  line: 911
+  line: 907
   module: bupha
 - name: command
   kind: function
   file: crates/bupha-cli/src/lib.rs
-  line: 779
+  line: 775
   module: bupha
 - name: coverage_gate
   kind: function
@@ -180,7 +180,7 @@ api:
 - name: deploy_check
   kind: function
   file: crates/bupha-cli/src/lib.rs
-  line: 1237
+  line: 1246
   module: bupha
 - name: dir_override_wins
   kind: function
@@ -200,7 +200,7 @@ api:
 - name: dispatch
   kind: function
   file: crates/bupha-cli/src/lib.rs
-  line: 804
+  line: 800
   module: bupha
 api_omitted: 34
 deps:
@@ -235,9 +235,9 @@ deps:
 - bupha-runner
 - bupha-secret-cuora
 - bupha-trigger
+- clap
 - hypha_keyring
 - hypha_secret
-- clap
 - lasius_vcs
 - lasius_vcs_git
 - asyncio
@@ -270,11 +270,11 @@ provenance:
   - c6d20f735ed0cb1e6b08e5f9b8a2a9c7b1093622
   - 4102762337a49a25a35bd6da2202b6c0536fe273
   - 2c0a7ebd3bb365da0833e733f28e8badb2cbf967
-  - a005cb8777812be66f1a9826e34f8613825a0382
+  - 233d965be94a961d116ae27ca57fcd5f6879bd71
   - a787b6af9e98fd8cae6ece92467308d34e49bbce
   - 297de02314bb3e68d56e2e8a33bcad4ba6c92465
   - b266b7f034f3d194f5cba16fd2bf6a51886ccf46
   - 509a3147960f3aa59978a55730803da3c2ff0850
-  commit_sha: 255c0ebbd6460737dd3b15424b96c0d8ef08540a
-  generated_at: '1794549653'
+  commit_sha: 8557f4ed298a7b8915e5d53af5d09834dc776d86
+  generated_at: '1794576747'
   generator: kuda-template/0.1.4
