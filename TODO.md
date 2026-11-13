@@ -8,5 +8,6 @@
 - [ ] T-048 gha runner follow-ups — parallel matrix, actions/setup-\* + other uses:, if: conditions, needs.\*.outputs, per-gha-job commit statuses, timeout-minutes enforcement, multi-commit paths filters (PL-013 D-deferred) · status:in-progress · owner:devin · created:2026-11-10 · #ci · #gha
 - [ ] T-073 fork-PR head shas — ci-job indexDoc lacks clone\_url/PR head ref so fork pull\_requests can't be checked out from base clone (T-067 remainder) · created:2026-11-12
 - [ ] T-044 rotate CARGO\_REGISTRY\_TOKEN — was at .env 0644 (now 600); treat as exposed · status:blocked · pri:high · owner:human:Luis-Emidio · created:2026-11-03
+- [ ] T-074 ci-ingress watches repos with no worker fleet coverage — kuda/mimus/sturn ci-job entities pend forever · created:2026-11-13 · links:T-067
 
 ## open
