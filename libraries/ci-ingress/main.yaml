@@ -1,0 +1,742 @@
+# ci-ingress — forge webhook → `kind="ci-job"` enqueue (P-002 §4,
+# ADR-0007, bupha T-058/T-063). A verified `push`/`pull_request`
+# delivery becomes a `POST /api/entities {kind:"ci-job"}` on the
+# peregrin node that hosts the ci-job plane (`peregrin serve` with
+# the `bupha` feature) — create IS `ci.enqueue`, and the deterministic
+# entity id `ci:{key}:{sha}:{attempt}` dedups webhook replays for
+# free.
+#
+# Shape mirrors `libraries/ci-gate`: the `github-webhook` node emits
+# raw `push`/`pull_request` events; `ci.route` re-emits them typed
+# (`{event}.{repo}.{ref}.{clone_url}.{sha}`) so per-repo `on:`
+# patterns can pick them apart; `ci.enqueue*` are the generic
+# catch-alls that POST the indexDoc. Per-repo job specs still belong
+# in the worker's fleet.toml — a spec-armed plane
+# (`CiJobPlane::with_watched`, fed by `ci_fleet::fleet_specs` from
+# `PEREGRIN_BUPHA_CONFIG`/`BUPHA_CONFIG`/`~/.config/bupha/bundles/`)
+# resolves queue/runsOn/runner/context/maxAttempts plane-side and
+# gates ref/event, so these nodes only carry what the wire event
+# knows. Per-job lanes (`owner/name:job` keys, T-030) get a typed
+# enqueue node each — see "enqueue: per-job lanes" below. See
+# README.md.
+name: ci-ingress
+
+# Operator-facing knobs (see params.schema.json + README.md).
+config:
+  # Base URL of the node hosting the ci-job entity plane — the
+  # `peregrin serve` daemon (`/api/entities` is the hypha substrate
+  # surface). Same-host deployments use loopback.
+  node_url: "http://127.0.0.1:7700"
+  # ci-job indexDoc defaults applied to EVERY watched repo. `queue`
+  # is the lane policy ("latest" = newest push wins, "all" = bounded
+  # FIFO); `context` is the forge status label prefix. On a
+  # spec-armed plane the fleet config overwrites both per repo —
+  # these are the fallback for keys with no fleet entry.
+  queue: "latest"
+  context: "ci/bupha"
+
+# Secret NAMES the drivers may resolve — the node bearer token plus
+# one webhook HMAC secret per watched repo (`BUPHA_WH_<OWNER>_<REPO>`
+# convention). Values never appear here; they live in the operator's
+# env file (`~/.config/peregrin/env`).
+capabilities:
+  secrets:
+    - PEREGRIN_NODE_TOKEN
+    - BUPHA_WEBHOOK_SECRET
+    - BUPHA_WH_9AIA_BUPHA
+    - BUPHA_WH_9AIA_CUORA
+    - BUPHA_WH_9AIA_MYCO
+    - BUPHA_WH_9AIA_PEREGRIN
+    - BUPHA_WH_HANDL_LANG_DOCS
+    - BUPHA_WH_HANDL_LANG_ENGINE_EXEC
+    - BUPHA_WH_HANDL_LANG_ENGINE_EXEC_BYTECODE
+    - BUPHA_WH_HANDL_LANG_ENGINE_EXEC_CRANELIFT
+    - BUPHA_WH_HANDL_LANG_ENGINE_EXEC_TREE_WALK
+    - BUPHA_WH_HANDL_LANG_ENGINE_FMT
+    - BUPHA_WH_HANDL_LANG_ENGINE_LEX
+    - BUPHA_WH_HANDL_LANG_ENGINE_LEX_PATTERN
+    - BUPHA_WH_HANDL_LANG_ENGINE_LINT
+    - BUPHA_WH_HANDL_LANG_ENGINE_PARSE
+    - BUPHA_WH_HANDL_LANG_ENGINE_PARSE_PRATT
+    - BUPHA_WH_HANDL_LANG_ENGINE_TEST
+    - BUPHA_WH_HANDL_LANG_ENGINE_TRANSFORM
+    - BUPHA_WH_HANDL_LANG_ENGINE_TRANSFORM_REWRITE
+    - BUPHA_WH_HANDL_LANG_ENGINE_TYPECHECK
+    - BUPHA_WH_HANDL_LANG_ENGINE_TYPECHECK_NBE
+    - BUPHA_WH_HANDL_LANG_EQSAT
+    - BUPHA_WH_HANDL_LANG_GAMEKIT
+    - BUPHA_WH_HANDL_LANG_GRAPHOPT
+    - BUPHA_WH_HANDL_LANG_HOST
+    - BUPHA_WH_HANDL_LANG_HOST_TENSOR
+    - BUPHA_WH_HANDL_LANG_KERNEL
+    - BUPHA_WH_HANDL_LANG_LIB_ARCHIVE
+    - BUPHA_WH_HANDL_LANG_LIB_ARROW_ITER
+    - BUPHA_WH_HANDL_LANG_LIB_BASE64
+    - BUPHA_WH_HANDL_LANG_LIB_CHAR
+    - BUPHA_WH_HANDL_LANG_LIB_CHAR_NATIVE
+    - BUPHA_WH_HANDL_LANG_LIB_CLI
+    - BUPHA_WH_HANDL_LANG_LIB_CLI_GEN
+    - BUPHA_WH_HANDL_LANG_LIB_COLLECTIONS
+    - BUPHA_WH_HANDL_LANG_LIB_COMB
+    - BUPHA_WH_HANDL_LANG_LIB_COMMAND
+    - BUPHA_WH_HANDL_LANG_LIB_COMPRESS
+    - BUPHA_WH_HANDL_LANG_LIB_COMPRESS_GZIP_C
+    - BUPHA_WH_HANDL_LANG_LIB_COMPRESS_ZLIB_C
+    - BUPHA_WH_HANDL_LANG_LIB_CONCURRENT
+    - BUPHA_WH_HANDL_LANG_LIB_CONCURRENT_EPOLL
+    - BUPHA_WH_HANDL_LANG_LIB_CRYPTO
+    - BUPHA_WH_HANDL_LANG_LIB_CURL
+    - BUPHA_WH_HANDL_LANG_LIB_DATETIME
+    - BUPHA_WH_HANDL_LANG_LIB_DEDENT
+    - BUPHA_WH_HANDL_LANG_LIB_DESUGAR
+    - BUPHA_WH_HANDL_LANG_LIB_ENCODING
+    - BUPHA_WH_HANDL_LANG_LIB_EVENT
+    - BUPHA_WH_HANDL_LANG_LIB_FETCH
+    - BUPHA_WH_HANDL_LANG_LIB_FETCH_C
+    - BUPHA_WH_HANDL_LANG_LIB_FETCH_JS
+    - BUPHA_WH_HANDL_LANG_LIB_FFI
+    - BUPHA_WH_HANDL_LANG_LIB_FS
+    - BUPHA_WH_HANDL_LANG_LIB_GH
+    - BUPHA_WH_HANDL_LANG_LIB_GRADE
+    - BUPHA_WH_HANDL_LANG_LIB_HELLO
+    - BUPHA_WH_HANDL_LANG_LIB_HEX
+    - BUPHA_WH_HANDL_LANG_LIB_HTTP_RFC
+    - BUPHA_WH_HANDL_LANG_LIB_INTL
+    - BUPHA_WH_HANDL_LANG_LIB_INTL_C
+    - BUPHA_WH_HANDL_LANG_LIB_IP
+    - BUPHA_WH_HANDL_LANG_LIB_IP_C
+    - BUPHA_WH_HANDL_LANG_LIB_JS
+    - BUPHA_WH_HANDL_LANG_LIB_JSON
+    - BUPHA_WH_HANDL_LANG_LIB_JSON_HANDL
+    - BUPHA_WH_HANDL_LANG_LIB_JSON_LIB
+    - BUPHA_WH_HANDL_LANG_LIB_KV
+    - BUPHA_WH_HANDL_LANG_LIB_KV_HASHMAP
+    - BUPHA_WH_HANDL_LANG_LIB_KV_MAP
+    - BUPHA_WH_HANDL_LANG_LIB_LANG_COMPILE
+    - BUPHA_WH_HANDL_LANG_LIB_LANG_EVAL
+    - BUPHA_WH_HANDL_LANG_LIB_LANG_LEX
+    - BUPHA_WH_HANDL_LANG_LIB_LANG_PARSE
+    - BUPHA_WH_HANDL_LANG_LIB_LANG_RUN_COMPILED
+    - BUPHA_WH_HANDL_LANG_LIB_LANG_TYPECHECK
+    - BUPHA_WH_HANDL_LANG_LIB_LIBC
+    - BUPHA_WH_HANDL_LANG_LIB_LIBZ
+    - BUPHA_WH_HANDL_LANG_LIB_LOADER
+    - BUPHA_WH_HANDL_LANG_LIB_MATH
+    - BUPHA_WH_HANDL_LANG_LIB_MATH_C
+    - BUPHA_WH_HANDL_LANG_LIB_MATH_HANDL
+    - BUPHA_WH_HANDL_LANG_LIB_MATH_JS
+    - BUPHA_WH_HANDL_LANG_LIB_NOISE
+    - BUPHA_WH_HANDL_LANG_LIB_NOISE_C
+    - BUPHA_WH_HANDL_LANG_LIB_NOISE_HANDL
+    - BUPHA_WH_HANDL_LANG_LIB_NOISE_STUB
+    - BUPHA_WH_HANDL_LANG_LIB_OPTION
+    - BUPHA_WH_HANDL_LANG_LIB_OS_C
+    - BUPHA_WH_HANDL_LANG_LIB_OS_STUB
+    - BUPHA_WH_HANDL_LANG_LIB_OTLP
+    - BUPHA_WH_HANDL_LANG_LIB_OTLP_C
+    - BUPHA_WH_HANDL_LANG_LIB_OTLP_STD
+    - BUPHA_WH_HANDL_LANG_LIB_PARSE
+    - BUPHA_WH_HANDL_LANG_LIB_PERLIN
+    - BUPHA_WH_HANDL_LANG_LIB_PRED
+    - BUPHA_WH_HANDL_LANG_LIB_QUERY
+    - BUPHA_WH_HANDL_LANG_LIB_RAND
+    - BUPHA_WH_HANDL_LANG_LIB_RAND_C
+    - BUPHA_WH_HANDL_LANG_LIB_RAND_JS
+    - BUPHA_WH_HANDL_LANG_LIB_RAND_STUB
+    - BUPHA_WH_HANDL_LANG_LIB_RESULT
+    - BUPHA_WH_HANDL_LANG_LIB_SERIALIZE
+    - BUPHA_WH_HANDL_LANG_LIB_SERIALIZE_TOML_C
+    - BUPHA_WH_HANDL_LANG_LIB_SERIALIZE_YAML_C
+    - BUPHA_WH_HANDL_LANG_LIB_SERVE
+    - BUPHA_WH_HANDL_LANG_LIB_SERVE_EPOLL
+    - BUPHA_WH_HANDL_LANG_LIB_SIMPLEX
+    - BUPHA_WH_HANDL_LANG_LIB_STATS
+    - BUPHA_WH_HANDL_LANG_LIB_STR
+    - BUPHA_WH_HANDL_LANG_LIB_STR_C
+    - BUPHA_WH_HANDL_LANG_LIB_STR_HANDL
+    - BUPHA_WH_HANDL_LANG_LIB_STR_JS
+    - BUPHA_WH_HANDL_LANG_LIB_TAG
+    - BUPHA_WH_HANDL_LANG_LIB_TAR
+    - BUPHA_WH_HANDL_LANG_LIB_TENSOR
+    - BUPHA_WH_HANDL_LANG_LIB_TEST
+    - BUPHA_WH_HANDL_LANG_LIB_TIME
+    - BUPHA_WH_HANDL_LANG_LIB_TIME_C
+    - BUPHA_WH_HANDL_LANG_LIB_TIME_STUB
+    - BUPHA_WH_HANDL_LANG_LIB_TLS
+    - BUPHA_WH_HANDL_LANG_LIB_TLS_LIBSSL
+    - BUPHA_WH_HANDL_LANG_LIB_TRANSFORM
+    - BUPHA_WH_HANDL_LANG_LIB_TYPE
+    - BUPHA_WH_HANDL_LANG_LIB_TYPES
+    - BUPHA_WH_HANDL_LANG_LIB_TYPE_HANDL
+    - BUPHA_WH_HANDL_LANG_LIB_UNICODE
+    - BUPHA_WH_HANDL_LANG_LIB_UNICODE_C
+    - BUPHA_WH_HANDL_LANG_LIB_URL_RFC
+    - BUPHA_WH_HANDL_LANG_LIB_URL_WHATWG
+    - BUPHA_WH_HANDL_LANG_LIB_UTILS
+    - BUPHA_WH_HANDL_LANG_LIB_UUID
+    - BUPHA_WH_HANDL_LANG_LIB_UUID_C
+    - BUPHA_WH_HANDL_LANG_LIB_UUID_STUB
+    - BUPHA_WH_HANDL_LANG_LIB_WS
+    - BUPHA_WH_HANDL_LANG_LIB_WS_C
+    - BUPHA_WH_HANDL_LANG_LIB_WS_FRAME
+    - BUPHA_WH_HANDL_LANG_LIB_WS_FRAME_HANDL
+    - BUPHA_WH_HANDL_LANG_LIB_WS_WHATWG_C
+    - BUPHA_WH_HANDL_LANG_LIB_WS_WHATWG_WASM
+    - BUPHA_WH_LUISFUTURIST_BLOG
+
+nodes:
+# --- ingress: verified forge pushes + pull requests --------------------
+- id: ci.ingress.webhook
+  driver: github-webhook
+  on:
+  - start
+  emits:
+  - ci.ingress.webhook.listening
+  - push
+  - pull_request
+  params:
+    # Under `campaign serve` the daemon's --listen/--path govern the
+    # ONE shared socket — these are ignored there (same as ci-gate).
+    listen: 127.0.0.1:29173
+    path: /hook
+    # Watched repos — keep in lockstep with the worker fleet's
+    # [[repo]] set (bupha libraries/ci-gate/fleet.toml): a watched
+    # repo with no fleet spec still enqueues (indexDoc defaults
+    # apply), and a fleet repo nobody watches never sees pushes.
+    # `secret_env` names the secret, never the value.
+    # `pull_request` deliveries are always parsed;
+    # `pull_request_actions` (default opened,synchronize,
+    # reopened) filters which actions inject.
+    repos:
+    - name: handl-lang/host
+      secret_env: BUPHA_WH_HANDL_LANG_HOST
+    - name: handl-lang/graphopt
+      secret_env: BUPHA_WH_HANDL_LANG_GRAPHOPT
+    - name: handl-lang/eqsat
+      secret_env: BUPHA_WH_HANDL_LANG_EQSAT
+    - name: handl-lang/gamekit
+      secret_env: BUPHA_WH_HANDL_LANG_GAMEKIT
+    - name: handl-lang/docs
+      secret_env: BUPHA_WH_HANDL_LANG_DOCS
+    - name: 9aia/bupha
+      secret_env: BUPHA_WH_9AIA_BUPHA
+    - name: 9aia/myco
+      secret_env: BUPHA_WH_9AIA_MYCO
+    - name: handl-lang/kernel
+      secret_env: BUPHA_WH_HANDL_LANG_KERNEL
+    - name: luisfuturist/blog
+      secret_env: BUPHA_WH_LUISFUTURIST_BLOG
+    - name: handl-lang/engine-exec
+      secret_env: BUPHA_WH_HANDL_LANG_ENGINE_EXEC
+    - name: handl-lang/engine-exec-bytecode
+      secret_env: BUPHA_WH_HANDL_LANG_ENGINE_EXEC_BYTECODE
+    - name: handl-lang/engine-exec-cranelift
+      secret_env: BUPHA_WH_HANDL_LANG_ENGINE_EXEC_CRANELIFT
+    - name: handl-lang/engine-exec-tree-walk
+      secret_env: BUPHA_WH_HANDL_LANG_ENGINE_EXEC_TREE_WALK
+    - name: handl-lang/engine-fmt
+      secret_env: BUPHA_WH_HANDL_LANG_ENGINE_FMT
+    - name: handl-lang/engine-lex
+      secret_env: BUPHA_WH_HANDL_LANG_ENGINE_LEX
+    - name: handl-lang/engine-lex-pattern
+      secret_env: BUPHA_WH_HANDL_LANG_ENGINE_LEX_PATTERN
+    - name: handl-lang/engine-lint
+      secret_env: BUPHA_WH_HANDL_LANG_ENGINE_LINT
+    - name: handl-lang/engine-parse
+      secret_env: BUPHA_WH_HANDL_LANG_ENGINE_PARSE
+    - name: handl-lang/engine-parse-pratt
+      secret_env: BUPHA_WH_HANDL_LANG_ENGINE_PARSE_PRATT
+    - name: handl-lang/engine-test
+      secret_env: BUPHA_WH_HANDL_LANG_ENGINE_TEST
+    - name: handl-lang/engine-transform
+      secret_env: BUPHA_WH_HANDL_LANG_ENGINE_TRANSFORM
+    - name: handl-lang/engine-transform-rewrite
+      secret_env: BUPHA_WH_HANDL_LANG_ENGINE_TRANSFORM_REWRITE
+    - name: handl-lang/engine-typecheck
+      secret_env: BUPHA_WH_HANDL_LANG_ENGINE_TYPECHECK
+    - name: handl-lang/engine-typecheck-nbe
+      secret_env: BUPHA_WH_HANDL_LANG_ENGINE_TYPECHECK_NBE
+    - name: handl-lang/host-tensor
+      secret_env: BUPHA_WH_HANDL_LANG_HOST_TENSOR
+    - name: handl-lang/lib-archive
+      secret_env: BUPHA_WH_HANDL_LANG_LIB_ARCHIVE
+    - name: handl-lang/lib-arrow-iter
+      secret_env: BUPHA_WH_HANDL_LANG_LIB_ARROW_ITER
+    - name: handl-lang/lib-base64
+      secret_env: BUPHA_WH_HANDL_LANG_LIB_BASE64
+    - name: handl-lang/lib-char
+      secret_env: BUPHA_WH_HANDL_LANG_LIB_CHAR
+    - name: handl-lang/lib-char-native
+      secret_env: BUPHA_WH_HANDL_LANG_LIB_CHAR_NATIVE
+    - name: handl-lang/lib-cli
+      secret_env: BUPHA_WH_HANDL_LANG_LIB_CLI
+    - name: handl-lang/lib-cli-gen
+      secret_env: BUPHA_WH_HANDL_LANG_LIB_CLI_GEN
+    - name: handl-lang/lib-collections
+      secret_env: BUPHA_WH_HANDL_LANG_LIB_COLLECTIONS
+    - name: handl-lang/lib-comb
+      secret_env: BUPHA_WH_HANDL_LANG_LIB_COMB
+    - name: handl-lang/lib-command
+      secret_env: BUPHA_WH_HANDL_LANG_LIB_COMMAND
+    - name: handl-lang/lib-compress
+      secret_env: BUPHA_WH_HANDL_LANG_LIB_COMPRESS
+    - name: handl-lang/lib-compress-gzip-c
+      secret_env: BUPHA_WH_HANDL_LANG_LIB_COMPRESS_GZIP_C
+    - name: handl-lang/lib-compress-zlib-c
+      secret_env: BUPHA_WH_HANDL_LANG_LIB_COMPRESS_ZLIB_C
+    - name: handl-lang/lib-concurrent
+      secret_env: BUPHA_WH_HANDL_LANG_LIB_CONCURRENT
+    - name: handl-lang/lib-concurrent-epoll
+      secret_env: BUPHA_WH_HANDL_LANG_LIB_CONCURRENT_EPOLL
+    - name: handl-lang/lib-crypto
+      secret_env: BUPHA_WH_HANDL_LANG_LIB_CRYPTO
+    - name: handl-lang/lib-curl
+      secret_env: BUPHA_WH_HANDL_LANG_LIB_CURL
+    - name: handl-lang/lib-datetime
+      secret_env: BUPHA_WH_HANDL_LANG_LIB_DATETIME
+    - name: handl-lang/lib-dedent
+      secret_env: BUPHA_WH_HANDL_LANG_LIB_DEDENT
+    - name: handl-lang/lib-desugar
+      secret_env: BUPHA_WH_HANDL_LANG_LIB_DESUGAR
+    - name: handl-lang/lib-encoding
+      secret_env: BUPHA_WH_HANDL_LANG_LIB_ENCODING
+    - name: handl-lang/lib-event
+      secret_env: BUPHA_WH_HANDL_LANG_LIB_EVENT
+    - name: handl-lang/lib-fetch
+      secret_env: BUPHA_WH_HANDL_LANG_LIB_FETCH
+    - name: handl-lang/lib-fetch-c
+      secret_env: BUPHA_WH_HANDL_LANG_LIB_FETCH_C
+    - name: handl-lang/lib-fetch-js
+      secret_env: BUPHA_WH_HANDL_LANG_LIB_FETCH_JS
+    - name: handl-lang/lib-ffi
+      secret_env: BUPHA_WH_HANDL_LANG_LIB_FFI
+    - name: handl-lang/lib-fs
+      secret_env: BUPHA_WH_HANDL_LANG_LIB_FS
+    - name: handl-lang/lib-gh
+      secret_env: BUPHA_WH_HANDL_LANG_LIB_GH
+    - name: handl-lang/lib-grade
+      secret_env: BUPHA_WH_HANDL_LANG_LIB_GRADE
+    - name: handl-lang/lib-hello
+      secret_env: BUPHA_WH_HANDL_LANG_LIB_HELLO
+    - name: handl-lang/lib-hex
+      secret_env: BUPHA_WH_HANDL_LANG_LIB_HEX
+    - name: handl-lang/lib-http-rfc
+      secret_env: BUPHA_WH_HANDL_LANG_LIB_HTTP_RFC
+    - name: handl-lang/lib-intl
+      secret_env: BUPHA_WH_HANDL_LANG_LIB_INTL
+    - name: handl-lang/lib-intl-c
+      secret_env: BUPHA_WH_HANDL_LANG_LIB_INTL_C
+    - name: handl-lang/lib-ip
+      secret_env: BUPHA_WH_HANDL_LANG_LIB_IP
+    - name: handl-lang/lib-ip-c
+      secret_env: BUPHA_WH_HANDL_LANG_LIB_IP_C
+    - name: handl-lang/lib-js
+      secret_env: BUPHA_WH_HANDL_LANG_LIB_JS
+    - name: handl-lang/lib-json
+      secret_env: BUPHA_WH_HANDL_LANG_LIB_JSON
+    - name: handl-lang/lib-json-handl
+      secret_env: BUPHA_WH_HANDL_LANG_LIB_JSON_HANDL
+    - name: handl-lang/lib-json-lib
+      secret_env: BUPHA_WH_HANDL_LANG_LIB_JSON_LIB
+    - name: handl-lang/lib-kv
+      secret_env: BUPHA_WH_HANDL_LANG_LIB_KV
+    - name: handl-lang/lib-kv-hashmap
+      secret_env: BUPHA_WH_HANDL_LANG_LIB_KV_HASHMAP
+    - name: handl-lang/lib-kv-map
+      secret_env: BUPHA_WH_HANDL_LANG_LIB_KV_MAP
+    - name: handl-lang/lib-lang-compile
+      secret_env: BUPHA_WH_HANDL_LANG_LIB_LANG_COMPILE
+    - name: handl-lang/lib-lang-eval
+      secret_env: BUPHA_WH_HANDL_LANG_LIB_LANG_EVAL
+    - name: handl-lang/lib-lang-lex
+      secret_env: BUPHA_WH_HANDL_LANG_LIB_LANG_LEX
+    - name: handl-lang/lib-lang-parse
+      secret_env: BUPHA_WH_HANDL_LANG_LIB_LANG_PARSE
+    - name: handl-lang/lib-lang-run-compiled
+      secret_env: BUPHA_WH_HANDL_LANG_LIB_LANG_RUN_COMPILED
+    - name: handl-lang/lib-lang-typecheck
+      secret_env: BUPHA_WH_HANDL_LANG_LIB_LANG_TYPECHECK
+    - name: handl-lang/lib-libc
+      secret_env: BUPHA_WH_HANDL_LANG_LIB_LIBC
+    - name: handl-lang/lib-libz
+      secret_env: BUPHA_WH_HANDL_LANG_LIB_LIBZ
+    - name: handl-lang/lib-loader
+      secret_env: BUPHA_WH_HANDL_LANG_LIB_LOADER
+    - name: handl-lang/lib-math
+      secret_env: BUPHA_WH_HANDL_LANG_LIB_MATH
+    - name: handl-lang/lib-math-c
+      secret_env: BUPHA_WH_HANDL_LANG_LIB_MATH_C
+    - name: handl-lang/lib-math-handl
+      secret_env: BUPHA_WH_HANDL_LANG_LIB_MATH_HANDL
+    - name: handl-lang/lib-math-js
+      secret_env: BUPHA_WH_HANDL_LANG_LIB_MATH_JS
+    - name: handl-lang/lib-noise
+      secret_env: BUPHA_WH_HANDL_LANG_LIB_NOISE
+    - name: handl-lang/lib-noise-c
+      secret_env: BUPHA_WH_HANDL_LANG_LIB_NOISE_C
+    - name: handl-lang/lib-noise-handl
+      secret_env: BUPHA_WH_HANDL_LANG_LIB_NOISE_HANDL
+    - name: handl-lang/lib-noise-stub
+      secret_env: BUPHA_WH_HANDL_LANG_LIB_NOISE_STUB
+    - name: handl-lang/lib-option
+      secret_env: BUPHA_WH_HANDL_LANG_LIB_OPTION
+    - name: handl-lang/lib-os-c
+      secret_env: BUPHA_WH_HANDL_LANG_LIB_OS_C
+    - name: handl-lang/lib-os-stub
+      secret_env: BUPHA_WH_HANDL_LANG_LIB_OS_STUB
+    - name: handl-lang/lib-otlp
+      secret_env: BUPHA_WH_HANDL_LANG_LIB_OTLP
+    - name: handl-lang/lib-otlp-c
+      secret_env: BUPHA_WH_HANDL_LANG_LIB_OTLP_C
+    - name: handl-lang/lib-otlp-std
+      secret_env: BUPHA_WH_HANDL_LANG_LIB_OTLP_STD
+    - name: handl-lang/lib-parse
+      secret_env: BUPHA_WH_HANDL_LANG_LIB_PARSE
+    - name: handl-lang/lib-perlin
+      secret_env: BUPHA_WH_HANDL_LANG_LIB_PERLIN
+    - name: handl-lang/lib-pred
+      secret_env: BUPHA_WH_HANDL_LANG_LIB_PRED
+    - name: handl-lang/lib-query
+      secret_env: BUPHA_WH_HANDL_LANG_LIB_QUERY
+    - name: handl-lang/lib-rand
+      secret_env: BUPHA_WH_HANDL_LANG_LIB_RAND
+    - name: handl-lang/lib-rand-c
+      secret_env: BUPHA_WH_HANDL_LANG_LIB_RAND_C
+    - name: handl-lang/lib-rand-js
+      secret_env: BUPHA_WH_HANDL_LANG_LIB_RAND_JS
+    - name: handl-lang/lib-rand-stub
+      secret_env: BUPHA_WH_HANDL_LANG_LIB_RAND_STUB
+    - name: handl-lang/lib-result
+      secret_env: BUPHA_WH_HANDL_LANG_LIB_RESULT
+    - name: handl-lang/lib-serialize
+      secret_env: BUPHA_WH_HANDL_LANG_LIB_SERIALIZE
+    - name: handl-lang/lib-serialize-toml-c
+      secret_env: BUPHA_WH_HANDL_LANG_LIB_SERIALIZE_TOML_C
+    - name: handl-lang/lib-serialize-yaml-c
+      secret_env: BUPHA_WH_HANDL_LANG_LIB_SERIALIZE_YAML_C
+    - name: handl-lang/lib-serve
+      secret_env: BUPHA_WH_HANDL_LANG_LIB_SERVE
+    - name: handl-lang/lib-serve-epoll
+      secret_env: BUPHA_WH_HANDL_LANG_LIB_SERVE_EPOLL
+    - name: handl-lang/lib-simplex
+      secret_env: BUPHA_WH_HANDL_LANG_LIB_SIMPLEX
+    - name: handl-lang/lib-stats
+      secret_env: BUPHA_WH_HANDL_LANG_LIB_STATS
+    - name: handl-lang/lib-str
+      secret_env: BUPHA_WH_HANDL_LANG_LIB_STR
+    - name: handl-lang/lib-str-c
+      secret_env: BUPHA_WH_HANDL_LANG_LIB_STR_C
+    - name: handl-lang/lib-str-handl
+      secret_env: BUPHA_WH_HANDL_LANG_LIB_STR_HANDL
+    - name: handl-lang/lib-str-js
+      secret_env: BUPHA_WH_HANDL_LANG_LIB_STR_JS
+    - name: handl-lang/lib-tag
+      secret_env: BUPHA_WH_HANDL_LANG_LIB_TAG
+    - name: handl-lang/lib-tar
+      secret_env: BUPHA_WH_HANDL_LANG_LIB_TAR
+    - name: handl-lang/lib-tensor
+      secret_env: BUPHA_WH_HANDL_LANG_LIB_TENSOR
+    - name: handl-lang/lib-test
+      secret_env: BUPHA_WH_HANDL_LANG_LIB_TEST
+    - name: handl-lang/lib-time
+      secret_env: BUPHA_WH_HANDL_LANG_LIB_TIME
+    - name: handl-lang/lib-time-c
+      secret_env: BUPHA_WH_HANDL_LANG_LIB_TIME_C
+    - name: handl-lang/lib-time-stub
+      secret_env: BUPHA_WH_HANDL_LANG_LIB_TIME_STUB
+    - name: handl-lang/lib-tls
+      secret_env: BUPHA_WH_HANDL_LANG_LIB_TLS
+    - name: handl-lang/lib-tls-libssl
+      secret_env: BUPHA_WH_HANDL_LANG_LIB_TLS_LIBSSL
+    - name: handl-lang/lib-transform
+      secret_env: BUPHA_WH_HANDL_LANG_LIB_TRANSFORM
+    - name: handl-lang/lib-type
+      secret_env: BUPHA_WH_HANDL_LANG_LIB_TYPE
+    - name: handl-lang/lib-type-handl
+      secret_env: BUPHA_WH_HANDL_LANG_LIB_TYPE_HANDL
+    - name: handl-lang/lib-types
+      secret_env: BUPHA_WH_HANDL_LANG_LIB_TYPES
+    - name: handl-lang/lib-unicode
+      secret_env: BUPHA_WH_HANDL_LANG_LIB_UNICODE
+    - name: handl-lang/lib-unicode-c
+      secret_env: BUPHA_WH_HANDL_LANG_LIB_UNICODE_C
+    - name: handl-lang/lib-url-rfc
+      secret_env: BUPHA_WH_HANDL_LANG_LIB_URL_RFC
+    - name: handl-lang/lib-url-whatwg
+      secret_env: BUPHA_WH_HANDL_LANG_LIB_URL_WHATWG
+    - name: handl-lang/lib-utils
+      secret_env: BUPHA_WH_HANDL_LANG_LIB_UTILS
+    - name: handl-lang/lib-uuid
+      secret_env: BUPHA_WH_HANDL_LANG_LIB_UUID
+    - name: handl-lang/lib-uuid-c
+      secret_env: BUPHA_WH_HANDL_LANG_LIB_UUID_C
+    - name: handl-lang/lib-uuid-stub
+      secret_env: BUPHA_WH_HANDL_LANG_LIB_UUID_STUB
+    - name: handl-lang/lib-ws
+      secret_env: BUPHA_WH_HANDL_LANG_LIB_WS
+    - name: handl-lang/lib-ws-c
+      secret_env: BUPHA_WH_HANDL_LANG_LIB_WS_C
+    - name: handl-lang/lib-ws-frame
+      secret_env: BUPHA_WH_HANDL_LANG_LIB_WS_FRAME
+    - name: handl-lang/lib-ws-frame-handl
+      secret_env: BUPHA_WH_HANDL_LANG_LIB_WS_FRAME_HANDL
+    - name: handl-lang/lib-ws-whatwg-c
+      secret_env: BUPHA_WH_HANDL_LANG_LIB_WS_WHATWG_C
+    - name: handl-lang/lib-ws-whatwg-wasm
+      secret_env: BUPHA_WH_HANDL_LANG_LIB_WS_WHATWG_WASM
+    - name: handl-lang/compile-dot
+      secret_env: BUPHA_WEBHOOK_SECRET
+    - name: handl-lang/compile-handl
+      secret_env: BUPHA_WEBHOOK_SECRET
+    - name: handl-lang/compile-js
+      secret_env: BUPHA_WEBHOOK_SECRET
+    - name: handl-lang/compile-llvm
+      secret_env: BUPHA_WEBHOOK_SECRET
+    - name: handl-lang/compile-sexp
+      secret_env: BUPHA_WEBHOOK_SECRET
+    - name: handl-lang/compile-term
+      secret_env: BUPHA_WEBHOOK_SECRET
+    - name: handl-lang/compile-triton
+      secret_env: BUPHA_WEBHOOK_SECRET
+    - name: handl-lang/ext-compile
+      secret_env: BUPHA_WEBHOOK_SECRET
+    - name: handl-lang/ext-eval
+      secret_env: BUPHA_WEBHOOK_SECRET
+    - name: handl-lang/ext-fmt
+      secret_env: BUPHA_WEBHOOK_SECRET
+    - name: handl-lang/ext-kit
+      secret_env: BUPHA_WEBHOOK_SECRET
+    - name: handl-lang/ext-lint
+      secret_env: BUPHA_WEBHOOK_SECRET
+    - name: handl-lang/ext-plugin
+      secret_env: BUPHA_WEBHOOK_SECRET
+    - name: handl-lang/ext-sdkgen
+      secret_env: BUPHA_WEBHOOK_SECRET
+    - name: handl-lang/ext-test
+      secret_env: BUPHA_WEBHOOK_SECRET
+    - name: handl-lang/ext-transform
+      secret_env: BUPHA_WEBHOOK_SECRET
+    - name: handl-lang/ext-typecheck
+      secret_env: BUPHA_WEBHOOK_SECRET
+    - name: handl-lang/kit-core
+      secret_env: BUPHA_WEBHOOK_SECRET
+    - name: handl-lang/kit-data-prelude
+      secret_env: BUPHA_WEBHOOK_SECRET
+    - name: handl-lang/kit-ffi
+      secret_env: BUPHA_WEBHOOK_SECRET
+    - name: handl-lang/kit-lang
+      secret_env: BUPHA_WEBHOOK_SECRET
+    - name: handl-lang/kit-pkg
+      secret_env: BUPHA_WEBHOOK_SECRET
+    - name: handl-lang/kit-prelude
+      secret_env: BUPHA_WEBHOOK_SECRET
+    - name: handl-lang/kit-prelude-lang
+      secret_env: BUPHA_WEBHOOK_SECRET
+    - name: handl-lang/kit-server
+      secret_env: BUPHA_WEBHOOK_SECRET
+    - name: handl-lang/kit-stdlib
+      secret_env: BUPHA_WEBHOOK_SECRET
+    - name: handl-lang/kit-test
+      secret_env: BUPHA_WEBHOOK_SECRET
+    - name: handl-lang/host-cli
+      secret_env: BUPHA_WEBHOOK_SECRET
+    - name: handl-lang/host-lsp
+      secret_env: BUPHA_WEBHOOK_SECRET
+    - name: handl-lang/sdkgen-c
+      secret_env: BUPHA_WEBHOOK_SECRET
+    - name: handl-lang/sdkgen-cli
+      secret_env: BUPHA_WEBHOOK_SECRET
+    - name: handl-lang/sdkgen-file
+      secret_env: BUPHA_WEBHOOK_SECRET
+    - name: handl-lang/sdkgen-python
+      secret_env: BUPHA_WEBHOOK_SECRET
+    - name: handl-lang/sdkgen-webidl
+      secret_env: BUPHA_WEBHOOK_SECRET
+    - name: handl-lang/engine
+      secret_env: BUPHA_WEBHOOK_SECRET
+    - name: handl-lang/egraph
+      secret_env: BUPHA_WEBHOOK_SECRET
+    - name: handl-lang/discovery
+      secret_env: BUPHA_WEBHOOK_SECRET
+    - name: handl-lang/kernelopt
+      secret_env: BUPHA_WEBHOOK_SECRET
+    - name: handl-lang/lib-kernel-ir
+      secret_env: BUPHA_WEBHOOK_SECRET
+    - name: handl-lang/extension-vscode
+      secret_env: BUPHA_WEBHOOK_SECRET
+    - name: handl-lang/extension-neovim
+      secret_env: BUPHA_WEBHOOK_SECRET
+    - name: handl-lang/automation
+      secret_env: BUPHA_WEBHOOK_SECRET
+    - name: handl-lang/slidev-theme
+      secret_env: BUPHA_WEBHOOK_SECRET
+    - name: handl-lang/pitch-2026-fernandes
+      secret_env: BUPHA_WEBHOOK_SECRET
+    - name: handl-lang/pitch-2026-lotufo
+      secret_env: BUPHA_WEBHOOK_SECRET
+    # 9aia/kuda, 9aia/mimus and 9aia/sturn are deliberately NOT
+    # watched: the bupha fleet (libraries/ci-gate/fleet.toml) skips
+    # them — no ci/check gate by design (mimus documents "no hosted
+    # CI by design"; its scripts/check.sh is a local pre-push floor).
+    # Watching them only produced ci-job entities no worker could
+    # ever claim — pending forever (bupha T-074). Re-add a repo here
+    # only when the fleet gains a [[repo]] spec for it.
+    - name: 9aia/cuora
+      secret_env: BUPHA_WH_9AIA_CUORA
+    - name: 9aia/peregrin
+      secret_env: BUPHA_WH_9AIA_PEREGRIN
+
+# --- routing: raw events → typed `{type}.{repo}.{ref}.{url}.{sha}` ---
+# The catch-all enqueues below don't need this, but per-repo enqueue
+# nodes subscribe the typed kinds (ci-gate's ci.route precedent).
+# `${event.type}` keeps push and pull_request kinds distinct;
+# `event.match.1` = clone_url, `event.match.2` = sha (same positions
+# for both — see ci.enqueue.pr for the PR ref convention).
+- id: ci.route
+  driver: shell
+  on:
+  - push
+  - pull_request
+  max_fires: unlimited
+  emits:
+  - push.**
+  - pull_request.**
+  - route.unmatched
+  params:
+    cmd: 'true'
+    emit:
+      '0': "${event.type}.${event.payload.repo}.${event.payload.ref}.${event.payload.clone_url}.${event.payload.sha}"
+      default: route.unmatched
+
+# --- enqueue: push → POST /api/entities (kind="ci-job") -----------------
+# `key` is the worker fleet.toml `[[repo]] key` the job resolves
+# against — repo full_name for whole-repo gates (`owner/name`),
+# `owner/name:job` for per-job lanes. `deliveryId` carries
+# X-GitHub-Delivery for audit (the deterministic entity id already
+# dedups replays). `retries` re-POSTs on transport failure/5xx —
+# safe because create is idempotent on the entity id.
+- id: ci.enqueue
+  driver: http
+  on:
+  - push
+  max_fires: unlimited
+  emits:
+  - http.done
+  - http.failed
+  params:
+    url: "${config.node_url}/api/entities"
+    method: POST
+    timeout: 30
+    retries: 3
+    headers:
+      authorization: "Bearer ${secret.PEREGRIN_NODE_TOKEN}"
+      content-type: application/json
+    body:
+      kind: ci-job
+      indexDoc:
+        key: "${event.payload.repo}"
+        repo: "${event.payload.repo}"
+        ref: "${event.payload.ref}"
+        sha: "${event.payload.sha}"
+        event: push
+        sender: "${event.payload.actor}"
+        deliveryId: "${event.payload.delivery_id}"
+        queue: "${config.queue}"
+        context: "${config.context}"
+
+# --- enqueue: pull_request → POST /api/entities (kind="ci-job") ---------
+# bupha-trigger's PR convention: the job runs the PR *head* sha but
+# gates on the *base* branch — `ref` is `refs/heads/<base_ref>`, the
+# same ref a push to that branch would carry, so one `[[repo]]
+# branch` + `events = ["push", "pull_request"]` entry covers both.
+# Repos that didn't opt into pull_request never match a fleet spec's
+# `events` — a spec-armed plane rejects the create (400 → http.failed
+# in the log) instead of leaving an unclaimable job pending.
+#
+# Fork heads (T-073/bupha): `cloneUrl`/`headRef` carry the head
+# repo's clone URL + head ref — the driver emits `head_clone_url`
+# ONLY for fork deliveries (`fork` flag / head-repo mismatch), ""
+# otherwise, which the plane normalizes to absent. `headRef` is the
+# head branch name (`event.payload.ref`); the worker fetches
+# `cloneUrl` first, then the bare sha, then the repo's own remote —
+# pushes and same-repo PRs leave both fields empty/absent and keep
+# the old single-remote checkout.
+- id: ci.enqueue.pr
+  driver: http
+  on:
+  - pull_request
+  max_fires: unlimited
+  emits:
+  - http.done
+  - http.failed
+  params:
+    url: "${config.node_url}/api/entities"
+    method: POST
+    timeout: 30
+    retries: 3
+    headers:
+      authorization: "Bearer ${secret.PEREGRIN_NODE_TOKEN}"
+      content-type: application/json
+    body:
+      kind: ci-job
+      indexDoc:
+        key: "${event.payload.repo}"
+        repo: "${event.payload.repo}"
+        ref: "refs/heads/${event.payload.base_ref}"
+        sha: "${event.payload.sha}"
+        event: pull_request
+        cloneUrl: "${event.payload.head_clone_url}"
+        headRef: "${event.payload.ref}"
+        sender: "${event.payload.actor}"
+        deliveryId: "${event.payload.delivery_id}"
+        queue: "${config.queue}"
+        context: "${config.context}"
+
+# --- enqueue: per-job lanes (`owner/name:job`, T-030) ------------------
+# `on:` matches event types only (no payload expressions), so a job
+# lane subscribes the TYPED event `ci.route` emits —
+# `push.<repo>.<ref>.<clone_url>.<sha>` pinned to the job's branch
+# (`**` re-joins clone_url's `.`-separated segments, the trailing `*`
+# is the sha → `${event.match.2}`). One node per lane: `key`/`ref`
+# are literals because the typed event's payload is the router's
+# `{stdout, rc, cmd}`, not the webhook payload — `sender`/
+# `deliveryId` don't survive the hop (the deterministic entity id
+# `ci:{key}:{sha}:{attempt}` still dedups replays, and a spec-armed
+# plane overwrites queue/context/runner from the fleet spec anyway).
+#
+# The raw-push `ci.enqueue` above still sees the same delivery: its
+# create resolves key `owner/name` against the repo's main-branch
+# fleet spec and 400s on the ref mismatch — expected `http.failed`
+# noise in the campaign log, NOT a misroute (the `:job` lane below
+# is the create that lands).
+#
+# To add a lane: declare `[[repo.jobs]]` in the owning bupha bundle's
+# fleet.toml, then copy this node with the lane's
+# `push.<repo>.<branch>.**.*` `on:` pattern, `key: "<repo>:<job>"`
+# and `ref: "<branch>"`.
+- id: ci.enqueue.job.9aia-bupha-docs
+  driver: http
+  on:
+  - push.9aia/bupha.refs/heads/docs.**.*
+  max_fires: unlimited
+  emits:
+  - http.done
+  - http.failed
+  params:
+    url: "${config.node_url}/api/entities"
+    method: POST
+    timeout: 30
+    retries: 3
+    headers:
+      authorization: "Bearer ${secret.PEREGRIN_NODE_TOKEN}"
+      content-type: application/json
+    body:
+      kind: ci-job
+      indexDoc:
+        key: "9aia/bupha:docs"
+        repo: "9aia/bupha"
+        ref: "refs/heads/docs"
+        sha: "${event.match.2}"
+        event: push
+        queue: "${config.queue}"
+        context: "${config.context}"

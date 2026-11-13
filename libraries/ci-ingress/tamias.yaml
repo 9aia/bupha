@@ -1,0 +1,60 @@
+# ci-ingress — forge webhook → `kind="ci-job"` enqueue (P-002 §4,
+# ADR-0007, bupha T-058/T-063). `tamias install <ref>` fetches this;
+# the bundle's main.yaml is a complete campaign (ingress webhook node
+# included — see below).
+name: ci-ingress
+version: "0.3.4"
+# `peregrin-bundle` routes install/deploy/uninstall through
+# `tamias-driver-peregrin` (capabilities: types ["peregrin-bundle"]).
+type: peregrin-bundle
+description: >-
+  Verified forge push → ci-job entity enqueue: github-webhook ingress
+  → typed push events → driver:http POST /api/entities
+  {kind:"ci-job"} on the node hosting bupha's CiJobPlane. Latest-wins
+  lane policy lives plane-side; workers claim via ci.claim
+  (tamias-driver-bupha worker).
+
+# The campaign yaml ships its own github-webhook ingress node (the
+# fleet's repo set, BUPHA_WH_* secret names) — so provider.ingress declares
+# listen/path/public_url for the units but NO hooks: `tamias deploy`
+# only generates a second ingress node when hooks[] names github
+# repos, which would double-deliver every push. Same pattern as
+# docs-deploy.
+provider:
+  # SHARED provider identity (T8-7) — see ci-gate's tamias.yaml: every
+  # `peregrin-bundle` declares `provider.name: peregrin` so all their
+  # `campaign` services render ONE `peregrin-campaign.service` hosting
+  # every bundle's generated config in `~/.config/peregrin/serve/` on
+  # a single webhook listener. Keep `exec` identical to the other
+  # bundles' — last deploy wins the unit file.
+  name: peregrin
+  services:
+    # The shared campaign host. This bundle's generated config
+    # (`~/.config/peregrin/serve/ci-ingress.yaml`) `include:`s
+    # main.yaml, whose own github-webhook node joins the shared
+    # listener's repo demux — under `campaign serve` the per-node
+    # listen/path params are ignored; the daemon's --listen/--path
+    # govern the one socket.
+    - name: campaign
+      exec: >-
+        ~/.local/bin/peregrin campaign serve ~/.config/peregrin/serve
+        --listen 127.0.0.1:29173 --path /hook
+        --history-dir ~/.local/share/peregrin/serve-history
+        --queue-store-dir ~/.local/share/peregrin/serve-queues
+      # Secrets resolve via cuora (canonical) — no env_file.
+      workdir: "~"
+      restart: on-failure
+  ingress:
+    # Declarative only — forge-hook registration is the deploy
+    # driver's job and stays an operator step; no hooks[] are
+    # declared (the campaign yaml owns repos[]). `listen`/`path`
+    # mirror the shared unit's --listen/--path: this bundle's
+    # public_url fronts the SAME listener as ci-gate's.
+    - public_url: https://ci-ingress.luisfuturist.com
+      listen: 127.0.0.1:29173
+      path: /hook
+      hooks: []
+  # Advisory verb hints for `tamias provider list`/`tamias run` —
+  # no health probe: the campaign daemon serves only the hook path,
+  # there is no /health endpoint to curl.
+  verbs: [run, logs]
