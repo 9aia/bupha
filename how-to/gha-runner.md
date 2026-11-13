@@ -146,3 +146,24 @@ If a workflow hits a hard error, the run fails loudly at spawn —
 the error names the key to remove or the subset to rewrite
 against. For pipelines outside the subset, `runner.kind =
 "shell"` + `cmd` remains the escape hatch.
+
+## Smoke-verified subset (PL-013 D5)
+
+Exercised end-to-end with `bupha run` (`runner.kind = "gha"`)
+against a scratch repo — confirms the spawn path, not GHA/act
+ parity on a production workflow:
+
+- `on.push` discovery + `steps[].run` in bash — passed.
+- `uses: actions/checkout@v4` — accepted as the pushed-sha
+  no-op.
+- `strategy.matrix` 2×2 fan-out — 4 legs in parallel, each in its
+  own worktree; `${{ matrix.node }}` interpolation into `env:`
+  worked.
+- Unsupported key — `services:` under a job fails at spawn with
+  `gha: ci.yml.jobs.<id>: unsupported key 'services' (outside the
+  gha v1 subset)` — loud, names file/job/key.
+
+ A full parity pass against a real repo's `ci.yml` (vs. GHA/act)
+ is still open — the dialect's hard-error contract means a
+ migration is incremental: unsupported keys surface one at a
+time.
