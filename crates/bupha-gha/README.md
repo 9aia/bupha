@@ -12,10 +12,11 @@ Actions as bupha's first CI dialect. Select with `runner.kind = "gha"`.
 
 The pushed sha's detached worktree is the workspace. Every
 `on.push`-matching workflow runs **locally, in one spawned bash
-process**, scheduled by `needs` depth: jobs with no mutual
-`needs` edges run concurrently (each in a private `git worktree`),
-`needs` chains stay sequential in the shared worktree — see
-**Cross-job parallelism** below. The aggregate exit status drives
+process**, scheduled by a ready-queue over the `needs` DAG: a job
+group launches as soon as its needs settle, groups that can overlap
+an unrelated group run concurrently (each in a private `git
+worktree`), groups that provably run alone stay sequential in the
+shared worktree — see **Cross-job parallelism** below. The aggregate exit status drives
 the repo's commit status, and each expanded job that reaches a
 verdict (additional workflow jobs and every matrix leg) also posts
 its own commit status under `<context>/<workflow>/<job id>[/<matrix>]` —
@@ -153,29 +154,34 @@ level.
   launch. `needs.<job>.outputs.*` resolves deterministically to
   the **highest-index successful leg** (`joboutpick/<key>`), not
   "last to finish".
-- **Cross-job parallelism.** Jobs are scheduled by `needs` depth:
-  every topo level is a barrier, so a job never starts before ALL
-  its needs (which live in earlier levels) have settled —
+- **Cross-job parallelism.** Jobs are scheduled by a ready-queue
+  over the `needs` DAG: a job group launches as soon as EVERY
+  group it `needs` has settled — there are no depth barriers, so
+  an unrelated straggler never delays a dependent's launch, and
   `needs.<job>.{result,outputs.*}` resolve exactly as on the
-  sequential path. A level holding a **single** job group keeps
-  the sequential shared-worktree path (plain `needs` chains are
-  unchanged); a level with **several independent groups** runs
-  them concurrently — each group as a `set -m` background
-  subshell. Plain groups share one private `git worktree` under
-  `$BUPHA_GHA_TMP/jobs/<first-leg>`; parallel matrix groups fan
-  their legs out inside their subshell with every leg worktree
-  pre-created parent-side (serializing git's worktree lock).
-  Gates and `if:` conditions evaluate inside each subshell against
-  the launch-time status snapshot — correct because every `needs`
-  target already settled. After `wait` drains the level, each
-  leg's status folds back from its `jobstatus/` file into the
-  parent's array and fail accounting runs parent-side. Honest
-  boundaries: **there is no cross-job fail-fast** (matching GHA —
-  `strategy.fail-fast` only cancels legs of its own job id), the
-  barrier is coarser than GHA's per-job scheduler (a job waits
-  for its whole level, not just its needs), and **files a
-  concurrent job writes to its workspace stay in its private
-  worktree** — same rule as parallel legs, with
+  sequential path (dependents only launch after the parent's
+  status fold drops the producer's `jobsynced/<g>` marker, so
+  gates and lookups always read final state). A group that is
+  **incomparable** with at least one other group in the DAG
+  (neither ancestor nor descendant — the two can genuinely
+  overlap) launches as a `set -m` background subshell in a
+  private `git worktree`; a group **comparable with every other**
+  provably runs alone and keeps the sequential shared-worktree
+  path inline in the scheduler loop (plain `needs` chains are
+  unchanged). Plain background groups share one private `git
+  worktree` under `$BUPHA_GHA_TMP/jobs/<first-leg>`; parallel
+  matrix groups fan their legs out inside their subshell with
+  every leg worktree pre-created parent-side (serializing git's
+  worktree lock). Cross-group concurrency is capped by
+  `$BUPHA_GHA_MAX_PARALLEL` (unset/`0` = unlimited, matching the
+  matrix default of all legs at once). The parent reaps finished
+  subshells each pass (`jobdone/<g>` marker, `kill -0` crash
+  detection), folds leg statuses back from `jobstatus/` files,
+  and runs fail accounting parent-side. Honest boundaries:
+  **there is no cross-job fail-fast** (matching GHA —
+  `strategy.fail-fast` only cancels legs of its own job id), and
+  **files a concurrent job writes to its workspace stay in its
+  private worktree** — same rule as parallel legs, with
   `$BUPHA_WORKDIR`/`$BUPHA_GHA_TMP` as the shared channels. The
   `jobresult/`/`joboutpick/`/`BUPHA_GHA_JOBIDX` stores are keyed
   by workflow+job id, so same-named jobs in different workflow

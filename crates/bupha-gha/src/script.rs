@@ -1,17 +1,19 @@
 //! script — render expanded [`Job`]s into one bash program. Pure
 //! string building; the runner spawns it with `bash -c` in the
-//! worktree. Jobs are scheduled by `needs` depth: every topo
-//! *level* (jobs whose needs all sit in earlier levels) runs as a
-//! barrier — a level with a single job group keeps the sequential
-//! shared-worktree path, while a level with several independent
-//! groups fans them out as `set -m` background process groups,
-//! each in a private `git worktree` checkout (the same isolation
-//! parallel matrix legs use). Matrix legs of one job id additionally
-//! fan out inside their group, throttled by `strategy.max-parallel`,
-//! or fall back to the sequential path when `max-parallel: 1`.
+//! worktree. Jobs are scheduled by a ready-queue over the `needs`
+//! DAG: a job group launches as soon as EVERY group it needs has
+//! settled — never waiting on unrelated jobs at the same depth.
+//! Groups that can overlap an unrelated group run as `set -m`
+//! background process groups, each in a private `git worktree`
+//! checkout (the same isolation parallel matrix legs use); groups
+//! comparable with every other group provably run alone and keep
+//! the sequential shared-worktree path. Matrix legs of one job id
+//! additionally fan out inside their group, throttled by
+//! `strategy.max-parallel`, or fall back to the sequential path
+//! when `max-parallel: 1`.
 
 use crate::plan::{BinOp, Cond, DynRef, Job, Step};
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeSet, HashMap};
 
 /// Everything the generated program needs from the run context.
 pub struct ScriptCtx<'a> {
@@ -180,18 +182,24 @@ fn dyn_word(d: &DynRef, cx: &CondCx) -> Result<String, String> {
     })
 }
 
-/// Render all jobs into one bash script. Scheduling is by `needs`
-/// depth: level 0 jobs (no `needs`) run first, each later level
-/// waits at a barrier until every earlier level has settled — so a
-/// job never starts before ALL its needs complete. A level holding
-/// a single job group keeps the sequential shared-worktree path;
-/// a level with several independent groups runs them concurrently,
-/// each group in a private `git worktree` (matrix groups fan their
-/// legs out inside their own subshell). Matrix legs of one job id —
-/// adjacent expanded jobs — either fan out as background process
-/// groups (each leg in a private `git worktree`, throttled by
-/// `strategy.max-parallel`) or run sequentially when the group has
-/// one leg or `max-parallel: 1`.
+/// Render all jobs into one bash script. Scheduling is a
+/// ready-queue over the `needs` DAG: a job group launches as soon
+/// as every group it needs has *settled* (its `jobsynced/<g>`
+/// marker exists — written only after the parent's status fold, so
+/// gates and `needs.*` lookups always read final state). There are
+/// no depth barriers — an unrelated straggler never delays a
+/// dependent's launch. A group that is incomparable with at least
+/// one other group in the DAG (neither ancestor nor descendant —
+/// the two can genuinely overlap) launches as a `set -m` background
+/// subshell in a private `git worktree`; a group comparable with
+/// every other group provably runs alone and keeps the sequential
+/// shared-worktree path inline in the scheduler loop. Matrix legs
+/// of one job id — adjacent expanded jobs — either fan out as
+/// background process groups inside their group (each leg in a
+/// private `git worktree`, throttled by `strategy.max-parallel`)
+/// or run sequentially when the group has one leg or
+/// `max-parallel: 1`. Cross-group concurrency is capped by
+/// `$BUPHA_GHA_MAX_PARALLEL` (0/unset = unlimited).
 pub fn render(jobs: &[Job], ctx: &ScriptCtx) -> Result<String, String> {
     // job key → every expanded index (matrix legs) — feeds
     // `BUPHA_GHA_JOBIDX`, the runtime table the `bupha_job_failed`
@@ -229,36 +237,77 @@ pub fn render(jobs: &[Job], ctx: &ScriptCtx) -> Result<String, String> {
     // monitor mode gives each background job its own process group
     // so `kill -- -$pid` takes the whole tree down. Parallel matrix
     // legs need it too: fail-fast kills leg groups by pgid. So do
-    // concurrent levels: group subshells host their own `&` jobs.
+    // background-scheduled groups: group subshells host their own
+    // `&` jobs.
     let any_job_timeout = jobs.iter().any(|j| j.timeout_seconds.is_some());
 
-    // `needs` depth per expanded job — topo order guarantees every
-    // `needs` index precedes its consumer, so one forward pass
-    // suffices. All legs of a group share `needs`, hence a level.
-    let mut level = vec![0usize; jobs.len()];
-    for i in 0..jobs.len() {
-        level[i] = jobs[i]
-            .needs
-            .iter()
-            .map(|&d| level[d] + 1)
-            .max()
-            .unwrap_or(0);
-    }
-    // level → its job groups, in declaration order.
-    let mut level_groups: BTreeMap<usize, Vec<usize>> = BTreeMap::new();
+    // --- needs-DAG over job groups ------------------------------------
+    // expanded-job index → its group, then per-group dependency
+    // edges (a group depends on every group containing one of its
+    // legs' `needs` targets). Topo order keeps every dependency
+    // edge pointing at an earlier group.
+    let gcount = groups.len();
+    let mut group_of = vec![0usize; jobs.len()];
     for (g, legs) in groups.iter().enumerate() {
-        let lv = legs.iter().map(|&i| level[i]).max().unwrap_or(0);
-        level_groups.entry(lv).or_default().push(g);
+        for &i in legs {
+            group_of[i] = g;
+        }
     }
-    // A level with several independent groups is the cross-job
-    // parallel case — each group gets a private worktree.
-    let any_concurrent = level_groups.values().any(|g| g.len() > 1);
+    // gdeps[g] = sorted unique groups g must wait for (also the
+    // readiness probe's argument list).
+    let mut gdeps: Vec<Vec<usize>> = vec![Vec::new(); gcount];
+    for (g, legs) in groups.iter().enumerate() {
+        let mut set = BTreeSet::new();
+        for &i in legs {
+            for &d in &jobs[i].needs {
+                let dg = group_of[d];
+                if dg != g {
+                    set.insert(dg);
+                }
+            }
+        }
+        gdeps[g] = set.into_iter().collect();
+    }
+    // anc[g] = bitset of g's transitive dependencies (incl. g) —
+    // deps always point backward, so one forward pass with
+    // bitset-union suffices.
+    let words = gcount.div_ceil(64);
+    let mut anc = vec![vec![0u64; words]; gcount];
+    for g in 0..gcount {
+        anc[g][g / 64] |= 1 << (g % 64);
+        for &d in &gdeps[g] {
+            debug_assert!(d < g, "needs edge must point backward in topo order");
+            // d < g: split the borrow so dst (anc[g]) and src
+            // (anc[d]) can be zipped mutably/immutably.
+            let (head, tail) = anc.split_at_mut(g);
+            for (dst, src) in tail[0].iter_mut().zip(head[d].iter()) {
+                *dst |= *src;
+            }
+        }
+    }
+    let is_anc = |set: &[u64], i: usize| (set[i / 64] >> (i % 64)) & 1 == 1;
+    // A group may overlap another iff they are incomparable —
+    // neither is a transitive dependency of the other. Only those
+    // groups need private worktrees + background subshells; a group
+    // comparable with every other provably runs alone (when it
+    // becomes ready, every other group is either settled or not
+    // yet launchable), so it keeps the shared-worktree path.
+    let mut may_overlap = vec![false; gcount];
+    for g in 0..gcount {
+        for h in 0..gcount {
+            if h != g && !is_anc(&anc[h], g) && !is_anc(&anc[g], h) {
+                may_overlap[g] = true;
+                break;
+            }
+        }
+    }
+    let any_bg = may_overlap.iter().any(|m| *m);
 
     let mut out = String::with_capacity(8192);
     out.push_str("#!/usr/bin/env bash\n");
     out.push_str("# Generated by bupha gha runner — .github/workflows as CI.\n");
     out.push_str("set -uo pipefail\n");
-    if any_job_timeout || any_parallel || any_concurrent {
+    if any_job_timeout || any_parallel || any_bg {
         out.push_str("set -m\n");
     }
     out.push_str(&format!("export GITHUB_EVENT_NAME={}\n", sq("push")));
@@ -295,7 +344,7 @@ pub fn render(jobs: &[Job], ctx: &ScriptCtx) -> Result<String, String> {
     out.push_str("BUPHA_GHA_TMP=$(mktemp -d)\n");
     out.push_str("export BUPHA_GHA_TMP\n");
     out.push_str("mkdir -p \"$BUPHA_GHA_TMP/jobstatus\" \"$BUPHA_GHA_TMP/stepconcl\" \"$BUPHA_GHA_TMP/jobresult\" \"$BUPHA_GHA_TMP/joboutpick\" \"$BUPHA_GHA_TMP/legexit\" \"$BUPHA_GHA_TMP/legs\" \"$BUPHA_GHA_TMP/jobs\"\n");
-    if any_parallel || any_concurrent {
+    if any_parallel || any_bg {
         // Backstop for job worktrees: normally each is
         // `git worktree remove`d at harvest; if the script dies
         // mid-run the EXIT trap removes whatever legs/*+jobs/*
@@ -324,17 +373,23 @@ pub fn render(jobs: &[Job], ctx: &ScriptCtx) -> Result<String, String> {
         );
         out.push_str(MP_FNS);
     }
-    if any_concurrent {
+    if any_bg {
         out.push_str(JP_FNS);
     }
 
-    // Emit level by level — a barrier per level means a job never
-    // starts before ALL its needs (which live in earlier levels)
-    // have settled. Single-group levels keep the sequential
-    // shared-worktree path; multi-group levels fan out.
-    for glist in level_groups.values() {
-        if glist.len() == 1 {
-            let g = glist[0];
+    if any_bg {
+        out.push_str(&render_scheduler(
+            jobs,
+            &groups,
+            &group_parallel,
+            &gdeps,
+            &may_overlap,
+            ctx,
+        )?);
+    } else {
+        // No incomparable pair — the needs DAG is a total order,
+        // so every group runs alone on the shared worktree.
+        for g in 0..groups.len() {
             if group_parallel[g] {
                 out.push_str(&render_parallel_group(jobs, &groups[g], ctx, false)?);
             } else {
@@ -348,14 +403,6 @@ pub fn render(jobs: &[Job], ctx: &ScriptCtx) -> Result<String, String> {
                     )?);
                 }
             }
-        } else {
-            out.push_str(&render_concurrent_level(
-                jobs,
-                glist,
-                &groups,
-                &group_parallel,
-                ctx,
-            )?);
         }
     }
     out.push_str("if [ \"$BUPHA_GHA_FAILS\" -gt 0 ]; then\n  echo \"gha: workflow(s) failed\"\n  exit 1\nfi\necho \"gha: all jobs passed\"\n");
@@ -476,105 +523,228 @@ fn render_seq_job(
     Ok(out)
 }
 
-/// One scheduling level holding several independent job groups —
-/// the cross-job parallel case. Each group launches as a `set -m`
-/// background subshell: matrix groups fan their legs out inside it
-/// (every leg worktree is pre-created parent-side first, so
-/// concurrent `git worktree add`s never race git's lock), plain
-/// groups run their legs sequentially in one shared private
-/// worktree under `$BUPHA_GHA_TMP/jobs/<first-leg>`. Gates and
-/// `if:` conditions evaluate inside the subshell against the
-/// launch-time `BUPHA_GHA_STATUS` snapshot — correct because every
-/// `needs` target settled in an earlier level. `wait` drains the
-/// level, then each leg's status is folded back from its
-/// `jobstatus/` file into the parent's array (`bupha_sync_job`),
-/// fail accounting runs parent-side, and private worktrees are
-/// removed. There is no cross-job fail-fast — matching GHA,
+/// The ready-queue scheduler loop, emitted when at least one pair
+/// of job groups is incomparable in the `needs` DAG. Each pass:
+/// (1) reap every finished background group — fold leg statuses
+/// back (`bupha_sync_job`), run fail accounting, remove the private
+/// worktree, drop the `jobsynced/<g>` marker that unblocks
+/// dependents; (2) launch every unlaunched group whose dependency
+/// groups are all synced — background groups fork a `set -m`
+/// subshell in a private worktree (throttled by
+/// `$BUPHA_GHA_MAX_PARALLEL`, 0 = unlimited), while groups
+/// comparable with every other run inline on the shared worktree
+/// (they provably never overlap anything); (3) `wait -n` until the
+/// next subshell exits. `jobdone/<g>` is written by the subshell as
+/// its last act; `jobsynced/<g>` is written by the parent only
+/// after the status fold, so a dependent's fork-time
+/// `BUPHA_GHA_STATUS` snapshot and its `needs.*` file lookups
+/// always see final producer state. A subshell that dies without
+/// `jobdone` (crash, not SIGKILL — the subshell sets no trap) is
+/// detected via `kill -0` on its pid once `wait -n` reaps it and
+/// settled as failure leg-by-leg. A pass that launches nothing
+/// with nothing running means a `needs` cycle — impossible after
+/// plan's topo sort, but the guard exits loudly rather than hang.
+/// There is no cross-job fail-fast — matching GHA,
 /// `strategy.fail-fast` only cancels legs of its own job id.
-fn render_concurrent_level(
+fn render_scheduler(
     jobs: &[Job],
-    glist: &[usize],
     groups: &[Vec<usize>],
     group_parallel: &[bool],
+    gdeps: &[Vec<usize>],
+    may_overlap: &[bool],
     ctx: &ScriptCtx,
 ) -> Result<String, String> {
     let mut out = String::new();
-    let probe = groups[glist[0]][0];
+    out.push_str("mkdir -p \"$BUPHA_GHA_TMP/jobdone\" \"$BUPHA_GHA_TMP/jobsynced\"\n");
+    out.push_str("BUPHA_GHA_MAXPAR=${BUPHA_GHA_MAX_PARALLEL:-0}\n");
+    out.push_str("declare -A BUPHA_JQ_L=() BUPHA_JQ_D=() BUPHA_JQ_PID=()\n");
     out.push_str(&format!(
-        "echo {}\n",
-        shq_exprs(
-            &format!(
-                "gha: {} independent job groups running concurrently",
-                glist.len()
-            ),
-            probe,
-            &jobs[probe].workflow,
-        )?
+        "BUPHA_JQ_LEFT={} BUPHA_JQ_RUNNING=0 BUPHA_JQ_PROGRESS=0\nwhile [ \"$BUPHA_JQ_LEFT\" -gt 0 ]; do\n",
+        groups.len()
     ));
-    for &g in glist {
-        let legs = &groups[g];
+    for (g, m) in may_overlap.iter().enumerate() {
+        if *m {
+            out.push_str(&render_group_reap(g, groups, group_parallel)?);
+        }
+    }
+    out.push_str("BUPHA_JQ_PROGRESS=0\n");
+    for g in 0..groups.len() {
+        out.push_str(&render_group_launch(
+            jobs,
+            g,
+            groups,
+            group_parallel,
+            gdeps,
+            may_overlap,
+            ctx,
+        )?);
+    }
+    out.push_str(
+        "if [ \"$BUPHA_JQ_LEFT\" -gt 0 ]; then\n  if [ \"$BUPHA_JQ_RUNNING\" -gt 0 ]; then\n    wait -n 2>/dev/null\n  elif [ \"$BUPHA_JQ_PROGRESS\" -eq 0 ]; then\n    echo \"gha: job scheduler deadlock — unmet needs\"\n    exit 1\n  fi\nfi\ndone\nwait 2>/dev/null\n",
+    );
+    Ok(out)
+}
+
+/// The reap half of one scheduler pass for a background-capable
+/// group: when its `jobdone/<g>` marker exists (or its pid is gone
+/// without one — a crashed subshell), fold every leg's status back
+/// into the parent array + fail accounting, remove the group's
+/// private worktree (non-parallel groups; parallel legs clean
+/// themselves inside their subshell's harvest), drop
+/// `jobsynced/<g>` so dependents become ready.
+fn render_group_reap(
+    g: usize,
+    groups: &[Vec<usize>],
+    group_parallel: &[bool],
+) -> Result<String, String> {
+    let legs = &groups[g];
+    let mut out = String::new();
+    out.push_str(&format!(
+        "if [ -n \"${{BUPHA_JQ_L[{g}]:-}}\" ] && [ -z \"${{BUPHA_JQ_D[{g}]:-}}\" ] && {{ [ -f \"$BUPHA_GHA_TMP/jobdone/{g}\" ] || ! kill -0 \"${{BUPHA_JQ_PID[{g}]:-0}}\" 2>/dev/null; }}; then\n"
+    ));
+    out.push_str(&format!(
+        "BUPHA_JQ_D[{g}]=1\nBUPHA_JQ_RUNNING=$((BUPHA_JQ_RUNNING-1))\nBUPHA_JQ_LEFT=$((BUPHA_JQ_LEFT-1))\n"
+    ));
+    for &i in legs {
+        // Fold the subshell-written jobstatus word back into the
+        // parent's array + fail accounting (missing words settle
+        // as failure — a crashed subshell must not read skipped).
+        out.push_str(&format!("bupha_sync_job {i}\n"));
+        out.push_str(&format!(
+            "case \"${{BUPHA_GHA_STATUS[{i}]:-2}}\" in 0|2|3) ;; *) BUPHA_GHA_FAILS=$((BUPHA_GHA_FAILS+1));; esac\n"
+        ));
+    }
+    if !group_parallel[g] {
+        let key = legs[0];
+        out.push_str(&format!("bupha_jp_clean \"$BUPHA_GHA_TMP/jobs/{key}\"\n"));
+    }
+    // Last: the marker dependents' `bupha_jq_ready` probes — only
+    // now are statuses, jobresult/joboutpick aggregates and report
+    // records all final.
+    out.push_str(&format!("touch \"$BUPHA_GHA_TMP/jobsynced/{g}\"\n"));
+    out.push_str("fi\n");
+    Ok(out)
+}
+
+/// The launch half of one scheduler pass for a single group,
+/// guarded by `!launched && bupha_jq_ready <dep groups>`. Sets
+/// `BUPHA_JQ_L`/`BUPHA_JQ_PROGRESS` up front; on a
+/// `$BUPHA_GHA_MAX_PARALLEL` cap hit it unsets `BUPHA_JQ_L` so a
+/// later pass retries. Background groups (`may_overlap`) fork a
+/// `set -m` subshell — matrix groups fan legs out inside it with
+/// worktrees pre-created parent-side (serializing git's lock),
+/// plain groups run their legs sequentially in one shared private
+/// worktree under `$BUPHA_GHA_TMP/jobs/<first-leg>`; a failed
+/// worktree add settles every leg as failure parent-side (with
+/// report records + aggregates) rather than let subshells cd into
+/// nothing. Inline groups run their body synchronously and mark
+/// themselves done immediately — safe because a group comparable
+/// with every other provably runs alone.
+fn render_group_launch(
+    jobs: &[Job],
+    g: usize,
+    groups: &[Vec<usize>],
+    group_parallel: &[bool],
+    gdeps: &[Vec<usize>],
+    may_overlap: &[bool],
+    ctx: &ScriptCtx,
+) -> Result<String, String> {
+    let legs = &groups[g];
+    let mut out = String::new();
+    let ready = if gdeps[g].is_empty() {
+        String::new()
+    } else {
+        let args = gdeps[g]
+            .iter()
+            .map(usize::to_string)
+            .collect::<Vec<_>>()
+            .join(" ");
+        format!(" && bupha_jq_ready {args}")
+    };
+    out.push_str(&format!(
+        "if [ -z \"${{BUPHA_JQ_L[{g}]:-}}\" ]{ready}; then\nBUPHA_JQ_L[{g}]=1\nBUPHA_JQ_PROGRESS=1\n"
+    ));
+    if !may_overlap[g] {
+        // Inline — runs alone on the shared worktree.
         if group_parallel[g] {
-            // Pre-create every leg worktree parent-side — git's
-            // worktree lock can't take concurrent `add`s from the
-            // group subshells. A failed pre-create is retried (and
-            // honestly failed) by the leg's own launch check.
-            for &i in legs {
-                out.push_str(&format!(
-                    "git -C \"$BUPHA_WORKDIR\" worktree add --detach --quiet \"$BUPHA_GHA_TMP/legs/{i}\" HEAD 2>/dev/null || true\n"
-                ));
-            }
-            out.push_str("( set -m\n");
-            out.push_str(&render_parallel_group(jobs, legs, ctx, true)?);
-            out.push_str(") &\n");
+            out.push_str(&render_parallel_group(jobs, legs, ctx, false)?);
         } else {
-            let key = legs[0];
-            let wt = format!("\"$BUPHA_GHA_TMP/jobs/{key}\"");
-            out.push_str(&format!(
-                "if git -C \"$BUPHA_WORKDIR\" worktree add --detach --quiet \"$BUPHA_GHA_TMP/jobs/{key}\" HEAD; then\n( set -m\n"
-            ));
             for &i in legs {
-                out.push_str(&render_seq_job(&jobs[i], i, legs, ctx, &wt)?);
+                out.push_str(&render_seq_job(&jobs[i], i, legs, ctx, &sq(ctx.workdir))?);
             }
-            out.push_str(") &\nelse\n");
-            // Provisioning failed — settle every leg as a failure
-            // (with report records) rather than let the subshells
-            // cd into nothing.
-            for &i in legs {
-                let j = &jobs[i];
-                out.push_str(&format!(
-                    "  bupha_set_status {i} 1\n  echo {}\n  bupha_report {i} {} {}\n",
-                    shq_exprs(
-                        &format!(
-                            "gha: job '{}' failed — git worktree add failed",
-                            job_label(j)
-                        ),
-                        i,
-                        &j.workflow
-                    )?,
-                    sq(&status_suffix(j)),
-                    shq_exprs(&j.label, i, &j.workflow)?
-                ));
-            }
-            out.push_str("fi\n");
         }
+        out.push_str(&format!(
+            "touch \"$BUPHA_GHA_TMP/jobsynced/{g}\"\nBUPHA_JQ_D[{g}]=1\nBUPHA_JQ_LEFT=$((BUPHA_JQ_LEFT-1))\nfi\n"
+        ));
+        return Ok(out);
     }
-    // Level barrier — every group subshell has drained its legs.
-    out.push_str("wait\n");
-    for &g in glist {
-        for &i in &groups[g] {
-            // Fold the subshell-written jobstatus word back into the
-            // parent's array + fail accounting (missing words settle
-            // as failure — a crashed subshell must not read skipped).
-            out.push_str(&format!("bupha_sync_job {i}\n"));
+    // Background — cap check first; a full cap leaves the group
+    // unlaunched for a later pass.
+    out.push_str(
+        "if [ \"$BUPHA_GHA_MAXPAR\" -le 0 ] || [ \"$BUPHA_JQ_RUNNING\" -lt \"$BUPHA_GHA_MAXPAR\" ]; then\n",
+    );
+    if group_parallel[g] {
+        // Pre-create every leg worktree parent-side — git's
+        // worktree lock can't take concurrent `add`s from the
+        // group subshells. A failed pre-create is retried (and
+        // honestly failed) by the leg's own launch check.
+        for &i in legs {
             out.push_str(&format!(
-                "case \"${{BUPHA_GHA_STATUS[{i}]:-2}}\" in 0|2|3) ;; *) BUPHA_GHA_FAILS=$((BUPHA_GHA_FAILS+1));; esac\n"
+                "git -C \"$BUPHA_WORKDIR\" worktree add --detach --quiet \"$BUPHA_GHA_TMP/legs/{i}\" HEAD 2>/dev/null || true\n"
             ));
         }
-        if !group_parallel[g] {
-            let key = groups[g][0];
-            out.push_str(&format!("bupha_jp_clean \"$BUPHA_GHA_TMP/jobs/{key}\"\n"));
+        out.push_str("( set -m\n");
+        out.push_str(&render_parallel_group(jobs, legs, ctx, true)?);
+        out.push_str(&format!(
+            "touch \"$BUPHA_GHA_TMP/jobdone/{g}\"\n) &\nBUPHA_JQ_PID[{g}]=$!\nBUPHA_JQ_RUNNING=$((BUPHA_JQ_RUNNING+1))\n"
+        ));
+    } else {
+        let key = legs[0];
+        let wt = format!("\"$BUPHA_GHA_TMP/jobs/{key}\"");
+        out.push_str(&format!(
+            "if git -C \"$BUPHA_WORKDIR\" worktree add --detach --quiet \"$BUPHA_GHA_TMP/jobs/{key}\" HEAD; then\n( set -m\n"
+        ));
+        for &i in legs {
+            out.push_str(&render_seq_job(&jobs[i], i, legs, ctx, &wt)?);
         }
+        out.push_str(&format!(
+            "touch \"$BUPHA_GHA_TMP/jobdone/{g}\"\n) &\nBUPHA_JQ_PID[{g}]=$!\nBUPHA_JQ_RUNNING=$((BUPHA_JQ_RUNNING+1))\nelse\n"
+        ));
+        // Provisioning failed — settle every leg as a failure
+        // (with report records + aggregates) rather than let the
+        // subshells cd into nothing, then mark the group done
+        // parent-side: no subshell exists to write jobdone.
+        let list = legs
+            .iter()
+            .map(usize::to_string)
+            .collect::<Vec<_>>()
+            .join(" ");
+        let sid = job_key(&jobs[key]);
+        for &i in legs {
+            let j = &jobs[i];
+            out.push_str(&format!(
+                "  bupha_set_status {i} 1\n  echo {}\n  bupha_report {i} {} {}\n",
+                shq_exprs(
+                    &format!(
+                        "gha: job '{}' failed — git worktree add failed",
+                        job_label(j)
+                    ),
+                    i,
+                    &j.workflow
+                )?,
+                sq(&status_suffix(j)),
+                shq_exprs(&j.label, i, &j.workflow)?
+            ));
+        }
+        out.push_str(&format!(
+            "  bupha_agg_result {} {list}\n  bupha_pick_out {} {list}\n  touch \"$BUPHA_GHA_TMP/jobsynced/{g}\"\n  BUPHA_JQ_D[{g}]=1\n  BUPHA_JQ_LEFT=$((BUPHA_JQ_LEFT-1))\nfi\n",
+            sq(&sid),
+            sq(&sid)
+        ));
     }
+    out.push_str("else\nunset \"BUPHA_JQ_L[");
+    out.push_str(&g.to_string());
+    out.push_str("]\"\nfi\nfi\n");
     Ok(out)
 }
 
@@ -1483,15 +1653,29 @@ bupha_mp_harvest() {
 }
 "#;
 
-/// Bash helpers for the cross-job scheduler, emitted only when a
-/// level holds several independent job groups. Group subshells
-/// can't write the parent's `BUPHA_GHA_STATUS` array — every status
-/// channel (`jobstatus/`, `jobresult/`, `joboutpick/`, `jobouts/`)
-/// is already file-based — so the parent folds each leg's settled
-/// word back after the level barrier.
+/// Bash helpers for the cross-job scheduler, emitted only when the
+/// needs DAG has an incomparable pair (a ready-queue run). Group
+/// subshells can't write the parent's `BUPHA_GHA_STATUS` array —
+/// every status channel (`jobstatus/`, `jobresult/`, `joboutpick/`,
+/// `jobouts/`) is already file-based — so the parent folds each
+/// leg's settled word back at reap before dropping the group's
+/// `jobsynced/` marker.
 const JP_FNS: &str = r#"
+# Ready-queue probe: every dependency group's `jobsynced/<g>`
+# marker must exist before a dependent group may launch — the
+# marker is dropped only after the parent's status fold, so gates
+# and `needs.*` lookups inside the new subshell always see final
+# producer state. $@ = dependency group indices.
+bupha_jq_ready() {
+  local i
+  for i in "$@"; do
+    [ -f "$BUPHA_GHA_TMP/jobsynced/$i" ] || return 1
+  done
+  return 0
+}
+
 # Fold one expanded job's status back from its jobstatus file after
-# a concurrent level drains: $1 = expanded-job index. The subshell
+# a background group finishes: $1 = expanded-job index. The subshell
 # wrote the conclusion word via `bupha_set_status`; this re-asserts
 # the numeric code into the parent's array (and rewrites the same
 # word to the file, idempotently). A missing/unrecognized word

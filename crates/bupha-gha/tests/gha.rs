@@ -374,14 +374,16 @@ jobs:
     );
 }
 
-// --- cross-job parallelism (needs-DAG levels) -------------------------
+// --- cross-job parallelism (needs-DAG ready queue) -------------------
 //
-// Jobs with no mutual `needs` edges share a scheduling level and run
-// concurrently — each group in a private `git worktree`, like
-// parallel matrix legs. Levels are barriers: a job starts only after
-// every earlier level settled. Workspace writes inside a concurrent
-// group land in its private worktree; `$BUPHA_WORKDIR` (the main
-// worktree) and the `$BUPHA_GHA_TMP` stores are the shared channels.
+// Jobs with no mutual `needs` edges may overlap — each group that
+// can overlap an unrelated group runs concurrently in a private
+// `git worktree`, like parallel matrix legs. Scheduling is a
+// ready-queue, not depth barriers: a job launches as soon as every
+// group it `needs` has settled, even while unrelated jobs still
+// run. Workspace writes inside a concurrent group land in its
+// private worktree; `$BUPHA_WORKDIR` (the main worktree) and the
+// `$BUPHA_GHA_TMP` stores are the shared channels.
 
 /// (start, end) nanosecond intervals per job name from ov.log —
 /// `s <name> <ts>` / `e <name> <ts>` lines; other tags ignored.
@@ -462,9 +464,10 @@ jobs:
 
 #[test]
 fn parallel_jobs_feed_needs_of_later_level() {
-    // Level 0: `produce` + `side` run concurrently. Level 1:
-    // `consume` needs produce — it must see produce's outputs and
-    // result, and side's completion must not have blocked it.
+    // Level 0: `produce` + `side` run concurrently. `consume`
+    // needs produce only — the ready queue launches it as soon as
+    // produce settles, WITHOUT waiting for the unrelated `side`
+    // straggler. It must still see produce's outputs and result.
     let (d, sha) = repo("pneeds");
     workflow(
         &d,
@@ -495,8 +498,9 @@ jobs:
     let got = std::fs::read_to_string(d.join("got.txt")).unwrap();
     assert!(got.starts_with("got=p"), "{got}");
     assert!(got.contains("res=success"), "{got}");
-    // consume is level 1 — it started only after the level-0
-    // barrier, i.e. after side's 1s sleep finished.
+    // consume needs only produce — it starts while `side`'s 1s
+    // sleep is still running (a depth barrier would have waited
+    // for the whole level to drain).
     let log = std::fs::read_to_string(d.join("ov.log")).unwrap();
     let side_end = log
         .lines()
@@ -507,8 +511,73 @@ jobs:
         .find_map(|l| l.strip_prefix("c s ").map(str::to_string))
         .unwrap();
     assert!(
-        consume_start.parse::<u64>().unwrap() >= side_end.parse::<u64>().unwrap(),
-        "consume started before the level-0 barrier: {log}"
+        consume_start.parse::<u64>().unwrap() < side_end.parse::<u64>().unwrap(),
+        "consume waited for the unrelated side job: {log}"
+    );
+}
+
+#[test]
+fn ready_queue_launches_dependents_past_unrelated_stragglers() {
+    // Uneven depths: `a`→`b`→`d` is a chain, `c` is an independent
+    // 3s straggler. Under depth barriers `b` (depth 1) and `d`
+    // (depth 2) would each wait for EVERY earlier level — `b`
+    // would not start until `c` finished. The ready queue launches
+    // `b` as soon as `a` settles and `d` as soon as `b` settles,
+    // both while `c` still runs.
+    let (d, sha) = repo("rq");
+    workflow(
+        &d,
+        "ci.yml",
+        r#"
+on: push
+jobs:
+  a:
+    steps:
+      - run: echo "s a $(date +%s%N)" >> "$BUPHA_WORKDIR/ov.log"
+  b:
+    needs: a
+    steps:
+      - run: |
+          echo "s b $(date +%s%N)" >> "$BUPHA_WORKDIR/ov.log"
+          sleep 1
+          echo "e b $(date +%s%N)" >> "$BUPHA_WORKDIR/ov.log"
+  c:
+    steps:
+      - run: |
+          echo "s c $(date +%s%N)" >> "$BUPHA_WORKDIR/ov.log"
+          sleep 3
+          echo "e c $(date +%s%N)" >> "$BUPHA_WORKDIR/ov.log"
+  d:
+    needs: b
+    steps:
+      - run: echo "s d $(date +%s%N)" >> "$BUPHA_WORKDIR/ov.log"
+"#,
+    );
+    assert!(run(&d, &sha).success());
+    let log = std::fs::read_to_string(d.join("ov.log")).unwrap();
+    let ts = |tag: &str| -> u64 {
+        log.lines()
+            .find_map(|l| l.strip_prefix(tag).map(str::to_string))
+            .unwrap_or_else(|| panic!("missing {tag} in {log}"))
+            .parse()
+            .unwrap()
+    };
+    let (a_s, b_s, b_e, c_s, c_e, d_s) = (
+        ts("s a "),
+        ts("s b "),
+        ts("e b "),
+        ts("s c "),
+        ts("e c "),
+        ts("s d "),
+    );
+    // Sanity: a before b before d; c overlaps the whole chain.
+    assert!(a_s < b_s && b_s < b_e && b_e < d_s, "{log}");
+    assert!(c_s < b_s && d_s < c_e, "{log}");
+    // The ready-queue proof: b started ~1s into c's 3s run and d
+    // started before c ended — neither waited for the straggler.
+    assert!(
+        b_s < c_e && d_s < c_e,
+        "a dependent waited for the unrelated straggler: {log}"
     );
 }
 

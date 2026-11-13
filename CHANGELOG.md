@@ -91,6 +91,17 @@ generator lands.
   `jobresult/`/`joboutpick/`/`BUPHA_GHA_JOBIDX` are now keyed by
   workflow+job id, fixing a latent collision when two workflow
   files declare the same job id (previously last-writer-wins).
+- **`runner.kind = "gha"` ready-queue scheduling** — the needs-depth
+  level barriers are replaced by a per-group ready queue: a job
+  group launches as soon as every group it `needs` has settled,
+  never waiting on unrelated same-depth jobs. Groups incomparable
+  in the needs DAG run as background subshells in private `git
+  worktrees` (reaped each scheduler pass via `jobdone/` markers +
+  `jobsynced/` gates); groups comparable with every other provably
+  run alone and keep the sequential shared-worktree path. Cross-group
+  concurrency is capped by `$BUPHA_GHA_MAX_PARALLEL` (unset/`0` =
+  unlimited). Same boundaries as before: no cross-job fail-fast,
+  concurrent workspace writes stay in the private worktree.
 
 ### Fixed
 
