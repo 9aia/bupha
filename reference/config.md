@@ -105,6 +105,19 @@ no user-facing CLI).
 |---|---|---|---|
 | `base` | `string` | optional | Worktree parent dir — runs land at `&lt;base&gt;-&lt;repo&gt;-&lt;sha12&gt;`. A leading `~/` expands to `$HOME` at load. |
 
+## `[worker]`
+
+Entity-plane worker endpoint + fleet routing — read by
+`tamias-driver-bupha worker` (the ci-job consumer); `host` ignores
+it.
+
+| field | type | required | notes |
+|---|---|---|---|
+| `node` | `string` | optional | Hypha/peregrin node base URL the worker polls for `ci-job` entities (e.g. `http://127.0.0.1:18787`). `BUPHA_WORKER_NODE`/`--node` override. Absent = no node to poll. |
+| `node_token_env` | `string` | optional | Secret NAME (env → cuora → `~/.config/bupha/env`) holding the node's bearer credential — the NAME, never the value. |
+| `labels` | `list` | optional | Labels this box carries for `runs_on` claim filtering (e.g. `["arch=arm64"]`). Empty = claim every covered job. |
+| `fork_token_env` | `string` | optional | Secret NAME holding a git credential (PAT) for fetching *private* fork `cloneUrl` remotes on fork-PR ci-jobs. Resolved by a generated git credential-helper at fetch time — the value never enters config, argv, worker env, or job env. Absent = fork fetches ride the box's existing git auth (public forks need nothing). See [distributed runners](../how-to/distributed-runners.md#private-forks). |
+
 ## `[[repo.jobs]]`
 
 | field | type | required | notes |

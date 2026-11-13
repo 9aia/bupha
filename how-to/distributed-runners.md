@@ -51,7 +51,7 @@ pipeline `host` uses, renews the lease mid-run
 event ingest. Claim loss (a fence mismatch → 409) abandons the
 run; a dead worker's job returns to `pending` when its lease
 expires. Node credential: `[worker] node_token_env` names a
-secret resolved through the usual chain (env → cuora → keyring →
+secret resolved through the usual chain (env → cuora →
 env file) — `peregrin pair`/`hypha pair` mints the token.
 
 ```toml
@@ -74,6 +74,34 @@ both fields absent and keep the single-remote path. Both fields are
 argv-validated at the plane's trust boundary (`is_safe_remote` /
 `is_safe_ref_name` — no option injection, no `ext::` transport
 escapes, no refspec writes).
+
+**Private forks.** A fork of a private repo is itself private — an
+unauthenticated `git fetch https://github.com/<fork>.git` fails.
+Fork fetches ride the same git credential machinery as `origin`
+(global credential helpers, `url.insteadOf`, `gh auth setup-git`),
+so a box whose origin auth already covers the fork host often needs
+nothing. When it doesn't, `[worker] fork_token_env` names a secret
+holding a git credential (PAT):
+
+```toml
+[worker]
+fork_token_env = "BUPHA_FORK_GIT_TOKEN"   # secret NAME, never the value
+```
+
+The NAME resolves through the usual chain (env → cuora
+`cuora://bupha/<NAME>` → `~/.config/bupha/env`). The worker
+materializes a git credential-helper script under the config dir
+that re-resolves the NAME at fetch time — the value never enters
+bupha's argv, the worker's env, the repo config, or the CI job's
+environment, and the helper is attached via `-c
+credential.helper=` only for the fork fetch. A fine-grained PAT
+that reads both the base org and the fork works as-is; fork creds
+that differ from origin creds get their own NAME. `username` is
+sent as `x-access-token` (the GitHub PAT convention). With the knob
+absent, or when the secret doesn't resolve, the fetch falls through
+to the unauthenticated path and the job fails after the remote
+fallbacks — `GIT_TERMINAL_PROMPT=0` keeps a private fork from ever
+blocking on a credential prompt.
 
 ## Label routing (multi-arch)
 
