@@ -324,11 +324,16 @@ cmd = "export PATH=\"$HOME/.local/bin:$HOME/.cargo/bin:$PATH\" && uv sync --grou
 name = "handl-lang/graphopt"
 dir = "/home/luis/GitHub/handl-lang/graphopt"
 secret_env = "BUPHA_WH_HANDL_LANG_GRAPHOPT"
+# Runner override: the worktree has no .venv (uv-managed, gitignored) —
+# provision it first. `uv sync --frozen` needs no auth: the git deps
+# (eqsat/gamekit packages/*) are git+https on PUBLIC repos. The `dev`
+# dependency-group is a uv default group, so a bare sync installs
+# ruff/pytest/ty/etc. that scripts/gates.sh calls via .venv/bin/*.
 [repo.runner]
 kind = "shell"
 token_env = "BUPHA_TOKEN"
 cancel_running = true
-cmd = "TORCHINDUCTOR_COMPILE_THREADS=1 bash scripts/gates.sh && TORCHINDUCTOR_COMPILE_THREADS=1 bash ci.sh"
+cmd = "export PATH=\"$HOME/.local/bin:$HOME/.cargo/bin:$PATH\" && uv sync --frozen && TORCHINDUCTOR_COMPILE_THREADS=1 bash scripts/gates.sh && TORCHINDUCTOR_COMPILE_THREADS=1 bash ci.sh"
 
 [[repo]]
 name = "handl-lang/host"
