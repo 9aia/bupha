@@ -3,7 +3,7 @@
 # the bundle's main.yaml is a complete campaign (ingress webhook node
 # included — see below).
 name: ci-ingress
-version: "0.3.4"
+version: "0.3.5"
 # `peregrin-bundle` routes install/deploy/uninstall through
 # `tamias-driver-peregrin` (capabilities: types ["peregrin-bundle"]).
 type: peregrin-bundle
@@ -41,7 +41,14 @@ provider:
         --listen 127.0.0.1:29173 --path /hook
         --history-dir ~/.local/share/peregrin/serve-history
         --queue-store-dir ~/.local/share/peregrin/serve-queues
-      # Secrets resolve via cuora (canonical) — no env_file.
+      # The env file carries process knobs, not secrets —
+      # PEREGRIN_CUORA_TRANSPORT=serve (one `cuora serve` child for
+      # all ~185 webhook-secret lookups; without it every lookup
+      # spawns a `cuora get` CLI and listener registration takes
+      # tens of minutes), PEREGRIN_PUSH_BACKEND, PEREGRIN_TOKEN,
+      # PEREGRIN_SEPIA, PEREGRIN_HOST. Secret VALUES still resolve
+      # cuora-first; the file doubles as the chain's last leg.
+      env_file: "~/.config/peregrin/env"
       workdir: "~"
       restart: on-failure
   ingress:
