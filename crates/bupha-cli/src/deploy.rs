@@ -111,7 +111,9 @@ pub fn disable_service(unit: &str) -> io::Result<PathBuf> {
     if st.success() {
         Ok(path)
     } else {
-        Err(io::Error::other(format!("systemctl --user daemon-reload -> {st}")))
+        Err(io::Error::other(format!(
+            "systemctl --user daemon-reload -> {st}"
+        )))
     }
 }
 

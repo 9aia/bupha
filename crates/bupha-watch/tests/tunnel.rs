@@ -2,8 +2,8 @@
 //! construction (quick vs named tunnel), name, public_url, and the
 //! spawned child handle.
 
-use bupha_watch::tunnel::CloudflaredTunnel;
 use bupha_core::TunnelCfg;
+use bupha_watch::tunnel::CloudflaredTunnel;
 use bupha_watch::tunnel::Tunnel;
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
