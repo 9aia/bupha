@@ -1629,7 +1629,8 @@ fn init_variants() {
         "custom-py"
     );
 
-    // dagger init failure -> exit 1
+    // dagger init failure -> warning only; init still converges
+    // ci.sh/AGENTS.md (the managed block must not depend on dagger)
     let bin3 = t.join("bin3");
     std::fs::create_dir_all(&bin3).unwrap();
     stub(&bin3, "dagger", "exit 1");
@@ -1639,8 +1640,9 @@ fn init_variants() {
         &["init", d5.to_str().unwrap()],
         &[("PATH", stubbed_path(&bin3))],
     );
-    assert_eq!(o.status.code(), Some(1));
+    assert!(o.status.success(), "{}", out_ok(&o));
     assert!(out_ok(&o).contains("dagger init failed"));
+    assert!(d5.join("AGENTS.md").exists());
 
     // ci.sh write failure -> warning only (dangling symlink target)
     let d6 = t.join("r6");
