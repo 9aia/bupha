@@ -45,7 +45,8 @@ filters), `jobs` with `needs` (fail-fast DAG), `env`,
 `defaults.run`, `steps` (`run` + `uses:` — `actions/checkout`,
 `dtolnay/rust-toolchain`, `actions/setup-{node,python,go,java,
 dotnet}`, `actions/upload-artifact`/`download-artifact`,
-`actions/cache{,/save,/restore}`, and composite actions via
+`actions/cache{,/save,/restore}`, `docker://<image>` container
+steps, and composite actions via
 `./local/path` or `owner/repo[/path]@ref`, with `id:`), job
 `outputs:`
 maps, job/step `if:` (a real expression subset — literals,
@@ -65,8 +66,8 @@ workspace writes stay per-leg; `max-parallel` caps concurrency,
 Everything else is a **hard error at spawn**, naming the
 unsupported key — `services:`, `container:`, `environment:`,
 `concurrency:`, `continue-on-error:`, `matrix.include`/`exclude`,
-`uses:` outside the list above (`docker://…` images, JS/docker
-`action.yml` definitions, other `actions/setup-*` families and
+`uses:` outside the list above (JS/docker
+`action.yml` *definitions*, other `actions/setup-*` families and
 reusable-workflow `jobs.<id>.uses:` included), `with:` keys
 outside each action's declared inputs, artifact
 cross-run download inputs (`run-id`,
@@ -96,9 +97,15 @@ What changes:
   run too: `uses: ./path` reads your repo's `action.yml`, and
   `uses: owner/repo[/path]@ref` fetches the action repo over git
   (`GITHUB_TOKEN` in the runner env authenticates private repos).
-  JS (`node*`) and `docker` action definitions, `docker://`
-  images, other setup families and reusable-workflow calls all
-  hard-error. Everything else installs via `run:` steps
+  JS (`node*`) and `docker` action *definitions*, other setup
+  families and reusable-workflow calls all
+  hard-error — but `uses: docker://<image>` *steps* run: they
+  lower to `docker run` on the host (workspace + run tmp
+  bind-mounted at their paths, step/job env via `--env-file`,
+  `with.entrypoint`/`with.args` supported; needs the docker CLI
+  on PATH, no registry credentials or port mappings).
+  `timeout-minutes` on a composite `uses:` step is a deadline
+  spanning the inlined steps. Everything else installs via `run:` steps
   (`curl`, `cargo install`, your own scripts) or is already on
   the box.
 - **Parallel across independent jobs, sequential across `needs`.**

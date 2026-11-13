@@ -102,7 +102,10 @@ filters) passes **fully green**, including correct skip of a
 > (`uses: ./path` + `owner/repo[/path]@ref` → `runs.using:
 > composite` `action.yml`, strict inputs/outputs contract, nested
 > to depth 8). `env:` on `uses:` steps now reaches the action.
-> The bullets below are
+> `uses: docker://<image>` steps and composite `timeout-minutes`
+> have since landed too (`docker run` on the host — docker CLI
+> required; the composite timeout is a deadline spanning the
+> inlined steps). The bullets below are
 > annotated where they changed.
 
 - **`$GITHUB_ENV` / `$GITHUB_OUTPUT` / `$GITHUB_PATH` /
@@ -135,9 +138,9 @@ filters) passes **fully green**, including correct skip of a
   per-run tar store (same-run only — nothing persists across
   runs). Toolchain setup beyond rustup still needs manual
   porting. *(Superseded: `actions/setup-{node,python,go,java,
-  dotnet}`, `actions/cache*` and composite `uses:` have since
-  landed; `docker://`, JS/docker action definitions, other setup
-  families and reusable-workflow `uses:` still error.)*
+  dotnet}`, `actions/cache*`, composite `uses:` and `docker://`
+  steps have since landed; JS/docker action *definitions*, other
+  setup families and reusable-workflow `uses:` still error.)*
 - **Expression language grew but stays a subset.** `==`, `!=`,
   `&&`, `||`, `!`, parens, `contains`/`startsWith`/`endsWith`,
   status functions and the `needs.*.result`/`steps.*.conclusion`
