@@ -1030,3 +1030,129 @@ fn paths_filter_covers_multi_commit_push() {
     assert!(run(&d, &sha).success());
     assert!(d.join("ok.txt").exists());
 }
+
+// --- per-job status reports ------------------------------------------
+
+/// run() plus the runner's post-run `status_reports` — the records
+/// the watcher would post as `<sink.context()>/<suffix>` statuses.
+fn run_reports(dir: &Path, sha: &str) -> (std::process::ExitStatus, Vec<bupha_runner::SubStatus>) {
+    let r = GhaRunner::new(GhaCfg { workflow: None });
+    let ctx = RunCtx {
+        workdir: dir,
+        token_env: "BUPHA_TOKEN",
+        key: "o/r",
+        sha,
+        git_ref: "refs/heads/main",
+    };
+    let mut h = r.spawn(&ctx).unwrap();
+    let s = h.wait().unwrap();
+    (s, r.status_reports(&ctx))
+}
+
+#[test]
+fn status_reports_cover_each_workflow_job() {
+    let (d, sha) = repo("reports-jobs");
+    workflow(
+        &d,
+        "ci.yml",
+        r#"
+on: push
+jobs:
+  a:
+    steps:
+      - run: echo a > a.txt
+  b:
+    needs: a
+    steps:
+      - run: echo b > b.txt
+"#,
+    );
+    let (s, reports) = run_reports(&d, &sha);
+    assert!(s.success());
+    let ctxs: Vec<&str> = reports.iter().map(|r| r.context.as_str()).collect();
+    assert_eq!(ctxs, ["ci/a", "ci/b"], "{ctxs:?}");
+    assert!(reports.iter().all(|r| r.state == "success"));
+    assert!(reports[0].desc.contains("gha:"), "{:?}", reports[0].desc);
+}
+
+#[test]
+fn status_reports_distinguish_matrix_legs() {
+    let (d, sha) = repo("reports-matrix");
+    workflow(
+        &d,
+        "ci.yml",
+        r#"
+on: push
+jobs:
+  build:
+    strategy:
+      matrix:
+        os: [linux, mac]
+    steps:
+      - run: echo ok > ok.txt
+"#,
+    );
+    let (s, reports) = run_reports(&d, &sha);
+    assert!(s.success());
+    let mut ctxs: Vec<&str> = reports.iter().map(|r| r.context.as_str()).collect();
+    ctxs.sort();
+    assert_eq!(ctxs, ["ci/build/os=linux", "ci/build/os=mac"]);
+}
+
+#[test]
+fn status_reports_mark_failed_leg_and_skip_neutral() {
+    let (d, sha) = repo("reports-fail");
+    workflow(
+        &d,
+        "ci.yml",
+        r#"
+on: push
+jobs:
+  t:
+    strategy:
+      matrix:
+        leg: [1, 2]
+      fail-fast: false
+    steps:
+      - if: matrix.leg == 2
+        run: exit 1
+      - run: echo ok > ok.txt
+  gated:
+    if: false
+    steps:
+      - run: echo nope > nope.txt
+"#,
+    );
+    let (s, reports) = run_reports(&d, &sha);
+    assert!(!s.success());
+    // Leg 1 passes, leg 2 fails, the `if: false` job posts nothing —
+    // commit statuses have no neutral state for skipped work.
+    let mut by_ctx: std::collections::HashMap<&str, &str> = reports
+        .iter()
+        .map(|r| (r.context.as_str(), r.state.as_str()))
+        .collect();
+    assert_eq!(by_ctx.len(), 2, "{by_ctx:?}");
+    assert_eq!(by_ctx.remove("ci/t/leg=1"), Some("success"));
+    assert_eq!(by_ctx.remove("ci/t/leg=2"), Some("failure"));
+    assert!(!reports.iter().any(|r| r.context.contains("gated")));
+}
+
+#[test]
+fn status_reports_are_consumed_once() {
+    let (d, sha) = repo("reports-once");
+    workflow(&d, "ci.yml", SIMPLE);
+    let r = GhaRunner::new(GhaCfg { workflow: None });
+    let ctx = RunCtx {
+        workdir: &d,
+        token_env: "BUPHA_TOKEN",
+        key: "o/r",
+        sha: &sha,
+        git_ref: "refs/heads/main",
+    };
+    let mut h = r.spawn(&ctx).unwrap();
+    assert!(h.wait().unwrap().success());
+    assert_eq!(r.status_reports(&ctx).len(), 1);
+    // Second read finds the consumed dir — a stale retry can't
+    // resurrect the previous attempt's records.
+    assert!(r.status_reports(&ctx).is_empty());
+}

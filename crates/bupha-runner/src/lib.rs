@@ -56,6 +56,21 @@ pub struct RunCtx<'a> {
     pub git_ref: &'a str,
 }
 
+/// A sub-job status a runner collected during the run — the
+/// runner→watcher half of per-job commit statuses (e.g. one per
+/// gha workflow job / matrix leg). `context` is a *suffix*: the
+/// watcher posts it as `<sink.context()>/<context>`.
+#[derive(Debug, Clone)]
+pub struct SubStatus {
+    /// Context path under the sink's base context — `/`-separated,
+    /// no leading or trailing slash ("CI/build/os=ubuntu,node=18").
+    pub context: String,
+    /// Commit-status state: pending/success/error/failure.
+    pub state: String,
+    /// Short outcome text (status description).
+    pub desc: String,
+}
+
 /// Job execution — runs a single sha's pipeline.
 pub trait Runner: Send + Sync {
     /// Human name for logs ("dagger", "script").
@@ -64,4 +79,10 @@ pub trait Runner: Send + Sync {
     /// keeping the handle outside the queue lock is what makes
     /// cancel-in-flight safe.
     fn spawn(&self, ctx: &RunCtx) -> io::Result<Box<dyn RunHandle>>;
+    /// Sub-job statuses the run produced, read after it finishes —
+    /// the watcher posts each under `<sink.context()>/<context>`.
+    /// Default: runners without sub-jobs report none.
+    fn status_reports(&self, _ctx: &RunCtx) -> Vec<SubStatus> {
+        Vec::new()
+    }
 }

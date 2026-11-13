@@ -15,7 +15,12 @@ api:
 - name: Runner
   kind: trait
   file: crates/bupha-runner/src/lib.rs
-  line: 60
+  line: 75
+  module: bupha-runner
+- name: SubStatus
+  kind: type
+  file: crates/bupha-runner/src/lib.rs
+  line: 64
   module: bupha-runner
 - name: boxed
   kind: function
@@ -41,6 +46,11 @@ api:
   kind: function
   file: crates/bupha-runner/tests/handle.rs
   line: 22
+  module: bupha-runner
+- name: status_reports
+  kind: function
+  file: crates/bupha-runner/src/lib.rs
+  line: 85
   module: bupha-runner
 - name: try_wait
   kind: function
@@ -70,8 +80,8 @@ provenance:
   - crates/bupha-runner/tests/handle.rs
   hashes:
   - 4fefe465ba6004fda1b42f7c3358502f9fdbbc1f
-  - bd85a936a3ef0e092c204224f9a67cb6e27f9889
+  - a6759365c7645a1ceac4f04da18505ee2062338c
   - 6f4d91cea8eb9dd1ff7f87143733b64e80682936
-  commit_sha: abb87b40721c7fe6faf27a74f32e3eb702f4c32f
-  generated_at: '1794440686'
+  commit_sha: ab5350dc122b52b54b870a567e71b9a7932020ec
+  generated_at: '1794544949'
   generator: kuda-template/0.1.4

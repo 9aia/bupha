@@ -15,7 +15,7 @@ api:
 - name: Spy
   kind: type
   file: crates/bupha-audit-file/src/lib.rs
-  line: 104
+  line: 109
   module: bupha-audit-file
 - name: bupha-audit-file
   kind: module
@@ -30,7 +30,7 @@ api:
 - name: context
   kind: function
   file: crates/bupha-audit-file/src/lib.rs
-  line: 106
+  line: 111
   module: bupha-audit-file
 - name: entry
   kind: function
@@ -40,7 +40,7 @@ api:
 - name: entry_writes_jsonl
   kind: function
   file: crates/bupha-audit-file/src/lib.rs
-  line: 118
+  line: 123
   module: bupha-audit-file
 - name: new
   kind: function
@@ -60,17 +60,22 @@ api:
 - name: post
   kind: function
   file: crates/bupha-audit-file/src/lib.rs
-  line: 109
+  line: 114
+  module: bupha-audit-file
+- name: post_ctx
+  kind: function
+  file: crates/bupha-audit-file/src/lib.rs
+  line: 99
   module: bupha-audit-file
 - name: sink_records_then_delegates
   kind: function
   file: crates/bupha-audit-file/src/lib.rs
-  line: 134
+  line: 139
   module: bupha-audit-file
 - name: tests
   kind: module
   file: crates/bupha-audit-file/src/lib.rs
-  line: 101
+  line: 106
   module: bupha-audit-file
 - name: wrap
   kind: function
@@ -91,7 +96,7 @@ provenance:
   - crates/bupha-audit-file/src/lib.rs
   hashes:
   - d46021a5cc4e28ee9eed1d7ca349dd222a5d8306
-  - c9aa55706f9bfe0b3f9f8480becc5ed81df71310
-  commit_sha: abb87b40721c7fe6faf27a74f32e3eb702f4c32f
-  generated_at: '1794440686'
+  - 8b9db7e5222339ea356fd1d25cf62f492d69e9bb
+  commit_sha: ab5350dc122b52b54b870a567e71b9a7932020ec
+  generated_at: '1794544949'
   generator: kuda-template/0.1.4

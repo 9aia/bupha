@@ -148,6 +148,10 @@ pub struct Job {
     /// `strategy.max-parallel` — honored as a logged no-op; legs
     /// still run sequentially.
     pub max_parallel: Option<u32>,
+    /// Matrix bindings of this leg (`os=ubuntu,node=18`, declaration
+    /// order) — `None` for non-matrix jobs. Distinguishes legs of
+    /// the same `id` for per-job status contexts.
+    pub leg: Option<String>,
     pub steps: Vec<Step>,
 }
 
@@ -625,6 +629,13 @@ impl Workflow {
             timeout_seconds: j.timeout_seconds,
             fail_fast: j.fail_fast,
             max_parallel: j.max_parallel,
+            leg: (!combo.is_empty()).then(|| {
+                combo
+                    .iter()
+                    .map(|(k, v)| format!("{k}={v}"))
+                    .collect::<Vec<_>>()
+                    .join(",")
+            }),
             steps,
         })
     }

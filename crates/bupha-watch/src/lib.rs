@@ -413,6 +413,20 @@ pub fn run_job(
         JobEnd::Finished(false) if cancelled => ("error", "ci cancelled (superseded)".to_string()),
         JobEnd::Finished(false) => ("failure", fail_desc.unwrap_or_else(|| "ci failed".into())),
     };
+    // Runner-reported sub-job statuses (gha workflow jobs / matrix
+    // legs) post under `<sink.context()>/<suffix>` — before the
+    // aggregate, so the repo-level context stays the freshest word.
+    // A lost claim means a peer owns the sha and posts its own.
+    if matches!(end, JobEnd::Finished(_)) {
+        for r in runner.status_reports(&ctx) {
+            sink.post_ctx(
+                sha,
+                &r.state,
+                &r.desc,
+                &format!("{}/{}", sink.context(), r.context),
+            );
+        }
+    }
     sink.post(sha, state, &desc);
     println!("ci {desc} {sha:.12}");
     vcs.worktree_remove(&repo.dir, &wt);

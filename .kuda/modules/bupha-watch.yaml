@@ -75,7 +75,7 @@ api:
 - name: Ingest
   kind: type
   file: crates/bupha-watch/src/lib.rs
-  line: 453
+  line: 467
   module: bupha-watch
 - name: JobApi
   kind: trait
@@ -100,7 +100,7 @@ api:
 - name: Shared
   kind: type
   file: crates/bupha-watch/src/lib.rs
-  line: 425
+  line: 439
   module: bupha-watch
 - name: SkipExec
   kind: type
@@ -125,12 +125,12 @@ api:
 - name: build_attest
   kind: function
   file: crates/bupha-watch/src/lib.rs
-  line: 599
+  line: 613
   module: bupha-watch
 - name: build_audit
   kind: function
   file: crates/bupha-watch/src/lib.rs
-  line: 629
+  line: 643
   module: bupha-watch
 - name: build_runner
   kind: function
@@ -140,17 +140,17 @@ api:
 - name: build_runners
   kind: function
   file: crates/bupha-watch/src/lib.rs
-  line: 671
+  line: 685
   module: bupha-watch
 - name: build_sinks
   kind: function
   file: crates/bupha-watch/src/lib.rs
-  line: 644
+  line: 658
   module: bupha-watch
 - name: build_telemetry
   kind: function
   file: crates/bupha-watch/src/lib.rs
-  line: 580
+  line: 594
   module: bupha-watch
 - name: bupha-watch
   kind: module
@@ -290,7 +290,7 @@ provenance:
   hashes:
   - 3a81d785d77178b64fa3fd85a98f40a70bb6701d
   - f3da4b6116fecd6991b79d085f85726c0e468ce1
-  - 5f70d0c99fe6ac53f9e2910fb5db802c5d312b42
-  commit_sha: abb87b40721c7fe6faf27a74f32e3eb702f4c32f
-  generated_at: '1794440686'
+  - 9a26ec064b2fa582ed42039bcd1d8383b2d5a276
+  commit_sha: ab5350dc122b52b54b870a567e71b9a7932020ec
+  generated_at: '1794544949'
   generator: kuda-template/0.1.4

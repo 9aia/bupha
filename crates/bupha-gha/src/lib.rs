@@ -21,7 +21,7 @@
 pub mod plan;
 mod script;
 
-use bupha_runner::{RunCtx, RunHandle, Runner};
+use bupha_runner::{RunCtx, RunHandle, Runner, SubStatus};
 use plan::{Event, GhaContext, Job, Workflow};
 use serde::Deserialize;
 use std::io;
@@ -258,6 +258,33 @@ fn before_sha(workdir: &Path, git_ref: &str) -> Option<String> {
     None
 }
 
+/// Per-run dir the generated script drops per-leg status records
+/// (`j<ji>` files) into — a *sibling* of the worktree, never inside
+/// it: a `git add -A` step could otherwise sweep the reports into
+/// a commit. Named by the worktree's own basename (run_job derives
+/// it from repo+sha, so runs never collide); `spawn` wipes it
+/// first so a retry can't read a previous attempt's records.
+fn report_dir(workdir: &Path) -> PathBuf {
+    let base = workdir
+        .file_name()
+        .and_then(|n| n.to_str())
+        .unwrap_or("worktree");
+    let safe: String = base
+        .chars()
+        .map(|c| {
+            if c.is_ascii_alphanumeric() || matches!(c, '.' | '_' | '-') {
+                c
+            } else {
+                '-'
+            }
+        })
+        .collect();
+    workdir
+        .parent()
+        .unwrap_or(workdir)
+        .join(format!(".bupha-gha-status-{safe}"))
+}
+
 fn repository_of(key: &str) -> &str {
     key.split(':').next().unwrap_or(key)
 }
@@ -316,6 +343,15 @@ impl Runner for GhaRunner {
             jobs.append(&mut expanded);
         }
 
+        // Fresh report dir for this run — the script writes one
+        // `j<ji>` record per expanded job; `status_reports` reads
+        // them back after the child exits.
+        let rdir = report_dir(ctx.workdir);
+        let _ = std::fs::remove_dir_all(&rdir);
+        std::fs::create_dir_all(&rdir)
+            .map_err(|e| io::Error::other(format!("gha: report dir {}: {e}", rdir.display())))?;
+        let report = rdir.to_string_lossy().into_owned();
+
         let script = if jobs.is_empty() {
             format!(
                 "#!/usr/bin/env bash\necho {}\n",
@@ -332,6 +368,7 @@ impl Runner for GhaRunner {
                     sha: ctx.sha,
                     git_ref: ctx.git_ref,
                     repository: gha_ctx.repository,
+                    report: &report,
                 },
             )
             .map_err(io::Error::other)?
@@ -340,5 +377,43 @@ impl Runner for GhaRunner {
         let mut c = Command::new("bash");
         c.current_dir(ctx.workdir).arg("-c").arg(&script);
         Ok(Box::new(c.spawn()?))
+    }
+
+    /// One `SubStatus` per expanded job that ran to a verdict —
+    /// context `<workflow>/<job id>[/<matrix bindings>]`, posted by
+    /// the watcher as `<sink.context()>/<suffix>`. Skipped and
+    /// fail-fast-cancelled legs write records too, but commit
+    /// statuses have no neutral state, so only `success`/`failure`
+    /// map through; the records dir is consumed (removed) here.
+    fn status_reports(&self, ctx: &RunCtx) -> Vec<SubStatus> {
+        let dir = report_dir(ctx.workdir);
+        let mut out = Vec::new();
+        let Ok(rd) = std::fs::read_dir(&dir) else {
+            return out;
+        };
+        let mut files: Vec<PathBuf> = rd.filter_map(|e| e.ok().map(|e| e.path())).collect();
+        files.sort();
+        for f in files {
+            let Ok(body) = std::fs::read_to_string(&f) else {
+                continue;
+            };
+            // "<suffix>\t<conclusion>\t<desc>"
+            let mut it = body.splitn(3, '\t');
+            let (Some(suffix), Some(word), Some(desc)) = (it.next(), it.next(), it.next()) else {
+                continue;
+            };
+            let state = match word.trim() {
+                "success" => "success",
+                "failure" => "failure",
+                _ => continue,
+            };
+            out.push(SubStatus {
+                context: suffix.trim().to_string(),
+                state: state.to_string(),
+                desc: desc.trim().to_string(),
+            });
+        }
+        let _ = std::fs::remove_dir_all(&dir);
+        out
     }
 }

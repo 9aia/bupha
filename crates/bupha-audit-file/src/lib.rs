@@ -95,6 +95,11 @@ impl StatusSink for AuditSink {
         self.log.entry(sha, &self.repo, "", state, desc);
         self.inner.post(sha, state, desc);
     }
+
+    fn post_ctx(&self, sha: &str, state: &str, desc: &str, context: &str) {
+        self.log.entry(sha, &self.repo, "", state, desc);
+        self.inner.post_ctx(sha, state, desc, context);
+    }
 }
 
 #[cfg(test)]

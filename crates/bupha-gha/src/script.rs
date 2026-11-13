@@ -16,6 +16,10 @@ pub struct ScriptCtx<'a> {
     pub git_ref: &'a str,
     /// "owner/name".
     pub repository: &'a str,
+    /// Per-run dir (outside the worktree) each expanded job drops a
+    /// `<ji>` status record into for the runner's post-run
+    /// `status_reports` pass. Empty disables reporting.
+    pub report: &'a str,
 }
 
 /// Single-quote a literal for safe embedding in bash.
@@ -246,6 +250,12 @@ pub fn render(jobs: &[Job], ctx: &ScriptCtx) -> Result<String, String> {
     out.push_str("trap 'rm -rf \"$BUPHA_GHA_TMP\"' EXIT\n");
     out.push_str("export BUPHA_GHA_OUTPUTS=\"$BUPHA_GHA_TMP/outputs.txt\"\n");
     out.push_str(": > \"$BUPHA_GHA_OUTPUTS\"\n");
+    if !ctx.report.is_empty() {
+        out.push_str(&format!(
+            "export BUPHA_GHA_REPORT={}\nmkdir -p \"$BUPHA_GHA_REPORT\"\n",
+            sq(ctx.report)
+        ));
+    }
     out.push_str(ABSORB_FNS);
 
     for (i, j) in jobs.iter().enumerate() {
@@ -396,9 +406,37 @@ pub fn render(jobs: &[Job], ctx: &ScriptCtx) -> Result<String, String> {
                 .join(" ");
             out.push_str(&format!("bupha_agg_result {} {list}\n", sq(&j.id)));
         }
+        // Per-job status record for the runner's post-run
+        // `status_reports` pass — every gate path has already
+        // settled this leg's jobstatus file by now.
+        out.push_str(&format!(
+            "bupha_report {} {} {}\n",
+            i,
+            sq(&status_suffix(j)),
+            shq_exprs(&j.label, i, &job_ji)?
+        ));
     }
     out.push_str("if [ \"$BUPHA_GHA_FAILS\" -gt 0 ]; then\n  echo \"gha: workflow(s) failed\"\n  exit 1\nfi\necho \"gha: all jobs passed\"\n");
     Ok(out)
+}
+
+/// The context suffix a leg's commit status posts under:
+/// `<workflow>/<job id>` plus `/<matrix bindings>` for fanned-out
+/// legs. Control characters are stripped (the record is
+/// tab-separated) and the result capped — workflow/job names are
+/// author-controlled YAML.
+fn status_suffix(j: &Job) -> String {
+    let mut s = format!("{}/{}", j.workflow, j.id);
+    if let Some(leg) = &j.leg {
+        s.push('/');
+        s.push_str(leg);
+    }
+    s.chars()
+        .filter(|c| !c.is_control())
+        .take(200)
+        .collect::<String>()
+        .trim()
+        .to_string()
 }
 
 /// The filesystem key a step's `$GITHUB_OUTPUT` writes land under —
@@ -869,6 +907,21 @@ bupha_job_failed() {
     fi
   done
   return 1
+}
+
+# Record an expanded job's final status for the runner's post-run
+# status_reports pass: $1 = expanded-job index, $2 = context suffix
+# (`<workflow>/<job id>[/<matrix>]`), $3 = job label. Writes
+# `$BUPHA_GHA_REPORT/j<ji>` as `suffix<TAB>conclusion<TAB>desc` —
+# one record per leg, read back by `Runner::status_reports` after
+# the script exits (the in-script tmp dir is already gone by then).
+bupha_report() {
+  local ji="$1" suffix="$2" label="$3" w d
+  [ -n "${BUPHA_GHA_REPORT:-}" ] || return 0
+  w=$(cat "$BUPHA_GHA_TMP/jobstatus/$ji" 2>/dev/null)
+  [ -n "$w" ] || return 0
+  d="gha: $(printf '%s' "$label" | tr '\t\n\r' '   ') $w"
+  printf '%s\t%s\t%s\n' "$suffix" "$w" "$d" > "$BUPHA_GHA_REPORT/j$ji"
 }
 
 # Recompute needs.<id>.result after a job's legs settle: $1 = job

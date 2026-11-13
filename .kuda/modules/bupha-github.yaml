@@ -10,7 +10,7 @@ api:
 - name: GitHubAdmin
   kind: type
   file: crates/bupha-github/src/lib.rs
-  line: 348
+  line: 362
   module: bupha-github
 - name: GitHubStatus
   kind: type
@@ -25,7 +25,7 @@ api:
 - name: LogStatus
   kind: type
   file: crates/bupha-github/src/lib.rs
-  line: 198
+  line: 208
   module: bupha-github
 - name: PR_ACTIONS
   kind: const
@@ -60,7 +60,7 @@ api:
 - name: context
   kind: function
   file: crates/bupha-github/src/lib.rs
-  line: 203
+  line: 213
   module: bupha-github
 - name: delivery_id
   kind: function
@@ -150,7 +150,22 @@ api:
 - name: post
   kind: function
   file: crates/bupha-github/src/lib.rs
-  line: 207
+  line: 217
+  module: bupha-github
+- name: post_as
+  kind: function
+  file: crates/bupha-github/src/lib.rs
+  line: 181
+  module: bupha-github
+- name: post_ctx
+  kind: function
+  file: crates/bupha-github/src/lib.rs
+  line: 175
+  module: bupha-github
+- name: post_ctx
+  kind: function
+  file: crates/bupha-github/src/lib.rs
+  line: 221
   module: bupha-github
 - name: pr_body
   kind: function
@@ -180,29 +195,14 @@ api:
 - name: register_hook
   kind: function
   file: crates/bupha-github/src/lib.rs
-  line: 359
+  line: 373
   module: bupha-github
 - name: register_non_json_list_then_post
   kind: function
   file: crates/bupha-github/tests/api.rs
   line: 104
   module: bupha-github
-- name: register_updates_existing
-  kind: function
-  file: crates/bupha-github/tests/api.rs
-  line: 69
-  module: bupha-github
-- name: register_webhook
-  kind: function
-  file: crates/bupha-github/src/lib.rs
-  line: 267
-  module: bupha-github
-- name: register_webhook_events
-  kind: function
-  file: crates/bupha-github/src/lib.rs
-  line: 279
-  module: bupha-github
-api_omitted: 13
+api_omitted: 16
 deps:
 - bupha-core
 - bupha-status
@@ -231,9 +231,9 @@ provenance:
   - crates/bupha-github/tests/github.rs
   hashes:
   - 9a8bdeb02a9e8896e60f63d221a83f115d8a5980
-  - aedaa517f98559aeb7a3fa30ce3fec59e2883ae6
+  - e1b68a8f5234c18ad02fca98e87213db97660352
   - 6eec4c65a0336bba59a302b11e82775a2fa32bf1
   - 7ad49904a8b0c678609d1d4514372e246d371948
-  commit_sha: abb87b40721c7fe6faf27a74f32e3eb702f4c32f
-  generated_at: '1794440686'
+  commit_sha: ab5350dc122b52b54b870a567e71b9a7932020ec
+  generated_at: '1794544949'
   generator: kuda-template/0.1.4

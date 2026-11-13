@@ -12,6 +12,11 @@ api:
   file: crates/bupha-status/Cargo.toml
   line: 1
   module: bupha-status
+- name: post_ctx
+  kind: function
+  file: crates/bupha-status/src/lib.rs
+  line: 17
+  module: bupha-status
 deps: []
 notes: ''
 verify:
@@ -23,7 +28,7 @@ provenance:
   - crates/bupha-status/src/lib.rs
   hashes:
   - 72d19ee54274002b46b4eb143502f0a422bc6b9b
-  - 85154a18e12e769fb604220c1106b94633c3ee2a
-  commit_sha: abb87b40721c7fe6faf27a74f32e3eb702f4c32f
-  generated_at: '1794440686'
+  - 85127dea72823c7040a86dfc8c6f2b9c4c6afebb
+  commit_sha: ab5350dc122b52b54b870a567e71b9a7932020ec
+  generated_at: '1794544949'
   generator: kuda-template/0.1.4

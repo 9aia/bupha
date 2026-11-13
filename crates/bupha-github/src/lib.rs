@@ -169,6 +169,16 @@ impl StatusSink for GitHubStatus {
     }
 
     fn post(&self, sha: &str, state: &str, desc: &str) {
+        self.post_as(sha, state, desc, &self.context)
+    }
+
+    fn post_ctx(&self, sha: &str, state: &str, desc: &str, context: &str) {
+        self.post_as(sha, state, desc, context)
+    }
+}
+
+impl GitHubStatus {
+    fn post_as(&self, sha: &str, state: &str, desc: &str, context: &str) {
         // The sha is a URL path segment — refuse values that could
         // traverse or reshape the request path.
         if !is_valid_sha(sha) {
@@ -177,7 +187,7 @@ impl StatusSink for GitHubStatus {
         }
         let body = serde_json::json!({
             "state": state,
-            "context": self.context,
+            "context": context,
             "description": desc,
         });
         let url = format!("{}/repos/{}/statuses/{sha}", self.api_base, self.repo);
@@ -206,6 +216,10 @@ impl StatusSink for LogStatus {
 
     fn post(&self, sha: &str, state: &str, desc: &str) {
         println!("[status:{}] {state} {sha:.12} {desc}", self.context);
+    }
+
+    fn post_ctx(&self, sha: &str, state: &str, desc: &str, context: &str) {
+        println!("[status:{context}] {state} {sha:.12} {desc}");
     }
 }
 
