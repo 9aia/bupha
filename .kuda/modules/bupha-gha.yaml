@@ -5,7 +5,7 @@ api:
 - name: ABSORB_FNS
   kind: const
   file: crates/bupha-gha/src/script.rs
-  line: 737
+  line: 926
   module: bupha-gha
 - name: BinOp
   kind: type
@@ -25,7 +25,7 @@ api:
 - name: CondCx
   kind: type
   file: crates/bupha-gha/src/script.rs
-  line: 90
+  line: 82
   module: bupha-gha
 - name: CondParser
   kind: type
@@ -71,6 +71,11 @@ api:
   kind: type
   file: crates/bupha-gha/src/plan.rs
   line: 118
+  module: bupha-gha
+- name: MP_FNS
+  kind: const
+  file: crates/bupha-gha/src/script.rs
+  line: 1173
   module: bupha-gha
 - name: PExpr
   kind: type
@@ -135,7 +140,7 @@ api:
 - name: W
   kind: type
   file: crates/bupha-gha/tests/gha.rs
-  line: 518
+  line: 725
   module: bupha-gha
 - name: Workflow
   kind: type
@@ -155,12 +160,12 @@ api:
 - name: artifact_download_defaults_to_named_dir
   kind: function
   file: crates/bupha-gha/tests/gha.rs
-  line: 1217
+  line: 1425
   module: bupha-gha
 - name: artifact_download_missing_fails
   kind: function
   file: crates/bupha-gha/tests/gha.rs
-  line: 1343
+  line: 1551
   module: bupha-gha
 - name: artifact_name_ok
   kind: function
@@ -170,22 +175,22 @@ api:
 - name: artifact_pattern_download_and_overwrite
   kind: function
   file: crates/bupha-gha/tests/gha.rs
-  line: 1251
+  line: 1459
   module: bupha-gha
 - name: artifact_plan_errors
   kind: function
   file: crates/bupha-gha/tests/gha.rs
-  line: 1363
+  line: 1571
   module: bupha-gha
 - name: artifact_upload_download_roundtrip
   kind: function
   file: crates/bupha-gha/tests/gha.rs
-  line: 1179
+  line: 1387
   module: bupha-gha
 - name: artifact_upload_missing_files_modes
   kind: function
   file: crates/bupha-gha/tests/gha.rs
-  line: 1296
+  line: 1504
   module: bupha-gha
 - name: as_map
   kind: function
@@ -197,12 +202,7 @@ api:
   file: crates/bupha-gha/src/plan.rs
   line: 863
   module: bupha-gha
-- name: before_sha
-  kind: function
-  file: crates/bupha-gha/src/lib.rs
-  line: 219
-  module: bupha-gha
-api_omitted: 179
+api_omitted: 192
 deps:
 - bupha-core
 - bupha-runner
@@ -230,9 +230,9 @@ provenance:
   hashes:
   - 130920aec2d9f32d6f8c6d16b35230ba63ddc04f
   - 436826c283566448df66adfd788503781dfb851c
-  - 14e5362f7a4ac4bb00be75ba704de4d43a78e90e
-  - 4185792adb4e6a401f6c22a7264002f819d32c08
-  - cf6281b982f43c1e0401a8bb7bff9bb58847ed91
-  commit_sha: 79cd0a9d987f30c0f9514a5a745c83f0bb042b70
-  generated_at: '1794574256'
+  - d635aef343fb60cd498944a67a33581c8272ad2f
+  - 45c3635aca6878c155c08f8b1c0b154e9dff6404
+  - 312dd2142b36f0d405b61d1ceaf5ea86112b17c6
+  commit_sha: a0c52ce3db0efeddb92be06eb9047d147f6f448c
+  generated_at: '1794577041'
   generator: kuda-template/0.1.4

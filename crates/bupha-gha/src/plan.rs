@@ -146,8 +146,8 @@ pub struct Job {
     /// `strategy.fail-fast` (default true with a matrix): after a
     /// leg of this job id fails, remaining legs are cancelled.
     pub fail_fast: bool,
-    /// `strategy.max-parallel` — honored as a logged no-op; legs
-    /// still run sequentially.
+    /// `strategy.max-parallel` — caps concurrent matrix legs
+    /// (default: all legs at once); `1` pins the sequential path.
     pub max_parallel: Option<u32>,
     /// Matrix bindings of this leg (`os=ubuntu,node=18`, declaration
     /// order) — `None` for non-matrix jobs. Distinguishes legs of
@@ -215,7 +215,7 @@ pub enum Cond {
 #[derive(Debug)]
 pub enum DynRef {
     /// `needs.<job>.outputs.<name>` — the producer job's published
-    /// output (last matrix leg wins, like job outputs generally).
+    /// output (highest-index successful matrix leg wins).
     NeedOutput { job: String, name: String },
     /// `steps.<id>.outputs.<name>` — an earlier step's
     /// `$GITHUB_OUTPUT` entry in the same job.

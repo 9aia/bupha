@@ -143,6 +143,9 @@ jobs:
 
 #[test]
 fn matrix_fans_out_sequentially() {
+    // `max-parallel: 1` pins the sequential path — legs share the
+    // worktree, so writes land in it (parallel legs get private
+    // worktrees instead; see parallel_matrix_* tests).
     let (d, sha) = repo("matrix");
     workflow(
         &d,
@@ -152,6 +155,7 @@ on: push
 jobs:
   build:
     strategy:
+      max-parallel: 1
       matrix:
         os: [linux, mac]
         ver: ["1", "2"]
@@ -164,6 +168,208 @@ jobs:
     for c in ["linux-1", "linux-2", "mac-1", "mac-2"] {
         assert!(combos.contains(c), "missing {c} in {combos}");
     }
+}
+
+// --- parallel matrix ------------------------------------------------
+//
+// Parallel legs run in private `git worktree` checkouts under the
+// run's tmp dir — writes to the workspace do NOT land in the main
+// worktree (GHA-honest: each leg is a fresh checkout). The shared
+// channels are `$BUPHA_WORKDIR` (still the main worktree, exported
+// for exactly this kind of cross-leg bookkeeping in tests),
+// `$BUPHA_GHA_TMP`, job `outputs:`, and the per-leg status
+// records.
+
+/// Parse `ov.log` lines `"<tag> <leg> <ns>"` into per-leg
+/// (start, end) intervals.
+fn leg_intervals(d: &Path) -> Vec<(u64, u64)> {
+    let log = std::fs::read_to_string(d.join("ov.log")).unwrap();
+    let mut legs: std::collections::HashMap<u64, (u64, u64)> = Default::default();
+    for line in log.lines() {
+        let mut it = line.split_whitespace();
+        let (Some(tag), Some(leg), Some(ts)) = (it.next(), it.next(), it.next()) else {
+            continue;
+        };
+        if tag != "s" && tag != "e" {
+            continue;
+        }
+        let (Ok(leg), Ok(ts)) = (leg.parse::<u64>(), ts.parse::<u64>()) else {
+            continue;
+        };
+        let e = legs.entry(leg).or_default();
+        match tag {
+            "s" => e.0 = ts,
+            _ => e.1 = ts,
+        }
+    }
+    let mut v: Vec<(u64, u64)> = legs.into_values().collect();
+    v.sort();
+    v
+}
+
+#[test]
+fn parallel_matrix_legs_overlap_in_private_worktrees() {
+    let (d, sha) = repo("pmatrix");
+    workflow(
+        &d,
+        "ci.yml",
+        r#"
+on: push
+jobs:
+  build:
+    strategy:
+      matrix:
+        leg: [1, 2]
+    steps:
+      - run: |
+          echo "ws ${{ matrix.leg }} $GITHUB_WORKSPACE" >> "$BUPHA_WORKDIR/ov.log"
+          echo "s ${{ matrix.leg }} $(date +%s%N)" >> "$BUPHA_WORKDIR/ov.log"
+          sleep 1
+          echo "e ${{ matrix.leg }} $(date +%s%N)" >> "$BUPHA_WORKDIR/ov.log"
+"#,
+    );
+    assert!(run(&d, &sha).success());
+    // Each leg got its own workspace — never the shared worktree.
+    let log = std::fs::read_to_string(d.join("ov.log")).unwrap();
+    let workspaces: Vec<&str> = log
+        .lines()
+        .filter(|l| l.starts_with("ws "))
+        .map(|l| l.rsplit(' ').next().unwrap())
+        .collect();
+    assert_eq!(workspaces.len(), 2, "{log}");
+    assert_ne!(workspaces[0], workspaces[1], "legs share a workspace");
+    assert!(
+        workspaces.iter().all(|w| *w != d.to_str().unwrap()),
+        "a leg ran in the main worktree: {log}"
+    );
+    // The 1s sleeps overlapped → parallel, not sequential.
+    let iv = leg_intervals(&d);
+    assert_eq!(iv.len(), 2, "{iv:?}");
+    assert!(
+        iv[0].0 < iv[1].1 && iv[1].0 < iv[0].1,
+        "leg intervals did not overlap: {iv:?}"
+    );
+    // And the leg worktrees were cleaned up — nothing under the
+    // repo's git admin references them anymore.
+    let wt = git(&d, &["worktree", "list", "--porcelain"]);
+    assert_eq!(wt.lines().filter(|l| l.starts_with("worktree ")).count(), 1);
+}
+
+#[test]
+fn parallel_matrix_max_parallel_throttles() {
+    let (d, sha) = repo("pmatrix-cap");
+    workflow(
+        &d,
+        "ci.yml",
+        r#"
+on: push
+jobs:
+  build:
+    strategy:
+      max-parallel: 2
+      matrix:
+        leg: [1, 2, 3]
+    steps:
+      - run: |
+          echo "s ${{ matrix.leg }} $(date +%s%N)" >> "$BUPHA_WORKDIR/ov.log"
+          sleep 1
+          echo "e ${{ matrix.leg }} $(date +%s%N)" >> "$BUPHA_WORKDIR/ov.log"
+"#,
+    );
+    assert!(run(&d, &sha).success());
+    // Sweep the intervals: at no instant may more than 2 legs be
+    // open. (3 legs × 1s under a cap of 2 ⇒ ≥2s total, <3s.)
+    let iv = leg_intervals(&d);
+    assert_eq!(iv.len(), 3, "{iv:?}");
+    let mut events: Vec<(u64, i32)> = Vec::new();
+    for (s, e) in &iv {
+        events.push((*s, 1));
+        events.push((*e, -1));
+    }
+    events.sort();
+    let mut cur = 0i32;
+    let mut peak = 0i32;
+    for (_, dlt) in events {
+        cur += dlt;
+        peak = peak.max(cur);
+    }
+    assert!(peak <= 2, "{peak} legs overlapped (cap 2): {iv:?}");
+    assert!(
+        peak >= 2,
+        "legs never overlapped — cap not parallel?: {iv:?}"
+    );
+}
+
+#[test]
+fn parallel_matrix_fail_fast_cancels_siblings() {
+    let (d, sha) = repo("pmatrix-ff");
+    workflow(
+        &d,
+        "ci.yml",
+        r#"
+on: push
+jobs:
+  build:
+    strategy:
+      fail-fast: true
+      matrix:
+        leg: [1, 2, 3]
+    steps:
+      - run: |
+          [ "${{ matrix.leg }}" = 2 ] && exit 1
+          sleep 10
+"#,
+    );
+    let t = std::time::Instant::now();
+    let s = run(&d, &sha);
+    let el = t.elapsed();
+    assert!(!s.success());
+    // Leg 2 fails instantly; legs 1+3 must be killed, not run out
+    // their 10s sleeps.
+    assert!(
+        el < std::time::Duration::from_secs(8),
+        "fail-fast did not cancel siblings: {el:?}"
+    );
+}
+
+#[test]
+fn parallel_matrix_needs_outputs_pick_highest_successful_leg() {
+    // `needs.<job>.outputs.*` resolves to the highest-index
+    // *successful* leg — leg 2 fails (fail-fast off), leg 3 wins.
+    let (d, sha) = repo("pmatrix-out");
+    workflow(
+        &d,
+        "ci.yml",
+        r#"
+on: push
+jobs:
+  produce:
+    strategy:
+      fail-fast: false
+      matrix:
+        leg: [1, 2, 3]
+    outputs:
+      val: ${{ steps.gen.outputs.value }}
+    steps:
+      - id: gen
+        run: |
+          [ "${{ matrix.leg }}" = 2 ] && exit 1
+          echo "value=v${{ matrix.leg }}" >> "$GITHUB_OUTPUT"
+  consume:
+    needs: produce
+    # A failed leg makes needs.produce.result=failure, so the
+    # implicit success() gate would skip this job — always() runs
+    # it anyway to observe the outputs pick.
+    if: always()
+    steps:
+      - run: echo "got=${{ needs.produce.outputs.val }}" > got.txt
+"#,
+    );
+    assert!(!run(&d, &sha).success());
+    assert_eq!(
+        std::fs::read_to_string(d.join("got.txt")).unwrap(),
+        "got=v3\n"
+    );
 }
 
 #[test]
@@ -440,6 +646,7 @@ jobs:
   t:
     name: "build ${{ matrix.target }} on ${{ github.ref_name }}"
     strategy:
+      max-parallel: 1
       matrix:
         target: [x86_64, aarch64]
     steps:
@@ -932,6 +1139,7 @@ env:
 jobs:
   t:
     strategy:
+      max-parallel: 1
       matrix:
         os: [linux, mac]
     steps:

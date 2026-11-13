@@ -85,9 +85,10 @@ workflow.
   under `$BUPHA_GHA_TMP/stepouts/<job>/<step-id>/` plus a raw log at
   `$BUPHA_GHA_TMP/outputs.txt`), plus `GITHUB_WORKSPACE`,
   `GITHUB_STEP_SUMMARY`, `RUNNER_TEMP`.
-- `matrix` — cartesian fan-out executed **sequentially** (each
-  combination is a separate job run, in order; each leg still gets
-  its own commit status — see boundaries).
+- `matrix` — cartesian fan-out executed **in parallel** by default
+  (each combination is a separate job run; `strategy.max-parallel`
+  caps concurrency, `1` pins the sequential path; each leg still
+  gets its own commit status — see boundaries).
 - `runner.workflow = "ci.yml"` (or a list) pins workflow files;
   absent → all `*.yml`/`*.yaml` under `.github/workflows/` are
   discovered and push-filtered.
@@ -124,33 +125,31 @@ level.
 - **Job timeouts** rely on GNU `timeout` (steps) and bash job
   control (`set -m`, steps→jobs); both assume a Linux/bash
   runner host.
-- **`strategy.max-parallel`** is parsed and logged but not
-  enforced — matrix legs still run sequentially. Real parallelism
-  is a designed-but-unimplemented change (see below); the blockers
-  are per-leg workspaces and leg concurrency, not the status
-  plumbing (per-leg statuses already land — see **Statuses**).
-- **Parallel matrix — deferred design.** Legs of one job id are
-  adjacent expanded jobs sharing only `needs` (resolved before the
-  job starts) — they never read each other's outputs, so they *can*
-  fan out. What's missing: (a) **per-leg workspaces** — today all
-  legs share `$BUPHA_WORKDIR`, and steps mutate it (`target/`,
-  generated files); GHA gives each leg a fresh checkout, so honest
-  parallelism needs `git worktree add --detach` per leg (the
-  worktree is itself a linked worktree — nested adds work, but each
-  leg dir must be `git worktree remove`d on exit or the common
-  git dir leaks prunable entries), with `GITHUB_WORKSPACE`/step
-  `cd`s retargeted per leg; (b) **concurrency in the generated
-  script** — emit each leg body as a `set -m` background process
-  group, throttle with a `wait -n`/`jobs -r` loop honoring
-  `max-parallel`, and collect exit codes in the parent (the
-  `BUPHA_GHA_STATUS` array can't cross subshells — statuses must
-  settle parent-side like today); (c) **fail-fast rework** —
-  `kill -- -<pgid>` the group's remaining legs on first failure
-  and mark unstarted legs cancelled; (d) **deterministic
-  `needs.<job>.outputs.*`** — "last leg wins" is undefined under
-  parallelism; pick the highest-index *successful* leg. Cross-job
-  parallelism (independent jobs) is a separate, larger change — a
-  needs-DAG scheduler — and stays out of scope.
+- **`strategy.max-parallel`** caps concurrent matrix legs
+  (default: all legs at once; `1` runs them sequentially in the
+  shared worktree). Parallel legs each get a private `git
+  worktree` checkout under the run's tmp dir — see **Parallel
+  matrix** below.
+- **Parallel matrix.** Legs of one job id are adjacent expanded
+  jobs sharing only `needs` (resolved before the job starts), so
+  they fan out as `set -m` background process groups throttled by
+  `max-parallel` (`wait -n` + per-leg `legexit/<ji>` records;
+  statuses settle parent-side). Each leg checks out its own
+  `git worktree add --detach` under `$BUPHA_GHA_TMP/legs/<ji>` —
+  `GITHUB_WORKSPACE` and step `cd`s retarget per leg, and the
+  worktree is `git worktree remove`d at leg end (EXIT-trap
+  backstop). Consequences: **files a parallel leg writes to its
+  workspace do not land in `$BUPHA_WORKDIR`** — like a real
+  runner's fresh checkout per leg, cross-leg communication goes
+  through job `outputs:`, the per-run artifact store, or
+  `$BUPHA_WORKDIR`/`$BUPHA_GHA_TMP` explicitly. `fail-fast` kills
+  surviving leg groups (`kill -- -<pgid>`) on the first failure
+  and settles killed legs `cancelled`; unstarted legs never
+  launch. `needs.<job>.outputs.*` resolves deterministically to
+  the **highest-index successful leg** (`joboutpick/<id>`), not
+  "last to finish". Cross-job parallelism (independent jobs) is
+  a separate, larger change — a needs-DAG scheduler — and stays
+  out of scope.
 - **Artifact actions are same-run only.** `upload-artifact` tars
   the matched paths (workspace-relative, globs via `compgen`;
   hidden files included unless `include-hidden-files: false`) into
@@ -201,8 +200,10 @@ level.
   is no cross-job ordering or eviction (the store grows until
   pruned by hand).
 - **`strategy.fail-fast`** (default on) cancels a matrix job's
-  remaining legs after one leg fails; legs already running finish
-  first since execution is sequential anyway.
+  remaining legs after one leg fails: parallel legs still running
+  are `TERM`d as process groups and settle `cancelled`, legs not
+  yet launched never start. Under `max-parallel: 1` (sequential)
+  remaining legs are cancelled before they begin, as before.
 - **`github.ref`** is the watched branch (`repo.branch`), not the
   payload's ref — identical for webhook pushes since matching is
   exact; `""` for sources that can't say (then `branches` filters
@@ -234,8 +235,9 @@ level.
 - **Output refs are lenient where GitHub is strict**: `needs.<job>`
   resolves by job id regardless of whether the consumer declared it
   in `needs:` (undeclared or unknown ids read empty), and a
-  matrix-fanned producer's `needs.<job>.outputs.*` reads the **last**
-  leg's outputs. Skipped/failed producers publish nothing.
+  matrix-fanned producer's `needs.<job>.outputs.*` reads the
+  **highest-index successful leg's** outputs. Skipped/failed
+  producers publish nothing.
 - **Quoting**: inside `run:` scripts the ref becomes `$(cat …)` at
   the expression's exact position, so the step's own quoting applies
   (matching GitHub's text substitution) — except inside *single
