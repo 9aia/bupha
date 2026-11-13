@@ -4,9 +4,12 @@ A bupha fleet — watcher unit + operator config + webhook wiring —
 ships as a tamias content bundle (`type: bupha`). tamias owns the
 package lifecycle (fetch, install store, provider units, hooks);
 bupha owns what runs inside. The shipped examples live in
-`libraries/`: `ci-gate` (push-to-verdict gate on `main`) and
+`libraries/`: `ci-gate` (push-to-verdict gate on `main`),
 `docs-deploy` (push to `docs` → site deploy → `docs/deploy`
-status).
+status), and `ci-ingress` — a `peregrin-bundle`, not `type: bupha`:
+the forge webhook → `ci-job` entity campaign that feeds the worker
+fleet (CI orchestration knowledge lives here even though the bundle
+type is peregrin's).
 
 ## The `type: bupha` contract
 
