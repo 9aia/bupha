@@ -27,3 +27,4 @@
 - T-073 fork-PR head shas — ci-job indexDoc lacks clone\_url/PR head ref so fork pull\_requests can't be checked out from base clone (T-067 remainder) · owner:devin · created:2026-11-12
 - T-027 status signature/attestation link in commit-status body (ADR-0002 compliance) · created:2026-10-31
 - T-077 retire remaining generic-infra crates per T-053 audit now that T-055/T-056 gates resolved — bupha-{cloudflared,tunnel,service,systemd,dotenv,keyring} MIGRATE/DIE + bupha-{secret,webhook} port decisions; consumers: bupha-watch dev harness, bupha-cli, bupha-driver secret chain (cuora canonical, legacy legs removable after T-059 verification) · pri:high · created:2026-11-13
+- T-070 gha action: trigger mode + live GitHub e2e — action.yml/scripts/gha-status.sh landed (status|wait on commit statuses); needs a real runner test against a watched repo + decision on whether a clean trigger endpoint exists (ADR-0007 ingress is peregrin-owned) · created:2026-11-11
