@@ -1,12 +1,17 @@
 //! script — render expanded [`Job`]s into one bash program. Pure
 //! string building; the runner spawns it with `bash -c` in the
-//! worktree. Jobs run sequentially in topo order; matrix legs of
-//! one job id fan out as background process groups (each in its own
-//! `git worktree` checkout) throttled by `strategy.max-parallel`,
+//! worktree. Jobs are scheduled by `needs` depth: every topo
+//! *level* (jobs whose needs all sit in earlier levels) runs as a
+//! barrier — a level with a single job group keeps the sequential
+//! shared-worktree path, while a level with several independent
+//! groups fans them out as `set -m` background process groups,
+//! each in a private `git worktree` checkout (the same isolation
+//! parallel matrix legs use). Matrix legs of one job id additionally
+//! fan out inside their group, throttled by `strategy.max-parallel`,
 //! or fall back to the sequential path when `max-parallel: 1`.
 
 use crate::plan::{BinOp, Cond, DynRef, Job, Step};
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 
 /// Everything the generated program needs from the run context.
 pub struct ScriptCtx<'a> {
@@ -32,19 +37,19 @@ pub(crate) fn sq(s: &str) -> String {
 /// parallel matrix legs) + optional repo-relative working-directory.
 /// Deferred `${{ }}` output refs become `$(cat …)` lookups — the
 /// pieces are quoted so the result stays one word.
-fn cd_target(ws: &str, wd: Option<&str>, ji: usize) -> Result<String, String> {
+fn cd_target(ws: &str, wd: Option<&str>, ji: usize, wf: &str) -> Result<String, String> {
     match wd {
-        Some(w) if !w.is_empty() => Ok(format!("{ws}/{}", shq_exprs(w, ji)?)),
+        Some(w) if !w.is_empty() => Ok(format!("{ws}/{}", shq_exprs(w, ji, wf)?)),
         _ => Ok(ws.to_string()),
     }
 }
 
 /// `export` lines for an env list. Values may carry deferred output
 /// refs — each becomes a quoted `$(cat …)` piece inside the word.
-fn exports(pairs: &[(String, String)], ji: usize) -> Result<String, String> {
+fn exports(pairs: &[(String, String)], ji: usize, wf: &str) -> Result<String, String> {
     pairs
         .iter()
-        .map(|(k, v)| Ok(format!("export {k}={}", shq_exprs(v, ji)?)))
+        .map(|(k, v)| Ok(format!("export {k}={}", shq_exprs(v, ji, wf)?)))
         .collect::<Result<Vec<_>, String>>()
         .map(|lines| lines.join("\n"))
 }
@@ -77,11 +82,15 @@ fn shell_cmd(shell: Option<&str>) -> Result<&'static str, String> {
 }
 
 /// Everything a condition needs at render time: the expanded-job
-/// index (for `steps.*` refs of the current job) and the job's
-/// `needs` indices (for the status-check functions).
+/// index (for `steps.*` refs of the current job), the job's
+/// `needs` indices (for the status-check functions), and the
+/// consumer's workflow name (for `needs.*` store keys — needs
+/// never crosses workflow files, so the consumer's workflow is the
+/// producer's).
 struct CondCx<'a> {
     ji: usize,
     needs: &'a [usize],
+    wf: &'a str,
 }
 
 /// Compile a [`Cond`] to a bash and-or list whose exit status is
@@ -151,16 +160,13 @@ fn idx_args(needs: &[usize]) -> String {
 fn dyn_word(d: &DynRef, cx: &CondCx) -> Result<String, String> {
     Ok(match d {
         DynRef::NeedOutput { job, name } => {
-            output_lookup(&format!("needs.{job}.outputs.{name}"), cx.ji, true)?
+            output_lookup(&format!("needs.{job}.outputs.{name}"), cx.ji, true, cx.wf)?
         }
         DynRef::StepOutput { step, name } => {
-            output_lookup(&format!("steps.{step}.outputs.{name}"), cx.ji, true)?
+            output_lookup(&format!("steps.{step}.outputs.{name}"), cx.ji, true, cx.wf)?
         }
         DynRef::NeedResult { job } => {
-            format!(
-                "\"$(cat \"$BUPHA_GHA_TMP/jobresult/{}\" 2>/dev/null || :)\"",
-                safe_ctx(job)
-            )
+            format!("\"{}\"", needs_result_lookup(job, cx.wf))
         }
         DynRef::StepConclusion { step } => {
             // Step `run:` scripts execute in a child `bash` fed by
@@ -174,35 +180,38 @@ fn dyn_word(d: &DynRef, cx: &CondCx) -> Result<String, String> {
     })
 }
 
-/// Render all jobs into one bash script. Job order is the input
-/// order (already topo-sorted per workflow by the caller). Matrix
-/// legs of one job id — adjacent expanded jobs — either fan out as
-/// background process groups (each leg in a private `git worktree`,
-/// throttled by `strategy.max-parallel`) or run sequentially when
-/// the group has one leg or `max-parallel: 1`.
+/// Render all jobs into one bash script. Scheduling is by `needs`
+/// depth: level 0 jobs (no `needs`) run first, each later level
+/// waits at a barrier until every earlier level has settled — so a
+/// job never starts before ALL its needs complete. A level holding
+/// a single job group keeps the sequential shared-worktree path;
+/// a level with several independent groups runs them concurrently,
+/// each group in a private `git worktree` (matrix groups fan their
+/// legs out inside their own subshell). Matrix legs of one job id —
+/// adjacent expanded jobs — either fan out as background process
+/// groups (each leg in a private `git worktree`, throttled by
+/// `strategy.max-parallel`) or run sequentially when the group has
+/// one leg or `max-parallel: 1`.
 pub fn render(jobs: &[Job], ctx: &ScriptCtx) -> Result<String, String> {
-    // job id → every expanded index (matrix legs) — feeds
+    // job key → every expanded index (matrix legs) — feeds
     // `BUPHA_GHA_JOBIDX`, the runtime table the `bupha_job_failed`
-    // fail-fast helper scans.
+    // fail-fast helper scans. Keyed by workflow+id: `needs` never
+    // crosses workflow files, but two workflows can declare the
+    // same job id and their aggregates must not collide.
     let mut job_idx: HashMap<String, Vec<usize>> = HashMap::new();
     for (i, j) in jobs.iter().enumerate() {
-        job_idx.entry(j.id.clone()).or_default().push(i);
+        job_idx.entry(job_key(j)).or_default().push(i);
     }
     // Consecutive runs of same-(workflow,id) expanded jobs are one
     // matrix group. Topo order keeps a job's legs adjacent: legs
     // share `needs`, so they become ready in the same pass and emit
     // in index order — nothing can interleave.
     let mut groups: Vec<Vec<usize>> = Vec::new();
-    let mut group_of = vec![usize::MAX; jobs.len()];
     let mut i = 0;
     while i < jobs.len() {
         let mut e = i + 1;
         while e < jobs.len() && jobs[e].id == jobs[i].id && jobs[e].workflow == jobs[i].workflow {
             e += 1;
-        }
-        let g = groups.len();
-        for slot in group_of.iter_mut().take(e).skip(i) {
-            *slot = g;
         }
         groups.push((i..e).collect());
         i = e;
@@ -214,18 +223,42 @@ pub fn render(jobs: &[Job], ctx: &ScriptCtx) -> Result<String, String> {
         let legs = &groups[g];
         legs.len() > 1 && jobs[legs[0]].max_parallel != Some(1)
     };
-    let any_parallel = (0..groups.len()).any(&is_parallel);
+    let group_parallel: Vec<bool> = (0..groups.len()).map(&is_parallel).collect();
+    let any_parallel = group_parallel.iter().any(|p| *p);
     // Job-level `timeout-minutes` runs the body under a watchdog —
     // monitor mode gives each background job its own process group
     // so `kill -- -$pid` takes the whole tree down. Parallel matrix
-    // legs need it too: fail-fast kills leg groups by pgid.
+    // legs need it too: fail-fast kills leg groups by pgid. So do
+    // concurrent levels: group subshells host their own `&` jobs.
     let any_job_timeout = jobs.iter().any(|j| j.timeout_seconds.is_some());
+
+    // `needs` depth per expanded job — topo order guarantees every
+    // `needs` index precedes its consumer, so one forward pass
+    // suffices. All legs of a group share `needs`, hence a level.
+    let mut level = vec![0usize; jobs.len()];
+    for i in 0..jobs.len() {
+        level[i] = jobs[i]
+            .needs
+            .iter()
+            .map(|&d| level[d] + 1)
+            .max()
+            .unwrap_or(0);
+    }
+    // level → its job groups, in declaration order.
+    let mut level_groups: BTreeMap<usize, Vec<usize>> = BTreeMap::new();
+    for (g, legs) in groups.iter().enumerate() {
+        let lv = legs.iter().map(|&i| level[i]).max().unwrap_or(0);
+        level_groups.entry(lv).or_default().push(g);
+    }
+    // A level with several independent groups is the cross-job
+    // parallel case — each group gets a private worktree.
+    let any_concurrent = level_groups.values().any(|g| g.len() > 1);
 
     let mut out = String::with_capacity(8192);
     out.push_str("#!/usr/bin/env bash\n");
     out.push_str("# Generated by bupha gha runner — .github/workflows as CI.\n");
     out.push_str("set -uo pipefail\n");
-    if any_job_timeout || any_parallel {
+    if any_job_timeout || any_parallel || any_concurrent {
         out.push_str("set -m\n");
     }
     out.push_str(&format!("export GITHUB_EVENT_NAME={}\n", sq("push")));
@@ -256,16 +289,20 @@ pub fn render(jobs: &[Job], ctx: &ScriptCtx) -> Result<String, String> {
     // the whole run; each job gets its own subdir so env-file writes
     // scope to the job like on GitHub. `legs/`+`legexit/` are the
     // parallel-matrix workspaces and per-leg exit records;
-    // `joboutpick/` records which leg's outputs `needs.*` reads.
+    // `jobs/` holds the private worktrees of concurrently-scheduled
+    // job groups; `joboutpick/` records which leg's outputs
+    // `needs.*` reads.
     out.push_str("BUPHA_GHA_TMP=$(mktemp -d)\n");
     out.push_str("export BUPHA_GHA_TMP\n");
-    out.push_str("mkdir -p \"$BUPHA_GHA_TMP/jobstatus\" \"$BUPHA_GHA_TMP/stepconcl\" \"$BUPHA_GHA_TMP/jobresult\" \"$BUPHA_GHA_TMP/joboutpick\" \"$BUPHA_GHA_TMP/legexit\" \"$BUPHA_GHA_TMP/legs\"\n");
-    if any_parallel {
-        // Backstop for leg worktrees: normally each is
-        // `git worktree remove`d at leg harvest; if the script dies
-        // mid-run the EXIT trap removes whatever legs/* dirs remain
-        // so the common git dir doesn't leak prunable entries.
-        out.push_str("trap 'for _d in \"$BUPHA_GHA_TMP\"/legs/*/; do [ -d \"$_d\" ] && git -C \"$BUPHA_WORKDIR\" worktree remove --force \"${_d%/}\" 2>/dev/null; done; rm -rf \"$BUPHA_GHA_TMP\"' EXIT\n");
+    out.push_str("mkdir -p \"$BUPHA_GHA_TMP/jobstatus\" \"$BUPHA_GHA_TMP/stepconcl\" \"$BUPHA_GHA_TMP/jobresult\" \"$BUPHA_GHA_TMP/joboutpick\" \"$BUPHA_GHA_TMP/legexit\" \"$BUPHA_GHA_TMP/legs\" \"$BUPHA_GHA_TMP/jobs\"\n");
+    if any_parallel || any_concurrent {
+        // Backstop for job worktrees: normally each is
+        // `git worktree remove`d at harvest; if the script dies
+        // mid-run the EXIT trap removes whatever legs/*+jobs/*
+        // dirs remain so the common git dir doesn't leak prunable
+        // entries. Unmatched globs stay literal and fail the
+        // `[ -d ]` guard.
+        out.push_str("trap 'for _d in \"$BUPHA_GHA_TMP\"/legs/*/ \"$BUPHA_GHA_TMP\"/jobs/*/; do [ -d \"$_d\" ] && git -C \"$BUPHA_WORKDIR\" worktree remove --force \"${_d%/}\" 2>/dev/null; done; rm -rf \"$BUPHA_GHA_TMP\"' EXIT\n");
     } else {
         out.push_str("trap 'rm -rf \"$BUPHA_GHA_TMP\"' EXIT\n");
     }
@@ -279,115 +316,265 @@ pub fn render(jobs: &[Job], ctx: &ScriptCtx) -> Result<String, String> {
     }
     out.push_str(ABSORB_FNS);
     if any_parallel {
-        // Parallel-matrix scheduler state — one group runs at a
-        // time (jobs stay sequential), so a single run/fail pair
-        // suffices.
+        // Parallel-matrix scheduler state — each matrix group gets
+        // its own copy inside its subshell (top-level groups run in
+        // the main shell), so one run/fail pair per group suffices.
         out.push_str(
             "BUPHA_MP_RUN=\"\"\nBUPHA_MP_FAIL=0\ndeclare -A BUPHA_MP_PID=() BUPHA_MP_WD=()\n",
         );
         out.push_str(MP_FNS);
     }
+    if any_concurrent {
+        out.push_str(JP_FNS);
+    }
 
-    let mut i = 0;
-    while i < jobs.len() {
-        let g = group_of[i];
-        if is_parallel(g) {
-            if groups[g][0] == i {
-                out.push_str(&render_parallel_group(jobs, &groups[g], ctx)?);
-            }
-            i += 1;
-            continue;
-        }
-        let j = &jobs[i];
-        let label = job_label(j);
-        out.push_str(&format!(
-            "echo {}\n",
-            shq_exprs(&format!("gha: job '{label}' starting"), i)?
-        ));
-
-        // The run gate: `if:` when present (it already carries the
-        // implicit success() when the author didn't name a status
-        // function), else the implicit all-needs-passed check.
-        let gate = job_gate(j, i)?;
-        let fail_fast = j.fail_fast;
-
-        // Gate opening — three shapes: fail-fast cancel outermost,
-        // then the run gate, else unconditional.
-        if fail_fast {
-            out.push_str(&format!(
-                "if bupha_job_failed {}; then\n  bupha_set_status {i} 3\n  echo {}\n",
-                sq(&j.id),
-                shq_exprs(&format!("gha: job '{label}' cancelled — fail-fast"), i)?
-            ));
-            if let Some((g, _)) = &gate {
-                out.push_str(&format!("elif {g}; then\n"));
+    // Emit level by level — a barrier per level means a job never
+    // starts before ALL its needs (which live in earlier levels)
+    // have settled. Single-group levels keep the sequential
+    // shared-worktree path; multi-group levels fan out.
+    for glist in level_groups.values() {
+        if glist.len() == 1 {
+            let g = glist[0];
+            if group_parallel[g] {
+                out.push_str(&render_parallel_group(jobs, &groups[g], ctx, false)?);
             } else {
-                out.push_str("else\n");
+                for &i in &groups[g] {
+                    out.push_str(&render_seq_job(
+                        &jobs[i],
+                        i,
+                        &groups[g],
+                        ctx,
+                        &sq(ctx.workdir),
+                    )?);
+                }
             }
-        } else if let Some((g, _)) = &gate {
-            out.push_str(&format!("if {g}; then\n"));
-        }
-
-        // Job body — the same `( set -e; … )` + status + outputs
-        // block as before, optionally under a timeout watchdog.
-        let timed = j.timeout_seconds;
-        out.push_str("  (\n    set -e\n");
-        out.push_str(&job_body(j, i, ctx, &sq(ctx.workdir))?);
-        if let Some(secs) = timed {
-            // Watchdog: the job body runs in a background process
-            // group (set -m); the killer sleeps N seconds then
-            // TERMs the whole group. `wait` still reports the real
-            // exit status — 143 when killed.
-            out.push_str(&format!(
-                "  ) &\n  bupha_pid=$!\n  ( sleep {secs}; touch \"$BUPHA_GHA_TMP/timeout_{i}\"; kill -TERM -- -\"$bupha_pid\" 2>/dev/null ) &\n  bupha_wd=$!\n  wait \"$bupha_pid\"\n  bupha_set_status {i} \"$?\"\n  kill \"$bupha_wd\" 2>/dev/null\n  wait \"$bupha_wd\" 2>/dev/null\n  if [ -f \"$BUPHA_GHA_TMP/timeout_{i}\" ]; then rm -f \"$BUPHA_GHA_TMP/timeout_{i}\"; echo {}; fi\n",
-                shq_exprs(&format!("gha: job '{label}' timed out"), i)?
-            ));
         } else {
-            out.push_str("  )\n");
-            out.push_str(&format!("  bupha_set_status {i} \"$?\"\n"));
+            out.push_str(&render_concurrent_level(
+                jobs,
+                glist,
+                &groups,
+                &group_parallel,
+                ctx,
+            )?);
         }
-        // Job `outputs:` evaluate once the job's steps are done —
-        // steps.*.outputs files are already on disk, needs.*.outputs
-        // read the producers' jobouts/ dirs. Skipped/failed jobs
-        // publish nothing, matching GitHub.
-        let pass = job_output_lines(j, i)?;
-        out.push_str(&format!(
-            "  if [ \"${{BUPHA_GHA_STATUS[{i}]}}\" -eq 0 ]; then\n{pass}    echo {}\n  else\n    echo {}\n    BUPHA_GHA_FAILS=$((BUPHA_GHA_FAILS+1))\n  fi\n",
-            shq_exprs(&format!("gha: job '{label}' passed"), i)?,
-            shq_exprs(&format!("gha: job '{label}' failed"), i)?,
-        ));
-        if let Some((_, reason)) = &gate {
-            out.push_str(&format!(
-                "else\n  bupha_set_status {i} 2\n  echo {}\nfi\n",
-                shq_exprs(&format!("gha: job '{label}' skipped — {reason}"), i)?
-            ));
-        } else if fail_fast {
-            out.push_str("fi\n");
-        }
-        // Refresh needs.<id>.result + the needs.*.outputs pick now
-        // that this leg's status is final — downstream jobs and
-        // steps read the aggregate files. Emitted per leg; both
-        // converge once the group's last leg settles.
-        let legs = &groups[g];
-        let list = legs
-            .iter()
-            .map(usize::to_string)
-            .collect::<Vec<_>>()
-            .join(" ");
-        let sid = safe_ctx(&j.id);
-        out.push_str(&format!("bupha_agg_result {} {list}\n", sq(&sid)));
-        out.push_str(&format!("bupha_pick_out {} {list}\n", sq(&sid)));
-        // Per-job status record for the runner's post-run
-        // `status_reports` pass — every gate path has already
-        // settled this leg's jobstatus file by now.
-        out.push_str(&format!(
-            "bupha_report {i} {} {}\n",
-            sq(&status_suffix(j)),
-            shq_exprs(&j.label, i)?
-        ));
-        i += 1;
     }
     out.push_str("if [ \"$BUPHA_GHA_FAILS\" -gt 0 ]; then\n  echo \"gha: workflow(s) failed\"\n  exit 1\nfi\necho \"gha: all jobs passed\"\n");
+    Ok(out)
+}
+
+/// One expanded job's sequential block: run gate (fail-fast cancel
+/// outermost when `strategy.fail-fast`), the `( set -e; … )` body
+/// optionally under the `timeout-minutes` watchdog, `outputs:`
+/// publication, the group's `needs.*` aggregates, and the per-job
+/// status report. `ws` is the quoted workspace root — the shared
+/// worktree on the sequential path, a private `git worktree` inside
+/// a concurrent level's group subshell. Inside a subshell the
+/// `BUPHA_GHA_STATUS`/`BUPHA_GHA_FAILS` writes stay local; the
+/// `jobstatus/`+aggregate files `bupha_set_status` & co. write are
+/// the channel the parent settles from.
+fn render_seq_job(
+    j: &Job,
+    i: usize,
+    legs: &[usize],
+    ctx: &ScriptCtx,
+    ws: &str,
+) -> Result<String, String> {
+    let mut out = String::new();
+    let label = job_label(j);
+    out.push_str(&format!(
+        "echo {}\n",
+        shq_exprs(&format!("gha: job '{label}' starting"), i, &j.workflow)?
+    ));
+
+    // The run gate: `if:` when present (it already carries the
+    // implicit success() when the author didn't name a status
+    // function), else the implicit all-needs-passed check.
+    let gate = job_gate(j, i)?;
+    let fail_fast = j.fail_fast;
+
+    // Gate opening — three shapes: fail-fast cancel outermost,
+    // then the run gate, else unconditional.
+    if fail_fast {
+        out.push_str(&format!(
+            "if bupha_job_failed {}; then\n  bupha_set_status {i} 3\n  echo {}\n",
+            sq(&job_key(j)),
+            shq_exprs(
+                &format!("gha: job '{label}' cancelled — fail-fast"),
+                i,
+                &j.workflow
+            )?
+        ));
+        if let Some((g, _)) = &gate {
+            out.push_str(&format!("elif {g}; then\n"));
+        } else {
+            out.push_str("else\n");
+        }
+    } else if let Some((g, _)) = &gate {
+        out.push_str(&format!("if {g}; then\n"));
+    }
+
+    // Job body — the same `( set -e; … )` + status + outputs
+    // block as before, optionally under a timeout watchdog.
+    let timed = j.timeout_seconds;
+    out.push_str("  (\n    set -e\n");
+    out.push_str(&job_body(j, i, ctx, ws)?);
+    if let Some(secs) = timed {
+        // Watchdog: the job body runs in a background process
+        // group (set -m); the killer sleeps N seconds then
+        // TERMs the whole group. `wait` still reports the real
+        // exit status — 143 when killed.
+        out.push_str(&format!(
+            "  ) &\n  bupha_pid=$!\n  ( sleep {secs}; touch \"$BUPHA_GHA_TMP/timeout_{i}\"; kill -TERM -- -\"$bupha_pid\" 2>/dev/null ) &\n  bupha_wd=$!\n  wait \"$bupha_pid\"\n  bupha_set_status {i} \"$?\"\n  kill \"$bupha_wd\" 2>/dev/null\n  wait \"$bupha_wd\" 2>/dev/null\n  if [ -f \"$BUPHA_GHA_TMP/timeout_{i}\" ]; then rm -f \"$BUPHA_GHA_TMP/timeout_{i}\"; echo {}; fi\n",
+            shq_exprs(&format!("gha: job '{label}' timed out"), i, &j.workflow)?
+        ));
+    } else {
+        out.push_str("  )\n");
+        out.push_str(&format!("  bupha_set_status {i} \"$?\"\n"));
+    }
+    // Job `outputs:` evaluate once the job's steps are done —
+    // steps.*.outputs files are already on disk, needs.*.outputs
+    // read the producers' jobouts/ dirs. Skipped/failed jobs
+    // publish nothing, matching GitHub.
+    let pass = job_output_lines(j, i)?;
+    out.push_str(&format!(
+        "  if [ \"${{BUPHA_GHA_STATUS[{i}]}}\" -eq 0 ]; then\n{pass}    echo {}\n  else\n    echo {}\n    BUPHA_GHA_FAILS=$((BUPHA_GHA_FAILS+1))\n  fi\n",
+        shq_exprs(&format!("gha: job '{label}' passed"), i, &j.workflow)?,
+        shq_exprs(&format!("gha: job '{label}' failed"), i, &j.workflow)?,
+    ));
+    if let Some((_, reason)) = &gate {
+        out.push_str(&format!(
+            "else\n  bupha_set_status {i} 2\n  echo {}\nfi\n",
+            shq_exprs(
+                &format!("gha: job '{label}' skipped — {reason}"),
+                i,
+                &j.workflow
+            )?
+        ));
+    } else if fail_fast {
+        out.push_str("fi\n");
+    }
+    // Refresh needs.<id>.result + the needs.*.outputs pick now
+    // that this leg's status is final — downstream jobs and
+    // steps read the aggregate files. Emitted per leg; both
+    // converge once the group's last leg settles.
+    let list = legs
+        .iter()
+        .map(usize::to_string)
+        .collect::<Vec<_>>()
+        .join(" ");
+    let sid = job_key(j);
+    out.push_str(&format!("bupha_agg_result {} {list}\n", sq(&sid)));
+    out.push_str(&format!("bupha_pick_out {} {list}\n", sq(&sid)));
+    // Per-job status record for the runner's post-run
+    // `status_reports` pass — every gate path has already
+    // settled this leg's jobstatus file by now.
+    out.push_str(&format!(
+        "bupha_report {i} {} {}\n",
+        sq(&status_suffix(j)),
+        shq_exprs(&j.label, i, &j.workflow)?
+    ));
+    Ok(out)
+}
+
+/// One scheduling level holding several independent job groups —
+/// the cross-job parallel case. Each group launches as a `set -m`
+/// background subshell: matrix groups fan their legs out inside it
+/// (every leg worktree is pre-created parent-side first, so
+/// concurrent `git worktree add`s never race git's lock), plain
+/// groups run their legs sequentially in one shared private
+/// worktree under `$BUPHA_GHA_TMP/jobs/<first-leg>`. Gates and
+/// `if:` conditions evaluate inside the subshell against the
+/// launch-time `BUPHA_GHA_STATUS` snapshot — correct because every
+/// `needs` target settled in an earlier level. `wait` drains the
+/// level, then each leg's status is folded back from its
+/// `jobstatus/` file into the parent's array (`bupha_sync_job`),
+/// fail accounting runs parent-side, and private worktrees are
+/// removed. There is no cross-job fail-fast — matching GHA,
+/// `strategy.fail-fast` only cancels legs of its own job id.
+fn render_concurrent_level(
+    jobs: &[Job],
+    glist: &[usize],
+    groups: &[Vec<usize>],
+    group_parallel: &[bool],
+    ctx: &ScriptCtx,
+) -> Result<String, String> {
+    let mut out = String::new();
+    let probe = groups[glist[0]][0];
+    out.push_str(&format!(
+        "echo {}\n",
+        shq_exprs(
+            &format!(
+                "gha: {} independent job groups running concurrently",
+                glist.len()
+            ),
+            probe,
+            &jobs[probe].workflow,
+        )?
+    ));
+    for &g in glist {
+        let legs = &groups[g];
+        if group_parallel[g] {
+            // Pre-create every leg worktree parent-side — git's
+            // worktree lock can't take concurrent `add`s from the
+            // group subshells. A failed pre-create is retried (and
+            // honestly failed) by the leg's own launch check.
+            for &i in legs {
+                out.push_str(&format!(
+                    "git -C \"$BUPHA_WORKDIR\" worktree add --detach --quiet \"$BUPHA_GHA_TMP/legs/{i}\" HEAD 2>/dev/null || true\n"
+                ));
+            }
+            out.push_str("( set -m\n");
+            out.push_str(&render_parallel_group(jobs, legs, ctx, true)?);
+            out.push_str(") &\n");
+        } else {
+            let key = legs[0];
+            let wt = format!("\"$BUPHA_GHA_TMP/jobs/{key}\"");
+            out.push_str(&format!(
+                "if git -C \"$BUPHA_WORKDIR\" worktree add --detach --quiet \"$BUPHA_GHA_TMP/jobs/{key}\" HEAD; then\n( set -m\n"
+            ));
+            for &i in legs {
+                out.push_str(&render_seq_job(&jobs[i], i, legs, ctx, &wt)?);
+            }
+            out.push_str(") &\nelse\n");
+            // Provisioning failed — settle every leg as a failure
+            // (with report records) rather than let the subshells
+            // cd into nothing.
+            for &i in legs {
+                let j = &jobs[i];
+                out.push_str(&format!(
+                    "  bupha_set_status {i} 1\n  echo {}\n  bupha_report {i} {} {}\n",
+                    shq_exprs(
+                        &format!(
+                            "gha: job '{}' failed — git worktree add failed",
+                            job_label(j)
+                        ),
+                        i,
+                        &j.workflow
+                    )?,
+                    sq(&status_suffix(j)),
+                    shq_exprs(&j.label, i, &j.workflow)?
+                ));
+            }
+            out.push_str("fi\n");
+        }
+    }
+    // Level barrier — every group subshell has drained its legs.
+    out.push_str("wait\n");
+    for &g in glist {
+        for &i in &groups[g] {
+            // Fold the subshell-written jobstatus word back into the
+            // parent's array + fail accounting (missing words settle
+            // as failure — a crashed subshell must not read skipped).
+            out.push_str(&format!("bupha_sync_job {i}\n"));
+            out.push_str(&format!(
+                "case \"${{BUPHA_GHA_STATUS[{i}]:-2}}\" in 0|2|3) ;; *) BUPHA_GHA_FAILS=$((BUPHA_GHA_FAILS+1));; esac\n"
+            ));
+        }
+        if !group_parallel[g] {
+            let key = groups[g][0];
+            out.push_str(&format!("bupha_jp_clean \"$BUPHA_GHA_TMP/jobs/{key}\"\n"));
+        }
+    }
     Ok(out)
 }
 
@@ -409,6 +596,7 @@ fn job_gate(j: &Job, i: usize) -> Result<Option<(String, &'static str)>, String>
         let cx = CondCx {
             ji: i,
             needs: &j.needs,
+            wf: &j.workflow,
         };
         Ok(Some((cond_bool(cond, &cx)?, "if condition false")))
     } else if !j.needs.is_empty() {
@@ -443,7 +631,7 @@ fn job_body(j: &Job, ji: usize, ctx: &ScriptCtx, ws: &str) -> Result<String, Str
     if !j.env.is_empty() {
         out.push_str(&format!(
             "    {}\n",
-            exports(&j.env, ji)?.replace('\n', "\n    ")
+            exports(&j.env, ji, &j.workflow)?.replace('\n', "\n    ")
         ));
     }
     for (si, s) in j.steps.iter().enumerate() {
@@ -460,7 +648,7 @@ fn job_output_lines(j: &Job, ji: usize) -> Result<String, String> {
         pass.push_str(&format!(
             "    bupha_job_out {ji} {} {}\n",
             sq(name),
-            shq_exprs(tmpl, ji)?
+            shq_exprs(tmpl, ji, &j.workflow)?
         ));
     }
     Ok(pass)
@@ -478,7 +666,12 @@ fn job_output_lines(j: &Job, ji: usize) -> Result<String, String> {
 /// `legexit/<ji>` so even TERM-killed legs report (→ cancelled
 /// under fail-fast). Statuses settle parent-side at harvest —
 /// the `BUPHA_GHA_STATUS` array can't cross the leg subshells.
-fn render_parallel_group(jobs: &[Job], legs: &[usize], ctx: &ScriptCtx) -> Result<String, String> {
+fn render_parallel_group(
+    jobs: &[Job],
+    legs: &[usize],
+    ctx: &ScriptCtx,
+    wt_precreated: bool,
+) -> Result<String, String> {
     let n = legs.len();
     let first = &jobs[legs[0]];
     let maxp = first.max_parallel.unwrap_or(n as u32).max(1);
@@ -489,7 +682,8 @@ fn render_parallel_group(jobs: &[Job], legs: &[usize], ctx: &ScriptCtx) -> Resul
         "echo {}\n",
         shq_exprs(
             &format!("gha: job '{label}' — {n} matrix legs, max-parallel {maxp}"),
-            legs[0]
+            legs[0],
+            &first.workflow,
         )?
     ));
     for &i in legs {
@@ -497,14 +691,18 @@ fn render_parallel_group(jobs: &[Job], legs: &[usize], ctx: &ScriptCtx) -> Resul
         let label = job_label(j);
         out.push_str(&format!(
             "echo {}\n",
-            shq_exprs(&format!("gha: job '{label}' starting"), i)?
+            shq_exprs(&format!("gha: job '{label}' starting"), i, &j.workflow)?
         ));
-        let launch = render_leg_launch(j, i, ctx, maxp, ff, &label)?;
+        let launch = render_leg_launch(j, i, ctx, maxp, ff, &label, wt_precreated)?;
         match job_gate(j, i)? {
             Some((g, reason)) => {
                 out.push_str(&format!(
                     "if {g}; then\n{launch}  else\n    bupha_set_status {i} 2\n    echo {}\n  fi\n",
-                    shq_exprs(&format!("gha: job '{label}' skipped — {reason}"), i)?
+                    shq_exprs(
+                        &format!("gha: job '{label}' skipped — {reason}"),
+                        i,
+                        &j.workflow
+                    )?
                 ));
             }
             None => out.push_str(&launch),
@@ -520,7 +718,7 @@ fn render_parallel_group(jobs: &[Job], legs: &[usize], ctx: &ScriptCtx) -> Resul
         .map(usize::to_string)
         .collect::<Vec<_>>()
         .join(" ");
-    let sid = safe_ctx(&first.id);
+    let sid = job_key(first);
     out.push_str(&format!("bupha_agg_result {} {list}\n", sq(&sid)));
     out.push_str(&format!("bupha_pick_out {} {list}\n", sq(&sid)));
     for &i in legs {
@@ -528,7 +726,7 @@ fn render_parallel_group(jobs: &[Job], legs: &[usize], ctx: &ScriptCtx) -> Resul
         out.push_str(&format!(
             "bupha_report {i} {} {}\n",
             sq(&status_suffix(j)),
-            shq_exprs(&j.label, i)?
+            shq_exprs(&j.label, i, &j.workflow)?
         ));
     }
     Ok(out)
@@ -546,6 +744,7 @@ fn render_leg_launch(
     maxp: u32,
     ff: u8,
     label: &str,
+    wt_precreated: bool,
 ) -> Result<String, String> {
     let legws = format!("\"$BUPHA_GHA_TMP/legs/{i}\"");
     let mut out = String::new();
@@ -555,9 +754,22 @@ fn render_leg_launch(
     out.push_str(&format!(
         "  while [ \"$BUPHA_MP_FAIL\" -eq 0 ] && [ \"$(bupha_mp_slots)\" -ge {maxp} ]; do\n    wait -n 2>/dev/null\n    bupha_mp_harvest {ff}\n  done\n"
     ));
+    // `wt_precreated`: a concurrent level already ran `git worktree
+    // add` for every leg parent-side (serializing git's lock) — the
+    // launch only checks the dir exists, retrying the add itself
+    // when the pre-create failed.
+    let add = if wt_precreated {
+        format!(
+            "[ -e \"$BUPHA_GHA_TMP/legs/{i}/.git\" ] || git -C \"$BUPHA_WORKDIR\" worktree add --detach --quiet \"$BUPHA_GHA_TMP/legs/{i}\" HEAD"
+        )
+    } else {
+        format!(
+            "git -C \"$BUPHA_WORKDIR\" worktree add --detach --quiet \"$BUPHA_GHA_TMP/legs/{i}\" HEAD"
+        )
+    };
     out.push_str(&format!(
-        "  if [ \"$BUPHA_MP_FAIL\" -eq 1 ]; then\n    bupha_set_status {i} 3\n    echo {}\n  elif git -C \"$BUPHA_WORKDIR\" worktree add --detach --quiet \"$BUPHA_GHA_TMP/legs/{i}\" HEAD; then\n",
-        shq_exprs(&format!("gha: job '{label}' cancelled — fail-fast"), i)?
+        "  if [ \"$BUPHA_MP_FAIL\" -eq 1 ]; then\n    bupha_set_status {i} 3\n    echo {}\n  elif {add}; then\n",
+        shq_exprs(&format!("gha: job '{label}' cancelled — fail-fast"), i, &j.workflow)?
     ));
     // The leg body: the EXIT trap records the exit code (even on
     // TERM), the TERM trap converts kills to 143; the inner
@@ -578,8 +790,8 @@ fn render_leg_launch(
     }
     out.push_str(&format!(
         "        echo {}\n      else\n        echo {}\n      fi\n      exit \"$bupha_rc\"\n    ) &\n    BUPHA_MP_PID[{i}]=$!\n",
-        shq_exprs(&format!("gha: job '{label}' passed"), i)?,
-        shq_exprs(&format!("gha: job '{label}' failed"), i)?
+        shq_exprs(&format!("gha: job '{label}' passed"), i, &j.workflow)?,
+        shq_exprs(&format!("gha: job '{label}' failed"), i, &j.workflow)?
     ));
     if let Some(secs) = j.timeout_seconds {
         // Same watchdog shape as sequential jobs, keyed per leg:
@@ -593,7 +805,8 @@ fn render_leg_launch(
         "  else\n    bupha_set_status {i} 1\n    echo {}\n  fi\n",
         shq_exprs(
             &format!("gha: job '{label}' failed — git worktree add failed"),
-            i
+            i,
+            &j.workflow
         )?
     ));
     Ok(out)
@@ -654,7 +867,10 @@ fn render_step(
                 out.push_str(&format!("    if {g}; then\n"));
             }
             out.push_str("    (\n      set -eo pipefail\n");
-            out.push_str(&format!("      cd {}\n", cd_target(ws, None, ji)?));
+            out.push_str(&format!(
+                "      cd {}\n",
+                cd_target(ws, None, ji, &job.workflow)?
+            ));
             if bupha_core::is_valid_sha(ctx.sha) {
                 out.push_str(&format!(
                     "      head_sha=$(git rev-parse HEAD)\n      case \"$head_sha\" in {}*) ;; *) echo \"gha: actions/checkout — HEAD $head_sha != pushed {}\"; exit 1;; esac\n",
@@ -675,7 +891,8 @@ fn render_step(
                             "gha: step '{}' skipped — if condition false",
                             step_label(id.as_deref(), si)
                         ),
-                        ji
+                        ji,
+                        &job.workflow
                     )?
                 ));
             }
@@ -697,11 +914,14 @@ fn render_step(
                 out.push_str(&format!("    if {g}; then\n"));
             }
             out.push_str("    (\n      set -eo pipefail\n");
-            out.push_str(&format!("      cd {}\n", cd_target(ws, wd, ji)?));
+            out.push_str(&format!(
+                "      cd {}\n",
+                cd_target(ws, wd, ji, &job.workflow)?
+            ));
             if !r.env.is_empty() {
                 out.push_str(&format!(
                     "      {}\n",
-                    exports(&r.env, ji)?.replace('\n', "\n      ")
+                    exports(&r.env, ji, &job.workflow)?.replace('\n', "\n      ")
                 ));
             }
             let delim = heredoc_delim(&r.script, &format!("BUPHA_EOF_{ji}_{si}"));
@@ -713,7 +933,7 @@ fn render_step(
                 .map(|s| format!("timeout --kill-after=5 {s} "))
                 .unwrap_or_default();
             out.push_str(&format!("      {timeout}{shell} <<'{delim}'\n"));
-            out.push_str(&script_body(&r.script, ji)?);
+            out.push_str(&script_body(&r.script, ji, &job.workflow)?);
             if !r.script.ends_with('\n') {
                 out.push('\n');
             }
@@ -742,7 +962,8 @@ fn render_step(
                             "gha: step '{}' skipped — if condition false",
                             step_label(r.id.as_deref(), si)
                         ),
-                        ji
+                        ji,
+                        &job.workflow
                     )?
                 ));
             }
@@ -765,6 +986,7 @@ fn step_gate(cond: &Option<Cond>, ji: usize, job: &Job) -> Result<Option<String>
                 &CondCx {
                     ji,
                     needs: &job.needs,
+                    wf: &job.workflow,
                 },
             )
         })
@@ -777,7 +999,7 @@ fn step_gate(cond: &Option<Cond>, ji: usize, job: &Job) -> Result<Option<String>
 /// result stays one word (env exports, echo args); unquoted leaves
 /// word-splitting to the step's own quoting, matching how GitHub
 /// substitutes the raw value into `run:` scripts.
-fn output_lookup(inner: &str, ji: usize, quoted: bool) -> Result<String, String> {
+fn output_lookup(inner: &str, ji: usize, quoted: bool, wf: &str) -> Result<String, String> {
     let sub = if let Some(rest) = inner.strip_prefix("needs.") {
         if let Some((job, name)) = rest.split_once(".outputs.") {
             if job.is_empty() || name.is_empty() {
@@ -785,14 +1007,14 @@ fn output_lookup(inner: &str, ji: usize, quoted: bool) -> Result<String, String>
                     "unsupported deferred expression `${{{{ {inner} }}}}`"
                 ));
             }
-            // `joboutpick/<id>` holds the expanded index of the
+            // `joboutpick/<key>` holds the expanded index of the
             // job's highest-index *successful* leg — the
             // deterministic `needs.<job>.outputs.*` rule under
             // parallel matrix (legs finish out of order, so
             // "last to write" is meaningless). Empty pick → the
             // path can't resolve → empty, like an output the
             // producer never declared.
-            let pick = safe_ctx(job);
+            let pick = ref_key(wf, job);
             format!(
                 "$(cat \"$BUPHA_GHA_TMP/jobouts/$(cat \"$BUPHA_GHA_TMP/joboutpick/{pick}\" 2>/dev/null)/{name}\" 2>/dev/null || :)"
             )
@@ -802,7 +1024,7 @@ fn output_lookup(inner: &str, ji: usize, quoted: bool) -> Result<String, String>
                     "unsupported deferred expression `${{{{ {inner} }}}}`"
                 ));
             }
-            needs_result_lookup(job)
+            needs_result_lookup(job, wf)
         } else {
             return Err(format!(
                 "unsupported deferred expression `${{{{ {inner} }}}}`"
@@ -839,11 +1061,13 @@ fn output_lookup(inner: &str, ji: usize, quoted: bool) -> Result<String, String>
 /// `needs.<job>.result` as a `cat` of the aggregate file
 /// `bupha_agg_result` maintains — self-contained, so it works inside
 /// step `run:` scripts (child `bash`, no helper functions). An
-/// unknown job id reads an impossible path → empty.
-fn needs_result_lookup(job: &str) -> String {
+/// unknown job id reads an impossible path → empty. `wf` is the
+/// consumer's workflow — the producer's, since `needs` never
+/// crosses workflow files.
+fn needs_result_lookup(job: &str, wf: &str) -> String {
     format!(
         "$(cat \"$BUPHA_GHA_TMP/jobresult/{}\" 2>/dev/null || :)",
-        safe_ctx(job)
+        ref_key(wf, job)
     )
 }
 
@@ -869,11 +1093,31 @@ fn safe_ctx(s: &str) -> String {
     }
 }
 
+/// Hex-encode — injective, unlike `safe_ctx`'s lossy fold.
+fn hex(s: &str) -> String {
+    s.bytes().map(|b| format!("{b:02x}")).collect()
+}
+
+/// Store key for a job id's cross-job aggregates (`jobresult/`,
+/// `joboutpick/`, `BUPHA_GHA_JOBIDX`, `bupha_job_failed`): the
+/// workflow name hex-encoded plus the path-safe job id. Two
+/// workflows can declare the same job id — `needs` never crosses
+/// workflow files, so the consumer's workflow is always the
+/// producer's — and their aggregates must not collide.
+fn ref_key(wf: &str, id: &str) -> String {
+    format!("{}-{}", hex(wf), safe_ctx(id))
+}
+
+/// [`ref_key`] for an expanded job.
+fn job_key(j: &Job) -> String {
+    ref_key(&j.workflow, &j.id)
+}
+
 /// Turn an expanded template into a bash word for positions outside
 /// `run:` scripts (env exports, echo args, cd targets): literal
 /// stretches single-quoted, deferred output refs as quoted `$(cat …)`
 /// pieces — adjacent pieces concatenate into one word.
-fn shq_exprs(tpl: &str, ji: usize) -> Result<String, String> {
+fn shq_exprs(tpl: &str, ji: usize, wf: &str) -> Result<String, String> {
     let mut out = String::new();
     let mut rest = tpl;
     while let Some(start) = rest.find("${{") {
@@ -882,7 +1126,7 @@ fn shq_exprs(tpl: &str, ji: usize) -> Result<String, String> {
         let Some(end) = after.find("}}") else {
             return Err("unclosed `${{` in rendered template".to_string());
         };
-        out.push_str(&output_lookup(after[..end].trim(), ji, true)?);
+        out.push_str(&output_lookup(after[..end].trim(), ji, true, wf)?);
         rest = &after[end + 2..];
     }
     out.push_str(&sq(rest));
@@ -894,7 +1138,7 @@ fn shq_exprs(tpl: &str, ji: usize) -> Result<String, String> {
 /// it literal for the step's own shell, so the substitution lands
 /// exactly where GitHub's pre-compiled expression would have put
 /// the value (inside the user's own quoting).
-fn script_body(script: &str, ji: usize) -> Result<String, String> {
+fn script_body(script: &str, ji: usize, wf: &str) -> Result<String, String> {
     let mut out = String::with_capacity(script.len());
     let mut rest = script;
     while let Some(start) = rest.find("${{") {
@@ -903,7 +1147,7 @@ fn script_body(script: &str, ji: usize) -> Result<String, String> {
         let Some(end) = after.find("}}") else {
             return Err("unclosed `${{` in rendered script".to_string());
         };
-        out.push_str(&output_lookup(after[..end].trim(), ji, false)?);
+        out.push_str(&output_lookup(after[..end].trim(), ji, false, wf)?);
         rest = &after[end + 2..];
     }
     out.push_str(rest);
@@ -1236,5 +1480,39 @@ bupha_mp_harvest() {
     done
     BUPHA_MP_RUN=""
   fi
+}
+"#;
+
+/// Bash helpers for the cross-job scheduler, emitted only when a
+/// level holds several independent job groups. Group subshells
+/// can't write the parent's `BUPHA_GHA_STATUS` array — every status
+/// channel (`jobstatus/`, `jobresult/`, `joboutpick/`, `jobouts/`)
+/// is already file-based — so the parent folds each leg's settled
+/// word back after the level barrier.
+const JP_FNS: &str = r#"
+# Fold one expanded job's status back from its jobstatus file after
+# a concurrent level drains: $1 = expanded-job index. The subshell
+# wrote the conclusion word via `bupha_set_status`; this re-asserts
+# the numeric code into the parent's array (and rewrites the same
+# word to the file, idempotently). A missing/unrecognized word
+# settles as failure — a crashed group subshell must never read
+# as skipped.
+bupha_sync_job() {
+  local w
+  w=$(cat "$BUPHA_GHA_TMP/jobstatus/$1" 2>/dev/null)
+  case "$w" in
+    success) bupha_set_status "$1" 0 ;;
+    skipped) bupha_set_status "$1" 2 ;;
+    cancelled) bupha_set_status "$1" 3 ;;
+    *) bupha_set_status "$1" 1 ;;
+  esac
+}
+
+# Remove a concurrently-scheduled group's private `git worktree`;
+# fall back to rm + prune so the common git dir never leaks
+# prunable entries. Same shape as `bupha_mp_clean` for legs.
+bupha_jp_clean() {
+  git -C "$BUPHA_WORKDIR" worktree remove --force "$1" 2>/dev/null \
+    || { rm -rf "$1"; git -C "$BUPHA_WORKDIR" worktree prune 2>/dev/null; }
 }
 "#;

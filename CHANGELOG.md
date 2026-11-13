@@ -74,6 +74,23 @@ generator lands.
   highest-index successful leg. Note the honest boundary: files a
   parallel leg writes to its workspace stay in that leg's
   worktree — they no longer land in the shared workdir.
+- **`runner.kind = "gha"` cross-job parallelism** — jobs are now
+  scheduled by `needs` depth: each topo level is a barrier, and a
+  level holding several independent job groups runs them
+  concurrently, each group in a private `git worktree` (matrix
+  groups fan their legs out inside their own subshell; leg
+  worktrees are pre-created parent-side to serialize git's lock).
+  Single-group levels keep the sequential shared-worktree path, so
+  plain `needs` chains are unchanged. There is no cross-job
+  fail-fast (matching GHA — `strategy.fail-fast` stays per job
+  id), and the barrier is coarser than GHA's per-job scheduler: a
+  job waits for its whole level, not just its needs. Same honest
+  boundary as parallel legs: files a concurrent job writes to its
+  workspace stay in its private worktree — `$BUPHA_WORKDIR` and
+  the `$BUPHA_GHA_TMP` stores are the shared channels.
+  `jobresult/`/`joboutpick/`/`BUPHA_GHA_JOBIDX` are now keyed by
+  workflow+job id, fixing a latent collision when two workflow
+  files declare the same job id (previously last-writer-wins).
 
 ### Fixed
 

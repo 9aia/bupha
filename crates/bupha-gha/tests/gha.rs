@@ -133,7 +133,9 @@ jobs:
       - run: echo dep > dep.txt
   free:
     steps:
-      - run: echo free > free.txt
+      # `free` shares level 0 with `bad` → concurrent private
+      # worktree; $BUPHA_WORKDIR is the shared channel back.
+      - run: echo free > "$BUPHA_WORKDIR/free.txt"
 "#,
     );
     assert!(!run(&d, &sha).success());
@@ -369,6 +371,314 @@ jobs:
     assert_eq!(
         std::fs::read_to_string(d.join("got.txt")).unwrap(),
         "got=v3\n"
+    );
+}
+
+// --- cross-job parallelism (needs-DAG levels) -------------------------
+//
+// Jobs with no mutual `needs` edges share a scheduling level and run
+// concurrently — each group in a private `git worktree`, like
+// parallel matrix legs. Levels are barriers: a job starts only after
+// every earlier level settled. Workspace writes inside a concurrent
+// group land in its private worktree; `$BUPHA_WORKDIR` (the main
+// worktree) and the `$BUPHA_GHA_TMP` stores are the shared channels.
+
+/// (start, end) nanosecond intervals per job name from ov.log —
+/// `s <name> <ts>` / `e <name> <ts>` lines; other tags ignored.
+fn job_intervals(d: &Path) -> Vec<(u64, u64)> {
+    let log = std::fs::read_to_string(d.join("ov.log")).unwrap();
+    let mut jobs: std::collections::HashMap<String, (u64, u64)> = Default::default();
+    for line in log.lines() {
+        let mut it = line.split_whitespace();
+        let (Some(t), Some(name), Some(ts)) = (it.next(), it.next(), it.next()) else {
+            continue;
+        };
+        if t != "s" && t != "e" {
+            continue;
+        }
+        let Ok(ts) = ts.parse::<u64>() else { continue };
+        let e = jobs.entry(name.to_string()).or_default();
+        match t {
+            "s" => e.0 = ts,
+            _ => e.1 = ts,
+        }
+    }
+    let mut v: Vec<(u64, u64)> = jobs.into_values().collect();
+    v.sort();
+    v
+}
+
+#[test]
+fn parallel_jobs_overlap_in_private_worktrees() {
+    // Two independent jobs (no needs) share level 0 → concurrent,
+    // each in its own git worktree.
+    let (d, sha) = repo("pjobs");
+    workflow(
+        &d,
+        "ci.yml",
+        r#"
+on: push
+jobs:
+  a:
+    steps:
+      - run: |
+          echo "ws a $GITHUB_WORKSPACE" >> "$BUPHA_WORKDIR/ov.log"
+          echo "s a $(date +%s%N)" >> "$BUPHA_WORKDIR/ov.log"
+          sleep 1
+          echo "e a $(date +%s%N)" >> "$BUPHA_WORKDIR/ov.log"
+  b:
+    steps:
+      - run: |
+          echo "ws b $GITHUB_WORKSPACE" >> "$BUPHA_WORKDIR/ov.log"
+          echo "s b $(date +%s%N)" >> "$BUPHA_WORKDIR/ov.log"
+          sleep 1
+          echo "e b $(date +%s%N)" >> "$BUPHA_WORKDIR/ov.log"
+"#,
+    );
+    assert!(run(&d, &sha).success());
+    let log = std::fs::read_to_string(d.join("ov.log")).unwrap();
+    let workspaces: Vec<&str> = log
+        .lines()
+        .filter(|l| l.starts_with("ws "))
+        .map(|l| l.rsplit(' ').next().unwrap())
+        .collect();
+    assert_eq!(workspaces.len(), 2, "{log}");
+    assert_ne!(workspaces[0], workspaces[1], "jobs share a workspace");
+    assert!(
+        workspaces.iter().all(|w| *w != d.to_str().unwrap()),
+        "a job ran in the main worktree: {log}"
+    );
+    // The 1s bodies overlapped → parallel, not sequential.
+    let iv = job_intervals(&d);
+    assert_eq!(iv.len(), 2, "{iv:?}");
+    assert!(
+        iv[0].0 < iv[1].1 && iv[1].0 < iv[0].1,
+        "job intervals did not overlap: {iv:?}"
+    );
+    // Private worktrees were cleaned up.
+    let wt = git(&d, &["worktree", "list", "--porcelain"]);
+    assert_eq!(wt.lines().filter(|l| l.starts_with("worktree ")).count(), 1);
+}
+
+#[test]
+fn parallel_jobs_feed_needs_of_later_level() {
+    // Level 0: `produce` + `side` run concurrently. Level 1:
+    // `consume` needs produce — it must see produce's outputs and
+    // result, and side's completion must not have blocked it.
+    let (d, sha) = repo("pneeds");
+    workflow(
+        &d,
+        "ci.yml",
+        r#"
+on: push
+jobs:
+  produce:
+    outputs:
+      val: ${{ steps.gen.outputs.value }}
+    steps:
+      - id: gen
+        run: echo "value=p${{ github.sha }}" >> "$GITHUB_OUTPUT"
+  side:
+    steps:
+      - run: |
+          sleep 1
+          echo "side done $(date +%s%N)" >> "$BUPHA_WORKDIR/ov.log"
+  consume:
+    needs: produce
+    steps:
+      - run: |
+          echo "got=${{ needs.produce.outputs.val }} res=${{ needs.produce.result }}" > "$BUPHA_WORKDIR/got.txt"
+          echo "c s $(date +%s%N)" >> "$BUPHA_WORKDIR/ov.log"
+"#,
+    );
+    assert!(run(&d, &sha).success());
+    let got = std::fs::read_to_string(d.join("got.txt")).unwrap();
+    assert!(got.starts_with("got=p"), "{got}");
+    assert!(got.contains("res=success"), "{got}");
+    // consume is level 1 — it started only after the level-0
+    // barrier, i.e. after side's 1s sleep finished.
+    let log = std::fs::read_to_string(d.join("ov.log")).unwrap();
+    let side_end = log
+        .lines()
+        .find_map(|l| l.strip_prefix("side done ").map(str::to_string))
+        .unwrap();
+    let consume_start = log
+        .lines()
+        .find_map(|l| l.strip_prefix("c s ").map(str::to_string))
+        .unwrap();
+    assert!(
+        consume_start.parse::<u64>().unwrap() >= side_end.parse::<u64>().unwrap(),
+        "consume started before the level-0 barrier: {log}"
+    );
+}
+
+#[test]
+fn parallel_jobs_failure_does_not_cancel_siblings() {
+    // GHA has no cross-job fail-fast: `bad` failing must not kill
+    // `slow`, and `after` (needs slow only) still runs.
+    let (d, sha) = repo("pfail");
+    workflow(
+        &d,
+        "ci.yml",
+        r#"
+on: push
+jobs:
+  bad:
+    steps:
+      - run: exit 1
+  slow:
+    steps:
+      - run: |
+          sleep 2
+          echo "slow end $(date +%s%N)" >> "$BUPHA_WORKDIR/ov.log"
+  after:
+    needs: slow
+    steps:
+      - run: echo "res=${{ needs.slow.result }}" > "$BUPHA_WORKDIR/after.txt"
+"#,
+    );
+    assert!(!run(&d, &sha).success());
+    // slow ran to completion despite bad's early failure.
+    assert!(d.join("ov.log").exists(), "slow was cancelled");
+    let after = std::fs::read_to_string(d.join("after.txt")).unwrap();
+    assert_eq!(after, "res=success\n");
+}
+
+#[test]
+fn parallel_jobs_skip_and_always_across_levels() {
+    // bad+free share level 0; dep+checker share level 1 (both need
+    // bad). dep skips on the implicit success() gate; checker's
+    // always() runs and observes needs.bad.result=failure.
+    let (d, sha) = repo("pskip");
+    workflow(
+        &d,
+        "ci.yml",
+        r#"
+on: push
+jobs:
+  bad:
+    steps:
+      - run: exit 1
+  free:
+    steps:
+      - run: echo free > "$BUPHA_WORKDIR/free.txt"
+  dep:
+    needs: bad
+    steps:
+      - run: echo dep > "$BUPHA_WORKDIR/dep.txt"
+  checker:
+    needs: bad
+    if: always()
+    steps:
+      - run: echo "res=${{ needs.bad.result }}" > "$BUPHA_WORKDIR/res.txt"
+"#,
+    );
+    assert!(!run(&d, &sha).success());
+    assert!(d.join("free.txt").exists());
+    assert!(!d.join("dep.txt").exists());
+    assert_eq!(
+        std::fs::read_to_string(d.join("res.txt")).unwrap(),
+        "res=failure\n"
+    );
+}
+
+#[test]
+fn parallel_level_runs_matrix_group_and_plain_job() {
+    // Level 0 mixes a parallel matrix group and a plain job — the
+    // matrix legs fan out inside their own subshell while the plain
+    // job runs in its private worktree; both overlap.
+    let (d, sha) = repo("pmixed");
+    workflow(
+        &d,
+        "ci.yml",
+        r#"
+on: push
+jobs:
+  m:
+    strategy:
+      fail-fast: false
+      matrix:
+        leg: [1, 2]
+    steps:
+      - run: |
+          echo "ws m $GITHUB_WORKSPACE" >> "$BUPHA_WORKDIR/ov.log"
+          echo "s m $(date +%s%N)" >> "$BUPHA_WORKDIR/ov.log"
+          sleep 1
+          echo "e m $(date +%s%N)" >> "$BUPHA_WORKDIR/ov.log"
+  p:
+    steps:
+      - run: |
+          echo "ws p $GITHUB_WORKSPACE" >> "$BUPHA_WORKDIR/ov.log"
+          echo "s p $(date +%s%N)" >> "$BUPHA_WORKDIR/ov.log"
+          sleep 1
+          echo "e p $(date +%s%N)" >> "$BUPHA_WORKDIR/ov.log"
+"#,
+    );
+    assert!(run(&d, &sha).success());
+    let log = std::fs::read_to_string(d.join("ov.log")).unwrap();
+    let workspaces: Vec<&str> = log
+        .lines()
+        .filter(|l| l.starts_with("ws "))
+        .map(|l| l.rsplit(' ').next().unwrap())
+        .collect();
+    assert_eq!(workspaces.len(), 3, "{log}");
+    // Every group member got a distinct private workspace.
+    let mut sorted = workspaces.clone();
+    sorted.sort();
+    sorted.dedup();
+    assert_eq!(sorted.len(), 3, "{log}");
+    assert!(
+        workspaces.iter().all(|w| *w != d.to_str().unwrap()),
+        "a job ran in the main worktree: {log}"
+    );
+    let wt = git(&d, &["worktree", "list", "--porcelain"]);
+    assert_eq!(wt.lines().filter(|l| l.starts_with("worktree ")).count(), 1);
+}
+
+#[test]
+fn parallel_jobs_across_workflows_namespaced() {
+    // Two workflow files each declare job `build` — same id,
+    // different workflows. Both land on level 0 and run
+    // concurrently; rel.yml's `use` must read rel's build outputs,
+    // never ci's (the jobresult/joboutpick stores are keyed by
+    // workflow+id).
+    let (d, sha) = repo("pwf");
+    workflow(
+        &d,
+        "ci.yml",
+        r#"
+on: push
+jobs:
+  build:
+    outputs:
+      val: ${{ steps.gen.outputs.value }}
+    steps:
+      - id: gen
+        run: echo "value=ci" >> "$GITHUB_OUTPUT"
+"#,
+    );
+    workflow(
+        &d,
+        "rel.yml",
+        r#"
+on: push
+jobs:
+  build:
+    outputs:
+      val: ${{ steps.gen.outputs.value }}
+    steps:
+      - id: gen
+        run: echo "value=rel" >> "$GITHUB_OUTPUT"
+  use:
+    needs: build
+    steps:
+      - run: echo "got=${{ needs.build.outputs.val }} res=${{ needs.build.result }}" > "$BUPHA_WORKDIR/got.txt"
+"#,
+    );
+    assert!(run(&d, &sha).success());
+    assert_eq!(
+        std::fs::read_to_string(d.join("got.txt")).unwrap(),
+        "got=rel res=success\n"
     );
 }
 
@@ -817,7 +1127,9 @@ jobs:
     steps:
       - run: |
           if [ "${LEAKED:-}" = "yes" ]; then exit 1; fi
-          echo scoped > scoped.txt
+          # a+b share level 0 → concurrent private worktrees;
+          # $BUPHA_WORKDIR is the shared channel back.
+          echo scoped > "$BUPHA_WORKDIR/scoped.txt"
 "#,
     );
     assert!(run(&d, &sha).success());
@@ -1004,7 +1316,8 @@ jobs:
   runme:
     if: github.ref_name == 'main' && contains(github.repository, 'r')
     steps:
-      - run: echo yep > yep.txt
+      # skipme+runme share level 0 → concurrent private worktrees.
+      - run: echo yep > "$BUPHA_WORKDIR/yep.txt"
 "#,
     );
     assert!(run(&d, &sha).success());
@@ -1054,17 +1367,19 @@ jobs:
     needs: bad
     if: failure()
     steps:
-      - run: echo fail > fail.txt
+      # The three bad-dependents share level 1 → concurrent private
+      # worktrees; $BUPHA_WORKDIR is the shared channel back.
+      - run: echo fail > "$BUPHA_WORKDIR/fail.txt"
   onsuccess:
     needs: bad
     if: success()
     steps:
-      - run: echo suc > suc.txt
+      - run: echo suc > "$BUPHA_WORKDIR/suc.txt"
   alwaysjob:
     needs: bad
     if: always()
     steps:
-      - run: echo alw > alw.txt
+      - run: echo alw > "$BUPHA_WORKDIR/alw.txt"
 "#,
     );
     let s = run(&d, &sha);
@@ -1696,8 +2011,13 @@ jobs:
 fn setup_node_version_file_and_bad_version() {
     // .nvmrc-style resolution works; a nonsense spec fails the job
     // before any download is attempted.
-    let (d, sha) = repo("setup-nodefile");
+    let (d, _) = repo("setup-nodefile");
+    // `ok`+`bad` share level 0 → private `git worktree` checkouts of
+    // HEAD — .nvmrc must be committed to be visible there.
     std::fs::write(d.join(".nvmrc"), "22\n").unwrap();
+    git(&d, &["add", ".nvmrc"]);
+    git(&d, &["commit", "-qm", "nvmrc"]);
+    let sha = git(&d, &["rev-parse", "HEAD"]);
     workflow(
         &d,
         "ci.yml",
@@ -1709,7 +2029,9 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version-file: .nvmrc
-      - run: node --version > node.txt
+      # ok+bad share level 0 → concurrent private worktrees;
+      # $BUPHA_WORKDIR is the shared channel back.
+      - run: node --version > "$BUPHA_WORKDIR/node.txt"
   bad:
     steps:
       - uses: actions/setup-node@v4
