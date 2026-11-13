@@ -59,6 +59,12 @@ env file) — `peregrin pair`/`hypha pair` mints the token.
 node = "http://127.0.0.1:18787"      # hypha/peregrin node base URL
 node_token_env = "PEREGRIN_TOKEN"   # secret NAME, never the value
 labels = ["arch=arm64"]             # this box's claim labels
+# events_url = "http://127.0.0.1:29173/api/events/inject"
+#   ^ optional: where ci.job.completed POSTs. Default is
+#   {node}/api/events/inject — the entity node's ingest, which
+#   reaches kind="campaign" entities. Campaigns hosted by
+#   `peregrin campaign serve` instead need its shared listener's
+#   /api/events/inject (same PEREGRIN_TOKEN bearer).
 ```
 
 **Fork-PR checkout.** A `pull_request` ci-job may carry optional
