@@ -184,8 +184,8 @@ api:
   module: project
 - name: T-027
   kind: record
-  file: project/TODO.md
-  line: 3
+  file: project/DONE.md
+  line: 28
   module: project
 - name: T-027
   kind: record
@@ -200,9 +200,9 @@ api:
 - name: T-031
   kind: record
   file: project/TODO.md
-  line: 4
+  line: 3
   module: project
-api_omitted: 58
+api_omitted: 59
 deps: []
 notes: ''
 verify:
@@ -250,6 +250,7 @@ provenance:
   - project/handoffs/T-069.md
   - project/handoffs/T-071.md
   - project/handoffs/T-072.md
+  - project/handoffs/T-073.md
   - project/handoffs/T-074.md
   - project/handoffs/T-075.md
   - project/handoffs/archive/T-029.md
@@ -271,15 +272,15 @@ provenance:
   - project/proposals/proposal-0003-bupha-runner-port-is-load-bearing-keep-redundancy-is-queue-store-t-049-and-worktree-plumbing.md
   hashes:
   - 0c114ae20a3b247a677807d75548dc3e0d5e0883
-  - c5067d90f9277719be8d6eb7b92da3bf0d9f3e71
-  - 5a7ba86569fe24e8d5fa2b55944ec4b4bb6fffdc
+  - 8a1758c990c3b98704ec8d67e0b9590c0fd33692
+  - 9e736c2cfb2de068aedc699f84404d17771b0925
   - 2369700a1a6e99c56d28b0d38e76ab053b37bd6d
   - c29950d6fd46cd166cee477e9f1bd125ac1b283a
   - 5d22a78ab0e5a33a834acb59d44080bc09bceefd
   - e52d9fd7026b90c3f3eb17b03dea333b80260688
   - afef3694073ef806a08826c8bf767f3f6c7bca08
   - 522318709a3923d3396a224c9968ee4471e7750e
-  - 22e0586b4e103ee18dbeca15ed3c319130706688
+  - 6081ea6daf20ec39be345b31b24ac46fbf10cf41
   - 96aa1d435b9332dd5b89f251427ac64b506af755
   - 7bf0a06eefa44c31602198fb24f3e8f0ba6660b7
   - f4af48c3e7c814e5eb919393b0d73fbf672f39cc
@@ -302,6 +303,7 @@ provenance:
   - 8206059f41cc337b706e7c9ddba64aa890b568b5
   - 174cdab0c2f9fe7f272bd2fb94a9f69e9e8f4602
   - d7f877733cb2e87c430de164332c020926bee1ca
+  - 8acce8a32f7eb2570c50e1c470176d1efaff38dc
   - c1d6e4e743d9e7455fc17ea2071425220a15f8cb
   - 2f02822ff44dd986802aeab152bca1a7b61390e8
   - d3f12670f3e871b0c2a499668a4cd1e3bb3d7815
@@ -321,6 +323,6 @@ provenance:
   - d7ce1cb6d95ae71a26ec4c6bdabdc5f318d8a21f
   - 64bb8eeec2c83135075727fb9aec32780e212939
   - 47479681f7ca7db300bbd8f998bd0918a4db0010
-  commit_sha: 44d6f3c6be1ec72b4a013fec597421ac040813da
-  generated_at: '1794547490'
+  commit_sha: 255c0ebbd6460737dd3b15424b96c0d8ef08540a
+  generated_at: '1794549653'
   generator: kuda-template/0.1.4

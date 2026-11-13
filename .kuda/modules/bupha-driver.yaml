@@ -40,7 +40,7 @@ api:
 - name: HookTarget
   kind: type
   file: crates/bupha-driver/src/ops.rs
-  line: 479
+  line: 486
   module: bupha-driver
 - name: Ingress
   kind: type
@@ -50,7 +50,7 @@ api:
 - name: MANIFEST
   kind: const
   file: crates/bupha-driver/src/ops.rs
-  line: 1136
+  line: 1143
   module: bupha-driver
 - name: MANIFEST_NAMES
   kind: const
@@ -60,12 +60,12 @@ api:
 - name: MIN_CONFIG
   kind: const
   file: crates/bupha-driver/src/data.rs
-  line: 239
+  line: 242
   module: bupha-driver
 - name: MIN_FLEET
   kind: const
   file: crates/bupha-driver/src/ops.rs
-  line: 1123
+  line: 1130
   module: bupha-driver
 - name: Manifest
   kind: type
@@ -207,15 +207,15 @@ deps:
 - bupha
 - bupha-config-file
 - bupha-core
-- bupha-dotenv
 - bupha-github
-- bupha-keyring
 - bupha-queue
-- bupha-secret
 - bupha-secret-cuora
-- bupha-systemd
 - bupha-watch
 - clap
+- hypha-dotenv
+- hypha-keyring
+- hypha-secret
+- hypha-systemd
 - pavo-driver-kit
 - pavo-protocol
 - serde
@@ -233,7 +233,7 @@ deps:
 - sha2
 - serde_json
 - serde
-- bupha-secret
+- hypha_secret
 - bupha-config-file
 - bupha-core
 - clap
@@ -270,12 +270,12 @@ provenance:
   - crates/bupha-driver/tests/verbs.rs
   - crates/bupha-driver/tests/watch.rs
   hashes:
-  - ab3af93432c384548c7cb934e03beac7f7317baf
-  - c4e8df90d9d19dda944d36d6086a54bf09ad46ab
+  - b88c837b1a4cdad05401250ce8b6399ff574cc67
+  - ed51e1e54e2387ffa046313bb9edd2fd4b6867f1
   - 198a3778c07393c79598b08916cb8095bd165727
   - aeae9673ae611a66a0146a4227ead239022f61ed
   - d9f35acc6476a1aa976407388bc3f0a565824abb
-  - 65576cf895663df7c89a29d08e4a22efa12300cb
+  - b331a13051436563fe4fb8c2cc831a6ab1d78281
   - 0da6b0651234e4ebbf8510aa9ff4f77ef22eb332
   - d8f6cbd1c8f342af984fc99785f7a9cb9bc54f85
   - ae825cd78b5ab2f1c7d3c81aeb8a02ac97bcfda2
@@ -287,6 +287,6 @@ provenance:
   - 12553a9dc152e7e0ffec4a06651592ed38d3ed23
   - fd852737ecb9227ba086e83d6212dc327ab9ac7b
   - 69c188e363454b256787377d8496652dcd4c7a80
-  commit_sha: 11045534cba61bed3e683b87d87c1f30855a5fc6
-  generated_at: '1794502634'
+  commit_sha: 255c0ebbd6460737dd3b15424b96c0d8ef08540a
+  generated_at: '1794549653'
   generator: kuda-template/0.1.4

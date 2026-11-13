@@ -12,44 +12,36 @@ modules:
 - bupha-audit-file
 - bupha-cache
 - bupha-cache-sccache
-- bupha-cloudflared
 - bupha-config-file
 - bupha-container
 - bupha-core
 - bupha-dagger
-- bupha-dotenv
 - bupha-driver
 - bupha-gha
 - bupha-gha-runner
 - bupha-github
 - bupha-history
 - bupha-http
-- bupha-keyring
 - bupha-plane
 - bupha-queue
 - bupha-runner
-- bupha-secret
 - bupha-secret-cuora
-- bupha-service
 - bupha-shell
 - bupha-ssh
 - bupha-status
 - bupha-sturn
-- bupha-systemd
 - bupha-telemetry
 - bupha-telemetry-otel
 - bupha-trigger
-- bupha-tunnel
 - bupha-watch
-- bupha-webhook
 - docs
 - project
 - sturn-wal
 commands:
 - cargo check
 - cargo test --workspace
-tree_digest: c9acf65bdc0369216faae916ff883230ec173bd4
-files_total: 228
+tree_digest: 3c43c23553168474adcb3ef1b021f1008cbe6010
+files_total: 209
 provenance:
   files:
   - Cargo.toml
@@ -64,39 +56,31 @@ provenance:
   - crates/bupha-cache/Cargo.toml
   - crates/bupha-cache-sccache/Cargo.toml
   - crates/bupha-cli/Cargo.toml
-  - crates/bupha-cloudflared/Cargo.toml
   - crates/bupha-config-file/Cargo.toml
   - crates/bupha-container/Cargo.toml
   - crates/bupha-core/Cargo.toml
   - crates/bupha-dagger/Cargo.toml
-  - crates/bupha-dotenv/Cargo.toml
   - crates/bupha-driver/Cargo.toml
   - crates/bupha-gha/Cargo.toml
   - crates/bupha-gha-runner/Cargo.toml
   - crates/bupha-github/Cargo.toml
   - crates/bupha-history/Cargo.toml
   - crates/bupha-http/Cargo.toml
-  - crates/bupha-keyring/Cargo.toml
   - crates/bupha-plane/Cargo.toml
   - crates/bupha-queue/Cargo.toml
   - crates/bupha-runner/Cargo.toml
-  - crates/bupha-secret/Cargo.toml
   - crates/bupha-secret-cuora/Cargo.toml
-  - crates/bupha-service/Cargo.toml
   - crates/bupha-shell/Cargo.toml
   - crates/bupha-ssh/Cargo.toml
   - crates/bupha-status/Cargo.toml
   - crates/bupha-sturn/Cargo.toml
-  - crates/bupha-systemd/Cargo.toml
   - crates/bupha-telemetry/Cargo.toml
   - crates/bupha-telemetry-otel/Cargo.toml
   - crates/bupha-trigger/Cargo.toml
-  - crates/bupha-tunnel/Cargo.toml
   - crates/bupha-watch/Cargo.toml
-  - crates/bupha-webhook/Cargo.toml
   - modules/dagger/dagger/pyproject.toml
   hashes:
-  - 2f6fd8a431eb2a7e2eb933fa0aed6b842d73a638
+  - 92952cd84e1b9e3741328c28fb836bbe1832826e
   - 79053feb541876842411903f76d94b344d194d43
   - faa9d3e3b2e30ebed8aecf8da83c4683f33024c8
   - d3b36ada9a99ed7e36e96e47a7beb1f5bf3fe348
@@ -107,38 +91,30 @@ provenance:
   - d46021a5cc4e28ee9eed1d7ca349dd222a5d8306
   - 1e8b72c77e68157b0bceb70cbb4e3ea5c6b4868e
   - 1ce58c0ddf98f4e695cbd71d19541ac6dc19034a
-  - 9d06d193d6de734ad28d5a33d2a743a391ec9383
-  - c6468e2b1603699af53234b1fa10040bc21f84b9
+  - c6d20f735ed0cb1e6b08e5f9b8a2a9c7b1093622
   - 2554603bfe365d5bcc00501ca7b197239ae7512f
   - ed119b77d73632bed5f8699fe776993139cce885
   - 2949c06c8e71ef5da170506ce9cd8dfbb7312ce3
   - 6ebc856617d9589fc7fa9c6363696d2e543e5f0b
-  - 65cf007ad2f3d1e6517719d11469bc6e97b7326d
-  - ab3af93432c384548c7cb934e03beac7f7317baf
+  - b88c837b1a4cdad05401250ce8b6399ff574cc67
   - 130920aec2d9f32d6f8c6d16b35230ba63ddc04f
   - 50261b87b50271a25bf73fe4037897a0d4e97a89
   - 9a8bdeb02a9e8896e60f63d221a83f115d8a5980
   - bd3c49c8020bf9cc448326c4af9bd71df1191fb1
   - 324f2f1667132e7b9ede9def54a162c77381e0ca
-  - 295c5fb2896a8e7a89dfabd77f0d1e85f22377b3
   - fcdab77747a105b6a9ccd61f0074664e7efb925d
   - 4067514b00d192c5f7b55d0612da1930e6ad3f73
   - 4fefe465ba6004fda1b42f7c3358502f9fdbbc1f
-  - f77f1a255f54b328d61466935ed9b8845a61e3bc
-  - b5dd1bddfffd8caf2297cb27220fa64c1ad35d6b
-  - 43f0f610caa55dcf9977c38f161c802aebf66e06
+  - a6d87b2f427fd7e811220b74e1a94c9ea88210bf
   - 6dce52587f4d41a91e9f578dddf2fec383a2f3a2
   - 29f876e5787cf84ffefed9baa070cee30bda8972
   - 72d19ee54274002b46b4eb143502f0a422bc6b9b
   - 3ab4e5c0ef5a9ba093bbecec61fba19bedab49ed
-  - 90afffb3e13a350613d0fa7bada6420d14581028
   - fbe2fdbccfd7b8538a701e654208633efa99e493
   - 2a36671c2aaaac449a8e23391a72f3473f9fe3c9
   - 5049aec6b8565aa211bac21b52c0f690c0509d63
-  - 5e76ec1737eaa365ccdeadbb3706a163e1a97792
-  - 3a81d785d77178b64fa3fd85a98f40a70bb6701d
-  - cd8e10b771c3960ae45a2b6f7705fa9f1cdc6344
+  - 715f30ad0b0174c954edc60974b199104abd988d
   - a787b6af9e98fd8cae6ece92467308d34e49bbce
-  commit_sha: 44d6f3c6be1ec72b4a013fec597421ac040813da
-  generated_at: '1794547490'
+  commit_sha: 255c0ebbd6460737dd3b15424b96c0d8ef08540a
+  generated_at: '1794549653'
   generator: kuda/0.1.0

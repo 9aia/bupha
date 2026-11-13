@@ -17,6 +17,11 @@ api:
   file: crates/bupha-status/src/lib.rs
   line: 17
   module: bupha-status
+- name: post_link
+  kind: function
+  file: crates/bupha-status/src/lib.rs
+  line: 26
+  module: bupha-status
 deps: []
 notes: ''
 verify:
@@ -28,7 +33,7 @@ provenance:
   - crates/bupha-status/src/lib.rs
   hashes:
   - 72d19ee54274002b46b4eb143502f0a422bc6b9b
-  - 85127dea72823c7040a86dfc8c6f2b9c4c6afebb
-  commit_sha: ab5350dc122b52b54b870a567e71b9a7932020ec
-  generated_at: '1794544949'
+  - e6d8fb0d1d7e56c7908b3b3b75bef37121a2fc9c
+  commit_sha: 255c0ebbd6460737dd3b15424b96c0d8ef08540a
+  generated_at: '1794549653'
   generator: kuda-template/0.1.4

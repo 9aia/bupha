@@ -5,27 +5,37 @@ api:
 - name: CancelExec
   kind: type
   file: crates/bupha-watch/src/entity_worker.rs
-  line: 1119
+  line: 1111
   module: bupha-watch
 - name: ChildSlot
   kind: type
   file: crates/bupha-watch/src/lib.rs
-  line: 251
+  line: 260
   module: bupha-watch
 - name: ClaimFilter
   kind: type
   file: crates/bupha-watch/src/entity_worker.rs
-  line: 617
+  line: 609
   module: bupha-watch
 - name: ClaimOutcome
   kind: type
   file: crates/bupha-watch/src/entity_worker.rs
   line: 90
   module: bupha-watch
+- name: CloudflaredTunnel
+  kind: type
+  file: crates/bupha-watch/src/tunnel.rs
+  line: 32
+  module: bupha-watch
 - name: DEFAULT_LEASE_SECS
   kind: const
   file: crates/bupha-watch/src/entity_worker.rs
   line: 43
+  module: bupha-watch
+- name: Direct
+  kind: type
+  file: crates/bupha-watch/src/tunnel.rs
+  line: 70
   module: bupha-watch
 - name: EntityClaim
   kind: type
@@ -50,27 +60,32 @@ api:
 - name: FailWait
   kind: type
   file: crates/bupha-watch/src/lib.rs
-  line: 154
+  line: 157
   module: bupha-watch
 - name: FailWaitRunner
   kind: type
   file: crates/bupha-watch/src/lib.rs
-  line: 152
+  line: 155
   module: bupha-watch
 - name: FakeApi
   kind: type
   file: crates/bupha-watch/src/entity_worker.rs
-  line: 822
+  line: 814
   module: bupha-watch
 - name: FakeExec
   kind: type
   file: crates/bupha-watch/src/entity_worker.rs
-  line: 973
+  line: 965
   module: bupha-watch
 - name: FetchTarget
   kind: type
   file: crates/bupha-watch/src/lib.rs
-  line: 287
+  line: 296
+  module: bupha-watch
+- name: G
+  kind: type
+  file: crates/bupha-watch/src/webhook.rs
+  line: 31
   module: bupha-watch
 - name: HeldClaim
   kind: type
@@ -80,7 +95,12 @@ api:
 - name: Ingest
   kind: type
   file: crates/bupha-watch/src/lib.rs
-  line: 528
+  line: 565
+  module: bupha-watch
+- name: Inner
+  kind: type
+  file: crates/bupha-watch/src/webhook.rs
+  line: 42
   module: bupha-watch
 - name: JobApi
   kind: trait
@@ -90,119 +110,99 @@ api:
 - name: JobEnd
   kind: type
   file: crates/bupha-watch/src/lib.rs
-  line: 274
+  line: 283
   module: bupha-watch
 - name: JobExec
   kind: trait
   file: crates/bupha-watch/src/entity_worker.rs
   line: 467
   module: bupha-watch
+- name: LOCK
+  kind: const
+  file: crates/bupha-watch/tests/tunnel.rs
+  line: 13
+  module: bupha-watch
+- name: MAX_INFLIGHT
+  kind: const
+  file: crates/bupha-watch/src/webhook.rs
+  line: 27
+  module: bupha-watch
+- name: PathGuard
+  kind: type
+  file: crates/bupha-watch/tests/tunnel.rs
+  line: 17
+  module: bupha-watch
 - name: Poll
   kind: type
   file: crates/bupha-watch/src/lib.rs
-  line: 402
+  line: 426
   module: bupha-watch
 - name: Shared
   kind: type
   file: crates/bupha-watch/src/lib.rs
-  line: 500
+  line: 537
   module: bupha-watch
 - name: SkipExec
   kind: type
   file: crates/bupha-watch/src/entity_worker.rs
-  line: 1283
+  line: 1275
   module: bupha-watch
 - name: Step
   kind: type
   file: crates/bupha-watch/src/entity_worker.rs
-  line: 684
+  line: 676
+  module: bupha-watch
+- name: Tunnel
+  kind: trait
+  file: crates/bupha-watch/src/tunnel.rs
+  line: 14
   module: bupha-watch
 - name: WatchExec
   kind: type
   file: crates/bupha-watch/src/entity_worker.rs
   line: 481
   module: bupha-watch
+- name: WebhookSource
+  kind: type
+  file: crates/bupha-watch/src/webhook.rs
+  line: 60
+  module: bupha-watch
 - name: Worker
   kind: type
   file: crates/bupha-watch/src/lib.rs
-  line: 254
+  line: 263
+  module: bupha-watch
+- name: args_of
+  kind: function
+  file: crates/bupha-watch/tests/tunnel.rs
+  line: 76
+  module: bupha-watch
+- name: attest_run
+  kind: function
+  file: crates/bupha-watch/src/lib.rs
+  line: 810
+  module: bupha-watch
+- name: attest_run_links_only_with_url_base
+  kind: function
+  file: crates/bupha-watch/src/lib.rs
+  line: 1353
   module: bupha-watch
 - name: build_attest
   kind: function
   file: crates/bupha-watch/src/lib.rs
-  line: 674
+  line: 711
   module: bupha-watch
 - name: build_audit
   kind: function
   file: crates/bupha-watch/src/lib.rs
-  line: 704
+  line: 741
   module: bupha-watch
 - name: build_runner
   kind: function
   file: crates/bupha-watch/src/lib.rs
-  line: 69
+  line: 72
   module: bupha-watch
-- name: build_runners
-  kind: function
-  file: crates/bupha-watch/src/lib.rs
-  line: 746
-  module: bupha-watch
-- name: build_sinks
-  kind: function
-  file: crates/bupha-watch/src/lib.rs
-  line: 719
-  module: bupha-watch
-- name: build_telemetry
-  kind: function
-  file: crates/bupha-watch/src/lib.rs
-  line: 655
-  module: bupha-watch
-- name: bupha-watch
-  kind: module
-  file: crates/bupha-watch/Cargo.toml
-  line: 1
-  module: bupha-watch
-- name: cancel_during_run_settles_cancelled
-  kind: function
-  file: crates/bupha-watch/src/entity_worker.rs
-  line: 1101
-  module: bupha-watch
-- name: candidates
-  kind: function
-  file: crates/bupha-watch/src/entity_worker.rs
-  line: 658
-  module: bupha-watch
-- name: candidates_apply_ref_event_gate
-  kind: function
-  file: crates/bupha-watch/src/entity_worker.rs
-  line: 1206
-  module: bupha-watch
-- name: candidates_filters_and_orders
-  kind: function
-  file: crates/bupha-watch/src/entity_worker.rs
-  line: 1165
-  module: bupha-watch
-- name: cfg_dir
-  kind: function
-  file: crates/bupha-watch/src/lib.rs
-  line: 188
-  module: bupha-watch
-- name: claim
-  kind: function
-  file: crates/bupha-watch/src/entity_worker.rs
-  line: 301
-  module: bupha-watch
-- name: claim
-  kind: function
-  file: crates/bupha-watch/src/entity_worker.rs
-  line: 892
-  module: bupha-watch
-- name: claim_from_body
-  kind: function
-  file: crates/bupha-watch/src/entity_worker.rs
-  line: 241
-  module: bupha-watch
-api_omitted: 85
+api_omitted: 120
 deps:
 - bupha-access
 - bupha-access-file
@@ -213,20 +213,16 @@ deps:
 - bupha-audit-file
 - bupha-cache
 - bupha-cache-sccache
-- bupha-cloudflared
 - bupha-container
 - bupha-core
 - bupha-dagger
-- bupha-dotenv
 - bupha-gha
 - bupha-github
 - bupha-history
 - bupha-http
-- bupha-keyring
 - bupha-plane
 - bupha-queue
 - bupha-runner
-- bupha-secret
 - bupha-secret-cuora
 - bupha-shell
 - bupha-ssh
@@ -235,23 +231,26 @@ deps:
 - bupha-telemetry
 - bupha-telemetry-otel
 - bupha-trigger
-- bupha-tunnel
-- bupha-webhook
 - chrono
+- hypha-dotenv
+- hypha-keyring
 - hypha-node-api
+- hypha-secret
 - lasius-vcs
 - lasius-vcs-git
 - serde_json
+- tiny_http
 - tokio
 - toml
 - ureq
-- bupha-attest
 - bupha-core
+- bupha-attest
 - bupha-queue
 - bupha-runner
 - bupha-status
 - bupha-telemetry
 - serde_json
+- bupha-trigger
 - bupha-access
 - bupha-access-file
 - bupha-access-forge
@@ -260,21 +259,19 @@ deps:
 - bupha-audit-file
 - bupha-cache
 - bupha-cache-sccache
-- bupha-cloudflared
 - bupha-container
 - bupha-dagger
-- bupha-dotenv
 - bupha-gha
 - bupha-github
 - bupha-history
-- bupha-keyring
-- bupha-secret
 - bupha-secret-cuora
 - bupha-shell
 - bupha-telemetry-otel
-- bupha-trigger
-- bupha-tunnel
-- bupha-webhook
+- tunnel
+- webhook
+- hypha_dotenv
+- hypha_keyring
+- hypha_secret
 - lasius_vcs
 - lasius_vcs_git
 notes: ''
@@ -282,15 +279,24 @@ verify:
 - crates/bupha-watch/Cargo.toml
 - crates/bupha-watch/src/entity_worker.rs
 - crates/bupha-watch/src/lib.rs
+- crates/bupha-watch/src/tunnel.rs
+- crates/bupha-watch/src/webhook.rs
+- crates/bupha-watch/tests/tunnel.rs
 provenance:
   files:
   - crates/bupha-watch/Cargo.toml
   - crates/bupha-watch/src/entity_worker.rs
   - crates/bupha-watch/src/lib.rs
+  - crates/bupha-watch/src/tunnel.rs
+  - crates/bupha-watch/src/webhook.rs
+  - crates/bupha-watch/tests/tunnel.rs
   hashes:
-  - 3a81d785d77178b64fa3fd85a98f40a70bb6701d
-  - 8d77549c50290ca2ac81a7fca70785c1595cd899
-  - a295c6bd6ef5ed57092dd87947867291c539d84a
-  commit_sha: 44d6f3c6be1ec72b4a013fec597421ac040813da
-  generated_at: '1794547490'
+  - 715f30ad0b0174c954edc60974b199104abd988d
+  - 28a4e4957ea8f1bf344b05519254850d30ed2d86
+  - e36c57299a9c98da9f9201941f434a67d8a2e57e
+  - 0ebbe5f4cbdcd4ef1d8da46e9120a81e1f81812b
+  - 762216f0144384abf6afb630748d50671eaae648
+  - 4366e8ed513f0a454134ec46f31111ab2dbafc11
+  commit_sha: 255c0ebbd6460737dd3b15424b96c0d8ef08540a
+  generated_at: '1794549653'
   generator: kuda-template/0.1.4
