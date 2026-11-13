@@ -2,6 +2,8 @@
 # Every field is bupha-gha-runner::Config; see
 # crates/bupha-gha-runner/src/lib.rs module docs for the full
 # contract. Secrets are env-var/file NAMES only — never values.
+# NOTE: no `~` expansion — paths are literal; relative paths anchor
+# at the config file's directory. Use absolute paths.
 
 repo = "owner/repo"                    # the ONE repo this runner serves
 name = "bupha-builder-1"               # runner list label
