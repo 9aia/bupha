@@ -127,3 +127,26 @@ Rulings:
    or is ingress exposure always a campaign/deploy concern (named
    tunnel via tamias)? Determines whether `bupha-tunnel`'s trait
    migrates or just dies.
+
+## Resolution — T-077 (landed)
+
+With T-055 (ADR-0007: ingress is peregrin-owned, bupha webhook
+surfaces are standalone/dev mode) and T-056 (cuora canonical,
+T-059 migration verified) done, the remaining MIGRATE/DIE crates
+were retired in three commits on `main`:
+
+| Crate | Outcome |
+| --- | --- |
+| `bupha-secret` | **DIE** — trait identical to `hypha_secret::Secrets`; consumers take the hypha git dep directly. |
+| `bupha-keyring` | **DIE → `hypha-keyring`** with `service = "bupha"` so pre-cuora keyring entries still resolve. |
+| `bupha-dotenv` | **DIE → `hypha-dotenv`** — `~/.config/bupha/env` path/format unchanged. |
+| `bupha-secret-cuora` | **KEEP** — the canonical store; now implements `hypha_secret::Secrets` (already wrapped `hypha-secret-cuora`). |
+| `bupha-service` | **DIE** — one impl (`bupha-systemd`), consumers used free fns/struct, not the trait. |
+| `bupha-systemd` | **DIE → `hypha-systemd`** — unit render/control via `write_unit`/`enable`/`disable`/`status`/`restart`/`unit_path`/`default_unit_dir`. Bupha-shaped helpers (`write_env_skeleton`, `service_logs`, strict daemon-reload on destroy, `SystemdService` wrapper) folded into `bupha-cli`'s `deploy` module. Unit diffs: bare name + `.service` suffix, quoted ExecStart argv, `EnvironmentFile=-`, `Restart=on-failure`. |
+| `bupha-tunnel` + `bupha-cloudflared` | **FOLDED → `bupha-watch::tunnel`** — ADR-0007 keeps them as the standalone/dev-mode ingress; no hypha tunnel impl exists or is wanted (ingress exposure is a deploy/campaign concern). |
+| `bupha-webhook` | **FOLDED → `bupha-watch::webhook`** — same reasoning; `tiny_http` dep moved to bupha-watch. |
+
+Open questions 1 and 6 are thereby resolved: cuora won the secrets
+story (legacy keyring/dotenv legs survive only as hypha-backed
+fallbacks in the dev chain), and no generic tunnel port migrates —
+the trait lives on inside `bupha-watch` for standalone mode only.
