@@ -24,6 +24,25 @@
 //! to the env-file leg exactly like a missing ref on a headless
 //! box, on either transport.
 //!
+//! ## Sealed-pack fallback (T-053)
+//!
+//! The `bupha` scope is already the canonical fleet surface, so
+//! there is no middle scope here — but the CI-webhook secrets are
+//! migrating into the sealed tamias pack `secrets-ci-webhooks`
+//! (vault-less, age-sealed; see cuora's `cuora://<pack>/<secret>`
+//! read path). Resolution is therefore a two-scope chain, vault
+//! first:
+//!
+//! 1. `cuora://bupha/<NAME>` — the vault copy;
+//! 2. `cuora://secrets-ci-webhooks/<NAME>` — the sealed pack;
+//! 3. the caller's next leg (env file).
+//!
+//! Vault-first ordering means a name present in both keeps
+//! resolving to the vault value — packs are the migration target,
+//! not an override. `set` always writes the vault scope: pack
+//! contents are authored via `tamias`/`cuora seal`, never this
+//! store.
+//!
 //! Env knobs: `BUPHA_CUORA_BIN` overrides the binary path (tests
 //! stub it); `BUPHA_CUORA_TRANSPORT` picks `cli`/`serve`;
 //! `CUORA_*` and `--config` resolution stay cuora's own — the child
@@ -40,6 +59,12 @@ use std::sync::OnceLock;
 /// `cuora://bupha/…` so `cuora list` shows the whole fleet surface.
 pub const NAMESPACE: &str = "bupha";
 
+/// Sealed-pack fallback namespace — the `secrets-ci-webhooks`
+/// tamias pack holding the `BUPHA_WH_*` webhook secrets
+/// (vault-less, age-sealed). Consulted only when
+/// `cuora://bupha/<NAME>` misses.
+pub const PACK_NAMESPACE: &str = "secrets-ci-webhooks";
+
 /// The env knobs this shim reads — re-exported for consumers that
 /// build their own transport legs.
 pub const BIN_ENV: &str = "BUPHA_CUORA_BIN";
@@ -48,7 +73,8 @@ pub const TRANSPORT_ENV: &str = "BUPHA_CUORA_TRANSPORT";
 /// `Secrets` over cuora — CLI or `cuora serve` transport per
 /// [`CuoraTransport`]. Thin wrapper over
 /// [`hypha_secret_cuora::CuoraSecrets`] pinned to the `bupha`
-/// scope; the env knobs stay bupha's.
+/// scope plus the `secrets-ci-webhooks` sealed-pack fallback
+/// (see the module docs); the env knobs stay bupha's.
 ///
 /// Clones share the serve child — see
 /// [`CuoraSecrets::shared_default`] for why that matters.
@@ -59,6 +85,9 @@ pub struct CuoraSecrets {
     /// because consumers document it as the test seam.
     pub bin: PathBuf,
     inner: hypha_secret_cuora::CuoraSecrets,
+    /// Sealed-pack scope — consulted only on a vault miss (see the
+    /// module docs' pack-fallback chain).
+    pack: hypha_secret_cuora::CuoraSecrets,
 }
 
 impl Default for CuoraSecrets {
@@ -72,6 +101,7 @@ impl std::fmt::Debug for CuoraSecrets {
         f.debug_struct("CuoraSecrets")
             .field("bin", &self.bin)
             .field("transport", &self.inner.transport())
+            .field("pack_scope", &PACK_NAMESPACE)
             .finish_non_exhaustive()
     }
 }
@@ -99,6 +129,9 @@ impl CuoraSecrets {
         Self {
             bin: bin.clone(),
             inner: hypha_secret_cuora::CuoraSecrets::new(NAMESPACE)
+                .with_bin(bin.clone())
+                .with_transport(transport),
+            pack: hypha_secret_cuora::CuoraSecrets::new(PACK_NAMESPACE)
                 .with_bin(bin)
                 .with_transport(transport),
         }
@@ -128,8 +161,11 @@ pub fn rref(name: &str) -> String {
 }
 
 impl Secrets for CuoraSecrets {
+    /// Vault scope first, then the sealed pack — a name present in
+    /// both keeps resolving to the vault value, so the pack (the
+    /// migration target) never overrides the vault.
     fn get(&self, name: &str) -> Option<String> {
-        self.inner.get(name)
+        self.inner.get(name).or_else(|| self.pack.get(name))
     }
 
     /// Deploy-time migration — `cuora put` reads the value on stdin

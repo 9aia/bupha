@@ -51,6 +51,35 @@ fn store_at(bin: PathBuf) -> CuoraSecrets {
     CuoraSecrets::with_bin(bin)
 }
 
+/// Scope-aware cuora stub: `get` answers per-ref from a `case` on
+/// the ref argument (`$2` after the `--actor <a>` shift) — the
+/// sealed-pack fallback tests need vault and pack refs to resolve
+/// differently.
+fn scoped_stub(dir: &Path, case_arms: &str) -> PathBuf {
+    let p = dir.join("cuora-scoped");
+    std::fs::write(
+        &p,
+        format!(
+            "#!/bin/bash\n\
+             if [ \"$1\" = \"--actor\" ]; then shift 2; fi\n\
+             case \"$1\" in\n\
+               get) case \"$2\" in\n\
+                 {case_arms}\n\
+                 *) exit 1;;\n\
+               esac;;\n\
+               *) exit 2;;\n\
+             esac\n"
+        ),
+    )
+    .unwrap();
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::set_permissions(&p, std::fs::Permissions::from_mode(0o755)).unwrap();
+    }
+    p
+}
+
 #[test]
 fn rref_maps_name_into_bupha_namespace() {
     let _g = LOCK.lock().unwrap();
@@ -111,6 +140,48 @@ fn set_pipes_value_on_stdin_never_argv() {
         std::fs::read_to_string(d.join("stored")).unwrap(),
         "tok_123\nwith newline"
     );
+}
+
+#[test]
+fn get_falls_back_to_sealed_pack_on_vault_miss() {
+    let _g = LOCK.lock().unwrap();
+    let d = dir("pack");
+    // Vault (`cuora://bupha/*`) misses; the sealed pack answers —
+    // the secrets-ci-webhooks migration shape.
+    let bin = scoped_stub(
+        &d,
+        "cuora://secrets-ci-webhooks/*) printf 'pack-value\\n';;",
+    );
+    assert_eq!(
+        store_at(bin).get("BUPHA_WH_9AIA_BUPHA").as_deref(),
+        Some("pack-value")
+    );
+}
+
+#[test]
+fn get_prefers_vault_scope_over_pack() {
+    let _g = LOCK.lock().unwrap();
+    let d = dir("pack-lose");
+    // Both scopes answer — the vault copy must win: packs are the
+    // migration target, never an override.
+    let bin = scoped_stub(
+        &d,
+        "cuora://bupha/*) printf 'vault-value\\n';;\n\
+         cuora://secrets-ci-webhooks/*) printf 'pack-value\\n';;",
+    );
+    assert_eq!(
+        store_at(bin).get("BUPHA_WH_9AIA_BUPHA").as_deref(),
+        Some("vault-value")
+    );
+}
+
+#[test]
+fn get_answers_none_when_vault_and_pack_both_miss() {
+    let _g = LOCK.lock().unwrap();
+    let d = dir("pack-miss");
+    // Only unrelated scopes answer — neither leg hits.
+    let bin = scoped_stub(&d, "cuora://other/*) printf 'x\\n';;");
+    assert_eq!(store_at(bin).get("BUPHA_WH_9AIA_BUPHA"), None);
 }
 
 #[test]
