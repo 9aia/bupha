@@ -1,0 +1,40 @@
+# gha-runner — a GitHub Actions self-hosted runner as a tamias
+# `bupha` service.
+#
+# `tamias install <ref>` fetches this payload; `tamias deploy
+# gha-runner` renders `bupha-gha-runner.service` — a per-user
+# systemd unit running `tamias-driver-bupha cli gha-runner
+# ~/.config/bupha/gha-runner.toml`. The runner registers with ONE
+# GitHub repo (first run trades a registration token for persisted
+# credentials) and then executes every job GitHub offers it whose
+# `runs-on:` includes `self-hosted` + `bupha`.
+#
+# This is NOT a fleet bundle: it declares no `watch`/`worker`
+# services and its `fleet.toml` is a deploy-time stub only (the
+# driver's `deploy` verb requires a valid fleet doc to write the
+# operator config — the generated
+# `~/.config/bupha/bundles/gha-runner.toml` is unused; the runner
+# reads its own config file, see runner.example.toml).
+name: gha-runner
+version: "0.1.0"
+type: bupha
+description: >-
+  Self-hosted GitHub Actions runner — registers with one repo and
+  executes runs-on: [self-hosted, bupha] jobs via the broker
+  protocol, in-process under tamias-driver-bupha.
+
+provider:
+  name: bupha
+  services:
+    - name: gha-runner
+      # `cli` is the driver's engine passthrough — the same verb the
+      # `bupha` bin shim rides, so the unbounded gha-runner surface
+      # streams end-to-end under systemd. The runner config is a
+      # positional arg (NOT --config: that's bupha's global fleet
+      # flag). Operator-managed — copy runner.example.toml to
+      # ~/.config/bupha/gha-runner.toml and fill it in.
+      exec: >-
+        ~/.local/share/tamias/drivers/tamias-driver-bupha cli gha-runner ~/.config/bupha/gha-runner.toml
+      workdir: "~"
+      restart: on-failure
+  verbs: [logs, health]

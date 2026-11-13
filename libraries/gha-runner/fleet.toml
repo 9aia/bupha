@@ -1,0 +1,22 @@
+# Deploy-time stub — NOT a real fleet.
+#
+# `tamias-driver-bupha deploy` requires a valid bupha_core::Config
+# (≥1 [[repo]]) to write the operator config, even though this
+# bundle runs no `host`/`worker` service and nothing ever reads the
+# generated ~/.config/bupha/bundles/gha-runner.toml. The runner's
+# real config is ~/.config/bupha/gha-runner.toml (see
+# runner.example.toml). Do not add real repos here — that would
+# imply a CI gate this bundle doesn't run.
+
+[runner]
+kind = "shell"
+cmd = "true"
+
+[status]
+kind = "github"
+context = "ci/bupha"
+
+[[repo]]
+name = "placeholder/gha-runner"
+dir = "/tmp"
+branch = "refs/heads/main"
