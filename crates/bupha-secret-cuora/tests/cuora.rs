@@ -5,8 +5,8 @@
 
 #![allow(clippy::unwrap_used)]
 
-use bupha_secret::Secrets;
 use bupha_secret_cuora::{rref, CuoraSecrets};
+use hypha_secret::Secrets;
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 

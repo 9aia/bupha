@@ -32,10 +32,7 @@
 
 pub use hypha_secret_cuora::{CuoraServe, CuoraTransport};
 
-use bupha_secret::Secrets;
-// The inner store implements hypha's `Secrets` trait — in scope
-// (anonymously) so `self.inner.get/set` resolve.
-use hypha_secret::Secrets as _;
+use hypha_secret::Secrets;
 use std::path::PathBuf;
 use std::sync::OnceLock;
 

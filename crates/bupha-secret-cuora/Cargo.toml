@@ -9,8 +9,9 @@ keywords = ["ci", "bupha"]
 categories = ["development-tools"]
 
 [dependencies]
-bupha-secret.workspace = true
-# Shared cuora Secrets adapter — same https git dep style as
-# bupha-plane's hypha-http / bupha-watch's hypha-node-api.
+# Shared cuora Secrets adapter + the Secrets port itself — same
+# https git dep style as bupha-plane's hypha-http / bupha-watch's
+# hypha-node-api. The port moved to hypha-secret when the legacy
+# bupha-{secret,keyring,dotenv} crates were retired (T-077).
 hypha-secret = { git = "https://github.com/9aia/hypha.git", branch = "main" }
 hypha-secret-cuora = { git = "https://github.com/9aia/hypha.git", branch = "main" }

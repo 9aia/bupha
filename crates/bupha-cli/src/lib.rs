@@ -25,14 +25,14 @@
 use bupha_config_file::FileSource;
 use bupha_core::Config;
 use bupha_github::GitHubAdmin;
-use bupha_keyring::KeyringSecrets;
 use bupha_queue::{JsonQueueStore, QueueStore};
 use bupha_runner::RunCtx;
-use bupha_secret::Secrets;
 use bupha_secret_cuora::CuoraSecrets;
 use bupha_service::Service;
 use bupha_systemd as deploy;
 use bupha_trigger::ForgeAdmin;
+use hypha_keyring::KeyringSecrets;
+use hypha_secret::Secrets;
 use clap::{Parser, Subcommand};
 use lasius_vcs::Vcs;
 use lasius_vcs_git::GitVcs;
@@ -976,7 +976,12 @@ fn cmd_deploy(cfg: &Config, sub: &DeploySub, cli_config: Option<String>) {
                         println!("{name}: stored in cuora (cuora://bupha/{name})");
                         continue;
                     }
-                    let ok = KeyringSecrets::default().set(name, &v).is_ok();
+                    // service="bupha" matches the watch/driver chain.
+                    let ok = KeyringSecrets {
+                        service: "bupha".into(),
+                    }
+                    .set(name, &v)
+                    .is_ok();
                     println!(
                         "{name}: {}",
                         if ok {

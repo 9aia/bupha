@@ -20,9 +20,11 @@ bupha-core.workspace = true
 lasius-vcs.workspace = true
 lasius-vcs-git.workspace = true
 bupha-queue.workspace = true
-bupha-secret.workspace = true
 bupha-secret-cuora.workspace = true
-bupha-keyring.workspace = true
+# Secrets port + legacy fallback impls live in hypha now (T-077) —
+# git dep, same rule as bupha-watch's hypha-node-api.
+hypha-secret = { git = "https://github.com/9aia/hypha.git", branch = "main" }
+hypha-keyring = { git = "https://github.com/9aia/hypha.git", branch = "main" }
 bupha-service.workspace = true
 bupha-config-file.workspace = true
 bupha-runner.workspace = true

@@ -34,26 +34,26 @@ use bupha_attest_sigstore::SigstoreAttest;
 use bupha_audit_file::{AuditLog, AuditSink};
 use bupha_cache::Cache;
 use bupha_cache_sccache::SccacheConf;
-use bupha_cloudflared::CloudflaredTunnel;
 use bupha_container::{ContainerCfg, ContainerRunner};
 use bupha_core::{Config, EnqueueResult, Queue};
 use bupha_dagger::DaggerRunner;
-use bupha_dotenv::DotenvSecrets;
 use bupha_gha::GhaRunner;
 use bupha_github::{GitHubStatus, GitHubTrigger, LogStatus};
 use bupha_history::RunRecord;
-use bupha_keyring::KeyringSecrets;
 use bupha_queue::{JsonQueueStore, LocalClaim, PersistedQueue, QueueStore, TryClaim};
 use bupha_runner::{RunCtx, RunHandle, Runner};
-use bupha_secret::Secrets;
 use bupha_secret_cuora::CuoraSecrets;
 use bupha_shell::ShellRunner;
 use bupha_status::StatusSink;
 use bupha_telemetry::{NoopTelemetry, RunEvent, Telemetry};
 use bupha_telemetry_otel::OtelTelemetry;
 use bupha_trigger::{Emit, Push, Source, Stop, Trigger, Verdict};
+use bupha_cloudflared::CloudflaredTunnel;
 use bupha_tunnel::Tunnel;
 use bupha_webhook::WebhookSource;
+use hypha_dotenv::DotenvSecrets;
+use hypha_keyring::KeyringSecrets;
+use hypha_secret::Secrets;
 use lasius_vcs::Vcs;
 use lasius_vcs_git::GitVcs;
 use std::collections::VecDeque;
@@ -215,7 +215,13 @@ pub fn secret(name: &str) -> Option<String> {
         .ok()
         .filter(|v| !v.is_empty())
         .or_else(|| CuoraSecrets::default().get(name))
-        .or_else(|| KeyringSecrets::default().get(name))
+        // service="bupha" keeps pre-cuora keyring entries resolving.
+        .or_else(|| {
+            KeyringSecrets {
+                service: "bupha".into(),
+            }
+            .get(name)
+        })
         .or_else(|| {
             DotenvSecrets {
                 path: cfg_dir().join("env"),

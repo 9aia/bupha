@@ -459,13 +459,20 @@ fn env_file() -> PathBuf {
 /// `~/.config/bupha/env` (both LEGACY fallbacks). Values are used
 /// in-flight only — never printed, never written to configs.
 fn secret(name: &str) -> Option<String> {
-    use bupha_secret::Secrets;
+    use hypha_secret::Secrets;
     std::env::var(name)
         .ok()
         .filter(|v| !v.is_empty())
         .or_else(|| bupha_secret_cuora::CuoraSecrets::default().get(name))
-        .or_else(|| bupha_keyring::KeyringSecrets::default().get(name))
-        .or_else(|| bupha_dotenv::DotenvSecrets { path: env_file() }.get(name))
+        // service="bupha" matches the watch/cli chain — pre-cuora
+        // keyring entries still resolve.
+        .or_else(|| {
+            hypha_keyring::KeyringSecrets {
+                service: "bupha".into(),
+            }
+            .get(name)
+        })
+        .or_else(|| hypha_dotenv::DotenvSecrets { path: env_file() }.get(name))
 }
 
 fn missing_secret(name: &str) -> String {
