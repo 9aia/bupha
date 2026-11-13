@@ -1,10 +1,16 @@
 # ci-ingress — forge webhook → `kind="ci-job"` enqueue (P-002 §4,
 # ADR-0007, bupha T-058/T-063). A verified `push`/`pull_request`
 # delivery becomes a `POST /api/entities {kind:"ci-job"}` on the
-# peregrin node that hosts the ci-job plane (`peregrin serve` with
-# the `bupha` feature) — create IS `ci.enqueue`, and the deterministic
-# entity id `ci:{key}:{sha}:{attempt}` dedups webhook replays for
-# free.
+# entity API (`config.api_url` — the `peregrin-hub` gateway by
+# default) which fronts the peregrin node hosting the ci-job plane
+# (`peregrin serve` with the `bupha` feature). Create IS
+# `ci.enqueue`, and the deterministic entity id
+# `ci:{key}:{sha}:{attempt}` dedups webhook replays for free.
+#
+# Durability (T-054): the hub accepts creates into its sqlite
+# outbox when the node is down — the write replays as an
+# `entity.create` op on reconnect, so pushes survive node
+# restarts/downtime instead of dying in `http.failed`.
 #
 # Shape mirrors `libraries/ci-gate`: the `github-webhook` node emits
 # raw `push`/`pull_request` events; `ci.route` re-emits them typed
@@ -23,10 +29,15 @@ name: ci-ingress
 
 # Operator-facing knobs (see params.schema.json + README.md).
 config:
-  # Base URL of the node hosting the ci-job entity plane — the
-  # `peregrin serve` daemon (`/api/entities` is the hypha substrate
-  # surface). Same-host deployments use loopback.
-  node_url: "http://127.0.0.1:7700"
+  # Base URL of the entity API the enqueue POSTs target — the
+  # `peregrin-hub` gateway (`/api/entities` is the hypha substrate
+  # surface), default loopback :13000. Pointing at the hub is what
+  # makes enqueue durable: creates park in the hub's sqlite outbox
+  # while the ci-job node is down and replay as `entity.create` ops
+  # on reconnect (T-054). A bare `peregrin serve` node URL still
+  # works but loses pushes during node downtime — the pre-T-054
+  # behavior.
+  api_url: "http://127.0.0.1:13000"
   # ci-job indexDoc defaults applied to EVERY watched repo. `queue`
   # is the lane policy ("latest" = newest push wins, "all" = bounded
   # FIFO); `context` is the forge status label prefix. On a
@@ -35,13 +46,13 @@ config:
   queue: "latest"
   context: "ci/bupha"
 
-# Secret NAMES the drivers may resolve — the node bearer token plus
+# Secret NAMES the drivers may resolve — the hub bearer token plus
 # one webhook HMAC secret per watched repo (`BUPHA_WH_<OWNER>_<REPO>`
 # convention). Values never appear here; they live in the operator's
 # env file (`~/.config/peregrin/env`).
 capabilities:
   secrets:
-    - PEREGRIN_NODE_TOKEN
+    - PEREGRIN_HUB_TOKEN
     - BUPHA_WEBHOOK_SECRET
     - BUPHA_WH_9AIA_BUPHA
     - BUPHA_WH_9AIA_CUORA
@@ -614,7 +625,9 @@ nodes:
 # `owner/name:job` for per-job lanes. `deliveryId` carries
 # X-GitHub-Delivery for audit (the deterministic entity id already
 # dedups replays). `retries` re-POSTs on transport failure/5xx —
-# safe because create is idempotent on the entity id.
+# safe because create is idempotent on the entity id. Against the
+# hub a queued create answers 202 `{queued:true}` — `http.done`,
+# the job lands when the node returns.
 - id: ci.enqueue
   driver: http
   on:
@@ -624,12 +637,12 @@ nodes:
   - http.done
   - http.failed
   params:
-    url: "${config.node_url}/api/entities"
+    url: "${config.api_url}/api/entities"
     method: POST
     timeout: 30
     retries: 3
     headers:
-      authorization: "Bearer ${secret.PEREGRIN_NODE_TOKEN}"
+      authorization: "Bearer ${secret.PEREGRIN_HUB_TOKEN}"
       content-type: application/json
     body:
       kind: ci-job
@@ -670,12 +683,12 @@ nodes:
   - http.done
   - http.failed
   params:
-    url: "${config.node_url}/api/entities"
+    url: "${config.api_url}/api/entities"
     method: POST
     timeout: 30
     retries: 3
     headers:
-      authorization: "Bearer ${secret.PEREGRIN_NODE_TOKEN}"
+      authorization: "Bearer ${secret.PEREGRIN_HUB_TOKEN}"
       content-type: application/json
     body:
       kind: ci-job
@@ -723,12 +736,12 @@ nodes:
   - http.done
   - http.failed
   params:
-    url: "${config.node_url}/api/entities"
+    url: "${config.api_url}/api/entities"
     method: POST
     timeout: 30
     retries: 3
     headers:
-      authorization: "Bearer ${secret.PEREGRIN_NODE_TOKEN}"
+      authorization: "Bearer ${secret.PEREGRIN_HUB_TOKEN}"
       content-type: application/json
     body:
       kind: ci-job

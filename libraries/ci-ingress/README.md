@@ -4,7 +4,8 @@ Forge webhook → `kind="ci-job"` enqueue — the production ingress half
 of the bupha CI plane (P-002 §4, ADR-0007; bupha ledger T-058/T-063).
 A verified `push`/`pull_request` becomes
 `POST /api/entities {kind:"ci-job"}` on the
-peregrin node hosting [`CiJobPlane`](https://github.com/9aia/bupha)
+entity API (`config.api_url` — the `peregrin-hub` gateway) fronting
+the peregrin node hosting [`CiJobPlane`](https://github.com/9aia/bupha)
 — **create IS `ci.enqueue`**, and the deterministic entity id
 `ci:{key}:{sha}:{attempt}` dedups webhook replays for free.
 
@@ -15,6 +16,9 @@ github webhook ──► github-webhook node ──► push / pull_request event
                                             ▼
                               ci.enqueue (driver: http)
                                             │  POST /api/entities
+                                            ▼
+                              peregrin-hub /api/entities  (kind="ci-job")
+                                            │  sqlite outbox → entity.create
                                             ▼
                           peregrin-node /api/entities  (kind="ci-job")
                                             │
@@ -47,27 +51,46 @@ github webhook ──► github-webhook node ──► push / pull_request event
 ## Deploy
 
 The node hosting the plane must run a `peregrin` build with the
-`bupha` feature (default). Then:
+`bupha` feature (default). The enqueue path fronts it with
+`peregrin-hub` — the bundle's `tamias deploy` renders
+`peregrin-hub.service` alongside the shared campaign unit. The hub's
+sqlite outbox is what makes webhook→ci-job enqueue **durable**
+(T-054): a create that arrives while the node is down is accepted
+(202 `{queued:true}`), parked as an `entity.create` op, and replays
+FIFO on recovery — pushes no longer die in `http.failed` during
+node restarts. Then:
 
 ```sh
 tamias install ./libraries/ci-ingress
-tamias deploy ci-ingress        # → shared peregrin-campaign.service
-systemctl --user enable --now peregrin-campaign.service
+tamias deploy ci-ingress        # → peregrin-campaign + peregrin-hub units
+systemctl --user enable --now peregrin-hub.service peregrin-campaign.service
 ```
+
+The hub reads `~/.config/peregrin/env` (same file as the campaign
+unit): `PEREGRIN_NODES` (`id=url[@token];…` — required, the hub
+refuses to boot without it), `PEREGRIN_NODE_TOKEN` (hub→node
+bearer), `PEREGRIN_HUB_TOKEN` (client→hub bearer; required on
+non-loopback binds and the value the campaign resolves),
+`PEREGRIN_HUB_HOST`/`PEREGRIN_HUB_PORT` (default `127.0.0.1:13000`),
+`PEREGRIN_HOME` (hub state under `<home>/hub/`).
 
 Secrets resolve through the campaign's secret chain — **cuora is
 canonical** (`cuora://peregrin/<NAME>` or `cuora://bupha/*`), with
 process env / env file as fallback; the bundle declares no
 `env_file`. Needed names:
 
-- `PEREGRIN_NODE_TOKEN` — bearer for the entity node's `/api/entities`
-  (the node's `PEREGRIN_TOKEN`, or a paired credential).
+- `PEREGRIN_HUB_TOKEN` — bearer for the entity API's `/api/entities`
+  (the hub's `PEREGRIN_HUB_TOKEN`; loopback hubs may run unauthenticated
+  and the header resolves empty).
 - `BUPHA_WH_<OWNER>_<REPO>` — one HMAC secret per watched repo
   (same names ci-gate/docs-deploy use; extend `repos[]` +
   `capabilities.secrets` per deployment).
 
-`config.node_url` points the enqueue POST at the plane's node —
-loopback when the campaign daemon and `peregrin serve` share a host.
+`config.api_url` points the enqueue POST at the entity API —
+`http://127.0.0.1:13000` (the hub) by default, loopback when the
+campaign daemon and hub share a host. Pointing it directly at a bare
+`peregrin serve` node still works but restores the pre-T-054 lossy
+behavior (pushes during node downtime are dropped).
 
 ## Per-repo job specs — fleet normalization is plane-side
 
@@ -119,7 +142,11 @@ keep the single-remote path.
 deterministic entity id already dedups replays). Both enqueue nodes
 set `retries: 3` on the `driver: http` POST: transport failures and
 429/5xx re-send with linear backoff — safe because create is
-idempotent on `ci:{key}:{sha}:{attempt}`.
+idempotent on `ci:{key}:{sha}:{attempt}` (and the hub additionally
+dedups queued creates on a content hash, so a retried POST can't
+double-enqueue). Against the hub a create parked while the node is
+down answers 202 `{queued:true}` → `http.done`; explicit 4xx
+rejections still surface as `http.failed`.
 
 ## Per-job lanes (`owner/name:job`)
 

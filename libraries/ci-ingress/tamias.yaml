@@ -3,16 +3,19 @@
 # the bundle's main.yaml is a complete campaign (ingress webhook node
 # included — see below).
 name: ci-ingress
-version: "0.3.5"
+version: "0.3.6"
 # `peregrin-bundle` routes install/deploy/uninstall through
 # `tamias-driver-peregrin` (capabilities: types ["peregrin-bundle"]).
 type: peregrin-bundle
 description: >-
   Verified forge push → ci-job entity enqueue: github-webhook ingress
   → typed push events → driver:http POST /api/entities
-  {kind:"ci-job"} on the node hosting bupha's CiJobPlane. Latest-wins
-  lane policy lives plane-side; workers claim via ci.claim
-  (tamias-driver-bupha worker).
+  {kind:"ci-job"} on the peregrin-hub entity API, which fronts the
+  node hosting bupha's CiJobPlane. Creates that arrive while the
+  node is down park in the hub's sqlite outbox and replay as
+  `entity.create` ops on reconnect (T-054) — pushes survive node
+  downtime. Latest-wins lane policy lives plane-side; workers claim
+  via ci.claim (tamias-driver-bupha worker).
 
 # The campaign yaml ships its own github-webhook ingress node (the
 # fleet's repo set, BUPHA_WH_* secret names) — so provider.ingress declares
@@ -48,6 +51,33 @@ provider:
       # tens of minutes), PEREGRIN_PUSH_BACKEND, PEREGRIN_TOKEN,
       # PEREGRIN_SEPIA, PEREGRIN_HOST. Secret VALUES still resolve
       # cuora-first; the file doubles as the chain's last leg.
+      env_file: "~/.config/peregrin/env"
+      workdir: "~"
+      restart: on-failure
+    # The shared entity hub (`peregrin-hub`, payload bin from the
+    # peregrin pack) — the `/api/entities` surface `config.api_url`
+    # points at. Its sqlite outbox is what makes webhook→ci-job
+    # enqueue durable across node downtime (T-054): creates queue as
+    # `entity.create` ops while the ci-job node is unreachable and
+    # drain FIFO on recovery. This is the SUBSTRATE gateway for
+    # every entity kind (sessions, campaigns, ci-jobs) — other
+    # bundles may point at the same unit; keep `exec`/env identical
+    # wherever it is declared.
+    #
+    # Required env (same `~/.config/peregrin/env` file):
+    #   PEREGRIN_NODES       — `id=url[@token];…` node list; the hub
+    #                         refuses to boot without it.
+    #   PEREGRIN_NODE_TOKEN  — hub→node bearer (when nodes need one).
+    #   PEREGRIN_HUB_TOKEN   — client→hub bearer; required if
+    #                         PEREGRIN_HUB_HOST is non-loopback, and
+    #                         the value ci-ingress's
+    #                         `${secret.PEREGRIN_HUB_TOKEN}` resolves.
+    #   PEREGRIN_HUB_HOST/PORT — default 127.0.0.1:13000.
+    #   PEREGRIN_HOME        — hub state (projection + outbox) under
+    #                         `<home>/hub/`; defaults ~/.local/share/
+    #                         peregrin.
+    - name: hub
+      exec: ~/.local/bin/peregrin-hub
       env_file: "~/.config/peregrin/env"
       workdir: "~"
       restart: on-failure

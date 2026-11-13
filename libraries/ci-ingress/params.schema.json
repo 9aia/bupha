@@ -6,10 +6,10 @@
   "type": "object",
   "additionalProperties": false,
   "properties": {
-    "node_url": {
+    "api_url": {
       "type": "string",
-      "default": "http://127.0.0.1:7700",
-      "description": "Base URL of the peregrin node hosting the ci-job entity plane (`peregrin serve` with the bupha feature \u2014 /api/entities is the hypha substrate surface). Same-host deployments use loopback."
+      "default": "http://127.0.0.1:13000",
+      "description": "Base URL of the entity API the enqueue POSTs target \u2014 `peregrin-hub` by default: its sqlite outbox makes enqueue durable across node downtime (T-054); creates park as `entity.create` ops and answer 202 {queued:true} while the node is down, replaying FIFO on recovery. A bare `peregrin serve` node URL still works but drops pushes during node downtime. Same-host deployments use loopback."
     },
     "queue": {
       "type": "string",
