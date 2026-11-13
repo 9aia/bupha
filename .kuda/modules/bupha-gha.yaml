@@ -5,22 +5,22 @@ api:
 - name: ABSORB_FNS
   kind: const
   file: crates/bupha-gha/src/script.rs
-  line: 1375
+  line: 1412
   module: bupha-gha
 - name: ActionDef
   kind: type
   file: crates/bupha-gha/src/plan.rs
-  line: 138
+  line: 142
   module: bupha-gha
 - name: ActionInput
   kind: type
   file: crates/bupha-gha/src/plan.rs
-  line: 145
+  line: 149
   module: bupha-gha
 - name: ActionResolver
   kind: trait
   file: crates/bupha-gha/src/plan.rs
-  line: 2578
+  line: 2673
   module: bupha-gha
 - name: Actions
   kind: type
@@ -30,22 +30,22 @@ api:
 - name: BinOp
   kind: type
   file: crates/bupha-gha/src/plan.rs
-  line: 280
+  line: 291
   module: bupha-gha
 - name: CACHE_LIB
   kind: const
   file: crates/bupha-gha/src/plan.rs
-  line: 2118
+  line: 2148
   module: bupha-gha
 - name: CompositeCall
   kind: type
   file: crates/bupha-gha/src/plan.rs
-  line: 878
+  line: 891
   module: bupha-gha
 - name: Cond
   kind: type
   file: crates/bupha-gha/src/plan.rs
-  line: 240
+  line: 251
   module: bupha-gha
 - name: CondCx
   kind: type
@@ -55,7 +55,7 @@ api:
 - name: CondParser
   kind: type
   file: crates/bupha-gha/src/plan.rs
-  line: 3660
+  line: 3772
   module: bupha-gha
 - name: Defaults
   kind: type
@@ -65,12 +65,12 @@ api:
 - name: DynRef
   kind: type
   file: crates/bupha-gha/src/plan.rs
-  line: 264
+  line: 275
   module: bupha-gha
 - name: Eval
   kind: type
   file: crates/bupha-gha/src/plan.rs
-  line: 738
+  line: 749
   module: bupha-gha
 - name: Event
   kind: type
@@ -80,7 +80,7 @@ api:
 - name: FakeActions
   kind: type
   file: crates/bupha-gha/src/plan.rs
-  line: 4496
+  line: 4672
   module: bupha-gha
 - name: FetchLock
   kind: type
@@ -90,7 +90,7 @@ api:
 - name: GREET_ACTION
   kind: const
   file: crates/bupha-gha/src/plan.rs
-  line: 4519
+  line: 4695
   module: bupha-gha
 - name: GREET_ACTION
   kind: const
@@ -115,32 +115,32 @@ api:
 - name: JP_FNS
   kind: const
   file: crates/bupha-gha/src/script.rs
-  line: 1698
+  line: 1756
   module: bupha-gha
 - name: Job
   kind: type
   file: crates/bupha-gha/src/plan.rs
-  line: 153
+  line: 157
   module: bupha-gha
 - name: MAX_ACTION_DEPTH
   kind: const
   file: crates/bupha-gha/src/plan.rs
-  line: 2597
+  line: 2692
   module: bupha-gha
 - name: MP_FNS
   kind: const
   file: crates/bupha-gha/src/script.rs
-  line: 1622
+  line: 1680
   module: bupha-gha
 - name: NoActions
   kind: type
   file: crates/bupha-gha/src/plan.rs
-  line: 2584
+  line: 2679
   module: bupha-gha
 - name: PExpr
   kind: type
   file: crates/bupha-gha/src/plan.rs
-  line: 3645
+  line: 3757
   module: bupha-gha
 - name: PushFilters
   kind: type
@@ -160,7 +160,7 @@ api:
 - name: RunStep
   kind: type
   file: crates/bupha-gha/src/plan.rs
-  line: 215
+  line: 219
   module: bupha-gha
 - name: SIMPLE
   kind: const
@@ -175,34 +175,34 @@ api:
 - name: Step
   kind: type
   file: crates/bupha-gha/src/plan.rs
-  line: 194
+  line: 198
   module: bupha-gha
 - name: Strategy
   kind: type
   file: crates/bupha-gha/src/plan.rs
-  line: 3427
+  line: 3539
   module: bupha-gha
 - name: Tok
   kind: type
   file: crates/bupha-gha/src/plan.rs
-  line: 3538
+  line: 3650
   module: bupha-gha
 - name: UsesKind
   kind: type
   file: crates/bupha-gha/src/plan.rs
-  line: 3053
+  line: 3157
   module: bupha-gha
 - name: UsesScript
   kind: type
   file: crates/bupha-gha/src/plan.rs
-  line: 3025
+  line: 3125
   module: bupha-gha
 - name: UsesTarget
   kind: type
   file: crates/bupha-gha/src/plan.rs
-  line: 3064
+  line: 3168
   module: bupha-gha
-api_omitted: 268
+api_omitted: 277
 deps:
 - bupha-core
 - bupha-runner
@@ -233,9 +233,9 @@ provenance:
   - 130920aec2d9f32d6f8c6d16b35230ba63ddc04f
   - 68f2d9483f159c5fb3af354741780974fbaf89cc
   - 266972b0c944e4d33bd9aa5a513db34895e45940
-  - e36e227ce549b98b353d01064fb8dc665970735e
-  - a22e16a23f6375e44fb185a3de6956430358932b
-  - 78d26330012e9eee688adb6b4eaaa253706e42aa
-  commit_sha: 6b01456c313d088c1e663714a948ac44cfb86cb7
-  generated_at: '1794595348'
+  - 2ff730687e626bcb52feeb4093e948fb89c86fad
+  - f14758bd6c9908610788aa58c2333f10580194cb
+  - b2d0ae77a5f2b5f8af172a10b2cb6f0cd0c9f566
+  commit_sha: fc193d2a549aa146b6c889c20b567c73b136be3e
+  generated_at: '1794601209'
   generator: kuda-template/0.1.4

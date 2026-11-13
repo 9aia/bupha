@@ -68,7 +68,8 @@ workflow.
   `actions/download-artifact` (a per-run tar store under
   `$BUPHA_GHA_TMP/artifacts/` — see boundaries),
   `actions/cache`, `actions/cache/save`, `actions/cache/restore`
-  (a persistent keyed store — see boundaries), and **composite
+  (a persistent keyed store — see boundaries), `docker://<image>`
+  container steps (see boundaries), and **composite
   actions** via `./local/path` or `owner/repo[/sub/path]@ref`
   (see boundaries). `env:` on a `uses:` step scopes to the action:
   script-lowered targets export it to the synthesized script, and
@@ -115,16 +116,17 @@ workflow.
 `actions/setup-{node,python,go,java,dotnet}`,
 `actions/upload-artifact`, `actions/download-artifact`,
 `actions/cache`, `actions/cache/save` and `actions/cache/restore`,
-and composite actions via `./path` or `owner/repo[/path]@ref`
-(`docker://image`, JS `runs.using: node*` and `docker` action
-definitions, unknown actions, other `actions/setup-*` families and
+`docker://<image>` steps, and composite actions via `./path` or
+`owner/repo[/path]@ref`
+(JS `runs.using: node*` and `docker` action *definitions*,
+unknown actions, other `actions/setup-*` families and
 reusable-workflow `jobs.<id>.uses:` included), `with:` keys outside
 each action's declared inputs and cross-run download inputs
 (`run-id`, `github-token`, `repository`, `run-attempt`),
 `steps.*.outcome`/`steps.*.outputs` (bare) expressions,
 `if:` functions beyond the supported subset (`hashFiles`,
 `fromJSON`, `format`, …), `shell:` values containing `${{ }}`,
-`secrets:`, `timeout-minutes` on a composite `uses:` step, and any
+`secrets:`, and any
 unknown key at any level (including unknown keys in `action.yml`).
 
 ## Honest boundaries
@@ -262,11 +264,36 @@ unknown key at any level (including unknown keys in `action.yml`).
   `outputs:` as `steps.<id>.outputs.*` plus the uses-step's own
   `steps.<id>.conclusion`. Inlined step ids share the job's
   `steps.<id>` namespace (duplicates error); `timeout-minutes` on a
-  composite `uses:` step errors (no single deadline spans the
-  inlined steps); `uses:` inside `action.yml` may name any supported
-  target including the built-in script actions. There is no
+  composite `uses:` step is a deadline spanning the inlined steps
+  (each run step's shell gets the smallest remaining budget across
+  the deadline and its own `timeout-minutes` — nested composites
+  stack their deadlines, first to fire wins); `uses:` inside
+  `action.yml` may name any supported
+  target including the built-in script actions and `docker://`
+  steps. There is no
   per-action env scoping beyond step env, no `pre`/`post` entry
   points, and no composite-action caching of its own.
+- **`docker://` steps run `docker run` on the host.** The image is
+  the whole `uses:` tail (a `@sha256:` digest stays intact); the
+  workspace and `$BUPHA_GHA_TMP` are bind-mounted at their host
+  paths so step `working-directory`, `$GITHUB_*` file commands and
+  `$GITHUB_OUTPUT`/`$GITHUB_ENV` writes round-trip through the
+  mount, `-w "$PWD"` keeps the container in the step's directory,
+  and the full exported environment (job env + step env +
+  env-file writes) passes via `--env-file`. `with.entrypoint`
+  maps to `--entrypoint`, each `with.args` list entry is one argv
+  element; other `with:` keys error. The container runs
+  `--rm --init` under a generated name with an EXIT-trap
+  `docker rm -f` so a timed-out/killed step doesn't leak it, and
+  the step's own `timeout-minutes`/`if:`/`id:`/`env:` all apply
+  like any other step. Honest boundaries: the **docker CLI must
+  exist on the runner host** (a clear run-time error otherwise —
+  plan stays I/O-free), images pull via docker's default policy
+  (no registry credentials — those live on `jobs.<id>.container`/
+  `services`, still unsupported), there are no port mappings or
+  service containers, env values containing newlines can't
+  survive `--env-file`'s line format, and the container shares
+  the host kernel/network like any `docker run`.
 - **`actions/cache*` persists under the worker's state dir** —
   `${BUPHA_GHA_CACHE_DIR:-${XDG_DATA_HOME:-$HOME/.local/share}/bupha/gha-cache}/<repo>/<sha256(key)>.tar`
   with a sibling `.key` file holding the plaintext key (prefix

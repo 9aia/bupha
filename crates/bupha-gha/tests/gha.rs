@@ -903,9 +903,9 @@ fn unsupported_if_expression_fails_loudly() {
 #[test]
 fn unsupported_uses_fails() {
     // setup-haskell is still outside the supported subset (other
-    // setup-*, docker://, local paths and composite/reusable uses
-    // hard-error too — plan::tests::unsupported_uses_still_error
-    // covers the list).
+    // setup-*, JS/docker action definitions, local paths and
+    // composite/reusable uses hard-error too —
+    // plan::tests::unsupported_uses_still_error covers the list).
     let (d, sha) = repo("uses");
     workflow(
         &d,
@@ -2580,4 +2580,113 @@ fn composite_js_action_errors_loudly() {
         git_ref: "refs/heads/main",
     };
     assert!(r.spawn(&ctx).is_err());
+}
+
+#[test]
+fn composite_timeout_minute_kills_runaway_action() {
+    // `timeout-minutes` on a composite `uses:` step is a deadline
+    // spanning the inlined steps: the sleep outruns 3s and the job
+    // fails (the step's shell is killed by the remaining-budget
+    // `timeout` wrapper).
+    let (d, sha) = repo("composite-timeout");
+    local_action(
+        &d,
+        "slow",
+        "runs:\n  using: composite\n  steps:\n    - run: sleep 30\n",
+    );
+    workflow(
+        &d,
+        "ci.yml",
+        r#"
+on: push
+jobs:
+  t:
+    steps:
+      - uses: ./.github/actions/slow
+        timeout-minutes: 0.05
+"#,
+    );
+    assert!(!run(&d, &sha).success());
+}
+
+#[test]
+fn composite_timeout_minute_allows_fast_action() {
+    let (d, sha) = repo("composite-timeout-ok");
+    local_action(&d, "greet", GREET_ACTION);
+    workflow(
+        &d,
+        "ci.yml",
+        r#"
+on: push
+jobs:
+  t:
+    steps:
+      - uses: ./.github/actions/greet
+        with:
+          name: world
+        timeout-minutes: 1
+"#,
+    );
+    assert!(run(&d, &sha).success());
+    assert_eq!(
+        std::fs::read_to_string(d.join("greet.txt")).unwrap(),
+        "hello world!\n"
+    );
+}
+
+// --- docker:// steps ----------------------------------------------------
+
+#[test]
+fn docker_step_runs_image_with_env_and_args() {
+    // Needs the docker CLI + a local `alpine:latest` image (no pull)
+    // — skip elsewhere rather than hit the network in a unit test.
+    let docker = Command::new("docker")
+        .args(["image", "inspect", "alpine:latest"])
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false);
+    if !docker {
+        eprintln!("docker_step: no docker/alpine:latest — skipped");
+        return;
+    }
+    let (d, sha) = repo("docker-step");
+    workflow(
+        &d,
+        "ci.yml",
+        r#"
+on: push
+jobs:
+  t:
+    steps:
+      - uses: docker://alpine:latest
+        env:
+          FOO: bar
+        with:
+          args: ['sh', '-c', 'echo container > out.txt && echo "FOO=$FOO" > env.txt']
+"#,
+    );
+    assert!(run(&d, &sha).success());
+    // The workspace is bind-mounted at its host path — the
+    // container's writes land in the worktree.
+    assert_eq!(
+        std::fs::read_to_string(d.join("out.txt")).unwrap(),
+        "container\n"
+    );
+    // Step env rides the --env-file into the container.
+    assert_eq!(
+        std::fs::read_to_string(d.join("env.txt")).unwrap(),
+        "FOO=bar\n"
+    );
+}
+
+#[test]
+fn docker_step_bad_with_key_fails_at_spawn() {
+    let (d, sha) = repo("docker-err");
+    workflow(
+        &d,
+        "ci.yml",
+        "on: push\njobs:\n  t:\n    steps:\n      - uses: docker://alpine:latest\n        with:\n          bogus: 1\n",
+    );
+    let err = spawn_err(&d, &sha);
+    assert!(err.contains("bogus"), "{err}");
 }

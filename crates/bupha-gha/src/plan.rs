@@ -120,6 +120,10 @@ enum RawStep {
     Composite {
         id: Option<String>,
         cond: Option<String>,
+        /// `timeout-minutes` on the uses step — a deadline spanning
+        /// every inlined run step (rendered as per-step remaining-
+        /// time `timeout` wrappers off one armed timestamp).
+        timeout_seconds: Option<u64>,
         with: Vec<(String, Vec<String>)>,
         /// `env:` on the `uses:` step — applies to every inlined
         /// step, below each step's own `env:` (GitHub's scoping).
@@ -221,6 +225,13 @@ pub struct RunStep {
     /// `timeout-minutes` in whole seconds — rendered as a `timeout`
     /// wrapper around the step's shell.
     pub timeout_seconds: Option<u64>,
+    /// Composite-`uses:` deadlines this step belongs to —
+    /// `(deadline key, total seconds)` pairs. The renderer arms a
+    /// timestamp file per key before the group's first step and
+    /// wraps each run step's shell in `timeout <min remaining>`;
+    /// a step can carry several (nested composites AND their
+    /// deadlines — whichever fires first wins).
+    pub deadlines: Vec<(String, u64)>,
     pub shell: Option<String>,
     pub working_directory: Option<String>,
     /// Step-level env only (job env is exported by the job block).
@@ -767,6 +778,7 @@ fn build_steps(
     if let RawStep::Composite {
         id,
         cond,
+        timeout_seconds,
         with,
         env,
         action,
@@ -776,6 +788,7 @@ fn build_steps(
             CompositeCall {
                 id,
                 cond,
+                timeout_seconds,
                 with,
                 env,
                 action,
@@ -878,6 +891,7 @@ fn bind_inputs(
 struct CompositeCall<'a> {
     id: &'a Option<String>,
     cond: &'a Option<String>,
+    timeout_seconds: &'a Option<u64>,
     with: &'a [(String, Vec<String>)],
     env: &'a [(String, String)],
     action: &'a ActionDef,
@@ -898,6 +912,7 @@ fn build_composite(
     let CompositeCall {
         id,
         cond,
+        timeout_seconds,
         with,
         env,
         action,
@@ -979,6 +994,18 @@ fn build_composite(
             outputs,
         });
     }
+    // `timeout-minutes` on the uses step is a deadline spanning the
+    // whole inlined group: tag every produced run step (nested
+    // composites included — their own deadlines stack on top) with
+    // this step's key; the renderer arms one timestamp and wraps
+    // each step's shell in the remaining budget.
+    if let Some(secs) = timeout_seconds {
+        for st in &mut steps {
+            if let Step::Run(r) = st {
+                r.deadlines.push((what.to_string(), *secs));
+            }
+        }
+    }
     Ok(steps)
 }
 
@@ -1034,6 +1061,7 @@ fn build_single(
                 UsesScript::CacheSave => cache_save_script(&pairs, what)?,
                 UsesScript::Cache => cache_script(&pairs, what)?,
                 UsesScript::CacheFlush => cache_flush_script(&pairs, what)?,
+                UsesScript::Docker(image) => docker_script(image, &pairs, what)?,
             };
             Ok(Step::Run(RunStep {
                 id: id.clone(),
@@ -1042,6 +1070,7 @@ fn build_single(
                     .map(|raw| parse_cond(raw, &with_eval, &format!("{what}.if")))
                     .transpose()?,
                 timeout_seconds: *timeout_seconds,
+                deadlines: Vec::new(),
                 shell: None,
                 working_directory: None,
                 env: uses_env,
@@ -1074,6 +1103,7 @@ fn build_single(
                     .map(|raw| parse_cond(raw, &step_eval, &format!("{what}.if")))
                     .transpose()?,
                 timeout_seconds: *timeout_seconds,
+                deadlines: Vec::new(),
                 shell: shell
                     .as_ref()
                     .map(|s| interpolate(s, &step_eval, &format!("{what}.shell")))
@@ -2361,6 +2391,71 @@ fn cache_flush_script(_pairs: &[(String, Vec<String>)], _what: &str) -> Result<S
     ))
 }
 
+/// `uses: docker://<image>` lowered to bash: `docker run` of the
+/// image with the workspace + `$BUPHA_GHA_TMP` bind-mounted at
+/// their host paths (so `$GITHUB_*` file commands and
+/// `$GITHUB_OUTPUT`/`$GITHUB_ENV` writes round-trip through the
+/// mount), the full exported environment passed via `--env-file`,
+/// and `with.entrypoint`/`with.args` mapped to `--entrypoint` +
+/// argv. Honest boundaries: the docker CLI must exist on the
+/// runner host (checked at run time, not plan time — plan stays
+/// I/O-free), the image is pulled by docker's default policy,
+/// there is no registry-credential plumbing (`with:` has no
+/// username/password on GitHub's docker steps either — those live
+/// on `jobs.<id>.container`/`services`, still unsupported), and
+/// env values containing newlines can't survive `--env-file`'s
+/// line format. `--rm --init` plus a named container + EXIT trap
+/// keep a killed/timed-out step from leaking containers.
+fn docker_script(
+    image: &str,
+    pairs: &[(String, Vec<String>)],
+    what: &str,
+) -> Result<String, String> {
+    // The image lands as a quoted argv word, but a leading `-`
+    // would still be parsed as a flag by some docker versions —
+    // and whitespace/control can't appear in a real ref anyway.
+    if image.is_empty()
+        || image.starts_with('-')
+        || image.chars().any(|c| c.is_whitespace() || c.is_control())
+    {
+        return Err(format!("{what}: invalid docker image `{image}`"));
+    }
+    check_with_keys(pairs, &["entrypoint", "args"], what)?;
+    let entrypoint = with_one(pairs, "entrypoint", what)?.map(str::to_string);
+    let mut args = String::new();
+    if let Some((_, vals)) = pairs.iter().find(|(k, _)| k == "args") {
+        // Each `with.args` list entry is one argv element (a
+        // scalar `args:` string is one element too — GitHub's
+        // docker steps take a list).
+        for v in vals {
+            if !args.is_empty() {
+                args.push(' ');
+            }
+            args.push_str(&bash_sq(v));
+        }
+    }
+    let ep = entrypoint
+        .map(|e| format!("_docker_ep=(--entrypoint {})\n", bash_sq(&e)))
+        .unwrap_or_else(|| "_docker_ep=()\n".to_string());
+    Ok(format!(
+        "set -e\n\
+         command -v docker >/dev/null 2>&1 || {{ echo \"gha: docker step — docker CLI not found on PATH\"; exit 1; }}\n\
+         _docker_env=\"$RUNNER_TEMP/docker_env\"\n\
+         env > \"$_docker_env\" || {{ echo \"gha: docker step — cannot write env file\"; exit 1; }}\n\
+         _cid=\"bupha-docker-$$-$RANDOM\"\n\
+         trap 'docker rm -f \"$_cid\" >/dev/null 2>&1 || :; rm -f \"$_docker_env\"' EXIT\n\
+         _docker_mounts=(-v \"$BUPHA_GHA_TMP:$BUPHA_GHA_TMP\")\n\
+         case \"$GITHUB_WORKSPACE\" in\n\
+         \x20 \"$BUPHA_GHA_TMP\"|\"$BUPHA_GHA_TMP\"/*) ;;\n\
+         \x20 *) _docker_mounts+=(-v \"$GITHUB_WORKSPACE:$GITHUB_WORKSPACE\") ;;\n\
+         esac\n\
+         {ep}\
+         _docker_args=({args})\n\
+         docker run --rm --init --name \"$_cid\" --env-file \"$_docker_env\" \\\n\x20 \"${{_docker_mounts[@]}}\" -w \"$PWD\" \"${{_docker_ep[@]}}\" {} \"${{_docker_args[@]}}\"\n",
+        bash_sq(image),
+    ))
+}
+
 /// Kahn topo sort, declaration order breaking ties. Indices in
 /// `needs` refer to the input vec; the output re-maps them.
 fn topo_order(jobs: Vec<Job>) -> Result<Vec<Job>, String> {
@@ -2720,11 +2815,23 @@ fn parse_job(
     // Reusable workflows (`jobs.<id>.uses:` + `secrets:`/`with:`/
     // `outputs:` plumbing) are a different feature than step-level
     // `uses:` — name it precisely instead of the generic key error.
+    // What's missing for support: a workflow-file resolver
+    // (`.github/workflows/*.yml`, local `./` and remote
+    // `owner/repo/path@ref` like the action resolver), parsing of
+    // the callee's `on.workflow_call` inputs/secrets declarations,
+    // a job-graph merge (imported jobs need id namespacing,
+    // `needs:` rewriting — the call id fans out to every imported
+    // job — `if:` distribution across caller/callee eval contexts,
+    // and `outputs:` `jobs.*`→`needs.*` rewriting), and the
+    // `secrets:`/`jobs.*` expression contexts the dialect doesn't
+    // have at all.
     if get(m, "uses").is_some() {
         return Err(format!(
             "{what}: reusable workflows (`jobs.<id>.uses:` calling another \
-             workflow file) are unsupported — they need job-level expansion \
-             plus `secrets:`/`with:`/`outputs:` plumbing the dialect doesn't have"
+             workflow file) are unsupported — they need a workflow-file \
+             resolver, `on.workflow_call` input/secret declarations, \
+             job-graph expansion with `needs:`/`if:`/`outputs:` rewriting, \
+             and `secrets:`/`jobs.*` expression contexts the dialect lacks"
         ));
     }
     if get(m, "secrets").is_some() {
@@ -2984,23 +3091,16 @@ fn parse_step(
                     with,
                     env,
                 }),
-                UsesKind::Action(action, with) => {
-                    // `timeout-minutes` wraps one step's shell — a
-                    // composite is many steps, so there's no single
-                    // deadline to hang it on.
-                    if timeout_seconds.is_some() {
-                        return Err(format!(
-                            "{what}: `timeout-minutes` on a composite `uses:` step is unsupported"
-                        ));
-                    }
-                    Ok(RawStep::Composite {
-                        id,
-                        cond,
-                        with,
-                        env,
-                        action,
-                    })
-                }
+                UsesKind::Action(action, with) => Ok(RawStep::Composite {
+                    id,
+                    cond,
+                    // `timeout-minutes` becomes a deadline spanning
+                    // the inlined steps (see build_composite).
+                    timeout_seconds,
+                    with,
+                    env,
+                    action,
+                }),
             }
         }
     }
@@ -3021,7 +3121,7 @@ fn timeout_minutes(v: &Value, what: &str) -> Result<u64, String> {
 }
 
 /// `uses:` targets that lower to a synthesized bash step.
-#[derive(Clone, Copy)]
+#[derive(Clone)]
 enum UsesScript {
     /// `dtolnay/rust-toolchain` → rustup install/default.
     RustToolchain,
@@ -3048,6 +3148,10 @@ enum UsesScript {
     Cache,
     /// Runner-appended job-end drain of pending cache saves.
     CacheFlush,
+    /// `uses: docker://<image>` — a container step lowered to
+    /// `docker run` (needs the docker CLI on the runner host).
+    /// Carries the image ref (tag/digest included).
+    Docker(String),
 }
 
 enum UsesKind {
@@ -3070,13 +3174,13 @@ enum UsesTarget {
 /// `uses:` — `actions/checkout` is a verification no-op (the
 /// worktree is already at the pushed sha); `dtolnay/rust-toolchain`,
 /// the `actions/setup-{node,python,go,java,dotnet}` toolchain
-/// actions, `actions/{upload,download}-artifact` and the
-/// `actions/cache*` family lower to synthesized bash steps;
-/// `./local/path` and `owner/repo[/path]@ref` resolve through the
-/// [`ActionResolver`] to a composite `action.yml`. Everything else —
-/// `docker://` images, JS (`runs.using: node*`) and docker actions,
-/// unknown actions and reusable-workflow `uses:` — is an explicit
-/// error.
+/// actions, `actions/{upload,download}-artifact`, the
+/// `actions/cache*` family and `docker://<image>` container steps
+/// lower to synthesized bash steps; `./local/path` and
+/// `owner/repo[/path]@ref` resolve through the [`ActionResolver`] to
+/// a composite `action.yml`. Everything else — JS (`runs.using:
+/// node*`) and `docker` action *definitions*, unknown actions and
+/// reusable-workflow `uses:` — is an explicit error.
 fn parse_uses(
     uses: &str,
     sm: &serde_norway::Mapping,
@@ -3093,9 +3197,10 @@ fn parse_uses(
              `actions/setup-dotnet`, `actions/upload-artifact`, \
              `actions/download-artifact`, `actions/cache`, \
              `actions/cache/save`, `actions/cache/restore`, \
-             composite actions via `./path` or `owner/repo[/path]@ref` \
-             (docker:// images, JS/docker actions, unknown actions \
-             and reusable workflows are unsupported)"
+             `docker://<image>` steps, and composite actions via \
+             `./path` or `owner/repo[/path]@ref` (JS/docker action \
+             definitions, unknown actions and reusable workflows \
+             are unsupported)"
         )
     };
     // Local actions: `./path` relative to the repo root — the whole
@@ -3107,14 +3212,17 @@ fn parse_uses(
             what,
         );
     }
-    let body = uses.split('@').next().unwrap_or(uses);
-    if body.starts_with("docker://") {
-        return Err(format!(
-            "{what}: `uses: {uses}` — `docker://` steps are unsupported: \
-             they need image pull plus env/port/credential plumbing the \
-             local runner doesn't have"
-        ));
+    // `docker://` steps: the image spec is the whole `uses:` tail —
+    // a `@sha256:` digest must not be mistaken for a git ref, so
+    // this check runs before the `@` split below.
+    if let Some(image) = uses.strip_prefix("docker://") {
+        return finish_uses(
+            UsesTarget::Script(UsesScript::Docker(image.to_string())),
+            sm,
+            what,
+        );
     }
+    let body = uses.split('@').next().unwrap_or(uses);
     if body.starts_with('/') {
         return Err(format!(
             "{what}: `uses: {uses}` — absolute-path actions are unsupported; \
@@ -3291,7 +3399,11 @@ fn parse_action(
     if using != "composite" {
         return Err(format!(
             "{awhat}: `runs.using: {using}` — only composite actions are \
-             supported (JS `node*` and `docker` actions are not)"
+             supported. JS `node*` actions need a Node.js runtime plus \
+             the action's bundled `@actions/*` packages; `docker` action \
+             definitions need image build/pull plus entrypoint plumbing \
+             (distinct from `uses: docker://<image>` *steps*, which are \
+             supported) — neither exists in the local-runner model"
         ));
     }
     check_keys(
@@ -4452,13 +4564,77 @@ jobs:
     fn unsupported_uses_still_error() {
         for uses in [
             "actions/setup-haskell@v2",
-            "docker://alpine:3.20",
             "./local/action",
             "octo/repo/.github/actions/x@v1",
             "octo/repo/.github/workflows/ci.yml@v1",
         ] {
             let wf = format!("on: push\njobs:\n  t:\n    steps:\n      - uses: {uses}\n");
             assert!(parse_workflow("ci.yml", &wf).is_err(), "{uses}");
+        }
+    }
+
+    #[test]
+    fn docker_uses_lowers_to_docker_run() {
+        let scripts = expanded_scripts(
+            r#"
+on: push
+jobs:
+  t:
+    steps:
+      - uses: docker://alpine:3.20
+        with:
+          entrypoint: /bin/sh
+          args: ['-c', 'echo hi > out.txt']
+      - uses: docker://img@sha256:abc123
+"#,
+        );
+        assert_eq!(scripts.len(), 2);
+        assert!(scripts[0].contains("docker run"), "{}", scripts[0]);
+        assert!(scripts[0].contains("'alpine:3.20'"), "{}", scripts[0]);
+        assert!(
+            scripts[0].contains("--entrypoint '/bin/sh'"),
+            "{}",
+            scripts[0]
+        );
+        assert!(
+            scripts[0].contains("'-c' 'echo hi > out.txt'"),
+            "{}",
+            scripts[0]
+        );
+        assert!(scripts[0].contains("--env-file"), "{}", scripts[0]);
+        // The digest form keeps `@sha256:` whole — not split as a ref.
+        assert!(scripts[1].contains("'img@sha256:abc123'"), "{}", scripts[1]);
+    }
+
+    #[test]
+    fn docker_uses_bad_input_errors() {
+        for (wf, needle) in [
+            // unknown with: key
+            (
+                "on: push\njobs:\n  t:\n    steps:\n      - uses: docker://alpine\n        with:\n          bogus: 1\n",
+                "bogus",
+            ),
+            // multi-value entrypoint
+            (
+                "on: push\njobs:\n  t:\n    steps:\n      - uses: docker://alpine\n        with:\n          entrypoint: ['/a', '/b']\n",
+                "entrypoint",
+            ),
+            // empty / flag-like / whitespace image specs
+            (
+                "on: push\njobs:\n  t:\n    steps:\n      - uses: docker://\n",
+                "invalid docker image",
+            ),
+            (
+                "on: push\njobs:\n  t:\n    steps:\n      - uses: docker://-evil\n",
+                "invalid docker image",
+            ),
+            (
+                "on: push\njobs:\n  t:\n    steps:\n      - uses: \"docker://a b\"\n",
+                "invalid docker image",
+            ),
+        ] {
+            let err = expand_err(wf, &FakeActions::new(&[]));
+            assert!(err.contains(needle), "{needle}: {err}");
         }
     }
 
@@ -4692,13 +4868,37 @@ runs:
             &resolver,
         );
         assert!(err.contains("cannot resolve"), "{err}");
-        // timeout-minutes on a composite uses step
-        let resolver2 = FakeActions::new(&[("./ok", GREET_ACTION)]);
-        let err = expand_err(
-            "on: push\njobs:\n  t:\n    steps:\n      - uses: ./ok\n        with:\n          name: x\n        timeout-minutes: 5\n",
-            &resolver2,
+    }
+
+    #[test]
+    fn composite_timeout_minute_tags_step_deadlines() {
+        let resolver = FakeActions::new(&[("./ok", GREET_ACTION)]);
+        let jobs = expand_with(
+            "on: push\njobs:\n  t:\n    steps:\n      - uses: ./ok\n        with:\n          name: x\n        timeout-minutes: 2.5\n",
+            &resolver,
+        )
+        .unwrap();
+        // inner run step + publish step; only the run step carries
+        // the deadline (150s = 2.5min).
+        let Step::Run(r) = &jobs[0].steps[0] else {
+            panic!("expected run step");
+        };
+        assert_eq!(
+            r.deadlines,
+            vec![("jobs.t.steps[0]".to_string(), 150)],
+            "{:?}",
+            r.deadlines
         );
-        assert!(err.contains("timeout-minutes"), "{err}");
+        // A composite without timeout-minutes tags nothing.
+        let jobs = expand_with(
+            "on: push\njobs:\n  t:\n    steps:\n      - uses: ./ok\n        with:\n          name: x\n",
+            &resolver,
+        )
+        .unwrap();
+        let Step::Run(r) = &jobs[0].steps[0] else {
+            panic!("expected run step");
+        };
+        assert!(r.deadlines.is_empty());
     }
 
     #[test]

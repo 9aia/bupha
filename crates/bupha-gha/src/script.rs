@@ -13,7 +13,7 @@
 //! when `max-parallel: 1`.
 
 use crate::plan::{BinOp, Cond, DynRef, Job, Step};
-use std::collections::{BTreeSet, HashMap};
+use std::collections::{BTreeSet, HashMap, HashSet};
 
 /// Everything the generated program needs from the run context.
 pub struct ScriptCtx<'a> {
@@ -804,10 +804,34 @@ fn job_body(j: &Job, ji: usize, ctx: &ScriptCtx, ws: &str) -> Result<String, Str
             exports(&j.env, ji, &j.workflow)?.replace('\n', "\n    ")
         ));
     }
+    // Composite-`uses:` deadlines: arm each group's timestamp file
+    // (epoch = now + total seconds) just before its first tagged
+    // step. Keys are per-job (`deadline_<ji>_<safe key>`), so
+    // matrix legs and parallel jobs can't collide; arming is
+    // unconditional — a fully `if:`-skipped group leaves a harmless
+    // file behind.
+    let mut armed: HashSet<&str> = HashSet::new();
     for (si, s) in j.steps.iter().enumerate() {
+        for (key, secs) in step_deadlines(s) {
+            if armed.insert(key.as_str()) {
+                out.push_str(&format!(
+                    "    echo $(( $(date +%s) + {secs} )) > \"$BUPHA_GHA_TMP/deadline_{ji}_{}\"\n",
+                    safe_ctx(key)
+                ));
+            }
+        }
         out.push_str(&render_step(s, ji, si, j, ctx, ws)?);
     }
     Ok(out)
+}
+
+/// The composite deadlines a [`Step`] carries — run steps only
+/// (checkout/publish are instantaneous and need no budget).
+fn step_deadlines(s: &Step) -> &[(String, u64)] {
+    match s {
+        Step::Run(r) => &r.deadlines,
+        _ => &[],
+    }
 }
 
 /// The `bupha_job_out` lines evaluating a job's `outputs:` —
@@ -1097,11 +1121,24 @@ fn render_step(
             let delim = heredoc_delim(&r.script, &format!("BUPHA_EOF_{ji}_{si}"));
             // `timeout-minutes` wraps the step's shell — GNU
             // timeout signals the child's whole process group, so
-            // grandchildren (cargo, npm, …) die with it.
-            let timeout = r
-                .timeout_seconds
-                .map(|s| format!("timeout --kill-after=5 {s} "))
-                .unwrap_or_default();
+            // grandchildren (cargo, npm, …) die with it. Composite
+            // deadlines stack on top: the step's shell gets the
+            // smallest remaining budget across its own timeout and
+            // every armed deadline file (computed at run time).
+            let timeout = if r.deadlines.is_empty() {
+                r.timeout_seconds
+                    .map(|s| format!("timeout --kill-after=5 {s} "))
+                    .unwrap_or_default()
+            } else {
+                let explicit = r.timeout_seconds.unwrap_or(0);
+                let files = r
+                    .deadlines
+                    .iter()
+                    .map(|(k, _)| format!("\"$BUPHA_GHA_TMP/deadline_{ji}_{}\"", safe_ctx(k)))
+                    .collect::<Vec<_>>()
+                    .join(" ");
+                format!("timeout --kill-after=5 \"$(bupha_step_timeout {explicit} {files})\" ")
+            };
             out.push_str(&format!("      {timeout}{shell} <<'{delim}'\n"));
             out.push_str(&script_body(&r.script, ji, &job.workflow)?);
             if !r.script.ends_with('\n') {
@@ -1466,6 +1503,27 @@ bupha_absorb_output_file() {
     printf '%s' "$val" > "$dir/$name"
   done < "$f"
   : > "$f"
+}
+
+# Composite-`uses:` step timeout: $1 = the step's own
+# `timeout-minutes` seconds (0 = none); the rest are armed deadline
+# files (epoch seconds, written by the job body before the group's
+# first step). Prints the smallest positive budget left — the
+# step's shell is wrapped in `timeout` with it, so a composite's
+# `timeout-minutes` spans all its inlined steps like GitHub's
+# per-step deadline.
+bupha_step_timeout() {
+  local best="$1"; shift
+  local now d left f
+  now=$(date +%s)
+  for f in "$@"; do
+    d=$(cat "$f" 2>/dev/null || echo 0)
+    left=$(( d - now ))
+    [ "$left" -lt 1 ] && left=1
+    if [ "$best" -le 0 ] || [ "$left" -lt "$best" ]; then best="$left"; fi
+  done
+  [ "$best" -lt 1 ] && best=1
+  echo "$best"
 }
 
 # Record one evaluated job `outputs:` entry: $1 = job index,

@@ -59,8 +59,20 @@ generator lands.
   8), distributes the uses-step's `if:`/`env:` over them, and
   publishes declared outputs as `steps.<id>.outputs.*` when the
   uses step has an `id`. `env:` on any `uses:` step now reaches the
-  action (previously silently dropped). `docker://` steps and
-  reusable-workflow `jobs.<id>.uses:` remain explicit hard errors.
+  action (previously silently dropped). Reusable-workflow
+  `jobs.<id>.uses:` remains an explicit hard error.
+- **`runner.kind = "gha"` `docker://` steps + composite
+  `timeout-minutes` (T-048)** — `uses: docker://<image>` lowers to
+  `docker run` on the host: workspace + `$BUPHA_GHA_TMP`
+  bind-mounted at their paths (so `$GITHUB_*` file commands and
+  step outputs round-trip), full exported env via `--env-file`,
+  `with.entrypoint`/`with.args` mapped to `--entrypoint` + argv,
+  `--rm --init` + named container + EXIT-trap cleanup. Requires
+  the docker CLI at run time (clear error otherwise); no registry
+  credentials, port mappings or service containers. `timeout-
+  minutes` on a composite `uses:` step is now a deadline spanning
+  the inlined steps — each run step's shell gets the smallest
+  remaining budget (nested composites stack deadlines).
 
 ### Changed
 
