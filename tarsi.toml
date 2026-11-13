@@ -14,6 +14,16 @@ diff_exclude = ["docs/**", "project/**", "*.md", ".github/**"]
 tag_format = "{unit}-v{version}"
 
 
+# Pack-ref sync (T-039): the tamias pack manifest version + README
+# install ref are rewritten to the new version inside the release
+# commit, so the tagged tree is self-consistent — replaces the
+# release.sh plan+sed pre-step.
+[release.sync_refs]
+rules = [
+  { files = ["libraries/bupha/tamias.yaml"], find = "(?m)^version: \"{old}\"", replace = "version: \"{new}\"" },
+  { files = ["README.md"], find = "bupha@{old}", replace = "bupha@{new}" },
+]
+
 [publish.crates]
 enabled = false   # ADR-0004: crates.io publishing is tamias-only
 
