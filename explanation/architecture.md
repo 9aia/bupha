@@ -127,7 +127,11 @@ POST /hook
        at <base>-<repo>[-<job>]-<sha12>
   → 10. spawn run handle (token via env:// name, never argv)
   → 11. status — pending → success/error; superseded and
-        cancelled shas get honest error statuses
+        cancelled shas get honest error statuses. Runners may
+        report sub-job verdicts (`Runner::status_reports`) —
+        the gha dialect emits one per expanded workflow job /
+        matrix leg, posted under `<context>/<workflow>/<job>`
+        via `StatusSink::post_ctx` before the aggregate lands
 ```
 
 ## Queue semantics

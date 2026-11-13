@@ -80,8 +80,14 @@ What changes:
   accordingly, or split workflows across `[[repo.jobs]]` entries
   (each gets its own `runner.workflow` pin and its own
   `ci/bupha/<job>` status context).
-- **Statuses are bupha's.** One commit status per repo/job under
-  `ci/bupha` (or your `[status].context`), not per gha job.
+- **Statuses are bupha's — plus per-job detail.** The aggregate
+  commit status still lands once per repo/job under `ci/bupha`
+  (or your `[status].context`); on top of that, each expanded
+  workflow job that reaches a verdict posts its own status under
+  `<context>/<workflow>/<job id>[/<matrix bindings>]` (e.g.
+  `ci/bupha/ci/build/os=ubuntu,node=18`). Skipped and
+  fail-fast-cancelled legs post nothing — commit statuses have
+  no neutral state.
 - **Secrets** resolve the bupha way — env-var names → cuora
   (`cuora://bupha/<NAME>`, canonical; fleet secrets migrated, T-059)
   → OS keyring → `~/.config/bupha/env` (retired, legacy code
