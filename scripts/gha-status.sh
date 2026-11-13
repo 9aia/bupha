@@ -42,6 +42,27 @@ case "$MODE" in
   *) echo "bupha-status: unknown mode '$MODE' (want status|wait)" >&2; exit 2 ;;
 esac
 
+# wait-mode knobs must be integers in range — a bad value would
+# otherwise die mid-loop inside arithmetic/sleep, and interval=0
+# would hot-spin the forge API until the deadline.
+case "$TIMEOUT" in
+  ''|*[!0-9]*) echo "bupha-status: timeout='$TIMEOUT' is not a non-negative integer" >&2; exit 2 ;;
+esac
+case "$INTERVAL" in
+  ''|*[!0-9]*) echo "bupha-status: interval='$INTERVAL' is not a non-negative integer" >&2; exit 2 ;;
+esac
+if [ "$INTERVAL" -lt 1 ]; then
+  echo "bupha-status: interval must be >= 1 second" >&2
+  exit 2
+fi
+# Cap the deadline well below int64 range so SECONDS+TIMEOUT can't
+# overflow into a past instant. The length guard keeps `[` from
+# choking on digit strings too big for its integer type.
+if [ "${#TIMEOUT}" -gt 5 ] || [ "$TIMEOUT" -gt 86400 ]; then
+  echo "bupha-status: timeout must be <= 86400 seconds (24h)" >&2
+  exit 2
+fi
+
 if [ -z "$SHA" ]; then
   echo "bupha-status: no sha — set BUPHA_SHA or run in Actions" >&2
   exit 2
@@ -73,17 +94,22 @@ fetch_status() {
 STATE="" DESC="" TARGET=""
 extract() {
   local resp="$1" entry
+  # An unparseable body is a fetch failure, not "no status" —
+  # callers treat extract's nonzero as transient (wait) or fatal
+  # (status).
   entry=$(jq -c --arg ctx "$CONTEXT" '
     [.statuses[]? | select(.context == $ctx)]
     | sort_by(.created_at)
     | last // null
-  ' <<<"$resp")
+  ' 2>/dev/null <<<"$resp") || return 1
   if [ "$entry" = "null" ] || [ -z "$entry" ]; then
     STATE="none"; DESC=""; TARGET=""
     return
   fi
   STATE=$(jq -r '.state // "none"' <<<"$entry")
-  DESC=$(jq -r '.description // ""' <<<"$entry" | tr '\n\t' '  ')
+  # Sanitize inside jq so a trailing newline doesn't become a
+  # trailing space in the output.
+  DESC=$(jq -r '.description // "" | gsub("[\\n\\r\\t]"; " ")' <<<"$entry")
   TARGET=$(jq -r '.target_url // ""' <<<"$entry")
 }
 
@@ -110,15 +136,29 @@ is_terminal() {
 
 case "$MODE" in
   status)
-    RESP="$(fetch_status)"
-    extract "$RESP"
+    # One-shot mode stays fail-loud, but report a clean error
+    # instead of leaking jq/curl exit codes.
+    if ! { RESP="$(fetch_status)" && extract "$RESP"; }; then
+      echo "bupha-status: could not fetch/parse status for ${REPO}@${SHA}" >&2
+      exit 1
+    fi
     emit
     ;;
   wait)
     deadline=$(( SECONDS + TIMEOUT ))
     while :; do
-      RESP="$(fetch_status)"
-      extract "$RESP"
+      # A transport/API blip or an unparseable body is transient —
+      # keep polling until the deadline rather than killing a long
+      # wait on one failed fetch.
+      if ! { RESP="$(fetch_status)" && extract "$RESP"; }; then
+        if [ "$SECONDS" -ge "$deadline" ]; then
+          STATE="timeout"; DESC=""; TARGET=""
+          emit
+          exit 1
+        fi
+        sleep "$INTERVAL"
+        continue
+      fi
       if is_terminal "$STATE"; then
         emit
         case "$STATE" in
