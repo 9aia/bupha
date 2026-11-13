@@ -15,318 +15,280 @@ ops contract (`ci.enqueue`, `ci.status`, `ci.cancel`) is the seam both the
 driver and campaigns speak." No code lands here; this pins the wire shape
 so T-049/T-052/T-053/T-055 can proceed against a fixed contract.
 
-## 0. Where the pieces live
+> **v2 — reconciled with the shipped implementation.** The v1 draft
+> below was written before the seam landed; T-049/T-051/T-058/T-063/
+> T-067/T-072/T-073/T-077 have since implemented it. This revision
+> keeps the contract sections (they match the code) and replaces the
+> stale "where pieces live"/migration/open-question parts with the
+> **as-built map**, the surfaces that were implicit and are now named,
+> and the gaps that remain. Code anchors are current as of bupha
+> `fc193d2` / peregrin `main`.
+
+## 0. Where the pieces live (as built)
 
 | Concern | Owner | Anchor |
 | --- | --- | --- |
-| Canonical job spec, queue policy, supersede/retry rules | **bupha** (pure, `bupha-core`) | `Queue`, `QueuePolicy`, `MAX_PENDING`, `is_valid_sha`/`is_valid_key`, `WatchedRepo` — `crates/bupha-core/src/lib.rs` |
-| Push normalization (forge event → `Push`) | **bupha** (`bupha-trigger` port; `bupha-gha` dialect) | `Push{repo,git_ref,sha,sender,event}`, `Verdict`, `PushOutcome` — `crates/bupha-trigger/src/lib.rs` |
-| `ci-job` entity plane (state machine + op dispatch) | **bupha** adapter crate over the hypha port | new `crates/bupha-plane`, impl `hypha_http::EntityPlane` (`crates/hypha-http/src/entity_plane.rs`) |
-| Entity substrate (create/ops/index/outbox/locks) | **hypha** | `EntityApi` (`hypha-node-api/src/api.rs`), `EntityPlane`/`KindRegistry`, `hypha-outbox`, `hypha-control` |
-| Orchestration, webhook ingress, fleet scheduling | **peregrin** | `CampaignEntityPlane` pattern — `crates/peregrin-node/src/campaign_entity.rs` (`kind="campaign"`, `campaign.*` ops) |
-| Distribution + worker host | **tamias** | `tamias-driver-bupha` (`crates/bupha-driver`) |
+| `kind="ci-job"` entity plane — state machine, lane math, `ci.*` op dispatch, fence/lease, snapshot, rehydrate | **bupha** (`bupha-plane`), hosted by peregrin | `crates/bupha-plane/src/{job,plane}.rs`; registered in `peregrin-node` under the default-on `bupha` feature — `repos/peregrin/crates/peregrin-node/src/lib.rs:198` |
+| Queue/job semantics (validation, `MAX_PENDING`, supersede/retry rules mirrored by the plane) | **bupha** (pure, `bupha-core`) | `is_valid_sha`/`is_valid_key`/`is_safe_remote`/`is_safe_ref_name`, `QueuePolicy`, `MAX_PENDING`, `WatchedRepo` |
+| Push normalization (forge payload → `Push`, HMAC verify, delivery dedup) | **bupha** (`bupha-trigger` port; `bupha-gha` dialect) | `crates/bupha-trigger`, `crates/bupha-gha`; consumed by the ci-ingress campaign's `github-webhook` driver and dev-mode `WebhookSource` |
+| Worker — poll → claim → worktree → runner → status/attest/history → settle | **bupha** (`bupha-watch` entity worker; runner port `bupha-runner`) | `crates/bupha-watch/src/entity_worker.rs` (`JobApi`/`EntityJobApi`/`WatchExec`), `crates/bupha-watch/src/lib.rs` (`run_job`/`settle_run`), exposed as `tamias-driver-bupha worker|host --config` (`crates/bupha-driver/src/ops.rs:962`) |
+| Webhook/forge ingress → enqueue | **peregrin** campaign (`ci-ingress` bundle, distributed via tamias from `bupha/libraries/ci-ingress`) | `libraries/ci-ingress/main.yaml` — `github-webhook` → `ci.route` → `ci.enqueue*` `driver:http` nodes |
+| Entity substrate (create/ops/index/outbox/locks, `/api/events/inject`) | **hypha** via peregrin | `hypha-http` `EntityPlane`; `peregrin-http/src/ingest.rs` (`EventIngest`, `POST /api/events/inject`) |
+| Fleet spec resolution feeding the plane (`with_watched`) | **bupha** config → peregrin node boot | `ci_fleet::fleet_specs()` (`PEREGRIN_BUPHA_CONFIG`/`BUPHA_CONFIG`/`~/.config/bupha/bundles`), wired at `peregrin-node/src/lib.rs:205` |
+| Distribution + worker host binary | **tamias** | `tamias-driver-bupha` (`crates/bupha-driver`) |
 
-The split mirrors ADR-0006: bupha keeps CI *semantics* — the pure
-transition rules (`enqueue` supersede math, `all`-FIFO bound, retry
-budget) live in `bupha-core` as testable functions; the plane is a thin
-mechanical adapter holding entity state and dispatching `ci.*` ops. The
-plane depends on `hypha-http`'s `EntityPlane` trait exactly the way
-`bupha-queue-redis` depends on redis — a port impl, not a substrate
-merge. Whichever node composes it (`peregrin-node` via a feature, or a
-thin `bupha-node` dev binary) registers it with
-`state.kinds.register(Arc::new(CiJobPlane::…))`, same as
-`CampaignEntityPlane` at `peregrin-node/src/lib.rs:141`.
+ADR-0006 holds: bupha owns CI *semantics*; hypha/peregrin own the
+substrate and orchestration; tamias distributes. The plane is a bupha
+crate implementing hypha's `EntityPlane` port — the first bupha→hypha
+dependency, accepted under "thin port or none" (it *is* the port impl).
 
-## 1. `kind="ci-job"` entity shape
+## 1. `kind="ci-job"` entity shape — as built
 
-**Granularity: one entity per job attempt** — `{key, sha, attempt}`.
-Rationale: ops are per-entity (`POST /api/entities/{id}/ops`),
-supersede/cancel target a specific sha, and the entity's `indexDoc` is
-the immutable provenance record ADR-0006 wants ("every install records
-its source ref, resolved sha"). The *queue* is derived state: the set of
-`state:"pending"` entities sharing a `key`, ordered by `enqueuedAt`/id —
-the plane keeps a per-key `VecDeque<id>` lane index (rebuilt from the
-entity map on load), which is exactly what `Queue.pending:
-VecDeque<String>` is today (`bupha-core/src/lib.rs:105`).
+One entity per job attempt: id `ci:{key}:{sha}:{attempt}` —
+deterministic, so webhook replays dedup for free (create is
+idempotent). `key` = `WatchedRepo.key` (`owner/name[:job]`), the queue
+lane id. Full indexDoc field list is pinned by
+`CiJob::from_index_doc`/`to_index_doc`
+(`crates/bupha-plane/src/job.rs:98-203`) and asserted by the
+`index_doc_matches_p002_shape` test.
 
-Entity id is **deterministic**: `ci:{key}:{sha}:{attempt}` — `key` passes
-`is_valid_key` (`owner/name[:job]`, `:` already legal), `sha` passes
-`is_valid_sha`. Deterministic ids give webhook-replay dedup for free
-(the `Seen` ring in `bupha-webhook` becomes unnecessary on this path —
-create is idempotent: same id → return the existing entity, no
-double-enqueue). `attempt` starts at 1; auto-retry (below) bumps it, so
-a retried sha is a *new* entity superseding nothing.
+**Deltas vs v1:**
 
-### indexDoc (the `init` body of `POST /api/entities`, kind `"ci-job"`)
+- `cloneUrl` + `headRef` (T-073): fork-PR heads live on the fork —
+  the indexDoc carries the head clone URL + ref; absent for pushes and
+  same-repo PRs. Both argv-validated at the trust boundary
+  (`is_safe_remote`/`is_safe_ref_name` — they reach `git fetch`).
+- `createdAt`/`updatedAt` are plane bookkeeping — `#[serde(skip)]`,
+  deliberately *not* part of the wire contract.
+- Fleet normalization (`CiJobPlane::with_watched`, T-067): on a
+  spec-armed plane a create whose `key` matches a `Config::watched()`
+  spec gets `repo`/`queue`/`runsOn`/`runner`/`context`/`maxAttempts`
+  overwritten from the fleet resolution and `ref`/`event` *gated*
+  (mismatch → 400, not an unclaimable pending job). This is how
+  per-repo `fleet.toml` config reaches the entity plane — indexDoc
+  and execution can never disagree. Spec-less keys pass through
+  wire-verbatim.
+- `CiJobPlane::with_labels` takes the node's advertised capability
+  list — the same list `GET /api/node` serves (session caps +
+  `ephemeral` + `PEREGRIN_RUNNER_LABELS`, which is where a bupha
+  worker's `[worker] labels` land, `peregrin-node/src/lib.rs:173-181`).
 
-```jsonc
-{
-  "key":        "owner/name:gate",        // WatchedRepo.key — queue lane id
-  "repo":       "owner/name",             // status_repo — forge status target
-  "ref":        "refs/heads/main",        // Push.git_ref
-  "sha":        "0123abcd…",              // Push.sha — is_valid_sha'd
-  "event":      "push",                   // Push.event — "push"|"pull_request"
-  "sender":     "luis",                   // Push.sender — source-attested
-  "deliveryId": "guid-…",                 // forge delivery id (audit/dedup)
-  "queue":      "latest",                 // resolved QueuePolicy ("latest"|"all")
-  "runsOn":     ["arch=arm64"],           // resolved label requirements (job→repo→[])
-  "runner":     { "kind": "gha", "…": "…" }, // resolved RunnerCfg verbatim
-                                           // (token_env is a NAME — safe to store)
-  "context":    "ci/bupha/gate",          // WatchedRepo.context — status label
-  "maxAttempts": 3,                       // repo.retry + 1, resolved at ingest
-  "attempt":    1,
-  "state":      "pending",                // see state machine below
-  "enqueuedAt": "2026-11-10T…Z",
-  "claimedBy":  null,                     // worker id once running
-  "fence":      0,                        // fencing token, bumped per claim
-  "leaseExpiresAt": null,                 // RFC3339 — renew/expire bookkeeping
-  "supersededBy": null,                   // sha that superseded this job
-  "cancelRequested": false,               // ci.cancel on a running job
-  "result":     null,                     // "success"|"failure"|"cancelled"|"error"
-  "description": null,                    // short outcome text (status desc)
-  "logRef":     null,                     // optional pointer to run logs/artifacts
-  "startedAt": null, "finishedAt": null
-}
-```
+State machine, `locked`/`live` projection, health-via-`nodeStatus`,
+and the `ci-job-snapshot/v1` export/import format are as designed in
+v1 §1 — implemented verbatim in `plane.rs` (`sweep_expired`,
+`clone_for_retry`, `supersede`, `export_job`/`import_job`).
 
-Validation at create = today's ingest checks, moved into the plane:
-`is_valid_sha(sha)`, `is_valid_key(key)`, `queue`/`events` closed sets,
-`retry ≤ 3` (`WatchedRepo` resolution already enforces these — the
-plane re-checks the *payload*, since the wire is a trust boundary, same
-as `MemWorkQueue::enqueue` rejecting hostile shas at
-`bupha-queue/src/lib.rs:108`).
+**Rehydrate (T-072):** the plane is a working set; the hub's durable
+`hypha-sync` entity index is the store. `CiJobPlane::rehydrate`
+(`plane.rs:823`) rebuilds entities + pending lanes (ordered by
+`enqueuedAt`, id tiebreak) at `peregrin-node` boot *before* the
+listener binds, preserving `running` claims/fences/leases verbatim so
+the lazy sweep requeues exactly the lapsed ones. Rehydration is
+idempotent; unparseable docs are skipped and counted
+(`RehydrateReport`).
 
-### State machine
+## 2. Op set — namespace `ci`, kind `ci-job` — as built
 
-```
-                 ci.claim (CAS pending→running, fence++)
-   pending ─────────────────────────────────────────────► running
-     │  ▲                                                     │
-     │  │ ci.release / lease expiry                           │ ci.complete
-     │  │ (running→pending, back of lane)                     ▼
-     │  └────────────────────────────────────────── success|failure|cancelled|error
-     │                                                       ▲
-     ├── ci.cancel ──► cancelled (terminal)                  │ auto-requeue:
-     └── superseded by newer enqueue (same key, latest) ──► superseded (terminal)
-         or `all`-lane overflow eviction ──► superseded
-```
+`POST /api/entities/{id}/ops` with `{kind:"ci.<verb>", payload}` —
+ops serialize on the owning node; every transition is a single-threaded
+CAS inside the plane. Implemented verbs (`dispatch_op`,
+`plane.rs:401`):
 
-`failure` + `attempt < maxAttempts` does **not** terminate: the plane
-re-enqueues as `{key,sha,attempt+1}` state `pending` — the `Queue::
-requeue` semantic (`bupha-core/src/lib.rs:143`: "the retry goes behind
-already-queued work"), preserving per-key order. `superseded`/`cancelled`
-never retry — same rule as today's ingest (`bupha-cli/src/main.rs`
-comment: "a superseded or claim-lost one may not").
-
-### EntityDto projection (`list`/`get`)
-
-Mirror `entity_doc` in `campaign_entity.rs:210`:
-
-- `indexDoc` = the stored spec above (state fields current).
-- `locked` = `state == "running"` — one live owner per entity; a second
-  `ci.claim` sees `locked:true` in the index *and* gets a 409 from the
-  op (belt and suspenders, same as campaign's `locked: running`).
-- `live` = `state == "running"`.
-- `updatedAt` = RFC3339 of last transition.
-
-Health mapping (the prompt's `health` field — the wire DTO carries
-`locked`/`live`/`nodeStatus` instead, `hypha-node-api/src/dto.rs:10`):
-`pending` → `locked:false, live:false`; `running` → `locked:true,
-live:true`; terminal → `locked:false, live:false`. Node reachability is
-already `nodeStatus`/`nodeId` on `EntityDto`/`NodeStatusDto` — a dead
-runner node shows `nodeStatus:"down"`, and its expired-lease entities
-return to `pending` via the sweep below. No extra health field needed.
-
-## 2. Op set — namespace `ci`, kind `ci-job`
-
-The plane sets `kind() = "ci-job"` and `op_namespace() = "ci"` (the
-`sepia-session`→`sepia.*` precedent, `entity_plane.rs:70`). Substrate
-`entity.*` stays reserved. All ops: `POST /api/entities/{id}/ops`,
-`{kind:"ci.<verb>", payload:{…}}` via `EntityApi::submit_op`
-(`hypha-node-api/src/api.rs:38`). Ops serialize on the owning node, so
-every state transition is a single-threaded compare-and-set inside the
-plane — this is what makes `ci.claim` atomic without locks.
-
-| Op | Caller | Payload | Semantics / response |
-| --- | --- | --- | --- |
-| *(create)* | ingress, campaign, driver, human | `indexDoc` (§1) | `POST /api/entities` — **this IS `ci.enqueue`**. Idempotent on deterministic id. Response `{id, entity, superseded:[{id,sha}]}` — the supersede list is how the caller learns which shas need honest "superseded" statuses (today's `EnqueueResult::Queued{superseded}` + `Claim::Won{superseded}`). 409 on `queue:"all"`+`cancelRunning` conflict (mirrors `Config::watched` validation, `bupha-core/src/lib.rs:716`). |
-| `ci.enqueue` | same as create, plus retry path | `{attempt?: n}` | Requeue an existing entity: terminal/`superseded` → `pending` (attempt bumps). Mirrors `Queue::requeue` — appends at lane back, never supersedes. 409 unless entity is in a requeueable state. |
-| `ci.claim` | **runner workers only** | `{worker: "<node-id>/<pid>", leaseSecs?: 300}` | CAS `pending→running`: sets `claimedBy`, `fence++`, `leaseExpiresAt`, `startedAt`. Winner gets `{claimed:true, fence, job:{…indexDoc…}}`; loser gets 409 `{claimed:false, heldBy, leaseExpiresAt}`. Label gate: the *caller* pre-filters (`runsOn ⊆ worker.labels`); the plane re-checks `runsOn` against the `capabilities` the node advertised — mismatch → 409 (campaign's `runs_on_matches` fleet gate, `campaign_entity.rs:701`). |
-| `ci.renew` | claim holder | `{worker, fence}` | Extends `leaseExpiresAt` (default TTL 300s, renewed ~every 120s — today's 5-min/2-min cadence, `bupha-cli/src/main.rs:403`). `fence` mismatch or not holder → 409 = claim lost; worker aborts the run (`JobEnd::ClaimLost` path). Mirrors `TryClaim::renew` (`bupha-queue-lease/src/lib.rs:14`). |
-| `ci.release` | claim holder | `{worker, fence, reason?}` | Graceful `running→pending`, back of lane. Worker shutting down mid-run. 409 on fence mismatch. |
-| `ci.complete` | claim holder | `{worker, fence, result, description?, logRef?}` | Terminal transition + auto-retry (§1). Fence mismatch → 409, no state change (the redis `complete` holder-check, `bupha-queue-redis/src/lib.rs:276`). Response echoes final `{state, attempt}` so the worker knows whether a retry entity was spawned. |
-| `ci.cancel` | operators, campaigns, ingress | `{reason?}` | `pending→cancelled`; `running→` sets `cancelRequested:true` (state stays `running`, `locked` stays true). The running worker's renew loop polls `GET /api/entities/{id}` (or a `?watch` on list) and kills its child on `cancelRequested` — the `q.cancelled`/`cancel_running` semantic (`bupha-cli/src/main.rs`, `bupha-core` `cancelled` flag). Idempotent: cancel on terminal = 200 no-op. |
-| `ci.status` | anyone (read) | `{queuePosition?: true}` | Rich read for campaigns/polls: entity doc + derived `position` (index in the key's pending lane) + `laneDepth` + `oldestPendingSha`. Cheap alternative to clients recomputing lane order from `list`. Plain `GET /api/entities/{id}` remains the minimal read. |
-
-**Not ops** (substrate-owned): delete is `DELETE /api/entities/{id}`
-/`entity.delete` — allowed only in terminal states (plane returns 409 on
-`pending`/`running` unless `?force=true`, same as campaign delete,
-`campaign_entity.rs:393`). Snapshot export/import: `ci-job-snapshot/v1`
-carrying the indexDoc + result — lets a *pending* job migrate nodes;
-running jobs do not migrate (the run is process-local, like campaign's
-live_log caveat).
-
-## 3. Latest-wins + bounded FIFO on entity/lock semantics
-
-This is the open question; concrete proposal:
-
-**Lanes are derived, claims are CAS, supersede is a create-time sweep.**
-
-- **Lane state**: plane keeps `lanes: HashMap<key, VecDeque<entity_id>>`
-  of *pending* ids, rebuilt on boot from `state=="pending"` entities
-  ordered by `(enqueuedAt, id)`. This is `Queue.pending` with entity
-  ids instead of shas. Terminal/running entities leave the deque.
-- **`latest` policy** (default, `QueuePolicy::Latest`): on create, the
-  plane sweeps the key's lane — every existing `pending` entity for
-  that key becomes `superseded` (`supersededBy` = new sha) *before* the
-  new entity lands `pending`. With the ≤1-pending invariant this is
-  exactly `Queue::enqueue`'s `pending.pop_front()` → `superseded`
-  (`bupha-core/src/lib.rs:126`), generalized safely to "all pending"
-  so a crash-mid-sweep can't leave two pendings. The create response
-  carries the superseded list; the plane *also* records
-  `supersededBy`/`result:"superseded"` on each so `ci.status`/index
-  alone tell the story.
-- **`all` policy** (`QueuePolicy::All`, `MAX_PENDING = 32`): append to
-  lane; if `lane.len() > 32` after insert, evict the *oldest* pending →
-  `superseded`. Identical bound and direction to
-  `Queue::enqueue`'s `All` arm (`bupha-core/src/lib.rs:128`) and the
-  redis pruner.
-- **Claim order**: `latest` → the lane's single pending (or newest, if
-  a sweep bug left several — take newest, supersede the rest, same as
-  `MemWorkQueue`'s `rposition`, `bupha-queue/src/lib.rs:145`).
-  `all` → oldest first (FIFO, `pop_front`). The *worker* chooses which
-  entity to `ci.claim` by listing `kind=ci-job`, filtering
-  `key ∈ its watched keys` + `state=="pending"` + `runsOn ⊆ labels`,
-  then picking per policy; the plane's CAS makes the pick race-safe —
-  two workers claiming the same entity → one 200, one 409, loser
-  rescans. This replaces `WorkQueue::claim_next`'s server-side scan
-  with client-side scan + server-side CAS; the scan is cheap (index
-  docs are small) and `ci.status`'s `position`/`laneDepth` keep it
-  honest.
-- **Leases**: `leaseExpiresAt` on the entity + a plane sweeper (timer
-  thread, or lazy check inside `list`/`op` — lazy is simpler and
-  matches `LockRegistry::stale`'s pull model, `hypha-control/src/
-  lib.rs:100`). Expired `running` → back to `pending` at lane *back*
-  (a dead worker's job re-runs after queued work — same as redis lease
-  expiry re-claiming). `fence` increments on every claim so a
-  partitioned worker's `renew`/`complete`/`release` all 409 — the
-  `Fence(u64)` fencing token (`bupha-queue-lease/src/lib.rs:7`)
-  expressed as entity state.
-- **hypha locks vs CI claims**: `hypha-control`'s `LockRegistry` is
-  *attach* arbitration (who may drive an entity), not work claiming.
-  We do **not** route CI claims through it — `locked:true` in the DTO
-  is a *projection* of `state=="running"`, and mutual exclusion is the
-  op-handler CAS. Using RW locks for claims would serialize readers
-  (`ci.status`, index) behind runs — wrong tool. Note `Decision::
-  Preempt`/`Queue` exist if we later want hub-side attach semantics
-  for live-run inspection; out of scope here.
-- **Outbox interplay**: ops to a down node queue in `hypha-outbox`
-  (`OpKind::Turn` dead-letters on failure — right policy for
-  `ci.claim`/`ci.complete`, which must not reorder). `ci.enqueue`
-  create-path should be `OpKind::Metadata`-like (last-writer-wins
-  safe) — but creates go through `POST /api/entities`, not the outbox
-  op path, so this is moot unless we add a node-targeted create op.
-  Flagged in open questions.
-
-## 4. How the driver consumes jobs
-
-**`tamias-driver-bupha` becomes the worker host** — no `bupha` binary
-(ADR-0006 amendment). Two additions to `crates/bupha-driver`:
-
-1. **`worker` verb** (hidden provider verb, not a tamias lifecycle
-   verb): `tamias-driver-bupha worker --config <fleet.toml>` —
-   resolves `[[repo]]`/`[runner]`/`[worker]` exactly as `bupha worker`
-   does today (`bupha-cli/src/main.rs:1318` `cmd_worker`), but
-   replaces the `WorkQueue` impl: instead of redis `claim_next`, it
-   polls `EntityApi::list_entities(Some("ci-job"))` over
-   `hypha_node_api::HttpEntityApi` (blocking ureq — fits bupha's
-   sync/no-runtime rule), filters pending+labels, submits `ci.claim`,
-   runs the sha through the existing `bupha-runner` impls
-   (`RunCtx{workdir,token_env,key,sha,git_ref}` — unchanged),
-   renews on a ticker, `ci.complete`s with the mapped result.
-   Node endpoint + token come from env (`PEREGRIN_*`/`HYFHA_*`-style —
-   T-056 secrets story decides the names). The provider unit's
-   `run.exec` (tamias-provider) becomes
-   `tamias-driver-bupha worker --config …` — this also resolves
-   **T-052** (driver host mode) for the worker side.
-2. **Plane registration** stays host-side: `peregrin-node` gains an
-   optional `bupha` feature registering `CiJobPlane` (it already
-   composes `hypha-http` + `KindRegistry`,
-   `peregrin-node/src/lib.rs:141-170`); a `bupha-node` dev binary can
-   compose `hypha-node` + the plane standalone for single-box dev —
-   this is where embedded-queue dev mode plugs in (§5).
-
-**Polling, not push**: workers poll the entity index (cheap, stateless,
-survives worker restarts — a crashed worker's `running` entity just
-expires its lease). No outbox subscription needed on the worker side:
-the outbox is for *writes to down nodes*, and workers write ops to the
-hub which is up by definition. Push notification (hypha-push exists
-for web-push, not this) would be an optimization, not the contract.
-
-**Fleet labels** map onto `NodeInfoDto.capabilities` /
-`NodeStatusDto.capabilities` (`hypha-node-api/src/dto.rs:103,135`) —
-the same list campaign `runs_on` already matches
-(`campaign_entity.rs:121-143`). A bupha worker node advertises
-`runner:<kind>` + its `worker.labels` (`arch=arm64`, …); `runsOn`
-matching is set-equality against that list. This unifies bupha's
-`[worker] labels` and peregrin's capability labels into one surface —
-worth calling out to T-053.
-
-## 5. Migration path — what stays dev-mode
-
-| Piece | Fate |
+| Op | Semantics (implemented) |
 | --- | --- |
-| `bupha-core` `Queue`/`QueuePolicy`/`MAX_PENDING`/`Seen` | **Stays** — the pure semantics the plane re-implements over entities; `Queue` itself becomes dev-mode-only once the plane lands (its math is the spec the plane's tests mirror). |
-| `bupha-queue` port + `MemWorkQueue` | **Stays** — in-process dev/test impl. |
-| `bupha-queue-redb`, `bupha-queue-redis`, `bupha-queue-lease` | **Migrate out** (T-049): the entity plane *is* the distributed queue; lease→`fence`+`leaseExpiresAt`; redis claim keys→entity CAS. Crates die or move hypha-side per T-053 audit. |
-| `bupha-webhook` (tiny_http listener) + `Trigger`/`Push`/`Verdict` | Split: `Trigger` parse/verify stays pure bupha (ingress calls it); the listener harness becomes **dev-mode** — production ingress is peregrin's (campaign listener / `peregrin-driver-github-webhook`), which normalizes via bupha's `Trigger` then `POST /api/entities`. Resolves T-055: peregrin owns ingress, bupha owns normalization. |
-| `bupha watch` / `bupha worker` CLI | **Dev-mode only** (ADR-0006: "in-process mode — ports stay, impls get swapped"). Single-box `bupha-node` + embedded queue remains the zero-infra path and the e2e harness. |
-| `bupha-cli` lifecycle verbs (deploy/service/run) | Already gone per ADR-0006 amendment — driver verbs only. |
-| `tamias-driver-bupha` | Gains `worker` verb (§4); keeps `deploy`/`hooks`/`health`/`status`/`logs` pavo+provider surface; `data.rs` views gain a `ci-jobs` plane reading the entity index instead of `queue.redb` when hosted mode is on. |
-| `bupha-status` `StatusSink` | **Stays bupha** — workers post commit statuses on `ci.complete` (they hold forge creds via `token_env`); the plane records `result`/`description`/`context` but does not post. A peregrin-side `sink` (e.g. `peregrin-sink-github-status`) is the campaign-level alternative — pick one per deployment, not both (open question). |
-| `bupha-gha`, `bupha-runner`, `bupha-{shell,dagger,ssh,container,http}` | **Unchanged** — pure semantics + runner impls; they consume `RunCtx` regardless of who feeds the queue. |
+| create = `ci.enqueue` | `POST /api/entities {kind:"ci-job", indexDoc}` → 201 `{id, entity, superseded[]}`; replay → 200 `{…, duplicate:true}`. Fleet normalization runs *before* the duplicate check so replays normalize identically. |
+| `ci.enqueue {attempt?}` | Requeue terminal/`superseded` → `pending` at lane back; `pending` idempotent no-op; `running` → 409. |
+| `ci.claim {worker, leaseSecs?}` | CAS `pending→running` → `{claimed:true, fence, job}`; loser → 409 `{claimed:false, heldBy, leaseExpiresAt}`; label mismatch → 409; non-pending → 409. |
+| `ci.renew {worker, fence, leaseSecs?}` | Lease extension; holder/fence mismatch → 409 `{heldBy, fence}` = claim lost. Accepts `leaseSecs` **or** `lease_secs` (dual spelling — see gaps). |
+| `ci.release {worker, fence, reason?}` | `running→pending` at lane back; pending `cancelRequested` lands `cancelled` instead (operator intent survives a polite release). |
+| `ci.complete {worker, fence, result, description?, logRef?}` | Terminal + auto-retry: `failure` && `attempt<maxAttempts` spawns `{…,attempt+1}` pending behind queued work; response `{state, attempt, retry?}`. |
+| `ci.cancel {reason?}` | `pending→cancelled`; `running→{cancelRequested:true}` (`{status:"cancelling"}`); terminal → 200 `{status:"not_cancellable"}` no-op. |
+| `ci.status {queuePosition?}` | Entity doc + `queuePosition`/`laneDepth`/`oldestPendingSha` when requested (also accepts `queue_position`). |
 
-## 6. Open questions
+Delete is substrate `DELETE /api/entities/{id}` — terminal-only unless
+`?force=true`. Snapshot export refuses `running` (process-local run);
+import lands non-terminal snapshots `pending`, terminal keep outcome.
 
-1. **Plane home**: `bupha-plane` crate in the bupha workspace (dep on
-   `hypha-http`) vs plane code in `peregrin-node` calling pure
-   `bupha-core::cijob` functions. Recommendation: bupha crate — CI
-   semantics shouldn't fork into peregrin; but it makes bupha depend on
-   hypha crates (first such dep — confirm acceptable under ADR-0006's
-   "thin port or none").
-2. **Status posting ownership**: worker-side `StatusSink` (today's
-   model, creds stay with runners) vs plane-side vs
-   `peregrin-sink-github-status`. Affects whether `ci.complete` needs a
-   `statusPosted` ack or the sink is a campaign concern.
-3. **Authz on ops**: substrate auth is bearer-token; `ci.cancel`/
-   `ci.claim`/`ci.enqueue` have different trust levels. Do we need an
-   actor/role field enforced plane-side, or is "hold the node token" the
-   whole story (campaign precedent suggests the latter)? `EntityContext`
-   carries no actor today.
-4. **Create-vs-outbox**: enqueues from a *remote* ingress (peregrin hub
-   → bupha node) — does `POST /api/entities` route to the right node
-   (`node` param exists on `create_entity`, `api.rs:30`), and should
-   `ci.enqueue` also exist as an op-kind for outbox replay
-   (`OpKind::Metadata` vs `Turn` classification, `hypha-outbox`)?
-5. **Lease defaults**: 300s/120s renew carries over, but entity-poll
-   latency adds jitter — is lazy-sweep (on read) enough, or does the
-   plane need a timer thread? Campaign plane is timer-free; precedent
-   says lazy.
-6. **`runsOn` vs node `capabilities` naming**: unify label syntax
-   (`arch=arm64` vs `runner:linux`) — T-053 audit should pick one
-   grammar both campaign `runs_on` and ci-job `runsOn` parse.
-7. **Snapshot/migration of running jobs**: spec says pending-only;
-   confirm no requirement to evacuate a `running` ci-job (campaign
-   precedent: live runs don't migrate).
-8. **`ci-job` vs campaign nesting**: should a multi-job pipeline
-   (matrix) be N entities or one entity + campaign fan-out? v1 = N
-   entities (one per `{key,sha,attempt}`); matrix expansion is a
-   campaign's job, feeding N enqueues.
-9. **`deliveryId` durability**: deterministic entity id already dedups
-   replays; keep `deliveryId` in indexDoc for audit only, or also feed
-   a `Seen`-style ring for deliveries that map to *different* attempts?
-10. **Where `queue="all"`+`cancelRunning` conflict and `retry≤3`
-    validation live**: plane create-time (proposed) vs keeping
-    `Config::watched` as the only validator — the wire is a trust
-    boundary, so plane-side re-validation is required regardless;
-    confirm no drift between the two check sets.
+## 3. Queue semantics on entity/lock state — as built
+
+As designed in v1 §3, implemented in `plane.rs`:
+
+- **Lanes are derived**: `lanes: HashMap<key, VecDeque<id>>` of pending
+  ids, rebuilt on rehydrate; `latest` lanes hold ≤1 by construction,
+  `all` lanes bounded by `MAX_PENDING` (=32) with oldest-eviction →
+  `superseded`.
+- **`latest`**: create sweeps *all* pending entities for the key to
+  `superseded` (`supersededBy` = new sha) before the new one lands —
+  crash-mid-sweep safe.
+- **Claim order**: the *worker* scans `list_entities("ci-job")`,
+  filters `state=="pending"` + known key + `runsOn ⊆ labels`, picks per
+  policy, and `ci.claim`s — the CAS makes the pick race-safe (one 200,
+  one 409, loser rescans). `ci.status`'s `queuePosition` keeps lane
+  order honest for pollers.
+- **Leases**: `leaseExpiresAt` + lazy sweep inside every `transact`
+  (pull model, `LockRegistry::stale` precedent — no timer thread).
+  Expired `running` → `pending` at lane back, or `cancelled` if a
+  cancel was pending. `fence` only grows.
+- **hypha locks are not used for claims** — `locked:true` in the DTO
+  is a projection of `state=="running"`; mutual exclusion is the op
+  CAS. Confirmed correct: RW locks would serialize `ci.status` reads
+  behind runs.
+
+## 4. How jobs flow today — the de-facto pipeline
+
+```
+forge webhook ──► peregrin campaign (ci-ingress bundle)
+   github-webhook driver: HMAC verify, repo demux, Seen-ring dedup
+   ci.route (shell): emit typed "push.<repo>.<ref>.<clone_url>.<sha>"
+   ci.enqueue / ci.enqueue.pr / ci.enqueue.job.<lane> (driver:http):
+     POST {node_url}/api/entities {kind:"ci-job", indexDoc}
+        │  (retries:3 — create idempotent on deterministic id)
+        ▼
+   CiJobPlane (peregrin-node, `bupha` feature)
+     validate → fleet-normalize (with_watched) → lane policy → pending
+        │  workers poll: GET /api/entities?kind=ci-job
+        ▼
+   tamias-driver-bupha worker (bupha-watch entity_worker)
+     filter key+labels → ci.claim {worker,fence} → run_job:
+       worktree@sha (cloneUrl/headRef for fork PRs) → Runner
+       (shell|dagger|gha|ssh|container|http) → StatusSink posts +
+       SubStatus per-job + attest link → history/telemetry/audit
+     ci.renew on ticker (~120s/300s lease) · ci.release on shutdown ·
+     ci.complete {result,description,logRef} → auto-retry entity
+     emit_completed → POST /api/events/inject ci.job.completed
+        │
+        ▼
+   campaigns (pr-heal et al.) via EventIngest → running campaign
+   injectors; forge `status`/`check_run` webhooks remain the
+   forge-authoritative completion signal.
+```
+
+Worker-side details that are contract-relevant:
+
+- `JobApi` (`entity_worker.rs:98`) is the narrow sync port; tests run
+  an in-memory fake. `EntityJobApi` adapts `hypha_node_api::EntityApi`
+  over a private current-thread tokio runtime (bupha stays sync
+  elsewhere).
+- Claim-loss (any 409 on renew/complete/release) abandons the run —
+  a peer owns it; `cancelRequested` observed via renew → child killed
+  → settle `cancelled`.
+- `emit_completed` (`entity_worker.rs:375`) POSTs
+  `{type:"ci.job.completed", payload:{job,key,repo,ref,sha,event,
+  sender,deliveryId,result,attempt}, idempotencyKey:"{jobId}:{result}"}`
+  to `/api/events/inject` — **best-effort, after `ci.complete`
+  succeeds, failures logged never propagated**.
+- Worker identity = `worker_id()` (`<host>:<pid>`-ish); node endpoint
+  + token from `[worker] node`/`BUPHA_WORKER_NODE` +
+  `node_token_env`/`--node-token-env` (secret *name*, resolved
+  env → cuora → env-file).
+
+## 5. Migration state — what already happened
+
+| Piece | State |
+| --- | --- |
+| `bupha-plane` crate | **Shipped** — `CiJobPlane` + `CiJob`/`JobState`, hosted by `peregrin-node` (`bupha` feature, default on). |
+| `bupha-queue-{redb,redis}`, `bupha-queue-lease` | **Retired** (T-049) — entity plane is the distributed queue; dev watcher keeps `bupha-queue` port + `JsonQueueStore` + single-box `TryClaim`. |
+| `bupha-webhook`/`{tunnel,cloudflared}` | **Folded into `bupha-watch`** (T-077); `WebhookSource` `/hook` is dev-mode/standalone fallback only (ADR-0007). |
+| `bupha watch`/`worker` CLI | Dev-mode single-box path retained; production worker = `tamias-driver-bupha worker`. |
+| ci-ingress campaign | **Shipped as tamias bundle** `libraries/ci-ingress` (0.3.5) — moved from peregrin per ADR-0007; `type: peregrin-bundle`, shared `provider.name: peregrin` campaign unit. |
+| Status posting | **Worker-side `StatusSink` won** (de facto): workers post commit statuses on settle incl. per-job `SubStatus` (`<context>/<suffix>`) and the attestation link; the plane records `result`/`description` only — no `statusPosted` ack. |
+| Secrets chain | env → cuora → env file; OS-keyring leg dropped (`a0c52ce`); `PEREGRIN_CUORA_TRANSPORT=serve` keeps ~185 webhook-secret lookups on one `cuora serve` child. |
+
+## 6. Gaps / inconsistencies found (post-implementation audit)
+
+1. **`ci.job.completed` has no in-tree consumer.** The worker emits it
+   and `EventIngest` fans it out, but no shipped campaign subscribes —
+   pr-heal reacts to forge `status`/`check_run` webhooks instead. Two
+   completion channels now exist for the same event with different
+   trust/durability properties (node-local typed event vs forge
+   round-trip). *Decision needed:* make `ci.job.completed` the primary
+   signal for ci-job-originated work (faster, no forge dependency) and
+   keep forge events for non-bupha CI, or document forge-only as the
+   contract and drop the emit. Until then the emit is speculative
+   surface.
+2. **Enqueue durability is `retries:3` + log.** `driver:http` POSTs
+   are not outbox-backed; a down ci-job node turns deliveries into
+   `http.failed` log lines (and T-076 makes listener failures silent).
+   The deterministic id dedups *replays* but nothing replays a failed
+   POST — a push during a node outage is lost CI coverage. Options:
+   document "node must be up" as an operational requirement, or add a
+   durable enqueue path (outbox-backed op or campaign-side retry
+   queue — `--queue-store-dir` already exists on `campaign serve`).
+3. **Typed route grammar is implicit.** `ci.route` emits
+   `{type}.{repo}.{ref}.{clone_url}.{sha}` — `.`-joined, positional
+   (`event.match.1`/`.2`), glob `on:` patterns (`**` re-joins ref
+   segments). It lives only in `ci-ingress/main.yaml` comments +
+   `params.schema.json` descriptions. Name it: a `ci-events` taxonomy
+   (`push.<repo>.<ref>...`, `pull_request.*`, `route.unmatched`,
+   `ci.job.completed`) belongs in the contract so a second ingress
+   bundle (pr-heal already re-implements enqueue nodes) doesn't
+   re-derive it.
+4. **Per-job lanes lose audit fields.** Typed-hop enqueue nodes
+   (`ci.enqueue.job.*`) can't see `sender`/`deliveryId`/`cloneUrl` —
+   the router's emitted payload is `{stdout,rc,cmd}`. Deterministic
+   ids still dedup, but per-lane entities have weaker provenance.
+   Documented in main.yaml comments; acceptable for v1, flag for
+   audit-sensitive deployments.
+5. **Authz is bearer-token only.** `ci.cancel`/`ci.claim`/`ci.enqueue`
+   share one trust level — "hold `PEREGRIN_NODE_TOKEN`" is the whole
+   story (campaign precedent). `EntityContext` carries no actor.
+   Fine for single-operator; multi-tenant deployments need a plane-
+   side role check — still open (v1 Q3).
+6. **`leaseSecs`/`lease_secs`, `queuePosition`/`queue_position`
+   dual spellings** are accepted plane-side — harmless tolerance,
+   but the contract should pick camelCase and treat snake_case as
+   deprecated aliases.
+7. **Status-vs-plane divergence window.** A worker that `ci.complete`s
+   but fails the forge status post leaves the entity `success` and the
+   forge check `failure`/pending — pr-heal (forge-fed) and the plane
+   disagree until the next event. No reconciliation exists; the
+   attestation link mitigates forensics, not correctness.
+8. **`runsOn` grammar unified de facto** (`arch=arm64`-style labels on
+   both campaign `runs_on` and ci-job `runsOn`, matched against node
+   `capabilities`) — v1 Q6 resolved; worth pinning the label syntax in
+   bupha-core so both sides parse identically (T-053 audit item).
+9. **Versioning rule unstated.** indexDoc evolved additively
+   (`cloneUrl`/`headRef` optional) with no `format`/`version` field —
+   snapshots carry `ci-job-snapshot/v1` but the live doc doesn't.
+   Contract should state: additive-optional-only changes; closed sets
+   (`queue`, `event`, `result`) never gain values without a version
+   bump; unknown fields are ignored by `from_index_doc` (serde default
+   — verify this is intended, hostile-payload posture).
+
+## 7. Open questions (carried + new)
+
+Carried from v1, with current answers:
+
+1. Plane home — **resolved**: `bupha-plane` crate, hosted by
+   `peregrin-node` (`bupha` feature); standalone `bupha-node` dev
+   binary was not needed (dev mode = embedded watch).
+2. Status posting ownership — **resolved de facto**: worker-side
+   `StatusSink`; see gap 7 for the residual divergence window.
+3. Authz — **still open** (gap 5).
+4. Create-vs-outbox — **still open**, sharpened by gap 2.
+5. Lease defaults — **resolved**: lazy sweep confirmed; 300s default,
+   `BUPHA_ENTITY_LEASE_SECS` override.
+6. `runsOn` grammar — **resolved de facto**; pin in bupha-core (gap 8).
+7. Running-job migration — **resolved**: never migrates; rehydrate
+   preserves claims until lease expiry.
+8. `ci-job` vs campaign nesting — **resolved for v1**: N entities;
+   matrix expansion is a campaign concern (gha matrix legs are
+   sub-statuses, not entities).
+9. `deliveryId` durability — **partially open**: dedup is the entity
+   id; per-job lanes drop it (gap 4).
+10. Validation drift — **resolved**: plane re-validates at create AND
+    after fleet normalization (`normalize_fleet` → `job.validate()`);
+    worker re-checks ref/event/sha before running
+    (`entity_worker.rs:541-562`) — defense in depth, no drift.
+
+New:
+
+11. Should `ci.job.completed` become *the* completion contract (gap 1),
+    and should pr-heal migrate its heal trigger off forge `status`
+    events onto it?
+12. Does the contract need a `format`/`version` field on indexDoc, or
+    is "additive-optional + closed sets" enough (gap 9)?
+13. Multi-repo fleet: `with_watched` takes the *whole*
+    `Config::watched()` set on every node — fine at current scale;
+    does a sharded fleet (worker claims subset of keys) need per-node
+    spec filtering, or is the runsOn label gate sufficient?
