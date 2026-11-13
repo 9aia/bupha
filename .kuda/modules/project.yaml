@@ -202,7 +202,7 @@ api:
   file: project/TODO.md
   line: 3
   module: project
-api_omitted: 61
+api_omitted: 62
 deps: []
 notes: ''
 verify:
@@ -254,6 +254,7 @@ provenance:
   - project/handoffs/T-073.md
   - project/handoffs/T-074.md
   - project/handoffs/T-075.md
+  - project/handoffs/T-076.md
   - project/handoffs/T-077.md
   - project/handoffs/archive/T-029.md
   - project/index.md
@@ -274,8 +275,8 @@ provenance:
   - project/proposals/proposal-0003-bupha-runner-port-is-load-bearing-keep-redundancy-is-queue-store-t-049-and-worktree-plumbing.md
   hashes:
   - 86871dd5e3ab8cc46e9106ec24227ae7415f36a8
-  - da040b32653a7c168700132f427e8c1d15468c22
-  - 38e9e74f571ee2eb376630a0eda5272031cc273d
+  - e047ee465355b4ddc80b0651bd653f557502f12b
+  - c437c65ff5d0af368d78dee31fc28b91108a1679
   - 2369700a1a6e99c56d28b0d38e76ab053b37bd6d
   - c29950d6fd46cd166cee477e9f1bd125ac1b283a
   - 5d22a78ab0e5a33a834acb59d44080bc09bceefd
@@ -309,6 +310,7 @@ provenance:
   - 8acce8a32f7eb2570c50e1c470176d1efaff38dc
   - c1d6e4e743d9e7455fc17ea2071425220a15f8cb
   - 2f02822ff44dd986802aeab152bca1a7b61390e8
+  - c1f02abf7e9779daac6967423fc94eb4f099501b
   - 16401c8d19575a97ab5247f1438146ba0b930264
   - d3f12670f3e871b0c2a499668a4cd1e3bb3d7815
   - 3091ed43775d9ade33d06ad35e6b788b98afa4d5
@@ -327,6 +329,6 @@ provenance:
   - d7ce1cb6d95ae71a26ec4c6bdabdc5f318d8a21f
   - 64bb8eeec2c83135075727fb9aec32780e212939
   - 47479681f7ca7db300bbd8f998bd0918a4db0010
-  commit_sha: c631b50b349cdfc625ab7853ac13df3a56a4df63
-  generated_at: '1794581578'
+  commit_sha: 28b26638ea67dba4b149ff199ec71715874bfd77
+  generated_at: '1794587131'
   generator: kuda-template/0.1.4

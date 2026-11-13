@@ -1099,6 +1099,18 @@ node = "http://127.0.0.1:18787"
 # token. The live node binds 0.0.0.0 and requires it; a loopback
 # dev node may drop this line (unauthenticated).
 node_token_env = "PEREGRIN_TOKEN"
+# Private-fork git credential for fork-PR ci-jobs (T-073 remainder):
+# a fork of a private repo is itself private, so `git fetch
+# <cloneUrl>` needs auth the box's origin machinery may not provide.
+# Uncomment + `cuora put cuora://bupha/BUPHA_FORK_GIT_TOKEN` (a PAT
+# that reads the forks — a fine-grained PAT covering base org + forks
+# works for both) to attach a generated git credential-helper to
+# fork fetches only. The value never lands in this file, argv, the
+# worker env, or job env — the helper re-resolves the NAME at fetch
+# time. Absent = fork fetches ride the box's existing git auth
+# (credential helpers / insteadOf / gh auth setup-git); public forks
+# need nothing.
+# fork_token_env = "BUPHA_FORK_GIT_TOKEN"
 # Fleet routing labels this worker advertises — a ci-job whose
 # `runs_on` requirements aren't all listed here is never claimed.
 # Empty = claim every job whose key this fleet covers.

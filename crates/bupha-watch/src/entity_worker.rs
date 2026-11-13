@@ -34,8 +34,8 @@ use hypha_node_api::dto::{EntityDto, EntityOp};
 use serde_json::{json, Value};
 
 use crate::{
-    build_attest, build_audit, build_runners, build_sinks, build_telemetry, run_job, secret,
-    settle_run, worker_id, ChildSlot, FetchTarget, JobEnd, Shared, Worker,
+    build_attest, build_audit, build_runners, build_sinks, build_telemetry, fork_credential_helper,
+    run_job, secret, settle_run, worker_id, ChildSlot, FetchTarget, JobEnd, Shared, Worker,
 };
 
 /// Default claim lease — the plane's `DEFAULT_LEASE_SECS` (5 min,
@@ -488,6 +488,10 @@ pub struct WatchExec {
     shared: Mutex<Shared>,
     child: ChildSlot,
     worker: String,
+    /// Git credential helper for fork-`cloneUrl` fetches —
+    /// materialized once from `[worker] fork_token_env` (`None` =
+    /// fork fetches ride the box's existing git auth).
+    fork_helper: Option<std::path::PathBuf>,
 }
 
 impl WatchExec {
@@ -510,6 +514,7 @@ impl WatchExec {
         let runners = build_runners(&cfg, &watched);
         let telemetry = build_telemetry(&cfg);
         let attest = build_attest(&cfg);
+        let fork_helper = fork_credential_helper(&cfg);
         let _ = std::fs::create_dir_all(&cfg.worktree.base);
         Self {
             cfg,
@@ -521,6 +526,7 @@ impl WatchExec {
             shared: Mutex::new(Shared::default()),
             child: Arc::new(Mutex::new(None)),
             worker: worker_id(),
+            fork_helper,
         }
     }
 }
@@ -572,6 +578,7 @@ impl JobExec for WatchExec {
         let fetch = ej.job.clone_url.as_deref().map(|url| FetchTarget {
             url,
             git_ref: ej.job.head_ref.as_deref(),
+            credential_helper: self.fork_helper.as_deref(),
         });
         let end = run_job(
             &self.cfg,

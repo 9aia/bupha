@@ -912,7 +912,8 @@ pub fn config_schema() -> Result<String, String> {
                 "properties": {
                     "labels": {"type": "array", "items": {"type": "string"}},
                     "node": {"type": "string", "description": "Hypha/peregrin node base URL for the `worker` verb's ci-job poll (P-002). Also settable via --node / BUPHA_WORKER_NODE."},
-                    "node_token_env": {"type": "string", "description": "Secret NAME (env → cuora → env file) holding the node bearer credential; BUPHA_NODE_TOKEN is a direct-token fallback."}
+                    "node_token_env": {"type": "string", "description": "Secret NAME (env → cuora → env file) holding the node bearer credential; BUPHA_NODE_TOKEN is a direct-token fallback."},
+                    "fork_token_env": {"type": "string", "description": "Secret NAME (env → cuora → env file) holding a git credential for private fork cloneUrl fetches on fork-PR ci-jobs; resolved by a generated credential-helper at fetch time — NAME only, never the value."}
                 }
             },
             "agent": {"type": "object"}

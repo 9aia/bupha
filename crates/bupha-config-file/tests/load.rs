@@ -63,3 +63,45 @@ fn explicit_path_and_missing_error() {
     let _ = std::fs::remove_file(&f);
     let _ = std::fs::remove_file(&y);
 }
+
+#[test]
+fn worker_fork_token_env_parses() {
+    // [worker] fork_token_env — the private-fork git credential NAME
+    // (T-073 remainder). NAME only; the value never lands in config.
+    let f = tmp("worker");
+    std::fs::write(
+        &f,
+        "[runner]\nkind = \"shell\"\ncmd = \"true\"\n[status]\nkind = \"log\"\n\
+         [[repo]]\nname = \"o/r\"\ndir = \"/tmp/r\"\n\
+         [worker]\nnode = \"http://127.0.0.1:18787\"\nnode_token_env = \"PEREGRIN_TOKEN\"\n\
+         fork_token_env = \"BUPHA_FORK_GIT_TOKEN\"\n",
+    )
+    .unwrap();
+    let c = FileSource {
+        path: Some(f.to_string_lossy().into()),
+    }
+    .load()
+    .unwrap();
+    assert_eq!(c.worker.node_token_env.as_deref(), Some("PEREGRIN_TOKEN"));
+    assert_eq!(
+        c.worker.fork_token_env.as_deref(),
+        Some("BUPHA_FORK_GIT_TOKEN")
+    );
+    // Absent stays absent — public forks / origin-auth boxes need
+    // no knob.
+    let g = tmp("worker-none");
+    std::fs::write(
+        &g,
+        "[runner]\nkind = \"shell\"\ncmd = \"true\"\n[status]\nkind = \"log\"\n\
+         [[repo]]\nname = \"o/r\"\ndir = \"/tmp/r\"\n",
+    )
+    .unwrap();
+    let c = FileSource {
+        path: Some(g.to_string_lossy().into()),
+    }
+    .load()
+    .unwrap();
+    assert!(c.worker.fork_token_env.is_none());
+    let _ = std::fs::remove_file(&f);
+    let _ = std::fs::remove_file(&g);
+}

@@ -147,6 +147,11 @@ api:
   file: crates/bupha-config-file/tests/load.rs
   line: 3
   module: bupha-config-file
+- name: worker_fork_token_env_parses
+  kind: function
+  file: crates/bupha-config-file/tests/load.rs
+  line: 68
+  module: bupha-config-file
 deps:
 - bupha-core
 - scarab-config
@@ -173,8 +178,8 @@ provenance:
   - 2554603bfe365d5bcc00501ca7b197239ae7512f
   - 481af19f26aa6cfae19df77dfeda6d1ddb444602
   - 2affba5183bfec8524b622ea94147cf7d2503a79
-  - b702f7deb42d5c3656988265442729762e382a79
+  - 7be8c4dae340b0cfd86f31c9f816bb4fc15ef5b4
   - 808579825141d8c833fcf582bc6a4e02d4f142d4
-  commit_sha: 11045534cba61bed3e683b87d87c1f30855a5fc6
-  generated_at: '1794502634'
+  commit_sha: 28b26638ea67dba4b149ff199ec71715874bfd77
+  generated_at: '1794587131'
   generator: kuda-template/0.1.4

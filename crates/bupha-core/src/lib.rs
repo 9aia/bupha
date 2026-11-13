@@ -415,6 +415,23 @@ pub struct WorkerCfg {
     /// calls (dev nodes).
     #[serde(default)]
     pub node_token_env: Option<String>,
+    /// Env-var NAME holding a git credential (PAT/token) used to
+    /// authenticate `git fetch <cloneUrl>` for fork-PR ci-jobs
+    /// (T-073 remainder — a fork of a private repo is itself
+    /// private). Resolved through the secret chain (env → cuora →
+    /// `~/.config/bupha/env`), the same NAME-only rule as
+    /// `node_token_env`: the value never lands in this config, in
+    /// argv, or in the worker's env — the worker materializes a git
+    /// credential-helper script (under the config dir) that
+    /// re-resolves the NAME at fetch time, so only the fork fetch
+    /// sees the credential. A fine-grained PAT that reads both the
+    /// base org and the fork works here; fork creds that differ
+    /// from origin creds get their own NAME. Absent = fork fetches
+    /// ride whatever credential machinery the box already has
+    /// (global credential helpers, `url.insteadOf`, `gh auth
+    /// setup-git`) — public forks need nothing.
+    #[serde(default)]
+    pub fork_token_env: Option<String>,
 }
 
 /// Remote-run listener (`[agent]`) — `bupha agent` serves the http

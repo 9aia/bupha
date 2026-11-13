@@ -10,7 +10,7 @@ api:
 - name: AgentCfg
   kind: type
   file: crates/bupha-core/src/lib.rs
-  line: 424
+  line: 441
   module: bupha-core
 - name: AttestCfg
   kind: type
@@ -30,7 +30,7 @@ api:
 - name: Config
   kind: type
   file: crates/bupha-core/src/lib.rs
-  line: 452
+  line: 469
   module: bupha-core
 - name: EnqueueResult
   kind: type
@@ -50,7 +50,7 @@ api:
 - name: JobEntry
   kind: type
   file: crates/bupha-core/src/lib.rs
-  line: 563
+  line: 580
   module: bupha-core
 - name: MAX_PENDING
   kind: const
@@ -75,12 +75,12 @@ api:
 - name: RepoEntry
   kind: type
   file: crates/bupha-core/src/lib.rs
-  line: 504
+  line: 521
   module: bupha-core
 - name: RunnerCfg
   kind: type
   file: crates/bupha-core/src/lib.rs
-  line: 885
+  line: 902
   module: bupha-core
 - name: Seen
   kind: type
@@ -90,12 +90,12 @@ api:
 - name: StatusCfg
   kind: type
   file: crates/bupha-core/src/lib.rs
-  line: 907
+  line: 924
   module: bupha-core
 - name: SturnTriggerCfg
   kind: type
   file: crates/bupha-core/src/lib.rs
-  line: 827
+  line: 844
   module: bupha-core
 - name: TelemetryCfg
   kind: type
@@ -105,17 +105,17 @@ api:
 - name: TriggerCfg
   kind: type
   file: crates/bupha-core/src/lib.rs
-  line: 849
+  line: 866
   module: bupha-core
 - name: TunnelCfg
   kind: type
   file: crates/bupha-core/src/lib.rs
-  line: 921
+  line: 938
   module: bupha-core
 - name: WatchedRepo
   kind: type
   file: crates/bupha-core/src/lib.rs
-  line: 611
+  line: 628
   module: bupha-core
 - name: WorkerCfg
   kind: type
@@ -125,7 +125,7 @@ api:
 - name: WorktreeCfg
   kind: type
   file: crates/bupha-core/src/lib.rs
-  line: 949
+  line: 966
   module: bupha-core
 - name: bupha-core
   kind: module
@@ -145,7 +145,7 @@ api:
 - name: cycle_errors
   kind: function
   file: crates/bupha-core/src/lib.rs
-  line: 1102
+  line: 1119
   module: bupha-core
 - name: default
   kind: function
@@ -180,22 +180,22 @@ api:
 - name: default
   kind: function
   file: crates/bupha-core/src/lib.rs
-  line: 442
+  line: 459
   module: bupha-core
 - name: default
   kind: function
   file: crates/bupha-core/src/lib.rs
-  line: 873
+  line: 890
   module: bupha-core
 - name: default
   kind: function
   file: crates/bupha-core/src/lib.rs
-  line: 937
+  line: 954
   module: bupha-core
 - name: default
   kind: function
   file: crates/bupha-core/src/lib.rs
-  line: 957
+  line: 974
   module: bupha-core
 - name: default_access_kind
   kind: function
@@ -222,9 +222,9 @@ provenance:
   - crates/bupha-core/tests/domain.rs
   hashes:
   - 2949c06c8e71ef5da170506ce9cd8dfbb7312ce3
-  - cbdc75b10049793cc0d294bea8a8bdeaa244101e
+  - e37d16de702d69118ca9c5fc64e6e7123760937e
   - eaf5e74313b7393277e9a2bb3b2fa036cdfc2d3f
   - 27f3b186cfd507f196f593e93b8f6706159e33fd
-  commit_sha: 8557f4ed298a7b8915e5d53af5d09834dc776d86
-  generated_at: '1794576747'
+  commit_sha: 28b26638ea67dba4b149ff199ec71715874bfd77
+  generated_at: '1794587131'
   generator: kuda-template/0.1.4

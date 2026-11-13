@@ -235,16 +235,108 @@ pub fn webhook_secret_names(cfg: &Config) -> Vec<&str> {
 }
 
 /// Every env-var name the config resolves secrets from — webhook
-/// secrets plus the runner token.
+/// secrets plus the runner token and the fork-fetch credential.
 pub fn secret_names(cfg: &Config) -> Vec<String> {
     let mut names: Vec<String> = webhook_secret_names(cfg)
         .into_iter()
         .map(str::to_string)
         .chain(std::iter::once(cfg.runner.token_env.clone()))
+        .chain(cfg.worker.fork_token_env.clone())
         .collect();
     names.sort();
     names.dedup();
     names
+}
+
+/// POSIX-sh git credential helper for fork-`cloneUrl` fetches —
+/// `__NAME__` is replaced with the validated env-var NAME from
+/// `[worker] fork_token_env` (NAMEs only; the VALUE is resolved by
+/// the helper itself at fetch time, never by bupha). The helper
+/// mirrors [`secret`]'s chain leg-for-leg: process env → `cuora get
+/// cuora://bupha/<NAME>` → `~/.config/bupha/env`.
+const FORK_CREDENTIAL_HELPER: &str = r#"#!/bin/sh
+# bupha fork-fetch credential helper — GENERATED from
+# [worker] fork_token_env; regenerated on worker start, do not edit.
+# Answers `git credential <action>`: on `get` it resolves the secret
+# NAME below through env -> cuora -> ~/.config/bupha/env and prints
+# username/password. The value never appears in bupha's argv, env,
+# or this file — it exists only in this helper's stdout -> git.
+set -u
+name='__NAME__'
+action="${1:-get}"
+# Only `get` yields credentials; store/erase are no-ops.
+[ "$action" = "get" ] || exit 0
+# Consume the credential request on stdin.
+cat >/dev/null 2>&1 || true
+tok=""
+# Leg 1 — process env (cuora run / unit EnvironmentFile / shell).
+tok=$(printenv "$name" 2>/dev/null || true)
+# Leg 2 — cuora broker (canonical store; BUPHA_CUORA_BIN is the same
+# override knob bupha-secret-cuora reads).
+if [ -z "$tok" ]; then
+  cuora_bin="${BUPHA_CUORA_BIN:-cuora}"
+  if command -v "$cuora_bin" >/dev/null 2>&1; then
+    tok=$("$cuora_bin" get "cuora://bupha/$name" 2>/dev/null | head -n 1 || true)
+  fi
+fi
+# Leg 3 — ~/.config/bupha/env (dev/no-cuora fallback, KEY=VALUE).
+env_file="${BUPHA_ENV_FILE:-${HOME:-}/.config/bupha/env}"
+if [ -z "$tok" ] && [ -f "$env_file" ]; then
+  tok=$(sed -n "s/^$name=//p" "$env_file" | head -n 1 || true)
+fi
+# Nothing resolved -> empty answer; git reads it as "no credential".
+[ -z "$tok" ] && exit 0
+printf 'username=x-access-token\npassword=%s\n' "$tok"
+"#;
+
+/// Materialize the fork-fetch credential helper when
+/// `[worker] fork_token_env` names a secret — returns the helper
+/// path for `FetchTarget::credential_helper`, `None` when unset or
+/// the NAME isn't a valid env name (baked into a shell script, so
+/// the charset is a hard gate, not a quoting exercise). Written to
+/// `<config dir>/git-credential-fork`, mode 0700 — the script holds
+/// a NAME, never a value, so the file itself is not secret.
+pub fn fork_credential_helper(cfg: &Config) -> Option<PathBuf> {
+    write_fork_helper(&cfg_dir(), cfg.worker.fork_token_env.as_deref()?)
+}
+
+/// Write the helper script for `name` under `dir` — the testable
+/// core of [`fork_credential_helper`]. `None` on an invalid NAME
+/// (baked into a shell script, so the charset is a hard gate, not a
+/// quoting exercise) or an unwritable `dir`.
+fn write_fork_helper(dir: &Path, name: &str) -> Option<PathBuf> {
+    if !bupha_core::is_valid_env_name(name) {
+        eprintln!(
+            "worker.fork_token_env {name:?} is not a valid env name — fork fetch auth disabled"
+        );
+        return None;
+    }
+    if let Err(e) = std::fs::create_dir_all(dir) {
+        eprintln!(
+            "fork credential helper: cannot create {}: {e}",
+            dir.display()
+        );
+        return None;
+    }
+    let path = dir.join("git-credential-fork");
+    let body = FORK_CREDENTIAL_HELPER.replace("__NAME__", name);
+    // Skip the rewrite when the file already carries this NAME —
+    // worker restarts shouldn't churn mtime for nothing.
+    if std::fs::read_to_string(&path).ok().as_deref() != Some(body.as_str()) {
+        if let Err(e) = std::fs::write(&path, &body) {
+            eprintln!(
+                "fork credential helper: cannot write {}: {e}",
+                path.display()
+            );
+            return None;
+        }
+    }
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let _ = std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o700));
+    }
+    Some(path)
 }
 
 pub type ChildSlot = Arc<Mutex<Option<Box<dyn RunHandle>>>>;
@@ -291,6 +383,13 @@ pub struct FetchTarget<'a> {
     /// tried after — forges allowing reachable-sha wants (GitHub)
     /// resolve it even when the head branch is gone.
     pub git_ref: Option<&'a str>,
+    /// Git credential-helper executable authenticating fetches from
+    /// `url` — set when `[worker] fork_token_env` names a secret
+    /// (private forks). Passed via `-c credential.helper=` (reset)
+    /// and `-c credential.helper=<path>` on the fetch argv only, so
+    /// the credential scopes to this remote and never enters bupha's
+    /// argv/env or the job's environment.
+    pub credential_helper: Option<&'a Path>,
 }
 
 /// Make `sha` resolvable in `repo_dir`'s object store — the
@@ -320,7 +419,29 @@ fn ensure_commit(vcs: &GitVcs, repo_dir: &Path, sha: &str, fetch: Option<FetchTa
             if vcs.has_commit(repo_dir, sha) {
                 return true;
             }
-            if let Err(e) = vcs.fetch(repo_dir, f.url, &[spec]) {
+            let r = match f.credential_helper {
+                // `-c` scopes the helper to THIS fetch invocation —
+                // the credential never touches origin fetches, the
+                // repo config, or any runner child env.
+                Some(h) => {
+                    let helper = format!("credential.helper={}", h.display());
+                    vcs.exec_out(
+                        repo_dir,
+                        &[
+                            "-c",
+                            "credential.helper=",
+                            "-c",
+                            &helper,
+                            "fetch",
+                            f.url,
+                            spec,
+                        ],
+                    )
+                    .map(|_| ())
+                }
+                None => vcs.fetch(repo_dir, f.url, &[spec]),
+            };
+            if let Err(e) = r {
                 eprintln!("fetch {spec} from {}: {e}", f.url);
             }
         }
@@ -1321,6 +1442,7 @@ mod tests {
             Some(FetchTarget {
                 url: &url,
                 git_ref: Some("main"),
+                credential_helper: None,
             }),
         ));
         assert!(vcs.has_commit(&base, &fork_sha));
@@ -1334,6 +1456,161 @@ mod tests {
             Some(FetchTarget {
                 url: &bogus,
                 git_ref: None,
+                credential_helper: None,
+            }),
+        ));
+        let _ = std::fs::remove_dir_all(&tmp);
+    }
+
+    /// `git credential fill` against the generated helper — the same
+    /// protocol `git fetch` speaks, minus the network. `env` carries
+    /// per-leg overrides (secret NAME value, `BUPHA_CUORA_BIN`,
+    /// `BUPHA_ENV_FILE`) so no process env is mutated.
+    fn credential_fill(helper: &Path, env: &[(&str, &str)]) -> String {
+        let mut cmd = Command::new("git");
+        cmd.arg("-c")
+            .arg("credential.helper=")
+            .arg("-c")
+            .arg(format!("credential.helper={}", helper.display()))
+            .args(["credential", "fill"])
+            .stdin(std::process::Stdio::piped())
+            .stdout(std::process::Stdio::piped())
+            .stderr(std::process::Stdio::piped());
+        for (k, v) in env {
+            cmd.env(k, v);
+        }
+        let mut child = cmd.spawn().unwrap();
+        use std::io::Write;
+        child
+            .stdin
+            .take()
+            .unwrap()
+            .write_all(b"protocol=https\nhost=github.com\n\n")
+            .unwrap();
+        let out = child.wait_with_output().unwrap();
+        assert!(
+            out.status.success(),
+            "credential fill failed: {}",
+            String::from_utf8_lossy(&out.stderr)
+        );
+        String::from_utf8_lossy(&out.stdout).into_owned()
+    }
+
+    #[test]
+    fn fork_helper_answers_all_secret_legs() {
+        let tmp = std::env::temp_dir().join(format!("bupha-forkhelper-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&tmp);
+        let name = "BUPHA_TEST_FORK_TOKEN_XQ";
+        // Leg 1 — process env.
+        let helper = write_fork_helper(&tmp, name).unwrap();
+        let out = credential_fill(
+            &helper,
+            &[
+                (name, "env-leg-fake-token"),
+                ("BUPHA_CUORA_BIN", "/nonexistent/cuora"),
+                ("BUPHA_ENV_FILE", "/nonexistent/env"),
+            ],
+        );
+        assert!(out.contains("username=x-access-token"), "{out}");
+        assert!(out.contains("password=env-leg-fake-token"), "{out}");
+        // Leg 2 — cuora (stubbed binary, same BUPHA_CUORA_BIN seam
+        // bupha-secret-cuora reads).
+        let cuora = tmp.join("cuora-stub");
+        std::fs::write(&cuora, "#!/bin/sh\necho cuora-leg-fake-token\n").unwrap();
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            std::fs::set_permissions(&cuora, std::fs::Permissions::from_mode(0o700)).unwrap();
+        }
+        let cuora_s = cuora.to_string_lossy().into_owned();
+        let out = credential_fill(
+            &helper,
+            &[
+                ("BUPHA_CUORA_BIN", cuora_s.as_str()),
+                ("BUPHA_ENV_FILE", "/nonexistent/env"),
+            ],
+        );
+        assert!(out.contains("password=cuora-leg-fake-token"), "{out}");
+        // Leg 3 — ~/.config/bupha/env fallback file.
+        let env_file = tmp.join("env");
+        std::fs::write(&env_file, format!("{name}=dotenv-leg-fake-token\n")).unwrap();
+        let env_s = env_file.to_string_lossy().into_owned();
+        let out = credential_fill(
+            &helper,
+            &[
+                ("BUPHA_CUORA_BIN", "/nonexistent/cuora"),
+                ("BUPHA_ENV_FILE", env_s.as_str()),
+            ],
+        );
+        assert!(out.contains("password=dotenv-leg-fake-token"), "{out}");
+        // Nothing resolves → empty answer (git reads "no credential").
+        // Exercise the helper directly: `git credential fill` would
+        // fall through to a prompt (disabled under the test process's
+        // GIT_TERMINAL_PROMPT=0) and exit non-zero — the helper's own
+        // empty stdout is the contract.
+        let mut child = Command::new(&helper)
+            .arg("get")
+            .env("BUPHA_CUORA_BIN", "/nonexistent/cuora")
+            .env("BUPHA_ENV_FILE", "/nonexistent/env")
+            .stdin(std::process::Stdio::piped())
+            .stdout(std::process::Stdio::piped())
+            .spawn()
+            .unwrap();
+        use std::io::Write;
+        child
+            .stdin
+            .take()
+            .unwrap()
+            .write_all(b"protocol=https\nhost=github.com\n\n")
+            .unwrap();
+        let out = child.wait_with_output().unwrap();
+        assert!(out.status.success());
+        assert!(out.stdout.is_empty(), "{:?}", out.stdout);
+        // store/erase are no-ops.
+        let out = Command::new(&helper)
+            .arg("store")
+            .stdin(std::process::Stdio::null())
+            .output()
+            .unwrap();
+        assert!(out.status.success());
+        let _ = std::fs::remove_dir_all(&tmp);
+    }
+
+    #[test]
+    fn fork_helper_rejects_unsafe_name() {
+        let tmp = std::env::temp_dir().join(format!("bupha-forkhelper-bad-{}", std::process::id()));
+        assert!(write_fork_helper(&tmp, "BUPHA_TOKEN").is_some());
+        // The NAME is baked into a shell script — anything outside
+        // the env-name charset is refused, never quoted around.
+        assert!(write_fork_helper(&tmp, "A;rm -rf /").is_none());
+        assert!(write_fork_helper(&tmp, "A$(id)").is_none());
+        assert!(write_fork_helper(&tmp, "9LIVES").is_none());
+        assert!(write_fork_helper(&tmp, "").is_none());
+        let _ = std::fs::remove_dir_all(&tmp);
+    }
+
+    #[test]
+    fn ensure_commit_fetch_with_helper_argv() {
+        let tmp = std::env::temp_dir().join(format!("bupha-ensure-helper-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&tmp);
+        let fork = tmp.join("fork");
+        let base = tmp.join("base");
+        let fork_sha = repo_with_commit(&fork);
+        repo_with_commit(&base);
+        let helper_dir = tmp.join("helper");
+        let helper = write_fork_helper(&helper_dir, "BUPHA_TEST_FORK_TOKEN_XQ").unwrap();
+        let url = fork.to_string_lossy().into_owned();
+        // The -c credential.helper wiring must not break the fetch —
+        // a path remote never invokes the helper, but the argv shape
+        // is the same one https fork URLs get.
+        assert!(ensure_commit(
+            &GitVcs,
+            &base,
+            &fork_sha,
+            Some(FetchTarget {
+                url: &url,
+                git_ref: Some("main"),
+                credential_helper: Some(&helper),
             }),
         ));
         let _ = std::fs::remove_dir_all(&tmp);

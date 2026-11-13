@@ -57,6 +57,10 @@ is retired — T-059 — and no unit sets `EnvironmentFile`):
 - `PEREGRIN_TOKEN` — the peregrin node's bearer credential
   (`[worker] node_token_env`); only the worker unit needs it, and
   only in substrate mode
+- `BUPHA_FORK_GIT_TOKEN` (optional) — git credential (PAT) for
+  fetching *private* fork `cloneUrl` remotes on fork-PR ci-jobs
+  (`[worker] fork_token_env`, commented out in `fleet.toml`); only
+  needed when the box's existing git auth can't reach the fork
 
 Seed/rotate values with `printf '%s' "$VALUE" | cuora put
 cuora://bupha/<NAME>` — every fleet secret already lives there

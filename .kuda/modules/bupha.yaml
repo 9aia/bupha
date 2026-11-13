@@ -35,7 +35,7 @@ api:
 - name: DELEGATE_TEMPLATE
   kind: const
   file: crates/bupha-cli/src/lib.rs
-  line: 435
+  line: 434
   module: bupha
 - name: DeploySub
   kind: type
@@ -50,7 +50,7 @@ api:
 - name: DocOut
   kind: type
   file: crates/bupha-cli/src/lib.rs
-  line: 461
+  line: 460
   module: bupha
 - name: END
   kind: const
@@ -65,7 +65,7 @@ api:
 - name: MODULE_REF
   kind: const
   file: crates/bupha-cli/src/lib.rs
-  line: 433
+  line: 432
   module: bupha
 - name: SECTION
   kind: const
@@ -85,7 +85,7 @@ api:
 - name: SystemdService
   kind: type
   file: crates/bupha-cli/src/deploy.rs
-  line: 155
+  line: 157
   module: bupha
 - name: agentmd
   kind: module
@@ -140,7 +140,7 @@ api:
 - name: check
   kind: function
   file: crates/bupha-cli/src/lib.rs
-  line: 467
+  line: 466
   module: bupha
 - name: cmd_agent
   kind: function
@@ -150,27 +150,27 @@ api:
 - name: cmd_deploy
   kind: function
   file: crates/bupha-cli/src/lib.rs
-  line: 979
+  line: 978
   module: bupha
 - name: cmd_deploy_release
   kind: function
   file: crates/bupha-cli/src/lib.rs
-  line: 1125
+  line: 1124
   module: bupha
 - name: cmd_destroy
   kind: function
   file: crates/bupha-cli/src/lib.rs
-  line: 1190
+  line: 1189
   module: bupha
 - name: cmd_doctor
   kind: function
   file: crates/bupha-cli/src/lib.rs
-  line: 479
+  line: 478
   module: bupha
 - name: cmd_explain
   kind: function
   file: crates/bupha-cli/src/lib.rs
-  line: 1433
+  line: 1432
   module: bupha
 - name: cmd_gha_runner
   kind: function
@@ -180,7 +180,7 @@ api:
 - name: cmd_import
   kind: function
   file: crates/bupha-cli/src/lib.rs
-  line: 908
+  line: 907
   module: bupha
 - name: cmd_init
   kind: function
@@ -190,17 +190,17 @@ api:
 - name: cmd_log
   kind: function
   file: crates/bupha-cli/src/lib.rs
-  line: 1418
+  line: 1417
   module: bupha
 - name: cmd_run
   kind: function
   file: crates/bupha-cli/src/lib.rs
-  line: 754
+  line: 753
   module: bupha
 - name: cmd_runs
   kind: function
   file: crates/bupha-cli/src/lib.rs
-  line: 1391
+  line: 1390
   module: bupha
 api_omitted: 58
 deps:
@@ -272,12 +272,12 @@ provenance:
   - c6d20f735ed0cb1e6b08e5f9b8a2a9c7b1093622
   - dfdf8a3bd06b49ea0844a47eb0366a4efb385afb
   - 4102762337a49a25a35bd6da2202b6c0536fe273
-  - 2c0a7ebd3bb365da0833e733f28e8badb2cbf967
-  - 9e974008d5424b27d2107d6901c7b4276b60f873
+  - decae5c7ba7b84a8c132cc0a97e4315cab4b0208
+  - 7c19329d4c41414ec5928fdbbe27319f7b652dc6
   - a787b6af9e98fd8cae6ece92467308d34e49bbce
   - 297de02314bb3e68d56e2e8a33bcad4ba6c92465
   - b266b7f034f3d194f5cba16fd2bf6a51886ccf46
   - 509a3147960f3aa59978a55730803da3c2ff0850
-  commit_sha: c631b50b349cdfc625ab7853ac13df3a56a4df63
-  generated_at: '1794581578'
+  commit_sha: 28b26638ea67dba4b149ff199ec71715874bfd77
+  generated_at: '1794587131'
   generator: kuda-template/0.1.4

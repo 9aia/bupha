@@ -5,17 +5,17 @@ api:
 - name: CancelExec
   kind: type
   file: crates/bupha-watch/src/entity_worker.rs
-  line: 1111
+  line: 1118
   module: bupha-watch
 - name: ChildSlot
   kind: type
   file: crates/bupha-watch/src/lib.rs
-  line: 250
+  line: 342
   module: bupha-watch
 - name: ClaimFilter
   kind: type
   file: crates/bupha-watch/src/entity_worker.rs
-  line: 609
+  line: 616
   module: bupha-watch
 - name: ClaimOutcome
   kind: type
@@ -57,6 +57,11 @@ api:
   file: crates/bupha-watch/src/entity_worker.rs
   line: 452
   module: bupha-watch
+- name: FORK_CREDENTIAL_HELPER
+  kind: const
+  file: crates/bupha-watch/src/lib.rs
+  line: 257
+  module: bupha-watch
 - name: FailWait
   kind: type
   file: crates/bupha-watch/src/lib.rs
@@ -70,17 +75,17 @@ api:
 - name: FakeApi
   kind: type
   file: crates/bupha-watch/src/entity_worker.rs
-  line: 814
+  line: 821
   module: bupha-watch
 - name: FakeExec
   kind: type
   file: crates/bupha-watch/src/entity_worker.rs
-  line: 965
+  line: 972
   module: bupha-watch
 - name: FetchTarget
   kind: type
   file: crates/bupha-watch/src/lib.rs
-  line: 286
+  line: 378
   module: bupha-watch
 - name: G
   kind: type
@@ -95,7 +100,7 @@ api:
 - name: Ingest
   kind: type
   file: crates/bupha-watch/src/lib.rs
-  line: 555
+  line: 676
   module: bupha-watch
 - name: Inner
   kind: type
@@ -110,7 +115,7 @@ api:
 - name: JobEnd
   kind: type
   file: crates/bupha-watch/src/lib.rs
-  line: 273
+  line: 365
   module: bupha-watch
 - name: JobExec
   kind: trait
@@ -135,22 +140,22 @@ api:
 - name: Poll
   kind: type
   file: crates/bupha-watch/src/lib.rs
-  line: 416
+  line: 537
   module: bupha-watch
 - name: Shared
   kind: type
   file: crates/bupha-watch/src/lib.rs
-  line: 527
+  line: 648
   module: bupha-watch
 - name: SkipExec
   kind: type
   file: crates/bupha-watch/src/entity_worker.rs
-  line: 1275
+  line: 1282
   module: bupha-watch
 - name: Step
   kind: type
   file: crates/bupha-watch/src/entity_worker.rs
-  line: 676
+  line: 683
   module: bupha-watch
 - name: Tunnel
   kind: trait
@@ -170,7 +175,7 @@ api:
 - name: Worker
   kind: type
   file: crates/bupha-watch/src/lib.rs
-  line: 253
+  line: 345
   module: bupha-watch
 - name: args_of
   kind: function
@@ -180,29 +185,24 @@ api:
 - name: attest_run
   kind: function
   file: crates/bupha-watch/src/lib.rs
-  line: 800
+  line: 921
   module: bupha-watch
 - name: attest_run_links_only_with_url_base
   kind: function
   file: crates/bupha-watch/src/lib.rs
-  line: 1343
+  line: 1620
   module: bupha-watch
 - name: build_attest
   kind: function
   file: crates/bupha-watch/src/lib.rs
-  line: 701
+  line: 822
   module: bupha-watch
 - name: build_audit
   kind: function
   file: crates/bupha-watch/src/lib.rs
-  line: 731
+  line: 852
   module: bupha-watch
-- name: build_runner
-  kind: function
-  file: crates/bupha-watch/src/lib.rs
-  line: 71
-  module: bupha-watch
-api_omitted: 120
+api_omitted: 127
 deps:
 - bupha-access
 - bupha-access-file
@@ -290,11 +290,11 @@ provenance:
   - crates/bupha-watch/tests/tunnel.rs
   hashes:
   - 266224915f8ff4c7c2cad0aba28a95b57a819a43
-  - 28a4e4957ea8f1bf344b05519254850d30ed2d86
-  - 14c683e2d967ec2d02435ff06ce024a25e68db5e
+  - 5d6341c1c78ddadb379774c7ea068817ede573d2
+  - 75ca7cd24ed50e3088a412eb4a179c510667ce3a
   - 0ebbe5f4cbdcd4ef1d8da46e9120a81e1f81812b
   - 762216f0144384abf6afb630748d50671eaae648
-  - 4366e8ed513f0a454134ec46f31111ab2dbafc11
-  commit_sha: 8557f4ed298a7b8915e5d53af5d09834dc776d86
-  generated_at: '1794576747'
+  - 944cd3a5a8e3528b9208a5bb2eca27236ab0109c
+  commit_sha: 28b26638ea67dba4b149ff199ec71715874bfd77
+  generated_at: '1794587131'
   generator: kuda-template/0.1.4

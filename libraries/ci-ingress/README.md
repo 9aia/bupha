@@ -158,8 +158,16 @@ and `ref`.
 
 ## Not covered yet (filed remainders)
 
-- **Fork credentials** — `cloneUrl` points at the fork's clone
-  URL; fetching a *private* fork needs worker git credentials that
-  reach it (public forks and the base-repo `refs/pull/*` fallback
-  need nothing extra). A fork this box can't auth still fails the
-  job after the remote fallbacks.
+- **Fork credentials (manual validation pending)** — `cloneUrl`
+  points at the fork's clone URL; fetching a *private* fork needs
+  worker git credentials that reach it. Covered on the worker side
+  by `[worker] fork_token_env` (a secret NAME resolved through the
+  env → cuora → env-file chain into a generated git
+  credential-helper scoped to the fork fetch — see
+  `docs/how-to/distributed-runners.md` → "Private forks"), and
+  public forks / the base-repo `refs/pull/*` fallback need nothing
+  extra. A fork this box can't auth still fails the job after the
+  remote fallbacks. No live private-fork e2e exists yet — validate
+  manually: point a ci-job's `cloneUrl` at a private fork, set
+  `fork_token_env`, and confirm the fetch succeeds (and that the
+  token never appears in worker logs, argv, or job env).
