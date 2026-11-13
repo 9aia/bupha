@@ -58,7 +58,7 @@ matches (`no on.push workflow matched` → vacuous success).
 
 Once peeled, all three workflows **plan and execute**: jobs run
 sequentially in `needs` topo-order, matrix combos fan out
-sequentially, `actions/checkout` verifies HEAD, step
+in parallel (private per-leg worktrees), `actions/checkout` verifies HEAD, step
 `env`/`working-directory`/`shell` are honored, and failing `run`
 steps fail their job while independent jobs continue — matching
 GHA's aggregate-status shape. In the scratch repos the cargo/npm
@@ -82,16 +82,19 @@ filters) passes **fully green**, including correct skip of a
 > `needs.*.result`/`steps.*.conclusion` — with the implicit
 > `success() &&` wrap; `timeout-minutes` is enforced (GNU `timeout`
 > per step, process-group watchdog per job); `strategy.fail-fast`
-> cancels remaining matrix legs and `max-parallel` is parsed (still
-> sequential); `dtolnay/rust-toolchain` lowers to rustup calls;
+> cancels remaining matrix legs and `max-parallel` throttles
+> parallel legs (each leg gets a private `git worktree`; `1`
+> pins the sequential path); `dtolnay/rust-toolchain` lowers to rustup calls;
 > `paths` filters now infer the push's `before` sha from
 > remote-tracking refs/reflogs/merge-base instead of diffing only
 > `HEAD^..HEAD`. Each expanded job that reaches a verdict (every
 > workflow job, every matrix leg) now also posts its own commit
 > status under `<context>/<workflow>/<job id>[/<matrix>]` — the
 > aggregate `ci/bupha[/<job>]` context is unchanged. Parallel
-> matrix remains deferred with a written design (per-leg
-> worktrees + in-script concurrency) in the crate README.
+> matrix landed: legs fan out as process groups in per-leg
+> worktrees, `fail-fast` kills siblings, and `needs.*.outputs.*`
+> resolves to the highest-index successful leg — details in the
+> crate README boundaries.
 > `actions/upload-artifact`/`actions/download-artifact` also landed
 > since (per-run tar store under the run's tmp dir — same-run
 > only; see the crate README boundaries). The bullets below are
@@ -108,11 +111,13 @@ filters) passes **fully green**, including correct skip of a
   execute locally on the watcher's Linux box — serde's `windows`
   job would "pass" having never run Windows. No platform guard or
   warning today.
-- **Matrix is sequential** (documented): GHA runs combos in
-  parallel; bupha runs them in order. ripgrep's 17-combo
-  `include` matrix isn't even expressible (`include`/`exclude`
-  unsupported) — cartesian list-form only. `max-parallel` is
-  parsed and logged but not enforced (T-048).
+- **Matrix legs run in private worktrees** (documented): GHA
+  gives each leg a fresh runner checkout; bupha gives each leg a
+  `git worktree` under the run's tmp dir, so workspace writes
+  stay per-leg (use job `outputs:`/artifacts/`$BUPHA_WORKDIR` to
+  share). ripgrep's 17-combo `include` matrix isn't even
+  expressible (`include`/`exclude` unsupported) — cartesian
+  list-form only.
 - **`if:` supported subset only.** The common constructs now work
   (see update note), but the full expression language —
   `hashFiles`, `fromJSON`, `format`, ternary, `runner.*`,

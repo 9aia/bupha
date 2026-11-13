@@ -4,8 +4,10 @@
 `.github/workflows/*.yml` — GitHub Actions as a bupha dialect.
 Push lands on bupha's queue as usual; instead of `ci.sh` or a
 dagger call, the runner parses the workflows at the pushed sha
-and runs every `on.push`-matching one, sequentially, in one local
-bash process. The aggregate exit status drives the commit status.
+and runs every `on.push`-matching one in one local bash
+process — jobs sequentially in `needs` order, matrix legs in
+parallel (each in its own `git worktree` checkout, capped by
+`strategy.max-parallel`). The aggregate exit status drives the commit status.
 
 > **Naming (T-054).** `runner.kind = "gha"` is the *workflow
 > dialect* — bupha reads `.github/workflows` YAML and executes it.
@@ -49,8 +51,10 @@ maps, job/step `if:` (a real expression subset — literals,
 step, process-group watchdog per job), the `$GITHUB_ENV`/
 `$GITHUB_OUTPUT`/`$GITHUB_PATH`/`$GITHUB_WORKSPACE`/
 `$GITHUB_STEP_SUMMARY`/`RUNNER_TEMP` file commands, and
-`strategy.matrix` fan-out — executed **sequentially**, not in
-parallel (`max-parallel` parses but isn't enforced).
+`strategy.matrix` fan-out — legs run **in parallel** by default
+(each in a private `git worktree` under the run's tmp dir, so
+workspace writes stay per-leg; `max-parallel` caps concurrency,
+`1` pins the sequential shared-worktree path).
 
 Everything else is a **hard error at spawn**, naming the
 unsupported key — `services:`, `container:`, `environment:`,
@@ -84,9 +88,11 @@ What changes:
   only; nothing persists across runs, no artifact browser).
   Everything else installs via `run:` steps (`curl`,
   `cargo install`, your own scripts) or is already on the box.
-- **Sequential, local.** Matrix combinations and independent jobs
-  run one after another on one machine — size `needs`/matrix
-  accordingly, or split workflows across `[[repo.jobs]]` entries
+- **Sequential across jobs, parallel within a matrix.** Independent
+  jobs still run one after another on one machine (cross-job
+  parallelism is a needs-DAG scheduler, out of scope) — size
+  `needs`/matrix accordingly, or split workflows across
+  `[[repo.jobs]]` entries
   (each gets its own `runner.workflow` pin and its own
   `ci/bupha/<job>` status context).
 - **Statuses are bupha's — plus per-job detail.** The aggregate
