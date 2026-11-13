@@ -54,11 +54,14 @@ workflow.
 - Steps — `run` (`shell: bash|sh`, `working-directory`, `env`,
   `id`, `if`, `timeout-minutes`) and `uses:` of `actions/checkout`
   (any ref — a verification no-op: the worktree is already at the
-  pushed sha; `with.path` errors) or `dtolnay/rust-toolchain`
+  pushed sha; `with.path` errors), `dtolnay/rust-toolchain`
   (lowers to `rustup toolchain install` + `default` with the
   `toolchain`/`targets`/`components`/`profile` inputs; rustup must
-  be on `PATH`). `id` is the handle `steps.<id>.outputs.*`
-  references; ids must be unique per job and `[A-Za-z0-9_.-]`.
+  be on `PATH`), `actions/upload-artifact` and
+  `actions/download-artifact` (a per-run tar store under
+  `$BUPHA_GHA_TMP/artifacts/` — see boundaries). `id` is the handle
+  `steps.<id>.outputs.*` references; ids must be unique per job and
+  `[A-Za-z0-9_.-]`.
 - `${{ }}` expressions — `env.*`, `github.{sha,ref,ref_name,
   repository,event_name}`, `matrix.*`, plus the deferred refs
   `steps.<id>.outputs.<name>` (same job),
@@ -90,8 +93,12 @@ workflow.
 `services:`, `container:`, `environment:`, `concurrency:`,
 `continue-on-error:`, `matrix.include`/`exclude`,
 `on.push.{tags,types,workflows}`, any `uses:` other than
-`actions/checkout` and `dtolnay/rust-toolchain` (`actions/setup-*`
-included), `steps.*.outcome`/`steps.*.outputs` (bare) expressions,
+`actions/checkout`, `dtolnay/rust-toolchain`,
+`actions/upload-artifact` and `actions/download-artifact`
+(`actions/setup-*` included), artifact `with:` keys outside each
+action's allowlist and cross-run download inputs (`run-id`,
+`github-token`, `repository`, `run-attempt`),
+`steps.*.outcome`/`steps.*.outputs` (bare) expressions,
 `if:` functions beyond the supported subset (`hashFiles`,
 `fromJSON`, `format`, …), `shell:` values containing `${{ }}`,
 `secrets:`, docker/local `uses:` paths, and any unknown key at any
@@ -137,6 +144,19 @@ level.
   parallelism; pick the highest-index *successful* leg. Cross-job
   parallelism (independent jobs) is a separate, larger change — a
   needs-DAG scheduler — and stays out of scope.
+- **Artifact actions are same-run only.** `upload-artifact` tars
+  the matched paths (workspace-relative, globs via `compgen`;
+  hidden files included unless `include-hidden-files: false`) into
+  `$BUPHA_GHA_TMP/artifacts/<name>.tar` — wiped with the run's tmp
+  dir, so nothing persists across runs and there is no artifact
+  browser. `download-artifact` restores from that store: `name`
+  (exact) or `pattern` (name glob), `path` (default `.`),
+  `merge-multiple` (else each artifact lands in `<path>/<name>/`),
+  and `overwrite` on upload (re-uploading a name errors without
+  it). `retention-days`/`compression-level`/`archive` are accepted
+  no-ops — the tar never leaves the host. `run-id`/`github-token`/
+  `repository`/`run-attempt` on download hard-error: cross-run
+  artifacts don't exist locally.
 - **`strategy.fail-fast`** (default on) cancels a matrix job's
   remaining legs after one leg fails; legs already running finish
   first since execution is sequential anyway.

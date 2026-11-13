@@ -1156,3 +1156,236 @@ fn status_reports_are_consumed_once() {
     // resurrect the previous attempt's records.
     assert!(r.status_reports(&ctx).is_empty());
 }
+
+// --- artifact actions -------------------------------------------------
+
+/// spawn() error text for plan-time failures.
+fn spawn_err(dir: &Path, sha: &str) -> String {
+    let r = GhaRunner::new(GhaCfg { workflow: None });
+    let ctx = RunCtx {
+        workdir: dir,
+        token_env: "BUPHA_TOKEN",
+        key: "o/r",
+        sha,
+        git_ref: "refs/heads/main",
+    };
+    r.spawn(&ctx).err().unwrap().to_string()
+}
+
+#[test]
+fn artifact_upload_download_roundtrip() {
+    // build uploads a directory + a file; consume (needs: build)
+    // downloads with merge-multiple and reads both back.
+    let (d, sha) = repo("artifact-rt");
+    workflow(
+        &d,
+        "ci.yml",
+        r#"
+on: push
+jobs:
+  build:
+    steps:
+      - run: mkdir -p dist && echo built > dist/app.bin && echo meta > notes.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist-out
+          path: |
+            dist/
+            notes.txt
+  consume:
+    needs: build
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist-out
+          path: retrieved
+          merge-multiple: true
+      - run: cat retrieved/dist/app.bin retrieved/notes.txt > check.txt
+"#,
+    );
+    assert!(run(&d, &sha).success());
+    assert_eq!(
+        std::fs::read_to_string(d.join("check.txt")).unwrap(),
+        "built\nmeta\n"
+    );
+}
+
+#[test]
+fn artifact_download_defaults_to_named_dir() {
+    // Without merge-multiple each artifact lands in <path>/<name>/.
+    let (d, sha) = repo("artifact-named");
+    workflow(
+        &d,
+        "ci.yml",
+        r#"
+on: push
+jobs:
+  build:
+    steps:
+      - run: echo payload > payload.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: payload
+          path: payload.txt
+  consume:
+    needs: build
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: payload
+          path: out
+      - run: cat out/payload/payload.txt > check.txt
+"#,
+    );
+    assert!(run(&d, &sha).success());
+    assert_eq!(
+        std::fs::read_to_string(d.join("check.txt")).unwrap(),
+        "payload\n"
+    );
+}
+
+#[test]
+fn artifact_pattern_download_and_overwrite() {
+    // Two uploads matched by a pattern glob; re-uploading the same
+    // name fails unless overwrite: true.
+    let (d, sha) = repo("artifact-pat");
+    workflow(
+        &d,
+        "ci.yml",
+        r#"
+on: push
+jobs:
+  build:
+    steps:
+      - run: echo one > one.txt && echo two > two.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: alpha-out
+          path: one.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: beta-out
+          path: two.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: alpha-out
+          path: one.txt
+          overwrite: true
+  consume:
+    needs: build
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: "*-out"
+          path: all
+          merge-multiple: true
+      - run: cat all/one.txt all/two.txt > check.txt
+"#,
+    );
+    assert!(run(&d, &sha).success());
+    assert_eq!(
+        std::fs::read_to_string(d.join("check.txt")).unwrap(),
+        "one\ntwo\n"
+    );
+}
+
+#[test]
+fn artifact_upload_missing_files_modes() {
+    // Default warn: run passes, nothing stored. `error` fails the
+    // job; `ignore` passes silently.
+    let (d, sha) = repo("artifact-missing");
+    workflow(
+        &d,
+        "ci.yml",
+        r#"
+on: push
+jobs:
+  warn:
+    steps:
+      - uses: actions/upload-artifact@v4
+        with:
+          name: nothing
+          path: does-not-exist/**
+  ign:
+    steps:
+      - uses: actions/upload-artifact@v4
+        with:
+          name: nothing2
+          path: does-not-exist/**
+          if-no-files-found: ignore
+"#,
+    );
+    assert!(run(&d, &sha).success());
+
+    let (d2, sha2) = repo("artifact-missing-err");
+    workflow(
+        &d2,
+        "ci.yml",
+        r#"
+on: push
+jobs:
+  t:
+    steps:
+      - uses: actions/upload-artifact@v4
+        with:
+          name: nothing
+          path: does-not-exist/**
+          if-no-files-found: error
+"#,
+    );
+    assert!(!run(&d2, &sha2).success());
+}
+
+#[test]
+fn artifact_download_missing_fails() {
+    let (d, sha) = repo("artifact-dl-miss");
+    workflow(
+        &d,
+        "ci.yml",
+        r#"
+on: push
+jobs:
+  t:
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: never-uploaded
+          path: out
+"#,
+    );
+    assert!(!run(&d, &sha).success());
+}
+
+#[test]
+fn artifact_plan_errors() {
+    // name/path required + charset, unknown with: keys, and
+    // cross-run download inputs are all plan-time errors.
+    let cases: &[(&str, &str)] = &[
+        (
+            "on: push\njobs:\n  t:\n    steps:\n      - uses: actions/upload-artifact@v4\n        with:\n          path: x\n",
+            "name",
+        ),
+        (
+            "on: push\njobs:\n  t:\n    steps:\n      - uses: actions/upload-artifact@v4\n        with:\n          name: a/b\n          path: x\n",
+            "name",
+        ),
+        (
+            "on: push\njobs:\n  t:\n    steps:\n      - uses: actions/upload-artifact@v4\n        with:\n          name: n\n          path: x\n          bogus: 1\n",
+            "bogus",
+        ),
+        (
+            "on: push\njobs:\n  t:\n    steps:\n      - uses: actions/download-artifact@v4\n        with:\n          run-id: '123'\n          github-token: x\n",
+            "run-id",
+        ),
+        (
+            "on: push\njobs:\n  t:\n    steps:\n      - uses: actions/download-artifact@v4\n        with:\n          path: out\n",
+            "name",
+        ),
+    ];
+    for (i, (wf, needle)) in cases.iter().enumerate() {
+        let (d, sha) = repo(&format!("artifact-err-{i}"));
+        workflow(&d, "ci.yml", wf);
+        let err = spawn_err(&d, &sha);
+        assert!(err.contains(needle), "case {i}: {err} lacks `{needle}`");
+    }
+}

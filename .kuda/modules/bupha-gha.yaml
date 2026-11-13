@@ -10,12 +10,12 @@ api:
 - name: BinOp
   kind: type
   file: crates/bupha-gha/src/plan.rs
-  line: 231
+  line: 232
   module: bupha-gha
 - name: Cond
   kind: type
   file: crates/bupha-gha/src/plan.rs
-  line: 191
+  line: 192
   module: bupha-gha
 - name: CondCx
   kind: type
@@ -25,7 +25,7 @@ api:
 - name: CondParser
   kind: type
   file: crates/bupha-gha/src/plan.rs
-  line: 1660
+  line: 1931
   module: bupha-gha
 - name: Defaults
   kind: type
@@ -35,12 +35,12 @@ api:
 - name: DynRef
   kind: type
   file: crates/bupha-gha/src/plan.rs
-  line: 215
+  line: 216
   module: bupha-gha
 - name: Eval
   kind: type
   file: crates/bupha-gha/src/plan.rs
-  line: 673
+  line: 674
   module: bupha-gha
 - name: Event
   kind: type
@@ -65,12 +65,12 @@ api:
 - name: Job
   kind: type
   file: crates/bupha-gha/src/plan.rs
-  line: 117
+  line: 118
   module: bupha-gha
 - name: PExpr
   kind: type
   file: crates/bupha-gha/src/plan.rs
-  line: 1645
+  line: 1916
   module: bupha-gha
 - name: PushFilters
   kind: type
@@ -90,7 +90,7 @@ api:
 - name: RunStep
   kind: type
   file: crates/bupha-gha/src/plan.rs
-  line: 166
+  line: 167
   module: bupha-gha
 - name: SIMPLE
   kind: const
@@ -105,22 +105,27 @@ api:
 - name: Step
   kind: type
   file: crates/bupha-gha/src/plan.rs
-  line: 158
+  line: 159
   module: bupha-gha
 - name: Strategy
   kind: type
   file: crates/bupha-gha/src/plan.rs
-  line: 1427
+  line: 1698
   module: bupha-gha
 - name: Tok
   kind: type
   file: crates/bupha-gha/src/plan.rs
-  line: 1538
+  line: 1809
   module: bupha-gha
 - name: UsesKind
   kind: type
   file: crates/bupha-gha/src/plan.rs
-  line: 1360
+  line: 1621
+  module: bupha-gha
+- name: UsesScript
+  kind: type
+  file: crates/bupha-gha/src/plan.rs
+  line: 1612
   module: bupha-gha
 - name: W
   kind: type
@@ -140,17 +145,52 @@ api:
 - name: any_glob
   kind: function
   file: crates/bupha-gha/src/plan.rs
-  line: 455
+  line: 456
+  module: bupha-gha
+- name: artifact_download_defaults_to_named_dir
+  kind: function
+  file: crates/bupha-gha/tests/gha.rs
+  line: 1214
+  module: bupha-gha
+- name: artifact_download_missing_fails
+  kind: function
+  file: crates/bupha-gha/tests/gha.rs
+  line: 1340
+  module: bupha-gha
+- name: artifact_name_ok
+  kind: function
+  file: crates/bupha-gha/src/plan.rs
+  line: 910
+  module: bupha-gha
+- name: artifact_pattern_download_and_overwrite
+  kind: function
+  file: crates/bupha-gha/tests/gha.rs
+  line: 1248
+  module: bupha-gha
+- name: artifact_plan_errors
+  kind: function
+  file: crates/bupha-gha/tests/gha.rs
+  line: 1360
+  module: bupha-gha
+- name: artifact_upload_download_roundtrip
+  kind: function
+  file: crates/bupha-gha/tests/gha.rs
+  line: 1176
+  module: bupha-gha
+- name: artifact_upload_missing_files_modes
+  kind: function
+  file: crates/bupha-gha/tests/gha.rs
+  line: 1293
   module: bupha-gha
 - name: as_map
   kind: function
   file: crates/bupha-gha/src/plan.rs
-  line: 259
+  line: 260
   module: bupha-gha
 - name: bash_sq
   kind: function
   file: crates/bupha-gha/src/plan.rs
-  line: 850
+  line: 856
   module: bupha-gha
 - name: before_sha
   kind: function
@@ -162,47 +202,7 @@ api:
   file: crates/bupha-gha/tests/gha.rs
   line: 260
   module: bupha-gha
-- name: branch_filter_skips_other_branch
-  kind: function
-  file: crates/bupha-gha/tests/gha.rs
-  line: 272
-  module: bupha-gha
-- name: build_job
-  kind: function
-  file: crates/bupha-gha/src/plan.rs
-  line: 536
-  module: bupha-gha
-- name: build_step
-  kind: function
-  file: crates/bupha-gha/src/plan.rs
-  line: 679
-  module: bupha-gha
-- name: bupha-gha
-  kind: module
-  file: crates/bupha-gha/Cargo.toml
-  line: 1
-  module: bupha-gha
-- name: cancelled_function_sees_fail_fast_cancel
-  kind: function
-  file: crates/bupha-gha/tests/gha.rs
-  line: 867
-  module: bupha-gha
-- name: cd_target
-  kind: function
-  file: crates/bupha-gha/src/script.rs
-  line: 33
-  module: bupha-gha
-- name: cfg_deserializes_workflow_pin
-  kind: function
-  file: crates/bupha-gha/tests/gha.rs
-  line: 513
-  module: bupha-gha
-- name: changed_files
-  kind: function
-  file: crates/bupha-gha/src/lib.rs
-  line: 134
-  module: bupha-gha
-api_omitted: 137
+api_omitted: 151
 deps:
 - bupha-core
 - bupha-runner
@@ -230,9 +230,9 @@ provenance:
   hashes:
   - 130920aec2d9f32d6f8c6d16b35230ba63ddc04f
   - 436826c283566448df66adfd788503781dfb851c
-  - 4310fd91bb8b5f9e7ade0ebe2447a1469ce2c1b9
+  - af594072610db19d89b871915a7ee2354953e420
   - 4185792adb4e6a401f6c22a7264002f819d32c08
-  - 1ebfd0cbb3bb6a733545e2524476502eb057fc0b
-  commit_sha: 67f4bcb8f023d0a5c866823dbe9001635f1f3099
-  generated_at: '1794545817'
+  - 112c5126c3a38b86d14bb0da8a24a2c1c0867cf6
+  commit_sha: 90db1c974073ac57e6202927acb0a9adaf854786
+  generated_at: '1794547338'
   generator: kuda-template/0.1.4

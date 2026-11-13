@@ -100,10 +100,11 @@ enum RawStep {
         id: Option<String>,
         cond: Option<String>,
     },
-    /// `uses: dtolnay/rust-toolchain` — raw `with:` pairs (each
-    /// value a list: scalars are one entry, YAML lists flatten),
-    /// interpolated in `build_step`.
-    RustToolchain {
+    /// `uses:` lowered to a synthesized `run:` step — raw `with:`
+    /// pairs (each value a list: scalars are one entry, YAML lists
+    /// flatten), interpolated in `build_step`.
+    Script {
+        kind: UsesScript,
         id: Option<String>,
         cond: Option<String>,
         timeout_seconds: Option<u64>,
@@ -691,14 +692,15 @@ fn build_step(
                 .map(|raw| parse_cond(raw, eval, &format!("{what}.if")))
                 .transpose()?,
         }),
-        RawStep::RustToolchain {
+        RawStep::Script {
+            kind,
             id,
             cond,
             timeout_seconds,
             with,
         } => {
             // Lower to a synthesized run step: interpolate the
-            // `with:` inputs, then emit the rustup script. The
+            // `with:` inputs, then emit the action's bash. The
             // script itself contains no `${{ }}` — interpolation
             // already happened — so it goes through verbatim.
             let mut pairs = Vec::with_capacity(with.len());
@@ -709,7 +711,11 @@ fn build_step(
                 }
                 pairs.push((k.clone(), out));
             }
-            let script = rust_toolchain_script(&pairs, what)?;
+            let script = match kind {
+                UsesScript::RustToolchain => rust_toolchain_script(&pairs, what)?,
+                UsesScript::UploadArtifact => upload_artifact_script(&pairs, what)?,
+                UsesScript::DownloadArtifact => download_artifact_script(&pairs, what)?,
+            };
             Ok(Step::Run(RunStep {
                 id: id.clone(),
                 cond: cond
@@ -849,6 +855,249 @@ fn rust_toolchain_script(pairs: &[(String, Vec<String>)], what: &str) -> Result<
 /// same escaping rule as the renderer's `sq`.
 fn bash_sq(s: &str) -> String {
     format!("'{}'", s.replace('\'', "'\\''"))
+}
+
+/// A `with:` input expected to be a single value.
+fn with_one<'a>(
+    pairs: &'a [(String, Vec<String>)],
+    key: &str,
+    what: &str,
+) -> Result<Option<&'a str>, String> {
+    match pairs.iter().find(|(k, _)| k == key) {
+        None => Ok(None),
+        Some((_, v)) if v.len() == 1 => Ok(Some(v[0].as_str())),
+        Some(_) => Err(format!("{what}.with.{key}: expected a single value")),
+    }
+}
+
+/// A `with:` boolean input (`true`/`false`, case-insensitive).
+fn with_flag(
+    pairs: &[(String, Vec<String>)],
+    key: &str,
+    what: &str,
+) -> Result<Option<bool>, String> {
+    with_one(pairs, key, what)?
+        .map(|v| match v.to_ascii_lowercase().as_str() {
+            "true" => Ok(true),
+            "false" => Ok(false),
+            _ => Err(format!(
+                "{what}.with.{key}: expected true or false, got `{v}`"
+            )),
+        })
+        .transpose()
+}
+
+/// Reject `with:` keys outside the action's allowlist.
+fn check_with_keys(
+    pairs: &[(String, Vec<String>)],
+    allowed: &[&str],
+    what: &str,
+) -> Result<(), String> {
+    for (k, _) in pairs {
+        if !allowed.contains(&k.as_str()) {
+            return Err(format!(
+                "{what}.with.{k}: unsupported input — supported: {}",
+                allowed.join(", ")
+            ));
+        }
+    }
+    Ok(())
+}
+
+/// Artifact names become filenames in the per-run store and path
+/// components on download — apply GitHub's v4 charset rule plus
+/// the `.`/`..` guard.
+fn artifact_name_ok(name: &str) -> bool {
+    !name.is_empty()
+        && name != "."
+        && name != ".."
+        && name.chars().all(|c| {
+            !c.is_control() && !matches!(c, '"' | ':' | '<' | '>' | '|' | '*' | '?' | '/' | '\\')
+        })
+}
+
+/// `actions/upload-artifact` lowered to bash over the per-run
+/// artifact store: `$BUPHA_GHA_TMP/artifacts/<name>.tar`, shared by
+/// every job in the run — matching download-artifact's same-run
+/// default. `path` entries are workspace-relative globs expanded
+/// with `compgen -G` (dotglob honors `include-hidden-files`); each
+/// artifact is one uncompressed tar preserving workspace-relative
+/// paths, like the action's v4 hierarchy.
+fn upload_artifact_script(pairs: &[(String, Vec<String>)], what: &str) -> Result<String, String> {
+    check_with_keys(
+        pairs,
+        &[
+            "name",
+            "path",
+            "if-no-files-found",
+            "retention-days",
+            "compression-level",
+            "archive",
+            "include-hidden-files",
+            "overwrite",
+        ],
+        what,
+    )?;
+    let name = with_one(pairs, "name", what)?
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .ok_or_else(|| format!("{what}.with.name: required"))?;
+    if !artifact_name_ok(name) {
+        return Err(format!("{what}.with.name: invalid artifact name `{name}`"));
+    }
+    let path = with_one(pairs, "path", what)?
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .ok_or_else(|| format!("{what}.with.path: required"))?;
+    let inf = with_one(pairs, "if-no-files-found", what)?.unwrap_or("warn");
+    if !matches!(inf, "warn" | "ignore" | "error") {
+        return Err(format!(
+            "{what}.with.if-no-files-found: expected warn, ignore or error, got `{inf}`"
+        ));
+    }
+    let hidden = with_flag(pairs, "include-hidden-files", what)?.unwrap_or(true);
+    let overwrite = with_flag(pairs, "overwrite", what)?.unwrap_or(false);
+    let ignored = ["retention-days", "compression-level", "archive"]
+        .iter()
+        .any(|k| pairs.iter().any(|(pk, _)| pk == k));
+
+    let mut s = String::from("set -e\n");
+    s.push_str(&format!("name={}\n", bash_sq(name)));
+    s.push_str(&format!("upaths={}\n", bash_sq(path)));
+    s.push_str(&format!("inf={}\n", bash_sq(inf)));
+    s.push_str(&format!("hidden={}\n", if hidden { "1" } else { "0" }));
+    s.push_str(&format!("ovw={}\n", if overwrite { "1" } else { "0" }));
+    if ignored {
+        s.push_str(
+            "echo \"gha: upload-artifact — retention-days/compression-level/archive \
+             are no-ops in the per-run artifact store\"\n",
+        );
+    }
+    s.push_str(
+        "store=\"$BUPHA_GHA_TMP/artifacts\"\n\
+         mkdir -p \"$store\"\n\
+         if [ \"$hidden\" = \"1\" ]; then shopt -s dotglob; fi\n\
+         mapfile -t _entries < <(printf '%s\\n' \"$upaths\")\n\
+         _matches=()\n\
+         for _e in \"${_entries[@]}\"; do\n\
+         \x20 _e=\"${_e#\"${_e%%[![:space:]]*}\"}\"\n\
+         \x20 _e=\"${_e%\"${_e##*[![:space:]]}\"}\"\n\
+         \x20 [ -z \"$_e\" ] && continue\n\
+         \x20 case \"$_e\" in\n\
+         \x20   \"$GITHUB_WORKSPACE\"/*) _e=\"${_e#\"$GITHUB_WORKSPACE\"/}\" ;;\n\
+         \x20   /*) echo \"gha: upload-artifact — absolute path '$_e' is unsupported (paths are workspace-relative)\"; exit 1 ;;\n\
+         \x20 esac\n\
+         \x20 while IFS= read -r _m; do _matches+=(\"$_m\"); done < <(compgen -G \"$_e\")\n\
+         done\n\
+         if [ \"${#_matches[@]}\" -eq 0 ]; then\n\
+         \x20 case \"$inf\" in\n\
+         \x20   error) echo \"gha: upload-artifact — no files found\"; exit 1 ;;\n\
+         \x20   ignore) echo \"gha: upload-artifact — no files found (ignored)\"; exit 0 ;;\n\
+         \x20   *) echo \"::warning::gha: upload-artifact — no files found for the given path(s)\" ;;\n\
+         \x20 esac\n\
+         else\n\
+         \x20 declare -A _seen=()\n\
+         \x20 _uniq=()\n\
+         \x20 for _m in \"${_matches[@]}\"; do\n\
+         \x20   if [ -z \"${_seen[$_m]:-}\" ]; then _seen[$_m]=1; _uniq+=(\"$_m\"); fi\n\
+         \x20 done\n\
+         \x20 _out=\"$store/$name.tar\"\n\
+         \x20 if [ -e \"$_out\" ] && [ \"$ovw\" != \"1\" ]; then\n\
+         \x20   echo \"gha: upload-artifact — artifact '$name' already exists; set overwrite: true to replace it\"\n\
+         \x20   exit 1\n\
+         \x20 fi\n\
+         \x20 tar -cf \"$_out\" -C \"$GITHUB_WORKSPACE\" -- \"${_uniq[@]}\"\n\
+         \x20 echo \"gha: upload-artifact — '$name' archived ${#_uniq[@]} path(s)\"\n\
+         fi\n",
+    );
+    Ok(s)
+}
+
+/// `actions/download-artifact` lowered to bash over the same
+/// per-run store. Same-run only: `run-id`/`github-token`/
+/// `repository`/`run-attempt` hard-error at plan time. Without
+/// `merge-multiple` each artifact extracts into `<path>/<name>/`;
+/// `pattern` (a name glob) downloads every match.
+fn download_artifact_script(pairs: &[(String, Vec<String>)], what: &str) -> Result<String, String> {
+    for (k, _) in pairs {
+        if matches!(
+            k.as_str(),
+            "run-id" | "github-token" | "repository" | "run-attempt"
+        ) {
+            return Err(format!(
+                "{what}.with.{k}: cross-run artifact download is unsupported — \
+                 the local store only covers the current run"
+            ));
+        }
+    }
+    check_with_keys(pairs, &["name", "path", "pattern", "merge-multiple"], what)?;
+    let name = with_one(pairs, "name", what)?
+        .map(str::trim)
+        .filter(|s| !s.is_empty());
+    let pat = with_one(pairs, "pattern", what)?
+        .map(str::trim)
+        .filter(|s| !s.is_empty());
+    if name.is_none() && pat.is_none() {
+        return Err(format!("{what}.with: `name` or `pattern` is required"));
+    }
+    if let Some(n) = name {
+        if !artifact_name_ok(n) {
+            return Err(format!("{what}.with.name: invalid artifact name `{n}`"));
+        }
+    }
+    if let Some(p) = pat {
+        if p.chars().any(|c| c.is_control()) {
+            return Err(format!(
+                "{what}.with.pattern: control characters are unsupported"
+            ));
+        }
+    }
+    let dest = with_one(pairs, "path", what)?
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .unwrap_or(".");
+    let merge = with_flag(pairs, "merge-multiple", what)?.unwrap_or(false);
+
+    let mut s = String::from("set -e\n");
+    s.push_str(&format!("name={}\n", bash_sq(name.unwrap_or(""))));
+    s.push_str(&format!("pat={}\n", bash_sq(pat.unwrap_or(""))));
+    s.push_str(&format!("dest={}\n", bash_sq(dest)));
+    s.push_str(&format!("merge={}\n", if merge { "1" } else { "0" }));
+    s.push_str(
+        "store=\"$BUPHA_GHA_TMP/artifacts\"\n\
+         mkdir -p \"$dest\"\n\
+         shopt -s nullglob\n\
+         declare -a _arts=()\n\
+         if [ -n \"$name\" ]; then\n\
+         \x20 _f=\"$store/$name.tar\"\n\
+         \x20 if [ ! -f \"$_f\" ]; then\n\
+         \x20   echo \"gha: download-artifact — artifact '$name' was not uploaded in this run\"\n\
+         \x20   exit 1\n\
+         \x20 fi\n\
+         \x20 _arts+=(\"$_f|$name\")\n\
+         elif [ -n \"$pat\" ]; then\n\
+         \x20 for _f in \"$store\"/*.tar; do\n\
+         \x20   [ -f \"$_f\" ] || continue\n\
+         \x20   _b=${_f##*/}; _b=${_b%.tar}\n\
+         \x20   case \"$_b\" in $pat) _arts+=(\"$_f|$_b\") ;; esac\n\
+         \x20 done\n\
+         fi\n\
+         if [ \"${#_arts[@]}\" -eq 0 ]; then\n\
+         \x20 echo \"gha: download-artifact — no artifacts matched\"\n\
+         \x20 exit 1\n\
+         fi\n\
+         if [ \"$merge\" = \"1\" ]; then\n\
+         \x20 for _a in \"${_arts[@]}\"; do tar -xf \"${_a%%|*}\" -C \"$dest\"; done\n\
+         else\n\
+         \x20 for _a in \"${_arts[@]}\"; do\n\
+         \x20   _d=\"$dest/${_a#*|}\"\n\
+         \x20   mkdir -p \"$_d\"\n\
+         \x20   tar -xf \"${_a%%|*}\" -C \"$_d\"\n\
+         \x20 done\n\
+         fi\n\
+         echo \"gha: download-artifact — restored ${#_arts[@]} artifact(s) into '$dest'\"\n",
+    );
+    Ok(s)
 }
 
 /// Kahn topo sort, declaration order breaking ties. Indices in
@@ -1316,7 +1565,8 @@ fn parse_job(m: &serde_norway::Mapping, id: &str, source: &str) -> Result<RawJob
                 let uses = scalar(uv, &format!("{sw}.uses"))?;
                 match parse_uses(&uses, sm, &sw)? {
                     UsesKind::Checkout => steps.push(RawStep::Checkout { id, cond }),
-                    UsesKind::RustToolchain(with) => steps.push(RawStep::RustToolchain {
+                    UsesKind::Script(kind, with) => steps.push(RawStep::Script {
+                        kind,
                         id,
                         cond,
                         timeout_seconds,
@@ -1357,21 +1607,35 @@ fn timeout_minutes(v: &Value, what: &str) -> Result<u64, String> {
     Ok((mins * 60.0).ceil() as u64)
 }
 
+/// `uses:` targets that lower to a synthesized bash step.
+#[derive(Clone, Copy)]
+enum UsesScript {
+    /// `dtolnay/rust-toolchain` → rustup install/default.
+    RustToolchain,
+    /// `actions/upload-artifact` → per-run tar store.
+    UploadArtifact,
+    /// `actions/download-artifact` → restore from the per-run store.
+    DownloadArtifact,
+}
+
 enum UsesKind {
     Checkout,
-    /// `with:` pairs normalized to value lists.
-    RustToolchain(Vec<(String, Vec<String>)>),
+    /// Script-lowered `uses:` + `with:` pairs normalized to value
+    /// lists.
+    Script(UsesScript, Vec<(String, Vec<String>)>),
 }
 
 /// `uses:` — `actions/checkout` is a verification no-op (the
-/// worktree is already at the pushed sha) and
-/// `dtolnay/rust-toolchain` lowers to rustup calls. Everything
-/// else, `actions/setup-*` included, is an explicit error.
+/// worktree is already at the pushed sha); `dtolnay/rust-toolchain`,
+/// `actions/upload-artifact` and `actions/download-artifact` lower
+/// to synthesized bash steps. Everything else, `actions/setup-*`
+/// included, is an explicit error.
 fn parse_uses(uses: &str, sm: &serde_norway::Mapping, what: &str) -> Result<UsesKind, String> {
     let unsupported = || {
         format!(
             "{what}: unsupported `uses: {uses}` — v1 supports \
-             `actions/checkout` and `dtolnay/rust-toolchain` \
+             `actions/checkout`, `dtolnay/rust-toolchain`, \
+             `actions/upload-artifact` and `actions/download-artifact` \
              (`actions/setup-*` is a later milestone)"
         )
     };
@@ -1379,49 +1643,56 @@ fn parse_uses(uses: &str, sm: &serde_norway::Mapping, what: &str) -> Result<Uses
     if body.starts_with("docker://") || body.starts_with("./") || body.starts_with('/') {
         return Err(unsupported());
     }
-    let is_checkout = body.eq_ignore_ascii_case("actions/checkout");
-    let is_rust_toolchain = body.eq_ignore_ascii_case("dtolnay/rust-toolchain");
-    if !is_checkout && !is_rust_toolchain {
+    let script = if body.eq_ignore_ascii_case("actions/checkout") {
+        None
+    } else if body.eq_ignore_ascii_case("dtolnay/rust-toolchain") {
+        Some(UsesScript::RustToolchain)
+    } else if body.eq_ignore_ascii_case("actions/upload-artifact") {
+        Some(UsesScript::UploadArtifact)
+    } else if body.eq_ignore_ascii_case("actions/download-artifact") {
+        Some(UsesScript::DownloadArtifact)
+    } else {
         return Err(unsupported());
-    }
-    let with = match get(sm, "with") {
-        Some(Value::Mapping(w)) => w,
-        Some(_) => return Err(format!("{what}.with: expected a mapping")),
-        None => {
-            if is_checkout {
-                return Ok(UsesKind::Checkout);
-            }
-            return Ok(UsesKind::RustToolchain(Vec::new()));
-        }
     };
-    if is_checkout {
-        if get(with, "path").is_some() {
-            return Err(format!(
-                "{what}: `with.path` on actions/checkout is unsupported — \
-                 the worktree root is fixed"
-            ));
-        }
-        // Other checkout inputs (ref, fetch-depth, token, …)
+    let with = match get(sm, "with") {
+        Some(Value::Mapping(w)) => Some(w),
+        Some(_) => return Err(format!("{what}.with: expected a mapping")),
+        None => None,
+    };
+    let Some(kind) = script else {
+        // actions/checkout — `with.path` errors (the worktree root
+        // is fixed); other inputs (ref, fetch-depth, token, …)
         // don't change local semantics: the sha is checked out.
+        if let Some(w) = with {
+            if get(w, "path").is_some() {
+                return Err(format!(
+                    "{what}: `with.path` on actions/checkout is unsupported — \
+                     the worktree root is fixed"
+                ));
+            }
+        }
         return Ok(UsesKind::Checkout);
-    }
-    // dtolnay/rust-toolchain — normalize `with:` values to lists
+    };
+    // Script-lowered uses: — normalize `with:` values to lists
     // (scalar → one entry, sequence of scalars → many).
-    let mut out = Vec::with_capacity(with.len());
-    for (k, v) in with {
-        let key = k
-            .as_str()
-            .ok_or_else(|| format!("{what}.with: input names must be strings"))?;
-        let vals = match v {
-            Value::Sequence(seq) => seq
-                .iter()
-                .map(|i| scalar(i, &format!("{what}.with.{key}")))
-                .collect::<Result<Vec<_>, _>>()?,
-            _ => vec![scalar(v, &format!("{what}.with.{key}"))?],
-        };
-        out.push((key.to_string(), vals));
+    let mut out = Vec::new();
+    if let Some(w) = with {
+        out.reserve(w.len());
+        for (k, v) in w {
+            let key = k
+                .as_str()
+                .ok_or_else(|| format!("{what}.with: input names must be strings"))?;
+            let vals = match v {
+                Value::Sequence(seq) => seq
+                    .iter()
+                    .map(|i| scalar(i, &format!("{what}.with.{key}")))
+                    .collect::<Result<Vec<_>, _>>()?,
+                _ => vec![scalar(v, &format!("{what}.with.{key}"))?],
+            };
+            out.push((key.to_string(), vals));
+        }
     }
-    Ok(UsesKind::RustToolchain(out))
+    Ok(UsesKind::Script(kind, out))
 }
 
 struct Strategy {
