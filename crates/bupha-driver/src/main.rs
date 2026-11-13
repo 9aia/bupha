@@ -68,7 +68,10 @@
 //!   via `[worker] node_token_env` / `--node-token-env` /
 //!   `BUPHA_NODE_TOKEN`), `ci.claim`s pending jobs this box's
 //!   `[worker] labels` cover, runs them through the same
-//!   `bupha-watch` pipeline, `ci.complete`s the result. The
+//!   `bupha-watch` pipeline, `ci.complete`s the result, then emits
+//!   `ci.job.completed` to `[worker] events_url` /
+//!   `--events-url` / `BUPHA_WORKER_EVENTS_URL` (default
+//!   `{node}/api/events/inject`). The
 //!   **second service** a fleet deployment runs — worker boxes
 //!   execute jobs the entity plane hands out.
 //! - `deploy` — merge the payload's `fleet.toml` with

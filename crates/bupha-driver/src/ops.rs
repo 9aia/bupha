@@ -86,6 +86,10 @@ pub struct Flags {
     /// `worker --node-token-env` — secret NAME holding the node's
     /// bearer credential (`[worker] node_token_env` fallback).
     pub node_token_env: Option<String>,
+    /// `worker --events-url` — full `ci.job.completed` ingest URL
+    /// override (`BUPHA_WORKER_EVENTS_URL` / `[worker] events_url`
+    /// are the env/config fallbacks; default `{node}/api/events/inject`).
+    pub events_url: Option<String>,
     /// Positional args (the `hooks` action).
     pub positional: Vec<String>,
 }
@@ -121,6 +125,7 @@ pub fn parse_flags(args: &[String]) -> Result<Flags, String> {
             "--token-env" => f.token_env = Some(take(&mut i)?),
             "--node" => f.node = Some(take(&mut i)?),
             "--node-token-env" => f.node_token_env = Some(take(&mut i)?),
+            "--events-url" => f.events_url = Some(take(&mut i)?),
             "--lines" => {
                 f.lines = take(&mut i)?
                     .parse()
@@ -913,6 +918,7 @@ pub fn config_schema() -> Result<String, String> {
                     "labels": {"type": "array", "items": {"type": "string"}},
                     "node": {"type": "string", "description": "Hypha/peregrin node base URL for the `worker` verb's ci-job poll (P-002). Also settable via --node / BUPHA_WORKER_NODE."},
                     "node_token_env": {"type": "string", "description": "Secret NAME (env → cuora → env file) holding the node bearer credential; BUPHA_NODE_TOKEN is a direct-token fallback."},
+                    "events_url": {"type": "string", "description": "Full ci.job.completed ingest URL override (e.g. campaign serve's /api/events/inject); also settable via --events-url / BUPHA_WORKER_EVENTS_URL. Default {node}/api/events/inject."},
                     "fork_token_env": {"type": "string", "description": "Secret NAME (env → cuora → env file) holding a git credential for private fork cloneUrl fetches on fork-PR ci-jobs; resolved by a generated credential-helper at fetch time — NAME only, never the value."}
                 }
             },
@@ -1024,7 +1030,17 @@ pub fn worker(f: &Flags) -> Result<String, String> {
             .filter(|s| !s.is_empty()),
     };
 
+    let events_url = f
+        .events_url
+        .clone()
+        .or_else(|| {
+            std::env::var("BUPHA_WORKER_EVENTS_URL")
+                .ok()
+                .filter(|s| !s.is_empty())
+        })
+        .or_else(|| cfg.worker.events_url.clone());
     let api = bupha_watch::entity_worker::EntityJobApi::http(&node, token)
+        .map(|api| api.with_events_url(events_url))
         .map_err(|e| format!("worker: {e}"))?;
     let filter = bupha_watch::entity_worker::ClaimFilter::from_config(&cfg)
         .map_err(|e| format!("worker: config: {e}"))?;

@@ -5,7 +5,7 @@ api:
 - name: CancelExec
   kind: type
   file: crates/bupha-watch/src/entity_worker.rs
-  line: 1118
+  line: 1140
   module: bupha-watch
 - name: ChildSlot
   kind: type
@@ -15,7 +15,7 @@ api:
 - name: ClaimFilter
   kind: type
   file: crates/bupha-watch/src/entity_worker.rs
-  line: 616
+  line: 638
   module: bupha-watch
 - name: ClaimOutcome
   kind: type
@@ -40,7 +40,7 @@ api:
 - name: EntityClaim
   kind: type
   file: crates/bupha-watch/src/entity_worker.rs
-  line: 418
+  line: 440
   module: bupha-watch
 - name: EntityJob
   kind: type
@@ -55,7 +55,7 @@ api:
 - name: ExecEnd
   kind: type
   file: crates/bupha-watch/src/entity_worker.rs
-  line: 452
+  line: 474
   module: bupha-watch
 - name: FORK_CREDENTIAL_HELPER
   kind: const
@@ -75,12 +75,12 @@ api:
 - name: FakeApi
   kind: type
   file: crates/bupha-watch/src/entity_worker.rs
-  line: 821
+  line: 843
   module: bupha-watch
 - name: FakeExec
   kind: type
   file: crates/bupha-watch/src/entity_worker.rs
-  line: 972
+  line: 994
   module: bupha-watch
 - name: FetchTarget
   kind: type
@@ -120,7 +120,7 @@ api:
 - name: JobExec
   kind: trait
   file: crates/bupha-watch/src/entity_worker.rs
-  line: 467
+  line: 489
   module: bupha-watch
 - name: LOCK
   kind: const
@@ -150,12 +150,12 @@ api:
 - name: SkipExec
   kind: type
   file: crates/bupha-watch/src/entity_worker.rs
-  line: 1282
+  line: 1304
   module: bupha-watch
 - name: Step
   kind: type
   file: crates/bupha-watch/src/entity_worker.rs
-  line: 683
+  line: 705
   module: bupha-watch
 - name: Tunnel
   kind: trait
@@ -165,7 +165,7 @@ api:
 - name: WatchExec
   kind: type
   file: crates/bupha-watch/src/entity_worker.rs
-  line: 481
+  line: 503
   module: bupha-watch
 - name: WebhookSource
   kind: type
@@ -202,7 +202,7 @@ api:
   file: crates/bupha-watch/src/lib.rs
   line: 852
   module: bupha-watch
-api_omitted: 127
+api_omitted: 128
 deps:
 - bupha-access
 - bupha-access-file
@@ -290,11 +290,11 @@ provenance:
   - crates/bupha-watch/tests/tunnel.rs
   hashes:
   - 266224915f8ff4c7c2cad0aba28a95b57a819a43
-  - 5d6341c1c78ddadb379774c7ea068817ede573d2
+  - 97eb09b28dc045ca4cf80fe44a341a30db1deac0
   - 75ca7cd24ed50e3088a412eb4a179c510667ce3a
   - 0ebbe5f4cbdcd4ef1d8da46e9120a81e1f81812b
   - 762216f0144384abf6afb630748d50671eaae648
   - 944cd3a5a8e3528b9208a5bb2eca27236ab0109c
-  commit_sha: 28b26638ea67dba4b149ff199ec71715874bfd77
-  generated_at: '1794587131'
+  commit_sha: 712a6dbf942d7223090137da8628493985901892
+  generated_at: '1794605901'
   generator: kuda-template/0.1.4

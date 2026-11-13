@@ -143,7 +143,10 @@ pub struct EntityJobApi {
     rt: tokio::runtime::Runtime,
     /// Node origin + credential for the event-ingest route — set by
     /// [`EntityJobApi::http`], `None` for `new` (non-HTTP planes have
-    /// no ingest endpoint to call).
+    /// no ingest endpoint to call). The origin is the FULL
+    /// `/api/events/inject` URL — [`EntityJobApi::with_events_url`]
+    /// retargets it (e.g. `campaign serve`'s shared listener) without
+    /// moving the entity ops.
     emit: Option<(String, Option<String>)>,
 }
 
@@ -176,8 +179,26 @@ impl EntityJobApi {
             base,
             token.clone(),
         )))?;
-        api.emit = Some((base.trim_end_matches('/').to_string(), token));
+        api.emit = Some((
+            format!("{}/api/events/inject", base.trim_end_matches('/')),
+            token,
+        ));
         Ok(api)
+    }
+
+    /// Retarget the `ci.job.completed` emit — `url` is the FULL
+    /// ingest endpoint (e.g. `campaign serve`'s
+    /// `http://127.0.0.1:29173/api/events/inject`), not a node
+    /// origin. The bearer credential stays the entity node's
+    /// `node_token_env` token — deployments point both planes at the
+    /// same `PEREGRIN_TOKEN`. No-op-ish when `url` is `None` (keeps
+    /// the `{node}/api/events/inject` default).
+    #[must_use]
+    pub fn with_events_url(mut self, url: Option<String>) -> Self {
+        if let (Some(events), Some((emit_url, _))) = (&url, &mut self.emit) {
+            *emit_url = events.clone();
+        }
+        self
     }
 
     fn submit(&self, id: &str, kind: &str, payload: serde_json::Value) -> io::Result<()> {
@@ -373,7 +394,9 @@ impl JobApi for EntityJobApi {
     }
 
     fn emit_completed(&self, job: &EntityJob, result: &str) {
-        let Some((base, token)) = &self.emit else {
+        // `emit.0` is the full ingest URL (`http()` defaults it to
+        // `{node}/api/events/inject`; `with_events_url` retargets).
+        let Some((url, token)) = &self.emit else {
             return;
         };
         let j = &job.job;
@@ -396,12 +419,11 @@ impl JobApi for EntityJobApi {
             // attempt = new entity id).
             "idempotencyKey": format!("{}:{}", job.id, result),
         });
-        let url = format!("{base}/api/events/inject");
         let res = match token {
-            Some(t) => ureq::post(&url)
+            Some(t) => ureq::post(url)
                 .header("authorization", &format!("Bearer {t}"))
                 .send_json(&body),
-            None => ureq::post(&url).send_json(&body),
+            None => ureq::post(url).send_json(&body),
         };
         if let Err(e) = res {
             eprintln!("ci.job.completed emit {}: {e}", job.id);

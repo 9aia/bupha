@@ -35,22 +35,22 @@ api:
 - name: Hook
   kind: type
   file: crates/bupha-driver/src/ops.rs
-  line: 200
+  line: 205
   module: bupha-driver
 - name: HookTarget
   kind: type
   file: crates/bupha-driver/src/ops.rs
-  line: 480
+  line: 485
   module: bupha-driver
 - name: Ingress
   kind: type
   file: crates/bupha-driver/src/ops.rs
-  line: 188
+  line: 193
   module: bupha-driver
 - name: MANIFEST
   kind: const
   file: crates/bupha-driver/src/ops.rs
-  line: 1138
+  line: 1154
   module: bupha-driver
 - name: MANIFEST_NAMES
   kind: const
@@ -65,12 +65,12 @@ api:
 - name: MIN_FLEET
   kind: const
   file: crates/bupha-driver/src/ops.rs
-  line: 1125
+  line: 1141
   module: bupha-driver
 - name: Manifest
   kind: type
   file: crates/bupha-driver/src/ops.rs
-  line: 158
+  line: 163
   module: bupha-driver
 - name: N
   kind: const
@@ -90,7 +90,7 @@ api:
 - name: Provider
   kind: type
   file: crates/bupha-driver/src/ops.rs
-  line: 168
+  line: 173
   module: bupha-driver
 - name: QUEUE_COLS
   kind: const
@@ -135,7 +135,7 @@ api:
 - name: Service
   kind: type
   file: crates/bupha-driver/src/ops.rs
-  line: 178
+  line: 183
   module: bupha-driver
 - name: Svc
   kind: type
@@ -273,8 +273,8 @@ provenance:
   - ed51e1e54e2387ffa046313bb9edd2fd4b6867f1
   - 198a3778c07393c79598b08916cb8095bd165727
   - aeae9673ae611a66a0146a4227ead239022f61ed
-  - 34e6bd08e4b00e1af9cd5950150075c0a6ff7da5
-  - 430ca753ef4077d97fbcbe954141eb18380abdc3
+  - 5bb8bdd045df5ae7385cb034a2d0e688d8fa9e2d
+  - b5184c15a968080a0368c974c66ae51d8c3fbf3c
   - 0da6b0651234e4ebbf8510aa9ff4f77ef22eb332
   - d8f6cbd1c8f342af984fc99785f7a9cb9bc54f85
   - 1b82694aaf8889c68fb927173e96794a254d743c
@@ -286,6 +286,6 @@ provenance:
   - 12553a9dc152e7e0ffec4a06651592ed38d3ed23
   - fd852737ecb9227ba086e83d6212dc327ab9ac7b
   - a5bca4d891c4971f8071159624a0452a057e3efa
-  commit_sha: 28b26638ea67dba4b149ff199ec71715874bfd77
-  generated_at: '1794587364'
+  commit_sha: 712a6dbf942d7223090137da8628493985901892
+  generated_at: '1794605901'
   generator: kuda-template/0.1.4

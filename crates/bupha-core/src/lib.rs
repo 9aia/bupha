@@ -415,6 +415,16 @@ pub struct WorkerCfg {
     /// calls (dev nodes).
     #[serde(default)]
     pub node_token_env: Option<String>,
+    /// Full URL the worker POSTs `ci.job.completed` to — the
+    /// `/api/events/inject` route of the campaign host (e.g.
+    /// `http://127.0.0.1:29173/api/events/inject` for `campaign
+    /// serve`). Absent = `{node}/api/events/inject` — the entity
+    /// node's own ingest, which fans out to `kind="campaign"`
+    /// entities, NOT to `campaign serve` supervised campaigns.
+    /// Set this when campaigns run under `campaign serve` so the
+    /// completion signal reaches their trigger injectors.
+    #[serde(default)]
+    pub events_url: Option<String>,
     /// Env-var NAME holding a git credential (PAT/token) used to
     /// authenticate `git fetch <cloneUrl>` for fork-PR ci-jobs
     /// (T-073 remainder — a fork of a private repo is itself
