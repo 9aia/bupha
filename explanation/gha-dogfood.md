@@ -86,7 +86,13 @@ filters) passes **fully green**, including correct skip of a
 > sequential); `dtolnay/rust-toolchain` lowers to rustup calls;
 > `paths` filters now infer the push's `before` sha from
 > remote-tracking refs/reflogs/merge-base instead of diffing only
-> `HEAD^..HEAD`. The bullets below are annotated where they changed.
+> `HEAD^..HEAD`. Each expanded job that reaches a verdict (every
+> workflow job, every matrix leg) now also posts its own commit
+> status under `<context>/<workflow>/<job id>[/<matrix>]` — the
+> aggregate `ci/bupha[/<job>]` context is unchanged. Parallel
+> matrix remains deferred with a written design (per-leg
+> worktrees + in-script concurrency) in the crate README. The
+> bullets below are annotated where they changed.
 
 - **`$GITHUB_ENV` / `$GITHUB_OUTPUT` / `$GITHUB_PATH` /
   `$RUNNER_TEMP` are unset.** `run: echo X=1 >> $GITHUB_ENV` fails
