@@ -53,8 +53,9 @@ const FLEET_FILE: &str = "fleet.toml";
 /// tamias manifest names, in tamias-core's resolution order.
 const MANIFEST_NAMES: [&str; 3] = ["tamias.yaml", "tamias.yml", "tamias.toml"];
 
-/// The webhook path bupha's listener serves — the only route
-/// `bupha-webhook` answers; `provider.ingress[].path` must be this.
+/// The webhook path bupha's listener serves — the only route the
+/// `/hook` source (`bupha-watch::webhook`) answers;
+/// `provider.ingress[].path` must be this.
 const HOOK_PATH: &str = "/hook";
 
 // --- argv -------------------------------------------------------------------
@@ -698,7 +699,7 @@ pub fn health(dir: &Path, name: &str) -> Result<String, String> {
         let (Some(listen), path) = (&ingress.listen, ingress.path.as_deref()) else {
             continue;
         };
-        // bupha-webhook answers only /hook — an undeclared path
+        // The webhook source answers only /hook — an undeclared path
         // probes the real route, a declared non-/hook path still
         // gets probed as declared (and reports the 404 honestly).
         let path = path.unwrap_or(HOOK_PATH);

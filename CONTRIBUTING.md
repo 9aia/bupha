@@ -7,10 +7,16 @@ freely under MIT.
 ## Layout
 
 `crates/` — rust workspace. `bupha-core` is pure domain (queue,
-config); ports are crates: `bupha-runner`, `bupha-tunnel`,
-`bupha-trigger`, `bupha-status`; impls: `bupha-github` (trigger +
-sink), `bupha-shell`/`bupha-dagger`/`bupha-ssh` (runners), `bupha-cloudflared`
-(tunnel), `bupha-systemd` (install helpers — `Service` port pending);
+config); ports are crates: `bupha-runner`, `bupha-trigger`,
+`bupha-status`; impls: `bupha-github` (trigger +
+sink), `bupha-shell`/`bupha-dagger`/`bupha-ssh` (runners);
+`bupha-watch` also hosts the standalone/dev-mode ingress helpers
+(`tunnel`/`webhook` modules — T-077 folded the ex-`bupha-tunnel`,
+`-cloudflared`, `-webhook` crates in). Generic infra is *not*
+bupha's: secrets resolve env → cuora (`bupha-secret-cuora`) →
+`hypha-keyring`/`hypha-dotenv` fallbacks, and systemd units go
+through `hypha-systemd` (T-077 — the `bupha-{secret,keyring,
+dotenv,service,systemd}` crates are retired);
 `bupha` (package `bupha`, crate dir `bupha-cli`) is the engine
 lib — no `[[bin]]`: the `bupha` command ships as the tamias pack
 in `libraries/bupha` (`bins[]` shim → `tamias-driver-bupha cli` →

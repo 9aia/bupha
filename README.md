@@ -25,7 +25,7 @@ cutover); it is not the product surface.
 **Ingress ownership (ADR-0007):** production webhook/forge ingress
 is a *peregrin* campaign listener — it normalizes deliveries through
 bupha's `Trigger` semantics and enqueues `ci-job` via `ci.enqueue`.
-The bupha webhook listener (`bupha-webhook` `/hook`,
+The bupha webhook listener (`/hook` in `bupha-watch`,
 `tamias-driver-bupha hooks register`, the dev CLI's `bupha watch`)
 is **standalone/dev mode** — the fallback for deployments with no
 peregrin, not the production path.

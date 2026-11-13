@@ -109,7 +109,7 @@ bupha has **no serve wire** — its state is files under
 | --- | --- |
 | run history | `<base>/history.jsonl` — one JSONL record per finished run (`{sha, repo, status, wall_secs}`), the same file `bupha runs`/`bupha log` read |
 | queue state | `<base>/queue.json` — read through `bupha-queue`'s `JsonQueueStore`; tmp+rename writes mean a direct read never sees a torn file |
-| watcher units | `systemctl --user is-enabled/is-active` via `bupha-systemd` — the probe `bupha service status` runs |
+| watcher units | `systemctl --user is-enabled/is-active` via `hypha-systemd` — the probe `bupha service status` runs |
 
 The `bupha` CLI was **not** chosen as the data plane: `runs`, `log`,
 and `explain` print human-formatted text with no `--json`, so
