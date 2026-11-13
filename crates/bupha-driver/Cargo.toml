@@ -31,7 +31,8 @@ bupha-core.workspace = true
 bupha.workspace = true
 bupha-config-file.workspace = true
 bupha-queue.workspace = true
-bupha-systemd.workspace = true
+# systemd probe for the units view — hypha-systemd since T-077.
+hypha-systemd = { git = "https://github.com/9aia/hypha.git", branch = "main" }
 # tamias content-type surface (ops.rs): forge-hook REST calls reuse
 # bupha-github; the secret chain reuses the same three stores
 # `bupha` resolves through.

@@ -13,13 +13,11 @@ members = [
     "crates/bupha-access",
     "crates/bupha-audit-file",
     "crates/bupha-cli",
-    "crates/bupha-systemd",
     "crates/bupha-core",
     "crates/bupha-trigger",
     "crates/bupha-gha",
     "crates/bupha-gha-runner",
     "crates/bupha-queue",
-    "crates/bupha-service",
     "crates/bupha-secret-cuora",
     "crates/bupha-config-file",
     "crates/bupha-cache",
@@ -71,7 +69,6 @@ lasius-vcs-git = { git = "ssh://git@github.com/9aia/lasius.git", rev = "52d8150b
 bupha-gha = { path = "crates/bupha-gha", version = "0.2.0" }
 bupha-gha-runner = { path = "crates/bupha-gha-runner", version = "0.2.0" }
 bupha-queue = { path = "crates/bupha-queue", version = "0.2.0" }
-bupha-service = { path = "crates/bupha-service", version = "0.2.0" }
 bupha-secret-cuora = { path = "crates/bupha-secret-cuora", version = "0.2.0" }
 bupha-config-file = { path = "crates/bupha-config-file", version = "0.2.0" }
 bupha-cache = { path = "crates/bupha-cache", version = "0.2.0" }
@@ -87,7 +84,6 @@ bupha-dagger = { path = "crates/bupha-dagger", version = "0.2.0" }
 bupha-shell = { path = "crates/bupha-shell", version = "0.2.0" }
 bupha-github = { path = "crates/bupha-github", version = "0.2.0" }
 bupha-cloudflared = { path = "crates/bupha-cloudflared", version = "0.2.0" }
-bupha-systemd = { path = "crates/bupha-systemd", version = "0.2.0" }
 bupha-sturn = { path = "crates/bupha-sturn", version = "0.2.0" }
 bupha-webhook = { path = "crates/bupha-webhook", version = "0.2.0" }
 bupha-watch = { path = "crates/bupha-watch", version = "0.2.0" }

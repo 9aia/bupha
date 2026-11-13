@@ -25,14 +25,17 @@ bupha-secret-cuora.workspace = true
 # git dep, same rule as bupha-watch's hypha-node-api.
 hypha-secret = { git = "https://github.com/9aia/hypha.git", branch = "main" }
 hypha-keyring = { git = "https://github.com/9aia/hypha.git", branch = "main" }
-bupha-service.workspace = true
+# systemd unit machinery lives in hypha-systemd (T-077 — the
+# bupha-{service,systemd} crates are retired); the bupha-shaped
+# wrappers (unit naming, env skeleton, journalctl logs) are the
+# local `deploy` module.
+hypha-systemd = { git = "https://github.com/9aia/hypha.git", branch = "main" }
 bupha-config-file.workspace = true
 bupha-runner.workspace = true
 bupha-http.workspace = true
 bupha-github.workspace = true
 bupha-gha-runner.workspace = true
 bupha-trigger.workspace = true
-bupha-systemd.workspace = true
 bupha-telemetry.workspace = true
 clap = { version = "4", features = ["derive"] }
 serde_json = "1"

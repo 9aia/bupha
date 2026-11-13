@@ -28,8 +28,6 @@ use bupha_github::GitHubAdmin;
 use bupha_queue::{JsonQueueStore, QueueStore};
 use bupha_runner::RunCtx;
 use bupha_secret_cuora::CuoraSecrets;
-use bupha_service::Service;
-use bupha_systemd as deploy;
 use bupha_trigger::ForgeAdmin;
 use hypha_keyring::KeyringSecrets;
 use hypha_secret::Secrets;
@@ -38,6 +36,7 @@ use lasius_vcs::Vcs;
 use lasius_vcs_git::GitVcs;
 
 mod campaign_import;
+mod deploy;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::sync::Arc;

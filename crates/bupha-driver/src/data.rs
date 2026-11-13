@@ -179,11 +179,14 @@ pub fn queue_entries(base: &Path, kind: &str) -> Result<Vec<(String, PersistedQu
 }
 
 /// `systemctl --user is-enabled/is-active` for one unit — the same
-/// probe `bupha service status` runs (via `bupha-systemd`). The
-/// probe itself reports "unknown" on spawn failure; a hard io error
-/// degrades to a message string rather than failing the view.
+/// probe `bupha service status` runs (via `hypha-systemd` since
+/// T-077). The probe itself reports "unknown" on spawn failure; a
+/// hard io error degrades to a message string rather than failing
+/// the view.
 pub fn unit_status(unit: &str) -> String {
-    bupha_systemd::unit_status(unit).unwrap_or_else(|e| format!("probe failed: {e}"))
+    // hypha-systemd takes the bare name and appends `.service`.
+    let name = unit.strip_suffix(".service").unwrap_or(unit);
+    hypha_systemd::status(name)
 }
 
 /// Both watcher units as `(unit, status-line)` pairs.

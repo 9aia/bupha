@@ -334,8 +334,6 @@ dependencies = [
  "bupha-queue",
  "bupha-runner",
  "bupha-secret-cuora",
- "bupha-service",
- "bupha-systemd",
  "bupha-telemetry",
  "bupha-trigger",
  "bupha-watch",
@@ -343,6 +341,7 @@ dependencies = [
  "clap-markdown",
  "hypha-keyring",
  "hypha-secret",
+ "hypha-systemd",
  "lasius-vcs",
  "lasius-vcs-git",
  "serde_json",
@@ -466,7 +465,6 @@ dependencies = [
  "bupha-github",
  "bupha-queue",
  "bupha-secret-cuora",
- "bupha-systemd",
  "bupha-watch",
  "clap",
  "hex",
@@ -474,6 +472,7 @@ dependencies = [
  "hypha-dotenv",
  "hypha-keyring",
  "hypha-secret",
+ "hypha-systemd",
  "pavo-driver-kit",
  "pavo-protocol",
  "pavo-testkit",
@@ -586,10 +585,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "bupha-service"
-version = "0.2.0"
-
-[[package]]
 name = "bupha-shell"
 version = "0.2.0"
 dependencies = [
@@ -622,14 +617,6 @@ dependencies = [
  "serde",
  "serde_json",
  "toml",
-]
-
-[[package]]
-name = "bupha-systemd"
-version = "0.2.0"
-dependencies = [
- "bupha-core",
- "bupha-service",
 ]
 
 [[package]]
@@ -1859,6 +1846,19 @@ source = "git+https://github.com/9aia/hypha.git?branch=main#1e39f7f74490d9fb8f15
 dependencies = [
  "hypha-secret",
  "serde_json",
+]
+
+[[package]]
+name = "hypha-service"
+version = "0.1.0"
+source = "git+https://github.com/9aia/hypha.git?branch=main#1e39f7f74490d9fb8f15db8841216dd3a7c00c46"
+
+[[package]]
+name = "hypha-systemd"
+version = "0.1.0"
+source = "git+https://github.com/9aia/hypha.git?branch=main#1e39f7f74490d9fb8f15db8841216dd3a7c00c46"
+dependencies = [
+ "hypha-service",
 ]
 
 [[package]]
