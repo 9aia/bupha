@@ -97,7 +97,12 @@ filters) passes **fully green**, including correct skip of a
 > crate README boundaries.
 > `actions/upload-artifact`/`actions/download-artifact` also landed
 > since (per-run tar store under the run's tmp dir — same-run
-> only; see the crate README boundaries). The bullets below are
+> only; see the crate README boundaries), as did `actions/setup-*`
+> toolchains, `actions/cache*`, and **composite actions**
+> (`uses: ./path` + `owner/repo[/path]@ref` → `runs.using:
+> composite` `action.yml`, strict inputs/outputs contract, nested
+> to depth 8). `env:` on `uses:` steps now reaches the action.
+> The bullets below are
 > annotated where they changed.
 
 - **`$GITHUB_ENV` / `$GITHUB_OUTPUT` / `$GITHUB_PATH` /
@@ -129,7 +134,10 @@ filters) passes **fully green**, including correct skip of a
   `actions/upload-artifact`/`actions/download-artifact` share a
   per-run tar store (same-run only — nothing persists across
   runs). Toolchain setup beyond rustup still needs manual
-  porting.
+  porting. *(Superseded: `actions/setup-{node,python,go,java,
+  dotnet}`, `actions/cache*` and composite `uses:` have since
+  landed; `docker://`, JS/docker action definitions, other setup
+  families and reusable-workflow `uses:` still error.)*
 - **Expression language grew but stays a subset.** `==`, `!=`,
   `&&`, `||`, `!`, parens, `contains`/`startsWith`/`endsWith`,
   status functions and the `needs.*.result`/`steps.*.conclusion`

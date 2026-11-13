@@ -43,13 +43,17 @@ workflow.
 v1 covers the common CI shape: `on.push` (branches/paths
 filters), `jobs` with `needs` (fail-fast DAG), `env`,
 `defaults.run`, `steps` (`run` + `uses:` — `actions/checkout`,
-`dtolnay/rust-toolchain`, `actions/upload-artifact` and
-`actions/download-artifact`, with `id:`), job `outputs:`
+`dtolnay/rust-toolchain`, `actions/setup-{node,python,go,java,
+dotnet}`, `actions/upload-artifact`/`download-artifact`,
+`actions/cache{,/save,/restore}`, and composite actions via
+`./local/path` or `owner/repo[/path]@ref`, with `id:`), job
+`outputs:`
 maps, job/step `if:` (a real expression subset — literals,
 `==`/`!=`/`&&`/`||`/`!`, `contains`/`startsWith`/`endsWith`,
 `success()`/`failure()`/`cancelled()`/`always()`, plus
 `needs.*.result`/`steps.*.conclusion`/`steps.*.outputs.*`/
-`needs.*.outputs.*` refs), `timeout-minutes` (GNU `timeout` per
+`needs.*.outputs.*`/`inputs.*`-in-composites refs),
+`timeout-minutes` (GNU `timeout` per
 step, process-group watchdog per job), the `$GITHUB_ENV`/
 `$GITHUB_OUTPUT`/`$GITHUB_PATH`/`$GITHUB_WORKSPACE`/
 `$GITHUB_STEP_SUMMARY`/`RUNNER_TEMP` file commands, and
@@ -61,16 +65,16 @@ workspace writes stay per-leg; `max-parallel` caps concurrency,
 Everything else is a **hard error at spawn**, naming the
 unsupported key — `services:`, `container:`, `environment:`,
 `concurrency:`, `continue-on-error:`, `matrix.include`/`exclude`,
-`uses:` other than `actions/checkout`,
-`dtolnay/rust-toolchain`, `actions/upload-artifact` and
-`actions/download-artifact` (`actions/setup-*`,
-`actions/cache`, `docker://…`, and local/composite action
-paths included), artifact `with:` keys outside each action's
-allowlist and cross-run download inputs (`run-id`,
+`uses:` outside the list above (`docker://…` images, JS/docker
+`action.yml` definitions, other `actions/setup-*` families and
+reusable-workflow `jobs.<id>.uses:` included), `with:` keys
+outside each action's declared inputs, artifact
+cross-run download inputs (`run-id`,
 `github-token`, `repository`, `run-attempt`),
 `on.push.{tags,types,workflows}`, `secrets:`, `if:` functions
 beyond the subset (`hashFiles`, `fromJSON`, `format`, …), and
-unknown keys at any level. The full list and honest boundaries
+unknown keys at any level (including in `action.yml`). The full
+list and honest boundaries
 live in `crates/bupha-gha/README.md` — treat it as the contract.
 
 ## Migrating off GHA
@@ -82,14 +86,21 @@ What you keep: the workflow files themselves, the
 
 What changes:
 
-- **No marketplace.** `uses:` is limited to `actions/checkout`
-  (a verification no-op — the worktree is already at the pushed
-  sha), `dtolnay/rust-toolchain` (lowers to rustup calls), and
-  the two artifact actions — `upload-artifact`/`download-artifact`
-  share a per-run tar store under the run's tmp dir (same-run
-  only; nothing persists across runs, no artifact browser).
-  Everything else installs via `run:` steps (`curl`,
-  `cargo install`, your own scripts) or is already on the box.
+- **No marketplace — but local + composite actions work.**
+  `uses:` covers `actions/checkout` (a verification no-op — the
+  worktree is already at the pushed sha), `dtolnay/rust-toolchain`
+  (lowers to rustup calls), the `actions/setup-*` toolchain
+  family (official tarballs into a per-run toolcache), the
+  artifact actions (per-run tar store, same-run only) and
+  `actions/cache*` (persistent keyed store). Composite actions
+  run too: `uses: ./path` reads your repo's `action.yml`, and
+  `uses: owner/repo[/path]@ref` fetches the action repo over git
+  (`GITHUB_TOKEN` in the runner env authenticates private repos).
+  JS (`node*`) and `docker` action definitions, `docker://`
+  images, other setup families and reusable-workflow calls all
+  hard-error. Everything else installs via `run:` steps
+  (`curl`, `cargo install`, your own scripts) or is already on
+  the box.
 - **Parallel across independent jobs, sequential across `needs`.**
   Jobs with no mutual `needs` edges share a scheduling level and
   run concurrently — each group in a private `git worktree`, like
