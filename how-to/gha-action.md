@@ -65,8 +65,14 @@ the webhook hasn't landed or the repo isn't watched. In `wait` mode
 | `repo` | `${{ github.repository }}` | `owner/repo` |
 | `token` | `${{ github.token }}` | needs `statuses: read` on private repos |
 | `api-base` | `https://api.github.com` | GHES override |
-| `timeout` | `600` | seconds, wait mode |
-| `interval` | `15` | seconds between polls |
+| `timeout` | `600` | seconds, wait mode; integer `0`–`86400` |
+| `interval` | `15` | seconds between polls; integer `>= 1` |
+
+Both knobs are validated up front (exit 2 on a bad value) — a
+non-numeric or out-of-range input fails fast instead of dying
+mid-poll. In `wait` mode a failed fetch or unparseable response
+is treated as transient and retried until the deadline; in
+`status` mode it exits 1 with a clean error.
 
 ## What it does *not* do
 

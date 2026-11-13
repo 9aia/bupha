@@ -67,3 +67,16 @@ expression evaluation inside step fields (the service
 pre-compiles them), the realtime websocket log feed, and
 artifact/cache/upload endpoints. Full boundary:
 `crates/bupha-gha-runner/src/lib.rs` module docs.
+
+## GitHub Enterprise Server
+
+`instance = "<ghes-host>"` (or an explicit `api_base`) points the
+REST calls at `{host}/api/v3`; the broker/session endpoints come
+from the tenant response, so they follow the instance
+automatically. The `_apis/distributedtask` `api-version` strings
+in `client.rs` are the github.com values (`6.0-preview.1` pools,
+`6.0-preview.2` agents, `5.1-preview` sessions/messages) — verified
+against the actions/runner protocol surface but **not yet
+exercised against a live GHES**, whose pipelines service may pin
+different versions. First GHES run: watch for 4xx on the session
+calls; the fix is a one-line constant change per endpoint.
