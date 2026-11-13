@@ -6,5 +6,6 @@
 - [ ] T-044 rotate CARGO\_REGISTRY\_TOKEN — was at .env 0644 (now 600); treat as exposed · status:blocked · pri:high · owner:human:Luis-Emidio · created:2026-11-03
 - [ ] T-076 peregrin campaign listener-run failures are silent — dead ingress invisible until shutdown (follow-up T-075) · created:2026-11-13 · links:T-075
 - [ ] T-066 gha-runner live validation — run against a real repo's self-hosted runner (registration token → session → acquirejob → completejob → results service) on github.com; check GHES api-version drift · created:2026-11-11 · links:T-050
+- [ ] T-070 gha action: trigger mode + live GitHub e2e — action.yml/scripts/gha-status.sh landed (status|wait on commit statuses); needs a real runner test against a watched repo + decision on whether a clean trigger endpoint exists (ADR-0007 ingress is peregrin-owned) · created:2026-11-11
 
 ## open
