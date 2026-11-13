@@ -5,8 +5,10 @@
 Push lands on bupha's queue as usual; instead of `ci.sh` or a
 dagger call, the runner parses the workflows at the pushed sha
 and runs every `on.push`-matching one in one local bash
-process — jobs sequentially in `needs` order, matrix legs in
-parallel (each in its own `git worktree` checkout, capped by
+process — jobs scheduled by `needs` depth (independent jobs run
+concurrently, each in its own `git worktree` checkout; `needs`
+chains stay sequential), matrix legs in parallel (each in its
+own `git worktree` checkout, capped by
 `strategy.max-parallel`). The aggregate exit status drives the commit status.
 
 > **Naming (T-054).** `runner.kind = "gha"` is the *workflow
@@ -88,13 +90,18 @@ What changes:
   only; nothing persists across runs, no artifact browser).
   Everything else installs via `run:` steps (`curl`,
   `cargo install`, your own scripts) or is already on the box.
-- **Sequential across jobs, parallel within a matrix.** Independent
-  jobs still run one after another on one machine (cross-job
-  parallelism is a needs-DAG scheduler, out of scope) — size
-  `needs`/matrix accordingly, or split workflows across
-  `[[repo.jobs]]` entries
-  (each gets its own `runner.workflow` pin and its own
-  `ci/bupha/<job>` status context).
+- **Parallel across independent jobs, sequential across `needs`.**
+  Jobs with no mutual `needs` edges share a scheduling level and
+  run concurrently — each group in a private `git worktree`, like
+  matrix legs (files written to the workspace stay in that
+  worktree; `$BUPHA_WORKDIR`/`$BUPHA_GHA_TMP` are the shared
+  channels). Levels are barriers, so a job waits for its whole
+  level rather than just its needs, and there is no cross-job
+  fail-fast (`strategy.fail-fast` stays per job id) — coarser
+  than GHA's per-job scheduler but the same `needs` contract.
+  To isolate workloads entirely, split workflows across
+  `[[repo.jobs]]` entries (each gets its own `runner.workflow`
+  pin and its own `ci/bupha/<job>` status context).
 - **Statuses are bupha's — plus per-job detail.** The aggregate
   commit status still lands once per repo/job under `ci/bupha`
   (or your `[status].context`); on top of that, each expanded
@@ -105,8 +112,8 @@ What changes:
   no neutral state.
 - **Secrets** resolve the bupha way — env-var names → cuora
   (`cuora://bupha/<NAME>`, canonical; fleet secrets migrated, T-059)
-  → OS keyring → `~/.config/bupha/env` (retired, legacy code
-  fallback); `secrets:` context is unsupported, so
+  → `~/.config/bupha/env` (dev-mode / no-cuora fallback; keyring
+  leg dropped post-T-077); `secrets:` context is unsupported, so
   reference <code v-pre>${{ env.NAME }}</code> or plain `$NAME` in
   `run:` steps.
 - **PRs are opt-in, and reuse `on.push` shapes.** The dialect
