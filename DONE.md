@@ -23,3 +23,4 @@
 - T-067 ci-ingress live e2e + normalization gaps — fire a real forge push through webhook→ci.enqueue→worker ci.claim→ci.complete on a deployed node; pull\_request lanes; per-repo indexDoc spec resolution (Config::watched → queue/runsOn/runner/context/maxAttempts); X-GitHub-Delivery passthrough; enqueue retry on http.failed · pri:high · owner:devin · created:2026-11-11 · links:T-058,T-061,T-063
 - T-075 pr-heal campaign silent since 11-12 12:38 — tamias PR-CI ingress down (stuck runner?); ci-ingress doesn't watch 9aia/tamias so ci.enqueue.pr accept path is fleet-unreachable · pri:high · created:2026-11-13 · links:T-067
 - T-074 ci-ingress watches repos with no worker fleet coverage — kuda/mimus/sturn ci-job entities pend forever · created:2026-11-13 · links:T-067
+- T-049 migrate queue/cache/lease impls out of bupha — redb/redis queue becomes hypha-side impl; bupha keeps thin port or none (ADR-0006) · pri:high · created:2026-11-10
