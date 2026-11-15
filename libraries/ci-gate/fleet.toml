@@ -100,6 +100,119 @@ token_env = "BUPHA_TOKEN"
 cancel_running = true
 cmd = "bash scripts/ci.sh"
 
+# PL-018 phase 2 — remaining 9aia repos onboarded to the docs-check
+# gate. mimus stays out by design ("no hosted CI"). kuda/sturn have
+# no xtask — their ci.sh floors are cargo build/test --workspace.
+[[repo]]
+name = "9aia/kuda"
+dir = "~/GitHub/9aia/workspace/repos/kuda"
+branch = "refs/heads/main"
+secret_env = "BUPHA_WH_9AIA_KUDA"
+[repo.runner]
+kind = "shell"
+token_env = "BUPHA_TOKEN"
+cancel_running = true
+cmd = "bash scripts/ci.sh"
+
+[[repo]]
+name = "9aia/sturn"
+dir = "~/GitHub/9aia/workspace/repos/sturn"
+branch = "refs/heads/main"
+secret_env = "BUPHA_WH_9AIA_STURN"
+[repo.runner]
+kind = "shell"
+token_env = "BUPHA_TOKEN"
+cancel_running = true
+cmd = "bash scripts/ci.sh"
+
+[[repo]]
+name = "9aia/pavo"
+dir = "~/GitHub/9aia/workspace/repos/pavo"
+branch = "refs/heads/main"
+secret_env = "BUPHA_WH_9AIA_PAVO"
+[repo.runner]
+kind = "shell"
+token_env = "BUPHA_TOKEN"
+cancel_running = true
+cmd = "bash scripts/ci.sh"
+
+[[repo]]
+name = "9aia/hypha"
+dir = "~/GitHub/9aia/workspace/repos/hypha"
+branch = "refs/heads/main"
+secret_env = "BUPHA_WH_9AIA_HYPHA"
+[repo.runner]
+kind = "shell"
+token_env = "BUPHA_TOKEN"
+cancel_running = true
+cmd = "bash scripts/ci.sh"
+
+[[repo]]
+name = "9aia/lasius"
+dir = "~/GitHub/9aia/workspace/repos/lasius"
+branch = "refs/heads/main"
+secret_env = "BUPHA_WH_9AIA_LASIUS"
+[repo.runner]
+kind = "shell"
+token_env = "BUPHA_TOKEN"
+cancel_running = true
+cmd = "bash scripts/ci.sh"
+
+[[repo]]
+name = "9aia/scarab"
+dir = "~/GitHub/9aia/workspace/repos/scarab"
+branch = "refs/heads/main"
+secret_env = "BUPHA_WH_9AIA_SCARAB"
+[repo.runner]
+kind = "shell"
+token_env = "BUPHA_TOKEN"
+cancel_running = true
+cmd = "bash scripts/ci.sh"
+
+[[repo]]
+name = "9aia/sepia"
+dir = "~/GitHub/9aia/workspace/repos/sepia"
+branch = "refs/heads/main"
+secret_env = "BUPHA_WH_9AIA_SEPIA"
+[repo.runner]
+kind = "shell"
+token_env = "BUPHA_TOKEN"
+cancel_running = true
+cmd = "bash scripts/ci.sh"
+
+[[repo]]
+name = "9aia/tarsi"
+dir = "~/GitHub/9aia/workspace/repos/tarsi"
+branch = "refs/heads/main"
+secret_env = "BUPHA_WH_9AIA_TARSI"
+[repo.runner]
+kind = "shell"
+token_env = "BUPHA_TOKEN"
+cancel_running = true
+cmd = "bash scripts/ci.sh"
+
+[[repo]]
+name = "9aia/cicada"
+dir = "~/GitHub/9aia/workspace/repos/cicada"
+branch = "refs/heads/main"
+secret_env = "BUPHA_WH_9AIA_CICADA"
+[repo.runner]
+kind = "shell"
+token_env = "BUPHA_TOKEN"
+cancel_running = true
+cmd = "bash scripts/ci.sh"
+
+[[repo]]
+name = "9aia/cypera"
+dir = "~/GitHub/9aia/workspace/repos/cypera"
+branch = "refs/heads/main"
+secret_env = "BUPHA_WH_9AIA_CYPERA"
+[repo.runner]
+kind = "shell"
+token_env = "BUPHA_TOKEN"
+cancel_running = true
+cmd = "bash scripts/ci.sh"
+
 [[repo]]
 name = "handl-lang/automation"
 dir = "~/GitHub/handl-lang/automation"
