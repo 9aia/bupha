@@ -6,6 +6,9 @@
 # no xtask); then the org docs contract via scripts/docs-check.sh.
 set -euo pipefail
 
+export RUSTC_WRAPPER="${RUSTC_WRAPPER:-sccache}"
+export SCCACHE_CONF="${SCCACHE_CONF:-file://$HOME/.cache/sccache}"
+
 # The gate may run with the minimal systemd PATH — pull the user
 # tool dirs in ourselves so cargo/cypera/bun resolve like in a
 # login shell.
