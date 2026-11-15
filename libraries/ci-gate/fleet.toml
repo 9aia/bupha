@@ -34,15 +34,15 @@ secret_env = "BUPHA_WH_9AIA_BUPHA"
 # separate `9aia/bupha:docs` job lane owned by the docs-deploy
 # bundle's fleet.toml ([[repo.jobs]], T-030), never a second
 # [[repo]] here (duplicate names are rejected by Config::watched).
-# Runner override: the repo has no ci.sh and no xtask — the gate is
-# the cargo floor directly (fmt + clippy -D warnings + workspace
-# tests), with the user tool dirs pulled in for the minimal systemd
-# PATH (same trick the 9aia repos' scripts/ci.sh use).
+# Runner override: the repo's gate lives at scripts/ci.sh — the
+# cargo floor (fmt + clippy -D warnings + workspace tests; no xtask)
+# plus the org docs contract (scripts/docs-check.sh → cypera check +
+# docs/ drift). Same shape as the 9aia repos' scripts/ci.sh gates.
 [repo.runner]
 kind = "shell"
 token_env = "BUPHA_TOKEN"
 cancel_running = true
-cmd = "export PATH=\"$HOME/.local/bin:$HOME/.cargo/bin:$PATH\" && cargo fmt --all --check && cargo clippy --workspace --all-targets -- -D warnings && cargo test --workspace"
+cmd = "bash scripts/ci.sh"
 
 [[repo]]
 name = "9aia/tamias"
