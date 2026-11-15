@@ -55,6 +55,9 @@ export default defineConfig({
         text: "Explanation",
         items: [
           { text: "Architecture", link: "/explanation/architecture" },
+          { text: "Concepts", link: "/explanation/concepts" },
+          { text: "Decisions", link: "/explanation/decisions" },
+          { text: "Flow: push → status", link: "/explanation/flow" },
           { text: "Release model", link: "/explanation/release-model" },
           { text: "Crate scope audit", link: "/explanation/crate-scope-audit" },
           { text: "gha dogfood parity", link: "/explanation/gha-dogfood" },
