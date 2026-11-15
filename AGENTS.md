@@ -143,6 +143,6 @@ of scope.
 
 `docs/` worktree — VitePress + Diátaxis (tutorials/how-to/reference/
 explanation) → GitHub Pages at `9aia.com/bupha`; plus `comparison.md`
-(the GHA comparison table the README links). `docs/gen-*.py`
+(the GHA comparison table the README links). `cypera gen` (driven by `cypera.toml`)
 renders cli/config/crate-map/crate-api from source — keep `lib.rs`
 module docs accurate.
