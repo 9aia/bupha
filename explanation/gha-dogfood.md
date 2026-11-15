@@ -44,10 +44,10 @@ Every real workflow hit the same wall, in roughly this order:
 | step `continue-on-error` | anyhow L49; serde L29 | hard error `unsupported key 'continue-on-error'` |
 | `uses:` ≠ `actions/checkout` | `dtolnay/rust-toolchain` (everywhere), `dtolnay/install`, `actions/upload-artifact`, `docker/setup-docker-action`, `actions/cache`, `actions/setup-node`, `docker://pandoc/…` | hard error `unsupported 'uses: …'` — *`dtolnay/rust-toolchain` and the artifact actions have since landed; `actions/setup-*`/`actions/cache`/`docker://`/local paths still error* |
 | `strategy.matrix.include` | ripgrep L53–117, mdBook main.yml | `expected a scalar, got mapping` |
-| complex `${{ }}` expressions | serde L58 job name (`matrix.os == 'windows' && … \|\| ''`), ripgrep `startsWith(...)`, `hashFiles(...)`, `steps.*.outputs.*` | hard error `unsupported expression` — *`steps.*.outputs.*`/`needs.*.outputs.*` since wired (T-069); the rest still error* |
+| complex <code v-pre>${{ }}</code> expressions | serde L58 job name (`matrix.os == 'windows' && … \|\| ''`), ripgrep `startsWith(...)`, `hashFiles(...)`, `steps.*.outputs.*` | hard error `unsupported expression` — *`steps.*.outputs.*`/`needs.*.outputs.*` since wired (T-069); the rest still error* |
 | `env:` null values | ripgrep L40–42 (`TARGET_FLAGS:` empty) | **was a bug — fixed** (null now coerces to `""`) |
 | step `with:` on any `uses:` | ripgrep L133–135, L249–257 | **was a bug — fixed** (`with` was missing from the step key allowlist; `actions/checkout` `with:` inputs now accepted, `with.path` still errors, `with` on `run:` errors) |
-| job `name:` `${{ }}` | serde L41,58,82; anyhow L20,53 | **was a bug — fixed** (names are now interpolated; unsupported expressions in names now error loudly instead of passing through verbatim) |
+| job `name:` <code v-pre>${{ }}</code> | serde L41,58,82; anyhow L20,53 | **was a bug — fixed** (names are now interpolated; unsupported expressions in names now error loudly instead of passing through verbatim) |
 
 Triggers `pull_request`, `workflow_dispatch`, `schedule`,
 `merge_group` are silently ignored — only `on.push` selects. A
@@ -66,8 +66,8 @@ steps fail fast (no real project/toolchain), so the aggregate
 exit is 1 — the *machinery* is what was verified.
 
 A purpose-built subset workflow (matrix 2×2, `needs` chain,
-workflow/job/step `env` with `${{ env.* }}`/`${{ matrix.* }}`/
-`${{ github.* }}`, `defaults.run.working-directory` + `shell`,
+workflow/job/step `env` with <code v-pre>${{ env.* }}</code>/<code v-pre>${{ matrix.* }}</code>/
+<code v-pre>${{ github.* }}</code>, `defaults.run.working-directory` + `shell`,
 step `working-directory` override, `shell: sh`,
 `actions/checkout` with `with:`, `branches` + `paths-ignore`
 filters) passes **fully green**, including correct skip of a
@@ -152,7 +152,7 @@ filters) passes **fully green**, including correct skip of a
 - **Expression language grew but stays a subset.** `==`, `!=`,
   `&&`, `||`, `!`, parens, `contains`/`startsWith`/`endsWith`,
   status functions and the `needs.*.result`/`steps.*.conclusion`
-  refs now work in `if:` and `${{ }}` (T-048); no ternary,
+  refs now work in `if:` and <code v-pre>${{ }}</code> (T-048); no ternary,
   `hashFiles`, `format`, `fromJSON`, or object/array contexts.
 - **Reusable workflows landed with honest edges** (T-048) —
   `jobs.<id>.uses:` now resolves local `./.github/workflows/*.yml`
@@ -163,7 +163,7 @@ filters) passes **fully green**, including correct skip of a
   unsupported: execution keys on the calling job, callees without
   `on.workflow_call:`, `secrets.*`/`jobs.*` outside the contract,
   nesting past depth 8, and `secrets:` values that aren't scalars
-  or `${{ secrets.X }}` forwards.
+  or <code v-pre>${{ secrets.X }}</code> forwards.
 - **`paths` filters infer `before`** (T-048): remote-tracking
   ref → reflog → local branch → merge-base, falling back to the
   tip commit. Multi-commit pushes are covered when the repo still
@@ -194,7 +194,7 @@ filters) passes **fully green**, including correct skip of a
    'with'` before `parse_uses` could validate them (the `with.path`
    check was dead code). `with` is now allowed on `uses` steps,
    rejected on `run` steps.
-3. **Job `name:` never interpolated** — `${{ matrix.* }}` in
+3. **Job `name:` never interpolated** — <code v-pre>${{ matrix.* }}</code> in
    `jobs.<id>.name` passed through verbatim into logs. Names are
    now interpolated like every other field; unsupported
    expressions in names now fail loudly (consistent with the
