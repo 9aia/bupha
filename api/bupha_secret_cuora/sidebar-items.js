@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["BIN_ENV","NAMESPACE","PACK_NAMESPACE","TRANSPORT_ENV"],"enum":["CuoraTransport"],"fn":["rref"],"struct":["CuoraSecrets","CuoraServe"]};

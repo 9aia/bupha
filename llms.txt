@@ -14,6 +14,11 @@ Queue engine for event-driven jobs — shipped as CI
 
 - [How-to: watch multiple repos](/bupha/how-to/multi-repo.md)
 - [How-to: run without containers](/bupha/how-to/shell-runner.md)
+- [How-to: run your GitHub Actions workflows on your own box](/bupha/how-to/gha-runner.md)
+- [How-to: bupha as a GitHub self-hosted runner](/bupha/how-to/self-hosted-runner.md)
+- [Distributed runners](/bupha/how-to/distributed-runners.md)
+- [How-to: use bupha as a GitHub Action](/bupha/how-to/gha-action.md)
+- [How-to: package bupha fleets with tamias](/bupha/how-to/tamias-bundles.md)
 - [How-to: sccache backend](/bupha/how-to/sccache-backend.md)
 
 ### Reference
@@ -26,10 +31,11 @@ Queue engine for event-driven jobs — shipped as CI
 
 - [Architecture](/bupha/explanation/architecture.md)
 - [The release model](/bupha/explanation/release-model.md)
+- [Crate scope audit — bupha under ADR-0006](/bupha/explanation/crate-scope-audit.md)
+- [Dogfood: real GitHub Actions workflows through `runner.kind = "gha"`](/bupha/explanation/gha-dogfood.md)
 - [bupha vs hosted CI](/bupha/comparison.md)
 
 ### Other
 
-- [Distributed runners](/bupha/how-to/distributed-runners.md)
 - [Getting started](/bupha/getting-started.md)
 - [Untitled](/bupha/public/api/static.files/SourceSerif4-LICENSE-a2cfd9d5.md)

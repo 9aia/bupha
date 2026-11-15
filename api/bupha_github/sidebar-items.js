@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["register_webhook","unregister_webhook"],"struct":["GitHubAdmin","GitHubStatus","GitHubTrigger","LogStatus"]};
+window.SIDEBAR_ITEMS = {"fn":["register_webhook","register_webhook_events","unregister_webhook"],"struct":["GitHubAdmin","GitHubStatus","GitHubTrigger","LogStatus"]};

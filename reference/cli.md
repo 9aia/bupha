@@ -9,8 +9,8 @@ This document contains the help content for the `bupha` command-line program.
 
 * [`bupha`↴](#bupha)
 * [`bupha watch`↴](#bupha-watch)
-* [`bupha worker`↴](#bupha-worker)
 * [`bupha agent`↴](#bupha-agent)
+* [`bupha gha-runner`↴](#bupha-gha-runner)
 * [`bupha init`↴](#bupha-init)
 * [`bupha doctor`↴](#bupha-doctor)
 * [`bupha run`↴](#bupha-run)
@@ -33,6 +33,7 @@ This document contains the help content for the `bupha` command-line program.
 * [`bupha runs`↴](#bupha-runs)
 * [`bupha log`↴](#bupha-log)
 * [`bupha explain`↴](#bupha-explain)
+* [`bupha import`↴](#bupha-import)
 
 ## `bupha`
 
@@ -43,9 +44,9 @@ the oxpecker on your repo's back — headless CI
 ###### **Subcommands:**
 
 * `watch` — Serve the source → queue → runner loop (forge webhook, sturn WAL poller — every configured source)
-* `worker` — Fleet puller — claim shared-queue jobs and run them. No listener/tunnel/trigger; needs only \[queue] (redis), \[\[repo]] dirs, \[runner], \[status], \[worktree]
 * `agent` — Serve the remote-run agent — accepts jobs from `kind="http"` runners and executes them with this box's \[runner]
-* `init` — Scaffold dagger CI in a repo (dagger init + pinned module + delegate). For the script runner, a ci.sh is enough
+* `gha-runner` — Serve as a GitHub Actions self-hosted runner — registers with a repo (once), then polls GitHub's broker protocol and runs the jobs it is offered (`runs-on: [self-hosted, bupha]`). Uses bupha-gha-runner's own config file, not bupha.yaml
+* `init` — Scaffold dagger CI in a repo (dagger init, pinned module, delegate template) and converge its AGENTS.md to the managed agent-awareness block. For the script runner, a ci.sh is enough
 * `doctor` — Check what the loaded config actually needs on this box
 * `run` — Run the pipeline locally — in the watched repo's `dir`, not cwd
 * `deploy` — Install-time helpers — no manual file copies
@@ -54,6 +55,7 @@ the oxpecker on your repo's back — headless CI
 * `runs` — Recent finished runs (reads `<worktree.base>/history.jsonl`)
 * `log` — Raw run log — last N lines of history.jsonl
 * `explain` — Why a sha did/didn't run — history + queue + worktree state
+* `import` — Translate a peregrin campaign YAML (ci-gate fleet shape) into a bupha.yaml — no config file needed
 
 ###### **Options:**
 
@@ -65,21 +67,25 @@ Serve the source → queue → runner loop (forge webhook, sturn WAL poller — 
 
 **Usage:** `bupha watch`
 
-## `bupha worker`
-
-Fleet puller — claim shared-queue jobs and run them. No listener/tunnel/trigger; needs only \[queue] (redis), \[\[repo]] dirs, \[runner], \[status], \[worktree]
-
-**Usage:** `bupha worker`
-
 ## `bupha agent`
 
 Serve the remote-run agent — accepts jobs from `kind="http"` runners and executes them with this box's \[runner]
 
 **Usage:** `bupha agent`
 
+## `bupha gha-runner`
+
+Serve as a GitHub Actions self-hosted runner — registers with a repo (once), then polls GitHub's broker protocol and runs the jobs it is offered (`runs-on: [self-hosted, bupha]`). Uses bupha-gha-runner's own config file, not bupha.yaml
+
+**Usage:** `bupha gha-runner <FILE>`
+
+###### **Arguments:**
+
+* `<FILE>` — Runner config file (TOML — bupha-gha-runner::Config). Positional: `--config` is already the global bupha.yaml flag, and clap arg ids must stay unique per command
+
 ## `bupha init`
 
-Scaffold dagger CI in a repo (dagger init + pinned module + delegate). For the script runner, a ci.sh is enough
+Scaffold dagger CI in a repo (dagger init, pinned module, delegate template) and converge its AGENTS.md to the managed agent-awareness block. For the script runner, a ci.sh is enough
 
 **Usage:** `bupha init [DIR]`
 
@@ -118,10 +124,10 @@ Install-time helpers — no manual file copies
 ###### **Subcommands:**
 
 * `service` — Write + enable the systemd user unit (needs enable-linger for boot persistence)
-* `webhook` — Register/update the repo's push webhook via the REST API (token from env/keyring/env file — no `gh` dependency)
+* `webhook` — Register/update the repo's push webhook via the REST API (token resolved env → cuora → env file — no `gh` dependency)
 * `env` — Seed ~/.config/bupha/env with the secret names
 * `check` — Verify the whole install: unit, secrets, hook, endpoint, token
-* `release` — One-time seed: cargo publish in dep order + tag {repo}-v{ver}. Explicit — publishing is the irreversible step in the flow
+* `release` — Tag the workspace version `{repo}-v{ver}` and push it. crates.io publish is retired — releases ride the tamias pack
 
 ## `bupha deploy service`
 
@@ -132,11 +138,10 @@ Write + enable the systemd user unit (needs enable-linger for boot persistence)
 ###### **Options:**
 
 * `--no-start` — Skip enable --now (write the file only)
-* `--worker` — Manage a worker unit (bupha-worker.service) instead of the watcher unit
 
 ## `bupha deploy webhook`
 
-Register/update the repo's push webhook via the REST API (token from env/keyring/env file — no `gh` dependency)
+Register/update the repo's push webhook via the REST API (token resolved env → cuora → env file — no `gh` dependency)
 
 **Usage:** `bupha deploy webhook`
 
@@ -154,13 +159,13 @@ Verify the whole install: unit, secrets, hook, endpoint, token
 
 ## `bupha deploy release`
 
-One-time seed: cargo publish in dep order + tag {repo}-v{ver}. Explicit — publishing is the irreversible step in the flow
+Tag the workspace version `{repo}-v{ver}` and push it. crates.io publish is retired — releases ride the tamias pack
 
 **Usage:** `bupha deploy release [OPTIONS]`
 
 ###### **Options:**
 
-* `--dry-run` — Print the publish order and tag without doing anything
+* `--dry-run` — Print the tag without creating it
 
 ## `bupha destroy`
 
@@ -178,11 +183,7 @@ Teardown counterparts of `deploy`
 
 Disable + remove the systemd user unit
 
-**Usage:** `bupha destroy service [OPTIONS]`
-
-###### **Options:**
-
-* `--worker` — Remove bupha-worker.service instead of bupha-watch
+**Usage:** `bupha destroy service`
 
 ## `bupha destroy webhook`
 
@@ -200,7 +201,7 @@ Remove detached worktrees and the persisted queue file
 
 Toggle the watcher unit without removing it — free the box when CI isn't needed, `enable` brings it back
 
-**Usage:** `bupha service [OPTIONS] <COMMAND>`
+**Usage:** `bupha service <COMMAND>`
 
 ###### **Subcommands:**
 
@@ -209,10 +210,6 @@ Toggle the watcher unit without removing it — free the box when CI isn't neede
 * `status` — Whether the watcher unit is enabled and running
 * `restart` — Restart the watcher unit
 * `logs` — Print (or follow, -f) the watcher unit log
-
-###### **Options:**
-
-* `--worker` — Operate on bupha-worker.service instead of bupha-watch
 
 ## `bupha service enable`
 
@@ -279,6 +276,22 @@ Why a sha did/didn't run — history + queue + worktree state
 ###### **Arguments:**
 
 * `<SHA>` — The pushed sha (any prefix ≥ 4 chars)
+
+## `bupha import`
+
+Translate a peregrin campaign YAML (ci-gate fleet shape) into a bupha.yaml — no config file needed
+
+**Usage:** `bupha import [OPTIONS] <FILE>`
+
+###### **Arguments:**
+
+* `<FILE>` — Campaign file (e.g. libraries/ci-gate/main.yaml)
+
+###### **Options:**
+
+* `--out <OUT>` — Write the generated config here instead of stdout
+* `--dir <OWNER/REPO=PATH>` — Clone-path override `owner/name=/path` (repeatable) — wins over cmd-derived and default dirs
+* `--pull-request` — Also run every repo on pull_request deliveries (`events: [push, pull_request]`)
 
 &#xA;This document was generated automatically by
 clap-markdown.&#xA;

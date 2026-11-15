@@ -1,0 +1,123 @@
+---
+url: /bupha/how-to/tamias-bundles.md
+---
+# How-to: package bupha fleets with tamias
+
+A bupha fleet — watcher unit + operator config + webhook wiring —
+ships as a tamias content bundle (`type: bupha`). tamias owns the
+package lifecycle (fetch, install store, provider units, hooks);
+bupha owns what runs inside. The shipped examples live in
+`libraries/`: `ci-gate` (push-to-verdict gate on `main`),
+`docs-deploy` (push to `docs` → site deploy → `docs/deploy`
+status), and `ci-ingress` — a `peregrin-bundle`, not `type: bupha`:
+the forge webhook → `ci-job` entity campaign that feeds the worker
+fleet (CI orchestration knowledge lives here even though the bundle
+type is peregrin's).
+
+## The `type: bupha` contract
+
+Two files make a bundle:
+
+* **`tamias.yaml`** — the package manifest. `provider:` declares
+  the systemd unit(s) (`<provider.name>-<service>`), the env file,
+  and `ingress[]` — the public URL, listen address, and the
+  GitHub hooks to manage. `verbs:` is advisory for
+  `tamias provider list`/`tamias run`.
+* **`fleet.toml`** — a *complete* `bupha_core::Config` doc: the
+  `[[repo]]` set plus `[runner]`/`[status]`/`[queue]`/`[worktree]`
+  blocks, and optionally `[worker] node`/`node_token_env` for the
+  entity-plane worker. `tamias-driver-bupha deploy` merges the
+  manifest-owned fields (`tunnel.public_url`, `trigger.listen`,
+  `trigger.kind`) into it and writes
+  `~/.config/bupha/bundles/<name>.toml` — the config BOTH provider
+  verbs consume: `host --config` (the watcher) and
+  `worker --config` (the ci-job consumer).
+
+A bundle declares **two services, one per ingress mode**
+(ADR-0007): `watch`/`watch-docs` runs `tamias-driver-bupha host`
+— the standalone/dev watcher behind `provider.ingress`'s webhook
+listener — and `worker`/`worker-docs` runs
+`tamias-driver-bupha worker` — the substrate/production consumer
+(P-002) that polls `kind="ci-job"` entities on the hypha/peregrin
+node named by `[worker] node`. Enable ONE: both at once would
+fight over the listener port and double-run pushes.
+
+Secrets are env-var **names** everywhere (`secret_env`,
+`token_env`); values resolve env → **cuora**
+(`cuora://bupha/<NAME>` via the `cuora` CLI — canonical, T-056;
+every fleet secret migrated there in T-059) → `~/.config/bupha/env`
+(the dev-mode / no-cuora fallback — the OS-keyring leg was
+dropped post-T-077; the file is retired and no unit sets
+`EnvironmentFile`). Seed/rotate with
+`printf '%s' "$VALUE" | cuora put cuora://bupha/<NAME>`.
+Never a value in either file.
+
+> **Ingress note (ADR-0007).** The `provider.ingress` block +
+> `hooks register` wire the bupha webhook listener — the
+> **standalone/dev** ingress for deployments with no peregrin.
+> Production webhook/forge ingress is a peregrin campaign
+> listener that normalizes deliveries through bupha's `Trigger`
+> semantics and enqueues `ci-job` via `ci.enqueue` — consumed by
+> the bundle's `worker` service, not its `watch` service.
+
+## Install → deploy → hooks
+
+```sh
+tamias install <ref>            # fetch + unpack; driver install is a no-op
+tamias deploy <bundle>          # render the provider unit AND write
+                                # bundles/<name>.toml from fleet.toml + ingress
+tamias driver exec <bundle> hooks register --dry-run   # webhook plan
+tamias driver exec <bundle> hooks register             # upsert GitHub hooks
+tamias service enable <unit>   # start the watcher (e.g. bupha-watch-docs)
+tamias uninstall <bundle>      # remove unit + bundles/<name>.toml
+```
+
+`tamias driver exec <bundle>` verbs: `hooks register`
+(create/update the declared forge hooks), `health` (ping `/hook`
+
+* unit probe, JSON), `status` (per-unit is-active/is-enabled),
+  `logs` (journalctl over the provider units). `tamias driver
+  config-schema <bundle>` prints the JSON Schema of the operator
+  config `deploy` writes.
+
+The driver — `tamias-driver-bupha`, built from
+`crates/bupha-driver` — is dual-surface: the tamias verbs above
+plus the pavo view verbs (`manifest`/`capabilities`/`serve`)
+that serve bupha's read-only CI views. tamias finds it on `PATH`
+or in `$TAMIAS_HOME/drivers/`.
+
+## Writing your own bundle
+
+1. Copy `libraries/docs-deploy/` — it's the smaller template.
+2. Edit `fleet.toml`: one `[[repo]]` per watched repo
+   (`name`/`dir`/`branch`; `events = ["push", "pull_request"]`
+   opts into PR deliveries), the `[runner]` your pipelines need
+   (`shell` + `cmd`, `gha` + `workflow`, `dagger`, …), and
+   `[status].context` for the commit-status label.
+3. Edit `tamias.yaml`: `provider.services[]` execs should be
+   `tamias-driver-bupha host --config ~/.config/bupha/bundles/<name>.toml`
+   for the watcher and `tamias-driver-bupha worker --config ~/.config/bupha/bundles/<name>.toml` for the entity-plane
+   consumer (the driver binary from `$TAMIAS_HOME/drivers/` or
+   `PATH` — both verbs run the engine in-process);
+   pick **unique service names** — the unit is
+   `<provider.name>-<service>`, and two bundles sharing
+   `bupha-watch.service`/`bupha-worker.service` would overwrite
+   each other (ci-gate owns `watch`+`worker`, docs-deploy owns
+   `watch-docs`+`worker-docs`). Give `ingress[]` a
+   distinct `listen` port and `public_url`, and one `hooks[]`
+   entry per `[[repo]]`. A substrate-mode bundle still declares
+   `ingress[]` (it's the standalone fallback + the source of
+   `tunnel.public_url`/`trigger.listen` in the generated config)
+   but only enables the worker unit.
+4. `bupha runs --config fleet.toml` (dev CLI) smoke-checks the
+   payload parses as a `Config` before you publish.
+
+Two watchers can watch the same repo: GitHub delivers every push
+to both hook URLs and each fleet's `branch` filter keeps only its
+own refs — `main` for the gate, `docs` for deploys. Overlap costs
+a filtered delivery, not a double run.
+
+Coming from a peregrin campaign instead? The dev CLI's
+`bupha import <campaign.yaml>` translates the github-webhook +
+git-job + github-status shape into a `bupha.yaml` fleet config —
+a head start for the `fleet.toml` inside step 2.

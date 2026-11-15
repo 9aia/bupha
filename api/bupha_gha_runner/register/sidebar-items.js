@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["ensure_credentials","mint_registration_token","register"],"struct":["Credentials"]};

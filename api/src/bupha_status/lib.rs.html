@@ -9,5 +9,23 @@
 <a href=#9 id=9 data-nosnippet>9</a>    </span><span class="kw">fn </span>context(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>str;
 <a href=#10 id=10 data-nosnippet>10</a>    <span class="doccomment">/// Post a commit status: pending/success/error/cancelled.
 <a href=#11 id=11 data-nosnippet>11</a>    </span><span class="kw">fn </span>post(<span class="kw-2">&amp;</span><span class="self">self</span>, sha: <span class="kw-2">&amp;</span>str, state: <span class="kw-2">&amp;</span>str, desc: <span class="kw-2">&amp;</span>str);
-<a href=#12 id=12 data-nosnippet>12</a>}
+<a href=#12 id=12 data-nosnippet>12</a>    <span class="doccomment">/// Post under an explicit context instead of [`Self::context`]
+<a href=#13 id=13 data-nosnippet>13</a>    /// — the seam for sub-job statuses (one gha workflow job or
+<a href=#14 id=14 data-nosnippet>14</a>    /// matrix leg per context). The default ignores the override:
+<a href=#15 id=15 data-nosnippet>15</a>    /// sinks that can't address multiple contexts keep posting
+<a href=#16 id=16 data-nosnippet>16</a>    /// under their own label.
+<a href=#17 id=17 data-nosnippet>17</a>    </span><span class="kw">fn </span>post_ctx(<span class="kw-2">&amp;</span><span class="self">self</span>, sha: <span class="kw-2">&amp;</span>str, state: <span class="kw-2">&amp;</span>str, desc: <span class="kw-2">&amp;</span>str, context: <span class="kw-2">&amp;</span>str) {
+<a href=#18 id=18 data-nosnippet>18</a>        <span class="kw">let _ </span>= context;
+<a href=#19 id=19 data-nosnippet>19</a>        <span class="self">self</span>.post(sha, state, desc);
+<a href=#20 id=20 data-nosnippet>20</a>    }
+<a href=#21 id=21 data-nosnippet>21</a>    <span class="doccomment">/// Post with an optional evidence link — ADR-0002 §5: the
+<a href=#22 id=22 data-nosnippet>22</a>    /// terminal status carries the attestation URL so a reviewer
+<a href=#23 id=23 data-nosnippet>23</a>    /// clicking the check reaches the signed predicate. The default
+<a href=#24 id=24 data-nosnippet>24</a>    /// drops the link and delegates to [`Self::post`]; sinks with a
+<a href=#25 id=25 data-nosnippet>25</a>    /// link field (GitHub `target_url`) override.
+<a href=#26 id=26 data-nosnippet>26</a>    </span><span class="kw">fn </span>post_link(<span class="kw-2">&amp;</span><span class="self">self</span>, sha: <span class="kw-2">&amp;</span>str, state: <span class="kw-2">&amp;</span>str, desc: <span class="kw-2">&amp;</span>str, link: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>str&gt;) {
+<a href=#27 id=27 data-nosnippet>27</a>        <span class="kw">let _ </span>= link;
+<a href=#28 id=28 data-nosnippet>28</a>        <span class="self">self</span>.post(sha, state, desc);
+<a href=#29 id=29 data-nosnippet>29</a>    }
+<a href=#30 id=30 data-nosnippet>30</a>}
 </code></pre></div></section></main></body></html>

@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["FileSource"]};
+window.SIDEBAR_ITEMS = {"fn":["load_file"],"struct":["FileSource"]};

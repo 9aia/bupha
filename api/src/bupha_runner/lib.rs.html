@@ -50,15 +50,40 @@
 <a href=#50 id=50 data-nosnippet>50</a>    </span><span class="kw">pub </span>key: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>str,
 <a href=#51 id=51 data-nosnippet>51</a>    <span class="doccomment">/// Sha under test — names per-run remote dirs/jobs.
 <a href=#52 id=52 data-nosnippet>52</a>    </span><span class="kw">pub </span>sha: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>str,
-<a href=#53 id=53 data-nosnippet>53</a>}
-<a href=#54 id=54 data-nosnippet>54</a>
-<a href=#55 id=55 data-nosnippet>55</a><span class="doccomment">/// Job execution — runs a single sha's pipeline.
-<a href=#56 id=56 data-nosnippet>56</a></span><span class="kw">pub trait </span>Runner: Send + Sync {
-<a href=#57 id=57 data-nosnippet>57</a>    <span class="doccomment">/// Human name for logs ("dagger", "script").
-<a href=#58 id=58 data-nosnippet>58</a>    </span><span class="kw">fn </span>name(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str;
-<a href=#59 id=59 data-nosnippet>59</a>    <span class="doccomment">/// Spawn the run. The caller waits/kills via the returned Child —
-<a href=#60 id=60 data-nosnippet>60</a>    /// keeping the handle outside the queue lock is what makes
-<a href=#61 id=61 data-nosnippet>61</a>    /// cancel-in-flight safe.
-<a href=#62 id=62 data-nosnippet>62</a>    </span><span class="kw">fn </span>spawn(<span class="kw-2">&amp;</span><span class="self">self</span>, ctx: <span class="kw-2">&amp;</span>RunCtx) -&gt; io::Result&lt;Box&lt;<span class="kw">dyn </span>RunHandle&gt;&gt;;
-<a href=#63 id=63 data-nosnippet>63</a>}
+<a href=#53 id=53 data-nosnippet>53</a>    <span class="doccomment">/// The git ref whose push queued this run ("refs/heads/main") —
+<a href=#54 id=54 data-nosnippet>54</a>    /// event-aware runners (gha workflow filters, github.ref)
+<a href=#55 id=55 data-nosnippet>55</a>    /// need it. "" when the source can't say (remote fleet jobs).
+<a href=#56 id=56 data-nosnippet>56</a>    </span><span class="kw">pub </span>git_ref: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>str,
+<a href=#57 id=57 data-nosnippet>57</a>}
+<a href=#58 id=58 data-nosnippet>58</a>
+<a href=#59 id=59 data-nosnippet>59</a><span class="doccomment">/// A sub-job status a runner collected during the run — the
+<a href=#60 id=60 data-nosnippet>60</a>/// runner→watcher half of per-job commit statuses (e.g. one per
+<a href=#61 id=61 data-nosnippet>61</a>/// gha workflow job / matrix leg). `context` is a *suffix*: the
+<a href=#62 id=62 data-nosnippet>62</a>/// watcher posts it as `&lt;sink.context()&gt;/&lt;context&gt;`.
+<a href=#63 id=63 data-nosnippet>63</a></span><span class="attr">#[derive(Debug, Clone)]
+<a href=#64 id=64 data-nosnippet>64</a></span><span class="kw">pub struct </span>SubStatus {
+<a href=#65 id=65 data-nosnippet>65</a>    <span class="doccomment">/// Context path under the sink's base context — `/`-separated,
+<a href=#66 id=66 data-nosnippet>66</a>    /// no leading or trailing slash ("CI/build/os=ubuntu,node=18").
+<a href=#67 id=67 data-nosnippet>67</a>    </span><span class="kw">pub </span>context: String,
+<a href=#68 id=68 data-nosnippet>68</a>    <span class="doccomment">/// Commit-status state: pending/success/error/failure.
+<a href=#69 id=69 data-nosnippet>69</a>    </span><span class="kw">pub </span>state: String,
+<a href=#70 id=70 data-nosnippet>70</a>    <span class="doccomment">/// Short outcome text (status description).
+<a href=#71 id=71 data-nosnippet>71</a>    </span><span class="kw">pub </span>desc: String,
+<a href=#72 id=72 data-nosnippet>72</a>}
+<a href=#73 id=73 data-nosnippet>73</a>
+<a href=#74 id=74 data-nosnippet>74</a><span class="doccomment">/// Job execution — runs a single sha's pipeline.
+<a href=#75 id=75 data-nosnippet>75</a></span><span class="kw">pub trait </span>Runner: Send + Sync {
+<a href=#76 id=76 data-nosnippet>76</a>    <span class="doccomment">/// Human name for logs ("dagger", "script").
+<a href=#77 id=77 data-nosnippet>77</a>    </span><span class="kw">fn </span>name(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str;
+<a href=#78 id=78 data-nosnippet>78</a>    <span class="doccomment">/// Spawn the run. The caller waits/kills via the returned Child —
+<a href=#79 id=79 data-nosnippet>79</a>    /// keeping the handle outside the queue lock is what makes
+<a href=#80 id=80 data-nosnippet>80</a>    /// cancel-in-flight safe.
+<a href=#81 id=81 data-nosnippet>81</a>    </span><span class="kw">fn </span>spawn(<span class="kw-2">&amp;</span><span class="self">self</span>, ctx: <span class="kw-2">&amp;</span>RunCtx) -&gt; io::Result&lt;Box&lt;<span class="kw">dyn </span>RunHandle&gt;&gt;;
+<a href=#82 id=82 data-nosnippet>82</a>    <span class="doccomment">/// Sub-job statuses the run produced, read after it finishes —
+<a href=#83 id=83 data-nosnippet>83</a>    /// the watcher posts each under `&lt;sink.context()&gt;/&lt;context&gt;`.
+<a href=#84 id=84 data-nosnippet>84</a>    /// Default: runners without sub-jobs report none.
+<a href=#85 id=85 data-nosnippet>85</a>    </span><span class="kw">fn </span>status_reports(<span class="kw-2">&amp;</span><span class="self">self</span>, _ctx: <span class="kw-2">&amp;</span>RunCtx) -&gt; Vec&lt;SubStatus&gt; {
+<a href=#86 id=86 data-nosnippet>86</a>        Vec::new()
+<a href=#87 id=87 data-nosnippet>87</a>    }
+<a href=#88 id=88 data-nosnippet>88</a>}
 </code></pre></div></section></main></body></html>

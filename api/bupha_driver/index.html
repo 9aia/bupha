@@ -1,0 +1,44 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="bupha-driver — library half of `tamias-driver-bupha`, the pavo view driver for bupha’s CI state."><title>bupha_driver - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../static.files/rustdoc-0c87338a.css"><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="bupha_driver" data-themes="" data-resource-suffix="" data-rustdoc-version="1.99.1 (58cf8f9c3 2026-10-13) (Arch Linux rust 1:1.99.1-1)" data-channel="1.99.1" data-search-js="search-cf4fc35e.js" data-stringdex-js="stringdex-b5109af9.js" data-settings-js="settings-170eb4bf.js" ><script src="../static.files/storage-41dd4d93.js"></script><script defer src="../crates.js"></script><script defer src="../static.files/main-417ebf0a.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-9f56287d.css"></noscript><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-044be391.svg"></head><body class="rustdoc mod crate"><a class="skip-main-content" href="#main-content">Skip to main content</a><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><rustdoc-topbar><h2><a href="#">Crate bupha_driver</a></h2></rustdoc-topbar><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../bupha_driver/index.html">bupha_<wbr>driver</a><span class="version">0.2.0</span></h2></div><div class="sidebar-elems"><ul class="block"><li><a id="all-types" href="all.html">All Items</a></li></ul><section id="rustdoc-toc"><h3><a href="#modules">Crate Items</a></h3><ul class="block"><li><a href="#modules" title="Modules">Modules</a></li><li><a href="#functions" title="Functions">Functions</a></li></ul></section><div id="rustdoc-modnav"></div></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><div class="width-limiter"><section id="main-content" class="content" tabindex="-1"><div class="main-heading"><h1>Crate <span>bupha_<wbr>driver</span>&nbsp;<button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../src/bupha_driver/lib.rs.html#1-157">Source</a> </span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>bupha-driver — library half of <code>tamias-driver-bupha</code>, the pavo
+view driver for bupha’s CI state.</p>
+<p>Verbs (the tamias driver contract, served by <code>src/main.rs</code>):</p>
+<ul>
+<li><code>manifest</code> — print the [<code>pavo_protocol::DriverManifest</code>] JSON.</li>
+<li><code>capabilities</code> — <code>{"capabilities": ["pavo"], "verbs": […]}</code>.</li>
+<li><code>serve</code> — ndjson JSON-RPC on stdio: <code>{"op":"manifest"}</code>,
+<code>{"op":"views"}</code>, <code>{"op":"view","view":…,"params":{…}}</code>,
+<code>{"op":"query","query":…,"params":{…}}</code> →
+<code>{"ok":true,"result":…}</code> / <code>{"ok":false,"error":…}</code>. The loop
+itself is <code>pavo_driver_kit::serve_stdio</code>; <code>render</code>/<code>submit</code>/
+<code>jobs</code>/<code>notifications</code> answer <code>ok:false</code> — this driver claims
+none of them.</li>
+</ul>
+<p>Engine ops (the “CLI-as-generated-surface” contract, P-021):
+<code>{"op":"query","query":"ops"}</code> answers the ops manifest —
+every bounded <code>bupha</code> CLI verb derived from the engine’s own
+clap tree (<a href="engine_ops/index.html" title="mod bupha_driver::engine_ops"><code>engine_ops</code></a>); <code>query:"cli.&lt;verb&gt;"</code> re-execs
+<code>tamias-driver-bupha run &lt;argv&gt;</code> in a captured child and
+returns <code>{op, argv, code, stdout, stderr}</code>. Unbounded daemons
+(<code>watch</code>/<code>agent</code>/<code>gha-runner</code>) ride <code>surfaces</code>.</p>
+<p>Read path: bupha keeps no serve wire — its state is files under
+<code>worktree.base</code> (<code>history.jsonl</code>, <code>queue.json</code>, plus the systemd
+user units the watcher manages). The driver reads those
+directly through the same crates the watcher uses
+(<code>bupha-config-file</code> for config resolution, <code>bupha-queue</code>
+for the queue store, <code>bupha-systemd</code> for unit state) — the most
+stable read path available; the <code>bupha</code> CLI’s <code>runs</code>/<code>log</code> verbs
+print human text with no <code>--json</code>, so proxying them would mean
+parsing prose. See <code>data.rs</code>.</p>
+</div></details><h2 id="modules" class="section-header">Modules<a href="#modules" class="anchor">§</a></h2><dl class="item-table"><dt><a class="mod" href="data/index.html" title="mod bupha_driver::data">data</a></dt><dd>data — the read plane: bupha’s on-disk state.</dd><dt><a class="mod" href="engine_ops/index.html" title="mod bupha_driver::engine_ops">engine_<wbr>ops</a></dt><dd>Engine ops — <code>cli.&lt;verb&gt;</code> wire queries dispatch into the <code>bupha</code>
+engine lib through this binary’s own <code>run</code> verb: each call
+re-execs <code>tamias-driver-bupha run &lt;argv&gt;</code> in a captured child, so
+<code>bupha::run_from</code> writes to the child’s stdout and never touches
+the serve loop’s ndjson stream.</dd><dt><a class="mod" href="ops/index.html" title="mod bupha_driver::ops">ops</a></dt><dd>ops — the tamias <strong>content-type</strong> verbs of <code>tamias-driver-bupha</code>.</dd><dt><a class="mod" href="views/index.html" title="mod bupha_driver::views">views</a></dt><dd>views — the driver’s manifest: every ViewSpec plus the query
+resolvers that feed them.</dd></dl><h2 id="functions" class="section-header">Functions<a href="#functions" class="anchor">§</a></h2><dl class="item-table"><dt><a class="fn" href="fn.capabilities_value.html" title="fn bupha_driver::capabilities_value">capabilities_<wbr>value</a></dt><dd><code>capabilities</code> verb payload — merged for both consumers of this
+binary. pavo’s discovery checks <code>capabilities</code>/<code>verbs</code> for
+<code>"pavo"</code>/<code>"serve"</code>; tamias’s checks <code>types</code> for the content kind
+and warns on undeclared <code>verbs</code>. One JSON answers both: the kit’s
+<code>{capabilities, verbs}</code> shape plus <code>"types": ["bupha"]</code> and the
+tamias provider verbs folded into <code>verbs</code>.</dd><dt><a class="fn" href="fn.dispatch.html" title="fn bupha_driver::dispatch">dispatch</a></dt><dd>Dispatch one parsed request to its response.</dd><dt><a class="fn" href="fn.manifest_value.html" title="fn bupha_driver::manifest_value">manifest_<wbr>value</a></dt><dd><code>manifest</code> verb payload — the manifest as a JSON value.</dd><dt><a class="fn" href="fn.serve.html" title="fn bupha_driver::serve">serve</a></dt><dd>The <code>serve</code> verb — ndjson JSON-RPC on stdio until EOF or a
+broken pipe, via pavo-driver-kit’s loop (same semantics as the
+hand-rolled loop this replaces: blank lines skip, parse failures
+answer <code>ok:false</code>, a dead client exits quietly).</dd></dl></section></div></main></body></html>

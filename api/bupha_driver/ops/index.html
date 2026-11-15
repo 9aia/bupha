@@ -1,0 +1,80 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="ops — the tamias content-type verbs of `tamias-driver-bupha`."><title>bupha_driver::ops - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../static.files/rustdoc-0c87338a.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="bupha_driver" data-themes="" data-resource-suffix="" data-rustdoc-version="1.99.1 (58cf8f9c3 2026-10-13) (Arch Linux rust 1:1.99.1-1)" data-channel="1.99.1" data-search-js="search-cf4fc35e.js" data-stringdex-js="stringdex-b5109af9.js" data-settings-js="settings-170eb4bf.js" ><script src="../../static.files/storage-41dd4d93.js"></script><script defer src="../sidebar-items.js"></script><script defer src="../../static.files/main-417ebf0a.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-9f56287d.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-044be391.svg"></head><body class="rustdoc mod"><a class="skip-main-content" href="#main-content">Skip to main content</a><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><rustdoc-topbar><h2><a href="#">Module ops</a></h2></rustdoc-topbar><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../bupha_driver/index.html">bupha_<wbr>driver</a><span class="version">0.2.0</span></h2></div><div class="sidebar-elems"><section id="rustdoc-toc"><h2 class="location"><a href="#">Module ops</a></h2><h3><a href="#structs">Module Items</a></h3><ul class="block"><li><a href="#structs" title="Structs">Structs</a></li><li><a href="#functions" title="Functions">Functions</a></li></ul></section><div id="rustdoc-modnav"><h2 class="in-crate"><a href="../index.html">In crate bupha_<wbr>driver</a></h2></div></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><div class="width-limiter"><section id="main-content" class="content" tabindex="-1"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="../index.html">bupha_driver</a></div><h1>Module <span>ops</span>&nbsp;<button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../../src/bupha_driver/ops.rs.html#1-1498">Source</a> </span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>ops — the tamias <strong>content-type</strong> verbs of <code>tamias-driver-bupha</code>.</p>
+<p>tamias discovers <code>tamias-driver-&lt;type&gt;</code> executables and runs
+<code>&lt;verb&gt; --dir &lt;payload&gt; --name &lt;pkg&gt; [--config &lt;f&gt;]</code> for the
+lifecycle three (<code>install</code>/<code>deploy</code>/<code>uninstall</code>) and any provider
+verb the driver’s <code>capabilities</code> advertises (<code>host</code>, <code>hooks</code>,
+<code>health</code>, <code>status</code>, <code>logs</code>, <code>config-schema</code>). This module is that surface —
+the pavo verbs (<code>manifest</code>/<code>serve</code>/<code>capabilities</code>) stay in
+<code>main.rs</code>/<code>lib.rs</code>; <code>main.rs</code> dispatches on the subcommand, and
+tamias verbs always carry <code>--dir</code>/<code>--name</code> while pavo verbs never
+do, so the two surfaces can’t collide.</p>
+<p>Config model: the bundle payload ships <code>fleet.toml</code> — a complete
+<code>bupha_core::Config</code> doc (every <code>[[repo]]</code>, <code>[runner]</code>, <code>[status]</code>,
+<code>[queue]</code>, …) <em>except</em> the two fields the manifest owns:
+<code>tunnel.public_url</code> and <code>trigger.listen</code>, which <code>deploy</code> injects
+from <code>provider.ingress[]</code> (the same values <code>hooks register</code>
+points GitHub at — one source of truth, no drift). <code>deploy</code>
+writes the merged doc to <code>~/.config/bupha/bundles/&lt;name&gt;.toml</code>;
+the provider units’ <code>tamias-driver-bupha host|worker --config &lt;that path&gt;</code> consume it (<code>host</code> runs the watcher engine
+in-process via <code>bupha-watch</code>, <code>worker</code> polls <code>ci-job</code> entities
+on the <code>[worker] node</code> — both through the same merged config;
+ADR-0006: units exec the driver binary, not a cargo-installed
+<code>bupha</code>). The <code>host</code>/<code>hooks</code>/<code>provider.ingress[]</code> path is
+<strong>standalone/dev mode</strong> (ADR-0007): production webhook/forge
+ingress is a peregrin campaign listener that normalizes
+deliveries through bupha’s <code>Trigger</code> semantics and enqueues
+<code>ci-job</code> via <code>ci.enqueue</code>, consumed by the <code>worker</code> service —
+use the listener verbs only where no peregrin runs.
+Per-bundle files beat
+merging into <code>bupha.yaml</code>: the config
+loader (<code>bupha-config-file</code>) has no include mechanism and a
+merge-writer would have to track provenance to stay idempotent —
+a dedicated file is trivially regenerable and <code>uninstall</code> is a
+delete.</p>
+<p>Secrets are env-var NAMES only (<code>secret_env</code>, <code>token_env</code>) —
+values resolve env → cuora → <code>~/.config/bupha/env</code>
+(cuora canonical per T-056), the same chain <code>bupha</code> itself uses,
+and are never printed or written.</p>
+</div></details><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><dl class="item-table"><dt><a class="struct" href="struct.Flags.html" title="struct bupha_driver::ops::Flags">Flags</a></dt><dd>Parsed driver flags — the standard <code>--dir</code>/<code>--name</code>/<code>--config</code>
+triple plus the provider-verb extras. Positional args survive for
+<code>hooks &lt;action&gt;</code>.</dd></dl><h2 id="functions" class="section-header">Functions<a href="#functions" class="anchor">§</a></h2><dl class="item-table"><dt><a class="fn" href="fn.config_schema.html" title="fn bupha_driver::ops::config_schema">config_<wbr>schema</a></dt><dd><code>config-schema</code> — the JSON Schema (draft 2020-12) of the operator
+config <code>deploy</code> writes: a <code>bupha_core::Config</code> doc (the fleet
+TOML/YAML — YAML is a JSON superset for these shapes) with
+<code>tunnel.public_url</code>/<code>trigger.listen</code> manifest-owned. Deliberately
+permissive like the sibling drivers’: operators may hand-edit
+keys the generator doesn’t emit, so only the sections a working
+watcher needs are <code>required</code>.</dd><dt><a class="fn" href="fn.deploy.html" title="fn bupha_driver::ops::deploy">deploy</a></dt><dd><code>deploy</code> — write the operator config
+<code>tamias-driver-bupha host|worker --config</code> consumes: <code>fleet.toml</code> with
+<code>tunnel.public_url</code> and
+<code>trigger.listen</code>/<code>kind</code> filled from <code>provider.ingress[]</code> (the
+manifest wins those fields — they’re the same values the forge
+hooks point at). Regeneration is idempotent: the file is wholly
+rewritten from payload + manifest every time.</dd><dt><a class="fn" href="fn.health.html" title="fn bupha_driver::ops::health">health</a></dt><dd><code>health</code> — probe each ingress <code>listen</code>+<code>path</code> with the webhook
+<code>ping</code> (<code>POST &lt;listen&gt;&lt;path&gt;</code> + <code>X-GitHub-Event: ping</code> → <code>200 pong</code>), falling back to <code>systemctl --user is-active</code> per provider
+unit when no ingress declares both. Prints a JSON status object.</dd><dt><a class="fn" href="fn.hooks.html" title="fn bupha_driver::ops::hooks">hooks</a></dt><dd><code>hooks register|uninstall</code> — upsert/remove the GitHub webhooks
+the manifest’s <code>provider.ingress[].hooks[]</code> declare, via
+<code>bupha_github</code>’s REST path (exact-URL match, idempotent).</dd><dt><a class="fn" href="fn.host.html" title="fn bupha_driver::ops::host">host</a></dt><dd><code>host</code> — engine-host mode: run the watcher pipeline
+<strong>in-process</strong> so deployed provider units exec this driver
+binary instead of a cargo-installed <code>bupha</code> (ADR-0006: no
+user-facing bupha CLI on the host path; bupha T-052).</dd><dt><a class="fn" href="fn.install.html" title="fn bupha_driver::ops::install">install</a></dt><dd><code>install</code> — no-op. Like the peregrin driver, the operator config
+is <code>deploy</code>’s job: install only sees the evictable fetch-cache
+payload dir; the stable <code>~/.config/bupha/</code> write belongs to
+deploy, which <code>tamias deploy</code> runs against the store entry.</dd><dt><a class="fn" href="fn.logs.html" title="fn bupha_driver::ops::logs">logs</a></dt><dd><code>logs</code> — <code>journalctl --user -u &lt;unit&gt;</code> over every provider unit,
+newest <code>lines</code> entries, no follow (dispatch is bounded — a <code>-f</code>
+would just be killed). Returns the journal text.</dd><dt><a class="fn" href="fn.parse_flags.html" title="fn bupha_driver::ops::parse_flags">parse_<wbr>flags</a></dt><dd>Parse <code>--flag value</code> / <code>--flag=value</code> argv. Unknown flags are an
+error — a typo’d flag must not silently no-op a lifecycle verb.</dd><dt><a class="fn" href="fn.run.html" title="fn bupha_driver::ops::run">run</a></dt><dd>Run one tamias verb. <code>verb</code> is the subcommand <code>main.rs</code> already
+matched; <code>args</code> is the remaining argv (<code>--dir … --name …</code> plus
+verb flags). Prints the verb’s report to stdout; errors go to
+stderr with a non-zero exit — the tamias dispatch contract.</dd><dt><a class="fn" href="fn.status.html" title="fn bupha_driver::ops::status">status</a></dt><dd><code>status</code> — per-unit <code>systemctl --user is-active</code>/<code>is-enabled</code> as a
+JSON object; units systemd can’t answer report <code>"unknown"</code>.</dd><dt><a class="fn" href="fn.uninstall.html" title="fn bupha_driver::ops::uninstall">uninstall</a></dt><dd><code>uninstall</code> — remove the config <code>deploy</code> wrote. <code>--dir</code> is
+accepted for dispatch parity and ignored; <code>--config</code>/<code>--name</code>
+resolve the same path deploy used.</dd><dt><a class="fn" href="fn.worker.html" title="fn bupha_driver::ops::worker">worker</a></dt><dd><code>worker</code> — the <code>ci-job</code> consumption loop (P-002 §4.1): poll
+<code>kind="ci-job"</code> entities on a hypha/peregrin node, <code>ci.claim</code>
+the pending ones this box’s <code>[worker] labels</code> cover, run them
+through the same <code>bupha-watch</code> pipeline <code>host</code> uses (worktree →
+runner → status sink), <code>ci.renew</code> on the run ticker,
+<code>ci.complete</code> with the result. This is the <strong>second service</strong> a
+fleet deployment runs alongside <code>host</code> — the watcher ingests
+pushes (standalone mode) while workers execute jobs the
+entity plane hands out; in peregrin-hosted mode the plane lives
+on the node and <code>host</code> isn’t needed at all.</dd></dl></section></div></main></body></html>
