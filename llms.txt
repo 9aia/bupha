@@ -8,7 +8,7 @@ Queue engine for event-driven jobs — shipped as CI
 
 ### Tutorials
 
-- [Tutorial: your first bupha run](/bupha/tutorials/first-run.md)
+- [Getting started](/bupha/tutorials/getting-started.md)
 
 ### How-to
 
@@ -41,5 +41,4 @@ Queue engine for event-driven jobs — shipped as CI
 
 ### Other
 
-- [Getting started](/bupha/tutorials/getting-started.md)
 - [Untitled](/bupha/public/api/static.files/SourceSerif4-LICENSE-a2cfd9d5.md)
