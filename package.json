@@ -10,7 +10,7 @@
     "docs:config": "cypera gen config --repo ..",
     "docs:crates": "cypera gen crate-map --repo ..",
     "docs:build": "bun run docs:gen && vitepress build",
-    "docs:api": "cd .. && cargo doc --workspace --no-deps && mkdir -p docs/public/api && rm -rf docs/public/api/* && cp -r target/doc/* docs/public/api/ && python3 docs/gen-api-index.py docs/public/api/index.html",
+    "docs:api": "cypera gen api --repo ..",
     "docs:deploy": "bun run docs:api && bun run docs:build && bunx gh-pages -d .vitepress/dist",
     "fmt": "vp fmt",
     "fmt:check": "vp fmt --check",
