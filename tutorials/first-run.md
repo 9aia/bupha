@@ -15,7 +15,7 @@ webhook → queue → worktree → pipeline → commit status.
 Prereqs: **Linux + systemd** (provider units need systemd; the
 shell runner needs bash; macOS/Windows unsupported for now); git;
 the `tamias` CLI; the `bupha` command pack — `tamias install
-9aia:bupha@0.2.0` from the org registry (needs
+9aia:bupha@<version>` from the org registry (needs
 `TAMIAS_REGISTRY_TOKEN`), or `scripts/pack.sh` + `tamias install --allow-drivers ./libraries/bupha` from a checkout — which
 registers `tamias-driver-bupha` into `$TAMIAS_HOME/drivers/`
 (`cargo build --release -p bupha-driver` from this repo produces

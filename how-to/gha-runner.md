@@ -160,7 +160,7 @@ parity on a production workflow:
 * `uses: actions/checkout@v4` — accepted as the pushed-sha
   no-op.
 * `strategy.matrix` 2×2 fan-out — 4 legs in parallel, each in its
-  own worktree; `${{ matrix.node }}` interpolation into `env:`
+  own worktree; ${{ matrix.node }} interpolation into `env:`
   worked.
 * Unsupported key — `services:` under a job fails at spawn with
   `gha: ci.yml.jobs.<id>: unsupported key 'services' (outside the

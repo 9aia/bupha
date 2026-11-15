@@ -63,10 +63,10 @@ the webhook hasn't landed or the repo isn't watched. In `wait` mode
 | input | default | notes |
 | ----- | ------- | ----- |
 | `mode` | `wait` | `status` (one shot) or `wait` (poll to terminal) |
-| `sha` | `${{ github.sha }}` | for `pull_request`, prefer `github.event.pull_request.head.sha` |
+| `sha` | ${{ github.sha }} | for `pull_request`, prefer `github.event.pull_request.head.sha` |
 | `context` | `ci/bupha` | must match the bundle's `[status].context` |
-| `repo` | `${{ github.repository }}` | `owner/repo` |
-| `token` | `${{ github.token }}` | needs `statuses: read` on private repos |
+| `repo` | ${{ github.repository }} | `owner/repo` |
+| `token` | ${{ github.token }} | needs `statuses: read` on private repos |
 | `api-base` | `https://api.github.com` | GHES override |
 | `timeout` | `600` | seconds, wait mode; integer `0`–`86400` |
 | `interval` | `15` | seconds between polls; integer `>= 1` |
