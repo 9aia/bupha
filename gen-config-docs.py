@@ -1,6 +1,11 @@
 #!/usr/bin/env python3
 """Generate docs/reference/config.md from config-struct doc comments
 — the structs across core + impl crates are the source of truth."""
+# NOTE(T-065): cypera `gen config` is the intended shared successor,
+# but this page stays python for now — it uses per-struct section
+# titles, a curated struct set, and a repo-specific type vocabulary
+# that cypera's generic scanner doesn't reproduce yet. Migrate when
+# cypera grows those knobs.
 import os, pathlib, re, sys
 
 ROOT = pathlib.Path(
