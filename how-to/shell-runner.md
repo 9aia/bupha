@@ -21,3 +21,10 @@ Use it for: `make ci`, `./ci.sh`, a linter gate, or bupha's own
 `scripts/release.sh` (debounced release job). For anything heavier
 — cache volumes, toolchains, parallel shards — use the `dagger`
 runner and the shared `modules/dagger` module.
+
+## Verify
+
+Push to a watched ref — the commit status `ci/bupha` appears
+(pending → success/error), and `bupha runs` (dev CLI) lists the
+run record. `bupha doctor` against the config checks the box
+before the first push.
