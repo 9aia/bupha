@@ -27,7 +27,7 @@ export CARGO_TARGET_DIR="${CARGO_TARGET_DIR:-$REPO/target/gate}"
 echo "==> bun install"
 bun install
 
-CYPERA="cargo run -q --manifest-path $REPO/../cypera/Cargo.toml -p cypera --"
+CYPERA="cypera"
 echo "==> reference pages (cypera gen, repo=$REPO)"
 $CYPERA gen cli --repo "$REPO"
 $CYPERA gen config --repo "$REPO"
