@@ -14,6 +14,7 @@ SRCS = {
         "TriggerCfg": "`[trigger]`", "RunnerCfg": "`[runner]`",
         "StatusCfg": "`[status]`", "TunnelCfg": "`[tunnel]`",
         "CacheCfg": "`[cache]`", "WorktreeCfg": "`[worktree]`",
+        "WorkerCfg": "`[worker]`",
         "JobEntry": "`[[repo.jobs]]`",
     },
     "crates/bupha-dagger/src/lib.rs": {"DaggerCfg": "`[runner]` — kind `dagger`"},
