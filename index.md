@@ -10,14 +10,14 @@ hero:
       text: Getting Started
       link: /tutorials/getting-started
     - theme: alt
-      text: Tutorial
-      link: /tutorials/first-run
+      text: Tamias bundles
+      link: /how-to/tamias-bundles
 
 features:
   - icon: ⚡
     title: Push → status in seconds
     details: HMAC-verified webhooks, delivery dedup, honest pending/success/cancelled statuses — no YAML, no queue wait
-    link: /tutorials/first-run
+    link: /tutorials/getting-started
     linkText: first run
   - icon: 🏠
     title: Your box, your cache
