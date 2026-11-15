@@ -10,9 +10,9 @@
 <a href=#10 id=10 data-nosnippet>10</a>//! abandons the run — a peer owns it; a `cancelRequested` flag on
 <a href=#11 id=11 data-nosnippet>11</a>//! the entity kills the child and settles `cancelled`.
 <a href=#12 id=12 data-nosnippet>12</a>//!
-<a href=#13 id=13 data-nosnippet>13</a>//! The loop is split into a narrow synchronous [`JobApi`] port (so
+<a href=#13 id=13 data-nosnippet>13</a>//! The loop is split into a narrow synchronous [`JobApi`](crate::entity_worker::JobApi) port (so
 <a href=#14 id=14 data-nosnippet>14</a>//! the state machine unit-tests against an in-memory fake) and
-<a href=#15 id=15 data-nosnippet>15</a>//! [`EntityJobApi`], the `hypha_node_api::EntityApi` adapter that
+<a href=#15 id=15 data-nosnippet>15</a>//! [`EntityJobApi`](crate::entity_worker::EntityJobApi), the `hypha_node_api::EntityApi` adapter that
 <a href=#16 id=16 data-nosnippet>16</a>//! bridges the async trait onto a current-thread tokio runtime —
 <a href=#17 id=17 data-nosnippet>17</a>//! `HttpEntityApi` is blocking-ureq inside `spawn_blocking`, which
 <a href=#18 id=18 data-nosnippet>18</a>//! needs a runtime context bupha otherwise doesn't carry.

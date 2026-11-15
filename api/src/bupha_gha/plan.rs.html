@@ -3598,7 +3598,7 @@
 <a href=#3598 id=3598 data-nosnippet>3598</a>/// `./local/path` or `owner/repo[/sub/path]@ref` — to the action's
 <a href=#3599 id=3599 data-nosnippet>3599</a>/// `action.yml` *text*. plan stays I/O-free: the runner implements
 <a href=#3600 id=3600 data-nosnippet>3600</a>/// this (filesystem reads for `./`, git fetch for remote refs);
-<a href=#3601 id=3601 data-nosnippet>3601</a>/// [`parse_workflow`] uses [`NoActions`], which errors on any
+<a href=#3601 id=3601 data-nosnippet>3601</a>/// [`parse_workflow`] uses `NoActions`, which errors on any
 <a href=#3602 id=3602 data-nosnippet>3602</a>/// action `uses:`.
 <a href=#3603 id=3603 data-nosnippet>3603</a></span><span class="kw">pub trait </span>ActionResolver {
 <a href=#3604 id=3604 data-nosnippet>3604</a>    <span class="kw">fn </span>action_yaml(<span class="kw-2">&amp;</span><span class="self">self</span>, uses: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Result</span>&lt;String, String&gt;;

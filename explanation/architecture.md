@@ -176,3 +176,25 @@ the queue moving.
 | forge (gitea/gitlab)        | `Trigger` + `StatusSink` adapter crate  | no            |
 | pipeline backend            | `Runner` adapter crate                  | no            |
 | ingress (fly/tailscale)     | `Tunnel` adapter crate                  | no            |
+
+## Where it sits
+
+Bupha is the **CI gate** — the orchestration layer's event-driven
+job runner, shipped *as* tamias content:
+
+```
+tamias (distribution)  →  engines  →  orchestration  →  surfaces
+                          cuora,        bupha ◄───        pavo views,
+                          myco…         peregrin          bupha dev
+                                        campaigns,        CLI shim
+                                        hypha plane
+```
+
+A `type: bupha` bundle installs through tamias like any other
+pack; the provider unit runs `tamias-driver-bupha host`/`worker`
+which embed this engine. Durable fleet state lives on the hypha
+entity plane (`ci-job` entities) that peregrin campaigns feed —
+bupha owns the *semantics* (queue policies, worktree isolation,
+runner dialects, forge statuses), the plane owns the *state*.
+
+See [Boundaries](boundaries.md) for owns / does-not-own.

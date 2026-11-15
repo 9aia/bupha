@@ -61,7 +61,7 @@ no user-facing CLI).
 
 | field | type | required | notes |
 |---|---|---|---|
-| `api_base` | `string` | optional | Forge API base — GHES ("https://ghe.acme/api/v3") or default github.com. Used by the trigger, status, and forge-admin impls. |
+| `api_base` | `string` | optional | Forge API base — GHES (`https://ghe.acme/api/v3`) or default github.com. Used by the trigger, status, and forge-admin impls. |
 | `kind` | `string` | optional | "github" today; other forges = new impl crates. Empty is valid only when \[trigger.sturn] supplies the pushes — a sturn-only watcher needs no listener or webhook secret. |
 | `sturn` | `SturnTriggerCfg` | optional | Optional sturn-native push source — see SturnTriggerCfg. |
 | `listen` | `string` | optional | Webhook listener bind address ("127.0.0.1:29173"). |

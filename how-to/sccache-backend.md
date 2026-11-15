@@ -36,3 +36,11 @@ AWS_SECRET_ACCESS_KEY=...
 
 Same file, new values — `SCCACHE_ENDPOINT` to the provider URL, real
 region, new creds. No code changes; that's the point of the env file.
+
+## Verify
+
+Point `[cache] conf` (or the older `runner.sccache_conf`) at the env
+file and run a job:
+`sccache --show-stats` (or the cache stats endpoint on the backend)
+shows requests served after the first compile — a cold miss then a
+warm hit confirms the wiring.

@@ -21,7 +21,7 @@ bupha-core::Config.</p>
 </div></details><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><dl class="item-table"><dt><a class="struct" href="struct.Cli.html" title="struct bupha::Cli">Cli</a></dt></dl><h2 id="functions" class="section-header">Functions<a href="#functions" class="anchor">§</a></h2><dl class="item-table"><dt><a class="fn" href="fn.command.html" title="fn bupha::command">command</a></dt><dd>The clap verb tree as a [<code>clap::Command</code>] — the ops manifest
 (<code>tamias-driver-bupha ops</code>) derives itself from this, so a verb
 can’t exist on the CLI and be missing from the driver’s wire
-surface.</dd><dt><a class="fn" href="fn.parse.html" title="fn bupha::parse">parse</a></dt><dd>Process argv → a parsed <a href="struct.Cli.html" title="struct bupha::Cli"><code>Cli</code></a>. Split from [<code>dispatch</code>] so
+surface.</dd><dt><a class="fn" href="fn.parse.html" title="fn bupha::parse">parse</a></dt><dd>Process argv → a parsed <a href="struct.Cli.html" title="struct bupha::Cli"><code>Cli</code></a>. Split from <code>dispatch</code> so
 drivers can parse <em>their</em> argv (a <code>run</code> verb, a re-exec)
 without owning process args. Clap errors/help still exit the
 process, same as argv parsing.</dd><dt><a class="fn" href="fn.parse_from.html" title="fn bupha::parse_from">parse_<wbr>from</a></dt><dd>Same, from an argv iterator — <code>parse_from(["bupha", "runs"])</code>.</dd><dt><a class="fn" href="fn.run.html" title="fn bupha::run">run</a></dt><dd>The compat CLI body — parse process argv, dispatch, hand back

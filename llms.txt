@@ -30,6 +30,10 @@ Queue engine for event-driven jobs — shipped as CI
 ### Explanation
 
 - [Architecture](/bupha/explanation/architecture.md)
+- [Boundaries](/bupha/explanation/boundaries.md)
+- [Concepts](/bupha/explanation/concepts.md)
+- [Decisions](/bupha/explanation/decisions.md)
+- [Flow: a push becomes a commit status](/bupha/explanation/flow.md)
 - [The release model](/bupha/explanation/release-model.md)
 - [Crate scope audit — bupha under ADR-0006](/bupha/explanation/crate-scope-audit.md)
 - [Dogfood: real GitHub Actions workflows through `runner.kind = "gha"`](/bupha/explanation/gha-dogfood.md)
@@ -37,5 +41,5 @@ Queue engine for event-driven jobs — shipped as CI
 
 ### Other
 
-- [Getting started](/bupha/getting-started.md)
+- [Getting started](/bupha/tutorials/getting-started.md)
 - [Untitled](/bupha/public/api/static.files/SourceSerif4-LICENSE-a2cfd9d5.md)

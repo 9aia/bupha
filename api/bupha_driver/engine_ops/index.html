@@ -4,7 +4,7 @@ re-execs <code>tamias-driver-bupha run &lt;argv&gt;</code> in a captured child, 
 <code>bupha::run_from</code> writes to the child’s stdout and never touches
 the serve loop’s ndjson stream.</p>
 <p><code>ops</code> answers the ops manifest as JSON — <em>derived from the
-engine’s own clap tree</em> ([<code>bupha::command</code>]), so a verb can’t
+engine’s own clap tree</em> (<a href="../../bupha/fn.command.html" title="fn bupha::command"><code>bupha::command</code></a>), so a verb can’t
 exist on the CLI and be missing here: declared args become
 typed params (<code>arg</code>/<code>opt</code>/<code>flag</code>), doc strings ride along
 unchanged. The CLI’s one global (<code>--config</code>) rides the

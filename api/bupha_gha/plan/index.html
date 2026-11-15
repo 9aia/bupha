@@ -19,7 +19,7 @@ values never enter the generated script’s argv).</dd><dt><a class="enum" href=
 <code>./local/path</code> or <code>owner/repo[/sub/path]@ref</code> — to the action’s
 <code>action.yml</code> <em>text</em>. plan stays I/O-free: the runner implements
 this (filesystem reads for <code>./</code>, git fetch for remote refs);
-<a href="fn.parse_workflow.html" title="fn bupha_gha::plan::parse_workflow"><code>parse_workflow</code></a> uses [<code>NoActions</code>], which errors on any
+<a href="fn.parse_workflow.html" title="fn bupha_gha::plan::parse_workflow"><code>parse_workflow</code></a> uses <code>NoActions</code>, which errors on any
 action <code>uses:</code>.</dd></dl><h2 id="functions" class="section-header">Functions<a href="#functions" class="anchor">§</a></h2><dl class="item-table"><dt><a class="fn" href="fn.interpolate.html" title="fn bupha_gha::plan::interpolate">interpolate</a></dt><dd>Replace every <code>${{ expr }}</code> in <code>tpl</code>. Anything that isn’t a
 plain dotted path is an explicit error.</dd><dt><a class="fn" href="fn.parse_workflow.html" title="fn bupha_gha::plan::parse_workflow">parse_<wbr>workflow</a></dt><dd>Parse + validate one workflow file. <code>source</code> names the file in
 errors. Composite/local/remote action <code>uses:</code> fail — use

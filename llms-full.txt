@@ -204,6 +204,13 @@ Use it for: `make ci`, `./ci.sh`, a linter gate, or bupha's own
 — cache volumes, toolchains, parallel shards — use the `dagger`
 runner and the shared `modules/dagger` module.
 
+## Verify
+
+Push to a watched ref — the commit status `ci/bupha` appears
+(pending → success/error), and `bupha runs` (dev CLI) lists the
+run record. `bupha doctor` against the config checks the box
+before the first push.
+
 ---
 
 ---
@@ -936,6 +943,14 @@ AWS_SECRET_ACCESS_KEY=...
 Same file, new values — `SCCACHE_ENDPOINT` to the provider URL, real
 region, new creds. No code changes; that's the point of the env file.
 
+## Verify
+
+Point `[cache] conf` (or the older `runner.sccache_conf`) at the env
+file and run a job:
+`sccache --show-stats` (or the cache stats endpoint on the backend)
+shows requests served after the first compile — a cold miss then a
+warm hit confirms the wiring.
+
 ---
 
 ---
@@ -1409,7 +1424,7 @@ no user-facing CLI).
 
 | field | type | required | notes |
 |---|---|---|---|
-| `api_base` | `string` | optional | Forge API base — GHES ("https://ghe.acme/api/v3") or default github.com. Used by the trigger, status, and forge-admin impls. |
+| `api_base` | `string` | optional | Forge API base — GHES (`https://ghe.acme/api/v3`) or default github.com. Used by the trigger, status, and forge-admin impls. |
 | `kind` | `string` | optional | "github" today; other forges = new impl crates. Empty is valid only when \[trigger.sturn] supplies the pushes — a sturn-only watcher needs no listener or webhook secret. |
 | `sturn` | `SturnTriggerCfg` | optional | Optional sturn-native push source — see SturnTriggerCfg. |
 | `listen` | `string` | optional | Webhook listener bind address ("127.0.0.1:29173"). |
@@ -1751,6 +1766,312 @@ the queue moving.
 | forge (gitea/gitlab)        | `Trigger` + `StatusSink` adapter crate  | no            |
 | pipeline backend            | `Runner` adapter crate                  | no            |
 | ingress (fly/tailscale)     | `Tunnel` adapter crate                  | no            |
+
+## Where it sits
+
+Bupha is the **CI gate** — the orchestration layer's event-driven
+job runner, shipped *as* tamias content:
+
+```
+tamias (distribution)  →  engines  →  orchestration  →  surfaces
+                          cuora,        bupha ◄───        pavo views,
+                          myco…         peregrin          bupha dev
+                                        campaigns,        CLI shim
+                                        hypha plane
+```
+
+A `type: bupha` bundle installs through tamias like any other
+pack; the provider unit runs `tamias-driver-bupha host`/`worker`
+which embed this engine. Durable fleet state lives on the hypha
+entity plane (`ci-job` entities) that peregrin campaigns feed —
+bupha owns the *semantics* (queue policies, worktree isolation,
+runner dialects, forge statuses), the plane owns the *state*.
+
+See [Boundaries](boundaries.md) for owns / does-not-own.
+
+---
+
+---
+url: /bupha/explanation/boundaries.md
+---
+# Boundaries
+
+bupha owns **CI gating** — push/PR ingest, queueing, worktree
+isolation, pipeline execution, forge status write-back. A CI
+server product (UI, YAML DSL beyond the `gha` dialect, managed
+fleet) is explicitly out of scope. Neighbors:
+
+| neighbor | owns | relationship |
+| --- | --- | --- |
+| **tamias** | distribution | bupha is a `type: bupha` content integration — packs, drivers, provider units |
+| **peregrin** | orchestration | production forge ingress is a peregrin campaign listener normalizing deliveries into `ci-job` entities (ADR-0007) |
+| **hypha** | substrate | the entity plane; `ci-job` durable queue state lives there via `bupha-plane` |
+| **cuora** | secrets | `cuora://bupha/<NAME>` is the canonical secret store |
+| **sturn** | coordination | the WAL source reads `refs/sturn/wal/*`; fleet claims |
+| **myco** | work memory | this repo's `project/` ledger; `Item: T-NNN` trailers |
+| **kuda/mimus** | code memory / critic | this repo's own cards and review |
+
+---
+
+---
+url: /bupha/explanation/concepts.md
+---
+# Concepts
+
+The vocabulary of bupha — each term defined once.
+
+## The pipeline shape
+
+* **Source** — the ingest edge: a long-running producer of normalized
+  `(repo, ref, sha, sender)` pushes. Impls: `github-webhook`
+  (HMAC-verified deliveries) and `sturn-wal` (WAL snapshot events).
+* **`Trigger`** — the narrower per-request port a webhook `Source`
+  drives: is this our event, which repo, does the signature verify,
+  what does the payload ask for.
+* **Push** — the normalized job request every source emits;
+  everything behind the queue is source-agnostic.
+* **Queue** — per-*job* pending slots with a policy (`latest` =
+  latest-wins for gates, `all` = bounded FIFO for releases).
+  Persisted via the `QueueStore` port in dev; durable state is the
+  `ci-job` entity plane in fleets.
+* **Runner** — how a job becomes a spawned process: `shell` (bash),
+  `container` (podman/docker), `ssh`, `http` (remote `bupha agent`),
+  `dagger`, `gha` (workflow dialect).
+* **`gha` dialect vs `gha-runner`** — two different products sharing
+  a name: `runner.kind = "gha"` makes bupha *read and execute*
+  `.github/workflows` YAML; `bupha gha-runner` makes bupha a
+  self-hosted runner that *GitHub's service drives* via the
+  actions/runner broker protocol.
+* **Status sink** — where run outcomes are reported: forge commit
+  statuses (`ci/bupha` context by default, plus per-job detail under
+  `<context>/<workflow>/<job>`).
+
+## Fleet and plane
+
+* **Bundle** — a `type: bupha` tamias pack: `tamias.yaml` (provider
+  units + ingress hooks) + `fleet.toml` (a complete watcher/worker
+  config). `libraries/ci-gate`, `docs-deploy`, `ci-ingress` are the
+  shipped examples.
+* **`host` vs `worker`** — the two service verbs:
+  `tamias-driver-bupha host` runs the standalone watcher (webhook →
+  local queue → runner → status); `worker` polls `ci-job` entities
+  on the hypha/peregrin node and runs claimed jobs through the same
+  pipeline. Enable ONE per ingress mode.
+* **ci-job entity** — a job as a hypha entity
+  (`kind="ci-job"`, deterministic id `ci:{key}:{sha}:{attempt}`);
+  `ci.*` ops carry enqueue/claim/renew/release/complete with fence +
+  lease semantics.
+* **`runs_on` labels** — per-repo/job scheduling constraints
+  (`arch=arm64`); a job runs only on workers whose `[worker] labels`
+  satisfy them.
+* **`bupha agent`** — the remote executor behind `kind = "http"`:
+  tar worktree + poll over an HMAC-signed HTTP wire.
+
+## Dev harness
+
+* **`bupha` command** — the dev/debug CLI behind the `bins[]` shim
+  (`bupha-cli` is lib-only): `run`, `doctor`, `watch`, `agent`,
+  `gha-runner`, `import`, `deploy`, `service`. Production fleets run
+  through the driver verbs, not this binary.
+* **Worktree** — every run executes in a detached `git worktree` of
+  the pushed sha at `<base>-<repo>[-<job>]-<sha12>`; never a shared
+  dirty checkout.
+
+---
+
+---
+url: /bupha/explanation/decisions.md
+---
+# Decisions
+
+ADR-lite: the calls that shaped bupha, the alternatives rejected, and
+the consequences we live with. The repo's `adrs/` hold the full
+versions — this page is the map.
+
+## bupha is CI semantics, not a product
+
+**Decision:** bupha owns queue semantics, runner dialects, forge
+status write-back — and *nothing* else. Substrate is hypha/peregrin,
+distribution is tamias, secrets are cuora (ADR-0006, resolved by the
+crate-scope audit).
+
+**Alternatives:** a standalone CI server (UI, YAML DSL, managed
+fleet); keeping queue/service/tunnel machinery in-repo.
+
+**Consequence:** every concern bupha *doesn't* own already has a
+home — the audit retired `bupha-{secret,keyring,dotenv,service,
+systemd,tunnel,cloudflared}` and folded webhook/tunnel into
+`bupha-watch` for standalone mode only. The price: bupha depends on
+the org stack (hypha plane, tamias packs, cuora secrets) to be
+useful at fleet scale — single-box dev mode stays self-contained.
+
+## Fleets ship as tamias bundles
+
+**Decision:** a CI fleet is a `type: bupha` content pack —
+`tamias install`/`deploy` provisions units, config, and forge hooks;
+`tamias-driver-bupha host`/`worker` runs the engine in-process.
+
+**Alternatives:** a `bupha install`/`service` lifecycle of its own;
+a daemon bupha owns.
+
+**Consequence:** install/update/teardown is tamias's problem and the
+`bupha` command shrank to a dev harness (no `[[bin]]` — the pack
+shim carries it). The cost: the product path requires tamias +
+systemd; bare-metal single-box use is the dev CLI's job.
+
+## Push → status with honest verdicts
+
+**Decision:** HMAC-verified webhooks feed a per-job queue with two
+policies — `latest` (latest-wins, `cancel_running`) for gates, `all`
+(bounded FIFO) for releases — and every terminal state posts a
+commit status, including honest "cancelled"/"error" for superseded
+shas.
+
+**Alternatives:** fire-and-forget runs with no status; always-run-
+everything queues.
+
+**Consequence:** instant feedback on self-owned hardware with a
+truthful status surface — a superseded sha never silently drops.
+The cost: one global worker serializes runs (deliberate, documented)
+and `all`-mode promises cap at 32 pending.
+
+## `gha` is a dialect, not parity
+
+**Decision:** `runner.kind = "gha"` executes a documented subset of
+`.github/workflows` YAML natively; everything outside hard-errors at
+spawn naming the key.
+
+**Alternatives:** embedding act/runner; a YAML DSL of bupha's own;
+silent best-effort skipping.
+
+**Consequence:** real workflows migrate incrementally — the
+dogfood report ([gha-dogfood](gha-dogfood.md)) enumerates exactly
+what works. The honest-failure contract means a workflow either runs
+correctly or fails loudly at spawn; it never half-runs. GHA remains
+the answer for matrices, marketplace actions, and multi-OS fleets
+([comparison](../comparison)).
+
+## The ci-job entity plane is the durable queue
+
+**Decision:** fleet-scale queue state lives as `ci-job` entities on
+the hypha/peregrin node; workers claim with fence+lease CAS. The
+in-repo queue impls (`redb`/`redis`) were retired — dev mode keeps
+the `json` store.
+
+**Alternatives:** keeping embedded redb/redis queue impls; building
+a bupha-owned distributed queue.
+
+**Consequence:** one queue implementation org-wide with replay dedup
+for free (deterministic entity ids) — but the fleet path requires a
+hypha/peregrin node, and label routing (`runs_on`) is the only
+scheduling dimension.
+
+## Secrets resolve env → cuora → env-file
+
+**Decision:** config names secrets (`secret_env`/`token_env`); values
+resolve through env → `cuora://bupha/<NAME>` →
+`~/.config/bupha/env`, with the token reaching runners via
+`env://`-style indirection — never argv, never config.
+
+**Alternatives:** values in config; the OS keyring as canonical
+(dropped post-T-077).
+
+**Consequence:** the canonical path is cuora with an honest dev
+fallback; keyring entries survive only as hypha-backed legacy reads.
+
+---
+
+---
+url: /bupha/explanation/flow.md
+---
+# Flow: a push becomes a commit status
+
+One end-to-end narrative of bupha's flagship operation — what
+actually happens between `git push` and the `ci/bupha` check going
+green. Two deployment shapes share the same engine: the standalone
+`host` watcher (dev/single-box) and the fleet `worker` (entity
+plane); the ingest→queue→worktree→status core is identical.
+
+## 1. Ingest — the webhook arrives
+
+GitHub POSTs a signed delivery to the bundle's public URL
+(`provider.ingress`, fronted by your tunnel — or, in production, to
+the peregrin campaign listener which normalizes it into a `ci-job`
+entity instead). The pipeline, byte-stable:
+
+```
+POST /hook → path check → body ≤ 2 MiB → repo hint (untrusted peek,
+  unwatched repo 404s) → HMAC-SHA256 verify (per-repo secret_env,
+  constant-time) → delivery-id dedup (10k ring) → parse (skip
+  deletes/zero-sha) → route (git_ref → matching job queues, forge-
+  attested sender vs access policy) → enqueue
+```
+
+A push to `main` fans out into every `[[repo]]`/`[[repo.jobs]]`
+entry watching that ref — a gate job and a docs-deploy job are
+independent queues.
+
+## 2. Queue — latest-wins or bounded FIFO
+
+Each job queue applies its policy:
+
+* `latest` (default): one pending sha; a new push supersedes it and
+  `cancel_running` may kill the in-flight run.
+* `all`: bounded FIFO (32); every push runs, oldest evicted past cap.
+
+Accepted work persists via `QueueStore` (dev `json` file; the
+`ci-job` entity plane in fleets). On restart, an interrupted
+`running` sha re-queues at the front.
+
+## 3. Worktree — isolated, always at the pushed sha
+
+The global worker serializes runs across repos (one box, bounded
+resources — deliberate). It fetches, then checks out a **detached
+worktree** at `<base>-<repo>[-<job>]-<sha12>` — never a shared,
+dirty checkout. Fork-PR jobs may fetch `cloneUrl`/`headRef` first.
+
+## 4. Run — the runner executes
+
+The job's `runner.kind` decides what "run" means:
+
+* `shell`/`script` — `bash -c <cmd>` in the worktree
+* `gha` — parse `.github/workflows` at the sha, execute the
+  `on.push` subset (needs-DAG, matrix legs in parallel worktrees)
+* `dagger` — `dagger call <fn>` per job
+* `container`/`ssh`/`http` — isolation and remote execution
+
+Secrets reach the runner by name only (`env://`, cuora refs) —
+tokens never touch argv. Matrix legs and parallel jobs each get a
+private worktree; `$GITHUB_*` file commands are honored in the
+`gha` dialect.
+
+## 5. Status — honest verdicts
+
+Terminal states post commit statuses:
+
+* `success`/`failure` — the run's verdict under `ci/bupha`
+  (or `[status].context`); the `gha` dialect additionally posts
+  per-job detail under `<context>/<workflow>/<job>`.
+* `error` — honest failure (superseded sha, cancelled run,
+  spawn error). A killed run reports "cancelled (superseded)",
+  not failure.
+
+Step 6 is yours: merge on green, or wire `action.yml`'s `mode:
+wait` into a GHA workflow as a required check.
+
+## The shape underneath
+
+```
+push ──► signed webhook ──► Source/Trigger ──► queue (policy)
+                                                    │
+                              ci-job entity ◄───────┤ fleet mode
+                                                    ▼
+                                        worktree @ sha ──► runner ──► status
+```
+
+See [architecture](architecture.md) for the port/adapter map,
+[distributed runners](../how-to/distributed-runners.md) for the
+fleet path, and [concepts](concepts.md) for the vocabulary.
 
 ---
 
@@ -2245,7 +2566,7 @@ workflow subset — not full Actions parity).
 ---
 
 ---
-url: /bupha/getting-started.md
+url: /bupha/tutorials/getting-started.md
 ---
 # Getting started
 
@@ -2259,21 +2580,21 @@ inside the provider unit via `tamias-driver-bupha host`.
 
 Pick by what you need to do.
 
-* **Tutorials** (learn): [first-run](tutorials/first-run.md)
-* **How-to** (tasks): [tamias bundles](how-to/tamias-bundles.md) ·
-  [multi-repo](how-to/multi-repo.md) ·
-  [shell runner](how-to/shell-runner.md) ·
-  [gha runner — your own GHA workflows](how-to/gha-runner.md) ·
-  [self-hosted GHA runner](how-to/self-hosted-runner.md) ·
-  [distributed runners](how-to/distributed-runners.md) ·
-  [sccache backend](how-to/sccache-backend.md)
-* **Reference** (lookup): [cli — dev harness](reference/cli.md) ·
-  [config](reference/config.md) ·
-  [crate api](reference/crate-api.md)
-* **Explanation** (why): [architecture](explanation/architecture.md) ·
-  [release model](explanation/release-model.md) ·
-  [comparison](comparison.md) — vs GHA/hosted CI ·
-  [crate scope audit](explanation/crate-scope-audit.md)
+* **Tutorials** (learn): [first-run](/tutorials/first-run.md)
+* **How-to** (tasks): [tamias bundles](/how-to/tamias-bundles.md) ·
+  [multi-repo](/how-to/multi-repo.md) ·
+  [shell runner](/how-to/shell-runner.md) ·
+  [gha runner — your own GHA workflows](/how-to/gha-runner.md) ·
+  [self-hosted GHA runner](/how-to/self-hosted-runner.md) ·
+  [distributed runners](/how-to/distributed-runners.md) ·
+  [sccache backend](/how-to/sccache-backend.md)
+* **Reference** (lookup): [cli — dev harness](/reference/cli.md) ·
+  [config](/reference/config.md) ·
+  [crate api](/reference/crate-api.md)
+* **Explanation** (why): [architecture](/explanation/architecture.md) ·
+  [release model](/explanation/release-model.md) ·
+  [comparison](/comparison.md) — vs GHA/hosted CI ·
+  [crate scope audit](/explanation/crate-scope-audit.md)
 
 Project: [CONTRIBUTING](https://github.com/9aia/bupha/blob/main/CONTRIBUTING.md) ·
 [SECURITY](https://github.com/9aia/bupha/blob/main/SECURITY.md) ·

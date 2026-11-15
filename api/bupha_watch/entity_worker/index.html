@@ -12,9 +12,9 @@ runner → status sink), renews the lease on <code>run_job</code>’s ticker,
 and settles with <code>ci.complete</code>. Claim loss (409 fence mismatch)
 abandons the run — a peer owns it; a <code>cancelRequested</code> flag on
 the entity kills the child and settles <code>cancelled</code>.</p>
-<p>The loop is split into a narrow synchronous [<code>JobApi</code>] port (so
+<p>The loop is split into a narrow synchronous <a href="trait.JobApi.html" title="trait bupha_watch::entity_worker::JobApi"><code>JobApi</code></a> port (so
 the state machine unit-tests against an in-memory fake) and
-[<code>EntityJobApi</code>], the <code>hypha_node_api::EntityApi</code> adapter that
+<a href="struct.EntityJobApi.html" title="struct bupha_watch::entity_worker::EntityJobApi"><code>EntityJobApi</code></a>, the <code>hypha_node_api::EntityApi</code> adapter that
 bridges the async trait onto a current-thread tokio runtime —
 <code>HttpEntityApi</code> is blocking-ureq inside <code>spawn_blocking</code>, which
 needs a runtime context bupha otherwise doesn’t carry.</p>
