@@ -231,6 +231,82 @@ token_env = "BUPHA_TOKEN"
 cancel_running = true
 cmd = "bash scripts/ci.sh"
 
+# Private-repo fleet — the six org-private repos onboarded to the
+# ci-gate. atta's default branch is `master`, the rest `main`.
+# mycena/project are ledger/spec-only: their gate is `myco check`.
+# None carry cypera.toml, so no docs-check leg.
+[[repo]]
+name = "9aia/atta"
+dir = "~/GitHub/9aia/workspace/repos/atta"
+branch = "refs/heads/master"
+secret_env = "BUPHA_WH_9AIA_ATTA"
+retry = 3
+[repo.runner]
+kind = "shell"
+token_env = "BUPHA_TOKEN"
+cancel_running = true
+cmd = "bash scripts/ci.sh"
+
+[[repo]]
+name = "9aia/camelus"
+dir = "~/GitHub/9aia/workspace/repos/camelus"
+branch = "refs/heads/main"
+secret_env = "BUPHA_WH_9AIA_CAMELUS"
+retry = 3
+[repo.runner]
+kind = "shell"
+token_env = "BUPHA_TOKEN"
+cancel_running = true
+cmd = "bash scripts/ci.sh"
+
+[[repo]]
+name = "9aia/castor"
+dir = "~/GitHub/9aia/workspace/repos/castor"
+branch = "refs/heads/main"
+secret_env = "BUPHA_WH_9AIA_CASTOR"
+retry = 3
+[repo.runner]
+kind = "shell"
+token_env = "BUPHA_TOKEN"
+cancel_running = true
+cmd = "bash scripts/ci.sh"
+
+[[repo]]
+name = "9aia/mycena"
+dir = "~/GitHub/9aia/workspace/repos/mycena"
+branch = "refs/heads/main"
+secret_env = "BUPHA_WH_9AIA_MYCENA"
+retry = 3
+[repo.runner]
+kind = "shell"
+token_env = "BUPHA_TOKEN"
+cancel_running = true
+cmd = "bash scripts/ci.sh"
+
+[[repo]]
+name = "9aia/pachira"
+dir = "~/GitHub/9aia/workspace/repos/pachira"
+branch = "refs/heads/main"
+secret_env = "BUPHA_WH_9AIA_PACHIRA"
+retry = 3
+[repo.runner]
+kind = "shell"
+token_env = "BUPHA_TOKEN"
+cancel_running = true
+cmd = "bash scripts/ci.sh"
+
+[[repo]]
+name = "9aia/project"
+dir = "~/GitHub/9aia/workspace/repos/project"
+branch = "refs/heads/main"
+secret_env = "BUPHA_WH_9AIA_PROJECT"
+retry = 3
+[repo.runner]
+kind = "shell"
+token_env = "BUPHA_TOKEN"
+cancel_running = true
+cmd = "bash scripts/ci.sh"
+
 [[repo]]
 name = "handl-lang/automation"
 dir = "~/GitHub/handl-lang/automation"
