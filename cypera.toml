@@ -179,3 +179,6 @@ text = """
   crates; unknown kinds fail at `bupha doctor`/startup.
 - `deny_unknown_fields`: typos in field names fail the load.
 """
+
+[check]
+profile = "engine"
