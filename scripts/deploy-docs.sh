@@ -4,7 +4,9 @@
 # bupha — the watcher runs `bash scripts/deploy-docs.sh` in a detached
 # worktree of the pushed docs sha, so cwd is the docs checkout root and
 # `..` is NOT the main repo. Cargo work happens in BUPHA_REPO (the real
-# checkout); the gen-*.py scripts honor BUPHA_ROOT for the same reason.
+# checkout); the gen-api rustdoc pipeline honors BUPHA_ROOT for the same reason.
+# cli/config/crate-map pages come from `cypera gen` driven by
+# $REPO/cypera.toml.
 set -euo pipefail
 
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
@@ -25,17 +27,11 @@ export CARGO_TARGET_DIR="${CARGO_TARGET_DIR:-$REPO/target/gate}"
 echo "==> bun install"
 bun install
 
-# gen-cli-docs rides the engine through the driver — the `bupha`
-# binary is retired (T-012); `tamias-driver-bupha run` is the same
-# `bupha::run_from` entrypoint the bins[] shim uses.
-BUPHA_BIN="$(command -v tamias-driver-bupha || true)"
-BUPHA_BIN="${BUPHA_BIN:-$HOME/.local/share/tamias/drivers/tamias-driver-bupha}"
-echo "==> reference/cli.md ($BUPHA_BIN run gen-cli-docs)"
-"$BUPHA_BIN" run gen-cli-docs > reference/cli.md
-
-echo "==> gen config + crate map (BUPHA_ROOT=$REPO)"
-python3 gen-config-docs.py
-python3 gen-crate-map.py
+CYPERA="cargo run -q --manifest-path $REPO/../cypera/Cargo.toml -p cypera --"
+echo "==> reference pages (cypera gen, repo=$REPO)"
+$CYPERA gen cli --repo "$REPO"
+$CYPERA gen config --repo "$REPO"
+$CYPERA gen crate-map --repo "$REPO"
 
 echo "==> rustdoc → public/api (cargo doc in $REPO)"
 mkdir -p public/api && rm -rf public/api/*
