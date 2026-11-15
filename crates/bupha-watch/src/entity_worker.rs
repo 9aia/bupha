@@ -10,9 +10,9 @@
 //! abandons the run — a peer owns it; a `cancelRequested` flag on
 //! the entity kills the child and settles `cancelled`.
 //!
-//! The loop is split into a narrow synchronous [`JobApi`] port (so
+//! The loop is split into a narrow synchronous [`JobApi`](crate::entity_worker::JobApi) port (so
 //! the state machine unit-tests against an in-memory fake) and
-//! [`EntityJobApi`], the `hypha_node_api::EntityApi` adapter that
+//! [`EntityJobApi`](crate::entity_worker::EntityJobApi), the `hypha_node_api::EntityApi` adapter that
 //! bridges the async trait onto a current-thread tokio runtime —
 //! `HttpEntityApi` is blocking-ureq inside `spawn_blocking`, which
 //! needs a runtime context bupha otherwise doesn't carry.

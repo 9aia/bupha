@@ -848,7 +848,7 @@ pub fn build_attest(cfg: &Config) -> Option<Arc<dyn Attest>> {
     }
 }
 
-/// [audit] — JSONL decision/outcome log (ADR-0002 §2). Absent = none.
+/// `[audit]` — JSONL decision/outcome log (ADR-0002 §2). Absent = none.
 pub fn build_audit(cfg: &Config) -> Option<Arc<AuditLog>> {
     match cfg.audit.kind.as_str() {
         "" | "none" => None,

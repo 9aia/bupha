@@ -1,6 +1,6 @@
 //! `CiJobPlane` — the `kind="ci-job"` entity plane implementing
 //! hypha's [`EntityPlane`] port (P-002, the bupha↔hypha/peregrin
-//! seam). Registered on a node's [`KindRegistry`] exactly like
+//! seam). Registered on a node's [`KindRegistry`](hypha_http::KindRegistry) exactly like
 //! peregrin's `CampaignEntityPlane`:
 //!
 //! ```ignore
@@ -817,7 +817,7 @@ impl CiJobPlane {
     /// are left untouched — rehydration is idempotent and safe to
     /// re-run.
     ///
-    /// Runs outside [`Self::transact`]: it is a boot-time bulk load,
+    /// Runs outside `Self::transact`: it is a boot-time bulk load,
     /// not an op, and takes the write lock directly.
     #[must_use]
     pub fn rehydrate(&self, docs: impl IntoIterator<Item = Value>) -> RehydrateReport {

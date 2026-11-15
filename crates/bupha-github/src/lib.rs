@@ -159,7 +159,7 @@ pub struct GitHubStatus {
     /// owner/repo
     pub repo: String,
     pub context: String,
-    /// Forge API base ("https://api.github.com" or GHES).
+    /// Forge API base (`https://api.github.com` or GHES).
     pub api_base: String,
 }
 
@@ -378,7 +378,7 @@ pub fn register_webhook_events(
 pub struct GitHubAdmin {
     /// "owner/repo" this admin manages.
     pub repo: String,
-    /// Forge API base ("https://api.github.com" or GHES).
+    /// Forge API base (`https://api.github.com` or GHES).
     pub api_base: String,
     /// Events the hook subscribes to — the repo's resolved
     /// `[[repo]] events` ("push", "pull_request"). Empty = ["push"].

@@ -3598,7 +3598,7 @@ fn resolve(inner: &str, eval: &Eval, what: &str) -> Result<String, String> {
 /// `./local/path` or `owner/repo[/sub/path]@ref` — to the action's
 /// `action.yml` *text*. plan stays I/O-free: the runner implements
 /// this (filesystem reads for `./`, git fetch for remote refs);
-/// [`parse_workflow`] uses [`NoActions`], which errors on any
+/// [`parse_workflow`] uses `NoActions`, which errors on any
 /// action `uses:`.
 pub trait ActionResolver {
     fn action_yaml(&self, uses: &str) -> Result<String, String>;

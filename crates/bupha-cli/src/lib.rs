@@ -785,7 +785,7 @@ fn cmd_run(cfg: &Config, function: Option<String>) {
     }
 }
 
-/// Process argv → a parsed [`Cli`]. Split from [`dispatch`] so
+/// Process argv → a parsed [`Cli`]. Split from `dispatch` so
 /// drivers can parse *their* argv (a `run` verb, a re-exec)
 /// without owning process args. Clap errors/help still exit the
 /// process, same as argv parsing.

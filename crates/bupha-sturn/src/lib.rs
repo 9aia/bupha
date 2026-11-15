@@ -197,7 +197,7 @@ pub struct Event {
     /// the WAL commit sha for events written before id assignment.
     pub id: String,
     /// Self-asserted actor name — attested only when `sig` verifies
-    /// against the repo's allowed_signers (see [`verified_actor`]).
+    /// against the repo's allowed_signers (see [`Event::verified_actor`]).
     pub actor: String,
     pub snapshot: bool,
     /// SSH signature (PEM) over the canonical event — present only

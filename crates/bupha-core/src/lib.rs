@@ -874,7 +874,7 @@ fn default_sturn_poll_ms() -> u64 {
 #[derive(Debug, Deserialize, Clone)]
 #[serde(deny_unknown_fields)]
 pub struct TriggerCfg {
-    /// Forge API base — GHES ("https://ghe.acme/api/v3") or default
+    /// Forge API base — GHES (`https://ghe.acme/api/v3`) or default
     /// github.com. Used by the trigger, status, and forge-admin impls.
     #[serde(default = "default_api_base")]
     pub api_base: String,
