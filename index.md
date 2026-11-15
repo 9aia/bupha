@@ -8,7 +8,7 @@ hero:
   actions:
     - theme: brand
       text: Getting Started
-      link: /getting-started
+      link: /tutorials/getting-started
     - theme: alt
       text: Tutorial
       link: /tutorials/first-run
@@ -40,6 +40,15 @@ features:
   - icon: 🔐
     title: Secrets stay secret
     details: env var → cuora (`cuora://bupha/<NAME>`, canonical) → `~/.config/bupha/env` (dev-mode / no-cuora fallback; the OS-keyring leg was dropped post-T-077); config holds names, never values; tokens never reach argv
-    link: /getting-started
+    link: /tutorials/getting-started
     linkText: setup
 ---
+
+## Where to go next
+
+| You want to… | Go to |
+| --- | --- |
+| Install bupha and run your first gate | [Tutorial](/tutorials/getting-started) |
+| Do a task (runners, bundles, multi-repo) | [How-to](/how-to/multi-repo) |
+| Understand the design (queue semantics, worktrees) | [Explanation](/explanation/architecture) |
+| Look up a verb, config field, or crate | [Reference](/reference/cli) |
