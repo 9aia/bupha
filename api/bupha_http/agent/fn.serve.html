@@ -2,7 +2,7 @@
     listen: &amp;<a class="primitive" href="https://doc.rust-lang.org/1.99.1/std/primitive.str.html">str</a>,
     secret: &amp;<a class="primitive" href="https://doc.rust-lang.org/1.99.1/std/primitive.str.html">str</a>,
     base: &amp;<a class="struct" href="https://doc.rust-lang.org/1.99.1/std/path/struct.Path.html" title="struct std::path::Path">Path</a>,
-    runner: <a class="struct" href="https://doc.rust-lang.org/1.99.1/alloc/sync/struct.Arc.html" title="struct alloc::sync::Arc">Arc</a>&lt;dyn Runner&gt;,
+    runner: <a class="struct" href="https://doc.rust-lang.org/1.99.1/alloc/sync/struct.Arc.html" title="struct alloc::sync::Arc">Arc</a>&lt;dyn <a class="trait" href="../../bupha_runner/trait.Runner.html" title="trait bupha_runner::Runner">Runner</a>&gt;,
     stop: impl <a class="trait" href="https://doc.rust-lang.org/1.99.1/core/ops/function/trait.Fn.html" title="trait core::ops::function::Fn">Fn</a>() -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.99.1/std/primitive.bool.html">bool</a>,
 ) -&gt; <a class="type" href="https://doc.rust-lang.org/1.99.1/core/io/error/type.Result.html" title="type core::io::error::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.99.1/std/primitive.unit.html">()</a>&gt;</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Serve the agent listener. <code>runner</code> runs each accepted job;
 <code>stop</code> is polled between requests and while idle.</p>

@@ -5,6 +5,8 @@ url: /bupha/reference/cli.md
 
 This document contains the help content for the `bupha` command-line program.
 
+the oxpecker on your repo's back — headless CI
+
 **Command Overview:**
 
 * [`bupha`↴](#bupha)
@@ -41,7 +43,7 @@ the oxpecker on your repo's back — headless CI
 
 **Usage:** `bupha [OPTIONS] <COMMAND>`
 
-###### **Subcommands:**
+###### **Commands:**
 
 * `watch` — Serve the source → queue → runner loop (forge webhook, sturn WAL poller — every configured source)
 * `agent` — Serve the remote-run agent — accepts jobs from `kind="http"` runners and executes them with this box's \[runner]
@@ -60,40 +62,59 @@ the oxpecker on your repo's back — headless CI
 ###### **Options:**
 
 * `--config <CONFIG>` — Path to the config file — bupha.yaml/.yml or bupha.toml (default: ./bupha.\* or ~/.config/bupha/, YAML preferred)
+* `-h, --help` — Print help
 
 ## `bupha watch`
 
 Serve the source → queue → runner loop (forge webhook, sturn WAL poller — every configured source)
 
-**Usage:** `bupha watch`
+**Usage:** `bupha watch [OPTIONS]`
+
+###### **Options:**
+
+* `--config <CONFIG>` — Path to the config file — bupha.yaml/.yml or bupha.toml (default: ./bupha.\* or ~/.config/bupha/, YAML preferred)
+* `-h, --help` — Print help
 
 ## `bupha agent`
 
 Serve the remote-run agent — accepts jobs from `kind="http"` runners and executes them with this box's \[runner]
 
-**Usage:** `bupha agent`
+**Usage:** `bupha agent [OPTIONS]`
+
+###### **Options:**
+
+* `--config <CONFIG>` — Path to the config file — bupha.yaml/.yml or bupha.toml (default: ./bupha.\* or ~/.config/bupha/, YAML preferred)
+* `-h, --help` — Print help
 
 ## `bupha gha-runner`
 
 Serve as a GitHub Actions self-hosted runner — registers with a repo (once), then polls GitHub's broker protocol and runs the jobs it is offered (`runs-on: [self-hosted, bupha]`). Uses bupha-gha-runner's own config file, not bupha.yaml
 
-**Usage:** `bupha gha-runner <FILE>`
+**Usage:** `bupha gha-runner [OPTIONS] <FILE>`
 
 ###### **Arguments:**
 
 * `<FILE>` — Runner config file (TOML — bupha-gha-runner::Config). Positional: `--config` is already the global bupha.yaml flag, and clap arg ids must stay unique per command
 
+###### **Options:**
+
+* `--config <CONFIG>` — Path to the config file — bupha.yaml/.yml or bupha.toml (default: ./bupha.\* or ~/.config/bupha/, YAML preferred)
+* `-h, --help` — Print help
+
 ## `bupha init`
 
 Scaffold dagger CI in a repo (dagger init, pinned module, delegate template) and converge its AGENTS.md to the managed agent-awareness block. For the script runner, a ci.sh is enough
 
-**Usage:** `bupha init [DIR]`
+**Usage:** `bupha init [OPTIONS] [DIR]`
 
 ###### **Arguments:**
 
-* `<DIR>` — Repo dir to initialize (default: cwd)
+* `[DIR]` — Repo dir to initialize (default: cwd) \[default: .]
 
-  Default value: `.`
+###### **Options:**
+
+* `--config <CONFIG>` — Path to the config file — bupha.yaml/.yml or bupha.toml (default: ./bupha.\* or ~/.config/bupha/, YAML preferred)
+* `-h, --help` — Print help
 
 ## `bupha doctor`
 
@@ -103,31 +124,43 @@ Check what the loaded config actually needs on this box
 
 ###### **Options:**
 
+* `--config <CONFIG>` — Path to the config file — bupha.yaml/.yml or bupha.toml (default: ./bupha.\* or ~/.config/bupha/, YAML preferred)
 * `--json` — Machine-readable JSON output — `{"ok", "failures", "checks"}`
+* `-h, --help` — Print help
 
 ## `bupha run`
 
 Run the pipeline locally — in the watched repo's `dir`, not cwd
 
-**Usage:** `bupha run [FUNCTION]`
+**Usage:** `bupha run [OPTIONS] [FUNCTION]`
 
 ###### **Arguments:**
 
-* `<FUNCTION>` — Function for the dagger runner (default: from config)
+* `[FUNCTION]` — Function for the dagger runner (default: from config)
+
+###### **Options:**
+
+* `--config <CONFIG>` — Path to the config file — bupha.yaml/.yml or bupha.toml (default: ./bupha.\* or ~/.config/bupha/, YAML preferred)
+* `-h, --help` — Print help
 
 ## `bupha deploy`
 
 Install-time helpers — no manual file copies
 
-**Usage:** `bupha deploy <COMMAND>`
+**Usage:** `bupha deploy [OPTIONS] <COMMAND>`
 
-###### **Subcommands:**
+###### **Commands:**
 
 * `service` — Write + enable the systemd user unit (needs enable-linger for boot persistence)
 * `webhook` — Register/update the repo's push webhook via the REST API (token resolved env → cuora → env file — no `gh` dependency)
 * `env` — Seed ~/.config/bupha/env with the secret names
 * `check` — Verify the whole install: unit, secrets, hook, endpoint, token
 * `release` — Tag the workspace version `{repo}-v{ver}` and push it. crates.io publish is retired — releases ride the tamias pack
+
+###### **Options:**
+
+* `--config <CONFIG>` — Path to the config file — bupha.yaml/.yml or bupha.toml (default: ./bupha.\* or ~/.config/bupha/, YAML preferred)
+* `-h, --help` — Print help
 
 ## `bupha deploy service`
 
@@ -137,25 +170,42 @@ Write + enable the systemd user unit (needs enable-linger for boot persistence)
 
 ###### **Options:**
 
+* `--config <CONFIG>` — Path to the config file — bupha.yaml/.yml or bupha.toml (default: ./bupha.\* or ~/.config/bupha/, YAML preferred)
 * `--no-start` — Skip enable --now (write the file only)
+* `-h, --help` — Print help
 
 ## `bupha deploy webhook`
 
 Register/update the repo's push webhook via the REST API (token resolved env → cuora → env file — no `gh` dependency)
 
-**Usage:** `bupha deploy webhook`
+**Usage:** `bupha deploy webhook [OPTIONS]`
+
+###### **Options:**
+
+* `--config <CONFIG>` — Path to the config file — bupha.yaml/.yml or bupha.toml (default: ./bupha.\* or ~/.config/bupha/, YAML preferred)
+* `-h, --help` — Print help
 
 ## `bupha deploy env`
 
 Seed ~/.config/bupha/env with the secret names
 
-**Usage:** `bupha deploy env`
+**Usage:** `bupha deploy env [OPTIONS]`
+
+###### **Options:**
+
+* `--config <CONFIG>` — Path to the config file — bupha.yaml/.yml or bupha.toml (default: ./bupha.\* or ~/.config/bupha/, YAML preferred)
+* `-h, --help` — Print help
 
 ## `bupha deploy check`
 
 Verify the whole install: unit, secrets, hook, endpoint, token
 
-**Usage:** `bupha deploy check`
+**Usage:** `bupha deploy check [OPTIONS]`
+
+###### **Options:**
+
+* `--config <CONFIG>` — Path to the config file — bupha.yaml/.yml or bupha.toml (default: ./bupha.\* or ~/.config/bupha/, YAML preferred)
+* `-h, --help` — Print help
 
 ## `bupha deploy release`
 
@@ -165,45 +215,67 @@ Tag the workspace version `{repo}-v{ver}` and push it. crates.io publish is reti
 
 ###### **Options:**
 
+* `--config <CONFIG>` — Path to the config file — bupha.yaml/.yml or bupha.toml (default: ./bupha.\* or ~/.config/bupha/, YAML preferred)
 * `--dry-run` — Print the tag without creating it
+* `-h, --help` — Print help
 
 ## `bupha destroy`
 
 Teardown counterparts of `deploy`
 
-**Usage:** `bupha destroy <COMMAND>`
+**Usage:** `bupha destroy [OPTIONS] <COMMAND>`
 
-###### **Subcommands:**
+###### **Commands:**
 
 * `service` — Disable + remove the systemd user unit
 * `webhook` — Delete the repo's webhook whose URL matches tunnel.public_url
 * `worktrees` — Remove detached worktrees and the persisted queue file
 
+###### **Options:**
+
+* `--config <CONFIG>` — Path to the config file — bupha.yaml/.yml or bupha.toml (default: ./bupha.\* or ~/.config/bupha/, YAML preferred)
+* `-h, --help` — Print help
+
 ## `bupha destroy service`
 
 Disable + remove the systemd user unit
 
-**Usage:** `bupha destroy service`
+**Usage:** `bupha destroy service [OPTIONS]`
+
+###### **Options:**
+
+* `--config <CONFIG>` — Path to the config file — bupha.yaml/.yml or bupha.toml (default: ./bupha.\* or ~/.config/bupha/, YAML preferred)
+* `-h, --help` — Print help
 
 ## `bupha destroy webhook`
 
 Delete the repo's webhook whose URL matches tunnel.public_url
 
-**Usage:** `bupha destroy webhook`
+**Usage:** `bupha destroy webhook [OPTIONS]`
+
+###### **Options:**
+
+* `--config <CONFIG>` — Path to the config file — bupha.yaml/.yml or bupha.toml (default: ./bupha.\* or ~/.config/bupha/, YAML preferred)
+* `-h, --help` — Print help
 
 ## `bupha destroy worktrees`
 
 Remove detached worktrees and the persisted queue file
 
-**Usage:** `bupha destroy worktrees`
+**Usage:** `bupha destroy worktrees [OPTIONS]`
+
+###### **Options:**
+
+* `--config <CONFIG>` — Path to the config file — bupha.yaml/.yml or bupha.toml (default: ./bupha.\* or ~/.config/bupha/, YAML preferred)
+* `-h, --help` — Print help
 
 ## `bupha service`
 
 Toggle the watcher unit without removing it — free the box when CI isn't needed, `enable` brings it back
 
-**Usage:** `bupha service <COMMAND>`
+**Usage:** `bupha service [OPTIONS] <COMMAND>`
 
-###### **Subcommands:**
+###### **Commands:**
 
 * `enable` — Enable + start the watcher unit now and at login
 * `disable` — Stop the watcher now; stays stopped across logins until `service enable` (the unit file is kept)
@@ -211,29 +283,54 @@ Toggle the watcher unit without removing it — free the box when CI isn't neede
 * `restart` — Restart the watcher unit
 * `logs` — Print (or follow, -f) the watcher unit log
 
+###### **Options:**
+
+* `--config <CONFIG>` — Path to the config file — bupha.yaml/.yml or bupha.toml (default: ./bupha.\* or ~/.config/bupha/, YAML preferred)
+* `-h, --help` — Print help
+
 ## `bupha service enable`
 
 Enable + start the watcher unit now and at login
 
-**Usage:** `bupha service enable`
+**Usage:** `bupha service enable [OPTIONS]`
+
+###### **Options:**
+
+* `--config <CONFIG>` — Path to the config file — bupha.yaml/.yml or bupha.toml (default: ./bupha.\* or ~/.config/bupha/, YAML preferred)
+* `-h, --help` — Print help
 
 ## `bupha service disable`
 
 Stop the watcher now; stays stopped across logins until `service enable` (the unit file is kept)
 
-**Usage:** `bupha service disable`
+**Usage:** `bupha service disable [OPTIONS]`
+
+###### **Options:**
+
+* `--config <CONFIG>` — Path to the config file — bupha.yaml/.yml or bupha.toml (default: ./bupha.\* or ~/.config/bupha/, YAML preferred)
+* `-h, --help` — Print help
 
 ## `bupha service status`
 
 Whether the watcher unit is enabled and running
 
-**Usage:** `bupha service status`
+**Usage:** `bupha service status [OPTIONS]`
+
+###### **Options:**
+
+* `--config <CONFIG>` — Path to the config file — bupha.yaml/.yml or bupha.toml (default: ./bupha.\* or ~/.config/bupha/, YAML preferred)
+* `-h, --help` — Print help
 
 ## `bupha service restart`
 
 Restart the watcher unit
 
-**Usage:** `bupha service restart`
+**Usage:** `bupha service restart [OPTIONS]`
+
+###### **Options:**
+
+* `--config <CONFIG>` — Path to the config file — bupha.yaml/.yml or bupha.toml (default: ./bupha.\* or ~/.config/bupha/, YAML preferred)
+* `-h, --help` — Print help
 
 ## `bupha service logs`
 
@@ -243,17 +340,24 @@ Print (or follow, -f) the watcher unit log
 
 ###### **Options:**
 
-* `-f`, `--f` — Follow the log stream (journalctl -f)
+* `--config <CONFIG>` — Path to the config file — bupha.yaml/.yml or bupha.toml (default: ./bupha.\* or ~/.config/bupha/, YAML preferred)
+* `-f, --f` — Follow the log stream (journalctl -f)
+* `-h, --help` — Print help
 
 ## `bupha runs`
 
 Recent finished runs (reads `<worktree.base>/history.jsonl`)
 
-**Usage:** `bupha runs [REPO]`
+**Usage:** `bupha runs [OPTIONS] [REPO]`
 
 ###### **Arguments:**
 
-* `<REPO>` — Filter to one repo ("owner/name")
+* `[REPO]` — Filter to one repo ("owner/name")
+
+###### **Options:**
+
+* `--config <CONFIG>` — Path to the config file — bupha.yaml/.yml or bupha.toml (default: ./bupha.\* or ~/.config/bupha/, YAML preferred)
+* `-h, --help` — Print help
 
 ## `bupha log`
 
@@ -263,19 +367,24 @@ Raw run log — last N lines of history.jsonl
 
 ###### **Options:**
 
-* `-n`, `--n <N>` — Lines to show
-
-  Default value: `50`
+* `--config <CONFIG>` — Path to the config file — bupha.yaml/.yml or bupha.toml (default: ./bupha.\* or ~/.config/bupha/, YAML preferred)
+* `-n, --n <N>` — Lines to show \[default: 50]
+* `-h, --help` — Print help
 
 ## `bupha explain`
 
 Why a sha did/didn't run — history + queue + worktree state
 
-**Usage:** `bupha explain <SHA>`
+**Usage:** `bupha explain [OPTIONS] <SHA>`
 
 ###### **Arguments:**
 
 * `<SHA>` — The pushed sha (any prefix ≥ 4 chars)
+
+###### **Options:**
+
+* `--config <CONFIG>` — Path to the config file — bupha.yaml/.yml or bupha.toml (default: ./bupha.\* or ~/.config/bupha/, YAML preferred)
+* `-h, --help` — Print help
 
 ## `bupha import`
 
@@ -289,9 +398,8 @@ Translate a peregrin campaign YAML (ci-gate fleet shape) into a bupha.yaml — n
 
 ###### **Options:**
 
+* `--config <CONFIG>` — Path to the config file — bupha.yaml/.yml or bupha.toml (default: ./bupha.\* or ~/.config/bupha/, YAML preferred)
 * `--out <OUT>` — Write the generated config here instead of stdout
 * `--dir <OWNER/REPO=PATH>` — Clone-path override `owner/name=/path` (repeatable) — wins over cmd-derived and default dirs
 * `--pull-request` — Also run every repo on pull_request deliveries (`events: [push, pull_request]`)
-
-&#xA;This document was generated automatically by
-clap-markdown.&#xA;
+* `-h, --help` — Print help
