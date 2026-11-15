@@ -59,12 +59,17 @@ and status sinks never see the difference.
 - `bupha import <campaign>` (dev CLI) — translate a peregrin
   campaign YAML (the ci-gate fleet shape) into a `bupha.yaml`
 - every concern behind a port: source (`github-webhook`,
-  `sturn-wal`), runner (`dagger` | `shell` | `ssh` | `gha`),
+  `sturn-wal`), runner (`dagger` | `shell`/`script` | `ssh` |
+  `container` | `gha` | `http`),
   tunnel (`cloudflared` | `direct` | `none`), forge
-  (`github` today), VCS (`git`), queue store (`json` dev file),
+  (`github` today), VCS (`git`), queue store (`json` dev file —
+  redb/redis retired; durable state is the ci-job entity plane),
   service
   (`systemd`), secrets (`cuora` | env file), config
-  (`toml`), cache (`sccache`) — ports/impls are separate crates
+  (`toml`), cache (`sccache`) — ports/impls are separate crates.
+  `runner.kind = "http"` ships jobs to a remote `bupha agent` box;
+  `bupha-gha-runner` registers this box as a GitHub Actions
+  self-hosted runner (its own config, not `runner.kind`)
 - persistent queue across restarts (dev JSON store; durable queue
   state is the ci-job entity plane); detached-git-worktree isolation
 - self-contained deploy: systemd unit, webhook registration, env seed,
