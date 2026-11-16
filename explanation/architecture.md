@@ -179,22 +179,26 @@ the queue moving.
 
 ## Where it sits
 
-Bupha is the **CI gate** — the orchestration layer's event-driven
+Bupha is the **CI gate** — the delivery layer's event-driven
 job runner, shipped *as* tamias content:
 
 ```
-tamias (distribution)  →  engines  →  orchestration  →  surfaces
-                          cuora,        bupha ◄───        pavo views,
-                          myco…         peregrin          bupha dev
-                                        campaigns,        CLI shim
-                                        hypha plane
+delivery  →  memory  →  process  →  interface
+tamias,      myco,       sturn,      pavo views,
+scarab,      kuda,       cuora,      bupha dev
+tarsi,                 mimus,       CLI shim
+bupha ◄──              cicada,
+hypha                  lasius,
+                        sepia,
+                        peregrin
 ```
 
 A `type: bupha` bundle installs through tamias like any other
 pack; the provider unit runs `tamias-driver-bupha host`/`worker`
-which embed this engine. Durable fleet state lives on the hypha
-entity plane (`ci-job` entities) that peregrin campaigns feed —
-bupha owns the *semantics* (queue policies, worktree isolation,
-runner dialects, forge statuses), the plane owns the *state*.
+which embed this organism. Durable fleet state lives on the hypha
+entity plane (`ci-job` entities) — the substrate peregrin campaigns
+orchestrate on — bupha owns the *semantics* (queue policies, worktree
+isolation, runner dialects, forge statuses), the plane owns the
+*state*.
 
 See [Boundaries](boundaries.md) for owns / does-not-own.
