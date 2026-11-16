@@ -22,6 +22,6 @@
     "vite-plus": "^1.3.0",
     "vitepress": "^1.6.3",
     "vitepress-plugin-llms": "^1.14.0",
-    "vitepress-theme-9aia": "github:9aia/vitepress-theme-9aia#c463a7f9c5468b43fa2f46bca1958529167e8167"
+    "vitepress-theme-9aia": "github:9aia/vitepress-theme-9aia#385f936a03462968d5b266521b246fb246e680ea"
   }
 }
