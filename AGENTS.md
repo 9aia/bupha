@@ -99,7 +99,7 @@ trait with impl crates:
 | `bupha-http` | `bupha agent` wire — remote job submit/worktree/status over HTTP |
 | `libraries/` | tamias packs — `bupha` (command), `ci-gate`, `ci-ingress`, `docs-deploy`, `gha-runner` (`type: bupha` bundles) |
 | `modules/dagger/` | shared pipeline module (Python SDK) |
-| `scripts/` | `pack.sh` (stage driver payload), `release.sh`, `coverage.sh`, `gha-status.sh` |
+| `scripts/` | `pack.sh` (stage driver payload), `coverage.sh`, `gha-status.sh` |
 
 ## Commands
 
@@ -112,7 +112,9 @@ scripts/coverage.sh            # llvm-cov HTML → target/llvm-cov/html;
                                # extra args pass through (--fail-under-lines 100)
 scripts/pack.sh                # release tamias-driver-bupha →
                                # libraries/bupha/drivers/bin/<triple>/
-scripts/release.sh             # operator-run: version bump + tag
+tarsi-serve release --dir . --yes
+                               # operator-run: version bump + tag
+                               # (dry-run without --yes)
 ```
 
 The `bupha` command itself is the pack shim — stage with

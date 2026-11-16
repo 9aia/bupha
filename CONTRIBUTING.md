@@ -39,10 +39,12 @@ is the shared pipeline module (Python SDK).
 
 ## Releasing
 
-`scripts/release.sh` runs on each `main` push via bupha's own
-dogfood loop (the dev CLI's `bupha deploy release` remains the
-manual seed). A release is one workspace version bump
-(`cargo set-version --workspace`), a sync of the version refs in
+Releases run `tarsi-serve release --dir . --yes` directly (the org
+release plane, project ADR-0005; repo config: `tarsi.toml`) — the
+per-repo `scripts/release.sh` shims were removed org-wide. On each
+`main` push bupha's own dogfood loop drives the same op (the dev
+CLI's `bupha deploy release` remains the manual seed). A release is
+one workspace version bump, a sync of the version refs in
 `libraries/bupha/tamias.yaml`/`README.md`, and a `bupha-v<ver>`
 tag. There is **no crates.io publish**: the bupha crates are
 internal lib-only engines (org policy keeps every repo but tamias
