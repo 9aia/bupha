@@ -20,8 +20,8 @@ The worktree is a detached checkout of the pushed sha at
 `<worktree.base>-<repo>-<sha12>`, removed after the run. A killed
 run reports "cancelled (superseded)", not failure.
 
-Use it for: `make ci`, `./ci.sh`, a linter gate, or bupha's own
-`scripts/release.sh` (debounced release job). For anything heavier
+Use it for: `make ci`, `./ci.sh`, a linter gate, or the release
+campaign's `tarsi-serve release` job (debounced). For anything heavier
 — cache volumes, toolchains, parallel shards — use the `dagger`
 runner and the shared `modules/dagger` module.
 

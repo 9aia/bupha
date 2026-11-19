@@ -27,7 +27,7 @@ dir = "/srv/checkouts/web" # default latest-wins (and the global
 
 # [repo.runner]                # per-repo override; replaces global
 #   kind = "shell"
-#   cmd = "./release.sh"
+#   cmd = "tarsi-serve release --dir . --yes"
 ```
 
 ## Multiple pipelines on one repo — `[[repo.jobs]]`

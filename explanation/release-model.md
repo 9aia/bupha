@@ -5,12 +5,11 @@ url: /bupha/explanation/release-model.md
 
 bupha releases itself — there is no hosted CI and no release tool
 in the loop. (The release verbs live on the dev CLI — `bupha
-deploy release`, `scripts/release.sh` — maintainer tooling, not
-user surface; ADR-0006.) The org release plane is **tarsi**
-(`tarsi-serve` ops — project ADR-0005): `scripts/release.sh` is
-being converted to a thin shim over it (PL-014 E1), and until then
-this script implements the same tag-only + `tamias publish` model
-directly. Two deliberate phases:
+deploy release` — maintainer tooling, not user surface;
+ADR-0006.) The org release plane is **tarsi** (`tarsi-serve` ops —
+project ADR-0005): releases run `tarsi-serve release --dir .`
+directly — the per-repo `scripts/release.sh` shims were removed
+org-wide. Two deliberate phases:
 
 ## Phase 1 — the explicit seed
 
@@ -27,21 +26,19 @@ the bupha crates are internal lib-only engines anyway.
 ## Phase 2 — push-driven forever after
 
 From then on a release is *just another bupha job*: a push to `main`
-hits the webhook, queues latest-wins, and runs `scripts/release.sh`
-in a detached worktree under the shell runner.
+hits the webhook, queues latest-wins, and runs
+`tarsi-serve release --dir . --yes` in a detached worktree under
+the shell runner.
 
-The script:
+The tarsi pipeline:
 
-1. diffs release-worthy paths (crates, `libraries/`, `modules/`,
-   workspace manifests, the script itself) since the last
-   `bupha-v*` tag
-2. `cargo set-version --workspace --bump patch` — every member
-   inherits `version.workspace`, so one bump moves them all, along
-   with the `workspace.dependencies` reqs and `Cargo.lock`
-3. syncs the version refs in `libraries/bupha/tamias.yaml` and the
-   README's install example
-4. commits `release: bump bupha to <ver>`, tags `bupha-v<ver>`,
-   pushes
+1. plans the release from conventional commits since the last
+   `bupha-v*` tag (workspace members share one version — a
+   lockstep bump)
+2. bumps manifests, `Cargo.lock`, and the version refs in
+   `libraries/bupha/tamias.yaml` + the README install example
+   inside the release commit (`[release.sync_refs]`)
+3. commits the bump, tags `bupha-v<ver>`, pushes
 
 User-facing distribution is the tamias pack — after the tag the
 operator runs `tamias publish libraries/bupha` to ship
@@ -57,8 +54,8 @@ get an honest "cancelled" status.
 
 * **No release-plz / GHA**: the point of the project is that CI is a
   local loop — depending on hosted CI to ship it would be
-  self-defeating. `release.sh` is deliberately boring bash so it can
-  run as a plain `cmd` under `runner.kind = "shell"`.
+  self-defeating. `tarsi-serve release` is a single bounded op, so it
+  runs as a plain `cmd` under `runner.kind = "shell"`.
 * **Latest-wins, not `all`**: a release that misses an intermediate
   push loses nothing — the tag lands on HEAD, which contains
   everything. `queue = "all"` is for pipelines where each sha's run
