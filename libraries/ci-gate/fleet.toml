@@ -632,16 +632,17 @@ secret_env = "BUPHA_WEBHOOK_SECRET"
 name = "handl-lang/research-mlopt"
 dir = "/home/luis/GitHub/handl-lang/research-mlopt"
 secret_env = "BUPHA_WH_HANDL_LANG_GRAPHOPT"
-# Runner override: the worktree has no .venv (uv-managed, gitignored) —
-# provision it first. `uv sync --frozen` needs no auth: the git deps
-# (eqsat/gamekit packages/*) are git+https on PUBLIC repos. The `dev`
-# dependency-group is a uv default group, so a bare sync installs
-# ruff/pytest/ty/etc. that scripts/gates.sh calls via .venv/bin/*.
+# ci.sh is now the whole per-push gate: it runs `uv sync --frozen` +
+# gates.sh's `static` lane (ruff/ty/vulture/import-linter/bandit/
+# semgrep/radon — the .venv provisioning the old inline cmd did) then
+# the Rust arm. The Python *suite* lanes moved to the mlopt-nightly
+# peregrin campaign — a tens-of-minutes serial suite doesn't belong
+# on the push path.
 [repo.runner]
 kind = "shell"
 token_env = "BUPHA_TOKEN"
 cancel_running = true
-cmd = "export PATH=\"$HOME/.local/bin:$HOME/.cargo/bin:$PATH\" && uv sync --frozen && TORCHINDUCTOR_COMPILE_THREADS=1 bash scripts/gates.sh && TORCHINDUCTOR_COMPILE_THREADS=1 bash ci.sh"
+cmd = "bash ci.sh"
 
 [[repo]]
 name = "handl-lang/host"
