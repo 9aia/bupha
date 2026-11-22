@@ -79,6 +79,7 @@ cmd = "bash scripts/ci.sh"
 # gate. sturn/kuda/mimus are skipped: no ci/check script (mimus's
 # scripts/check.sh is a local pre-push floor — "no hosted CI by
 # design").
+
 [[repo]]
 name = "9aia/peregrin"
 dir = "~/GitHub/9aia/workspace/repos/peregrin"
@@ -111,6 +112,7 @@ cmd = "bash scripts/ci.sh"
 # retry=3: the gate host runs earlyoom with rustc/cargo as preferred
 # victims, so cold builds die on transient memory dips — retries
 # ride them out (ADR-0002).
+
 [[repo]]
 name = "9aia/kuda"
 dir = "~/GitHub/9aia/workspace/repos/kuda"
@@ -235,6 +237,7 @@ cmd = "bash scripts/ci.sh"
 # ci-gate. atta's default branch is `master`, the rest `main`.
 # mycena/project are ledger/spec-only: their gate is `myco check`.
 # None carry cypera.toml, so no docs-check leg.
+
 [[repo]]
 name = "9aia/atta"
 dir = "~/GitHub/9aia/workspace/repos/atta"
@@ -313,43 +316,13 @@ dir = "~/GitHub/handl-lang/automation"
 secret_env = "BUPHA_WEBHOOK_SECRET"
 
 [[repo]]
-name = "handl-lang/compile-dot"
-dir = "~/GitHub/handl-lang/compile-dot"
-secret_env = "BUPHA_WEBHOOK_SECRET"
-
-[[repo]]
-name = "handl-lang/compile-handl"
-dir = "~/GitHub/handl-lang/compile-handl"
-secret_env = "BUPHA_WEBHOOK_SECRET"
-
-[[repo]]
-name = "handl-lang/compile-js"
-dir = "~/GitHub/handl-lang/compile-js"
-secret_env = "BUPHA_WEBHOOK_SECRET"
-
-[[repo]]
-name = "handl-lang/compile-llvm"
-dir = "~/GitHub/handl-lang/compile-llvm"
-secret_env = "BUPHA_WEBHOOK_SECRET"
-
-[[repo]]
-name = "handl-lang/compile-sexp"
-dir = "~/GitHub/handl-lang/compile-sexp"
-secret_env = "BUPHA_WEBHOOK_SECRET"
-
-[[repo]]
-name = "handl-lang/compile-term"
-dir = "~/GitHub/handl-lang/compile-term"
-secret_env = "BUPHA_WEBHOOK_SECRET"
-
-[[repo]]
-name = "handl-lang/compile-triton"
-dir = "~/GitHub/handl-lang/compile-triton"
-secret_env = "BUPHA_WEBHOOK_SECRET"
-
-[[repo]]
 name = "handl-lang/discovery"
 dir = "/home/luis/GitHub/handl-lang/discovery"
+secret_env = "BUPHA_WEBHOOK_SECRET"
+
+[[repo]]
+name = "handl-lang/discoverykit"
+dir = "/home/luis/GitHub/handl-lang/discoverykit"
 secret_env = "BUPHA_WEBHOOK_SECRET"
 
 [[repo]]
@@ -370,6 +343,51 @@ secret_env = "BUPHA_WEBHOOK_SECRET"
 [[repo]]
 name = "handl-lang/engine"
 dir = "~/GitHub/handl-lang/engine"
+secret_env = "BUPHA_WEBHOOK_SECRET"
+
+[[repo]]
+name = "handl-lang/engine-compile-cuda"
+dir = "/home/luis/GitHub/handl-lang/engine-compile-cuda"
+secret_env = "BUPHA_WEBHOOK_SECRET"
+
+[[repo]]
+name = "handl-lang/engine-compile-dot"
+dir = "/home/luis/GitHub/handl-lang/engine-compile-dot"
+secret_env = "BUPHA_WEBHOOK_SECRET"
+
+[[repo]]
+name = "handl-lang/engine-compile-handl"
+dir = "/home/luis/GitHub/handl-lang/engine-compile-handl"
+secret_env = "BUPHA_WEBHOOK_SECRET"
+
+[[repo]]
+name = "handl-lang/engine-compile-js"
+dir = "/home/luis/GitHub/handl-lang/engine-compile-js"
+secret_env = "BUPHA_WEBHOOK_SECRET"
+
+[[repo]]
+name = "handl-lang/engine-compile-llvm"
+dir = "/home/luis/GitHub/handl-lang/engine-compile-llvm"
+secret_env = "BUPHA_WEBHOOK_SECRET"
+
+[[repo]]
+name = "handl-lang/engine-compile-sexp"
+dir = "/home/luis/GitHub/handl-lang/engine-compile-sexp"
+secret_env = "BUPHA_WEBHOOK_SECRET"
+
+[[repo]]
+name = "handl-lang/engine-compile-term"
+dir = "/home/luis/GitHub/handl-lang/engine-compile-term"
+secret_env = "BUPHA_WEBHOOK_SECRET"
+
+[[repo]]
+name = "handl-lang/engine-compile-triton"
+dir = "/home/luis/GitHub/handl-lang/engine-compile-triton"
+secret_env = "BUPHA_WEBHOOK_SECRET"
+
+[[repo]]
+name = "handl-lang/engine-eqsat"
+dir = "/home/luis/GitHub/handl-lang/engine-eqsat"
 secret_env = "BUPHA_WEBHOOK_SECRET"
 
 [[repo]]
@@ -441,11 +459,6 @@ secret_env = "BUPHA_WH_HANDL_LANG_ENGINE_TYPECHECK_NBE"
 name = "handl-lang/eqsat"
 dir = "/home/luis/GitHub/handl-lang/eqsat"
 secret_env = "BUPHA_WH_HANDL_LANG_EQSAT"
-[repo.runner]
-kind = "shell"
-token_env = "BUPHA_TOKEN"
-cancel_running = true
-cmd = "bash scripts/gates.sh"
 
 [[repo]]
 name = "handl-lang/ext-compile"
@@ -511,25 +524,113 @@ secret_env = "BUPHA_WEBHOOK_SECRET"
 name = "handl-lang/gamekit"
 dir = "/home/luis/GitHub/handl-lang/gamekit"
 secret_env = "BUPHA_WH_HANDL_LANG_GAMEKIT"
-# Runner override: no ci.sh — the gate is the repo's own verification
-# ladder (AGENTS.md / .github/workflows/ci.yml) run natively: uv sync
-# dev group, ruff lint+format, ty, vulture, the import-linter contract,
-# then the suite under the pyproject coverage floor. `ty` is scoped to
-# packages/gamekit on purpose: `uv sync --group dev` installs only the
-# root + gamekit (benchkit's torch/jinja2/plotly/polars deps stay out —
-# the CUDA torch stack does not fit this host's disk), so an unscoped
-# `ty check` reports unresolved benchkit imports. That is also why the
-# upstream GH gate is red at HEAD — this scope keeps the kernel gate
-# honest without the benchkit dep tree.
-[repo.runner]
-kind = "shell"
-token_env = "BUPHA_TOKEN"
-cancel_running = true
-cmd = "export PATH=\"$HOME/.local/bin:$HOME/.cargo/bin:$PATH\" && uv sync --group dev && .venv/bin/ruff check packages && .venv/bin/ruff format --check packages && .venv/bin/ty check packages/gamekit && .venv/bin/vulture packages && .venv/bin/lint-imports && .venv/bin/coverage run --source=gamekit -m pytest tests/ -q && .venv/bin/coverage report -m"
+# Gate lives in the repo's ci.sh (the verification ladder: uv sync →
+# ruff → ty scoped to packages/gamekit → vulture → import-linter →
+# coverage-floored suite) — default runner cmd `bash ci.sh` applies.
 
 [[repo]]
-name = "handl-lang/graphopt"
-dir = "/home/luis/GitHub/handl-lang/graphopt"
+name = "handl-lang/kit-carriers"
+dir = "/home/luis/GitHub/handl-lang/kit-carriers"
+secret_env = "BUPHA_WEBHOOK_SECRET"
+
+[[repo]]
+name = "handl-lang/kit-cuda"
+dir = "/home/luis/GitHub/handl-lang/kit-cuda"
+secret_env = "BUPHA_WEBHOOK_SECRET"
+
+[[repo]]
+name = "handl-lang/kit-discovery"
+dir = "/home/luis/GitHub/handl-lang/kit-discovery"
+secret_env = "BUPHA_WEBHOOK_SECRET"
+
+[[repo]]
+name = "handl-lang/kit-eqsat"
+dir = "/home/luis/GitHub/handl-lang/kit-eqsat"
+secret_env = "BUPHA_WEBHOOK_SECRET"
+
+[[repo]]
+name = "handl-lang/kit-host-tensor"
+dir = "/home/luis/GitHub/handl-lang/kit-host-tensor"
+secret_env = "BUPHA_WEBHOOK_SECRET"
+
+[[repo]]
+name = "handl-lang/kit-kernel-ir"
+dir = "/home/luis/GitHub/handl-lang/kit-kernel-ir"
+secret_env = "BUPHA_WEBHOOK_SECRET"
+
+[[repo]]
+name = "handl-lang/kit-onnx"
+dir = "/home/luis/GitHub/handl-lang/kit-onnx"
+secret_env = "BUPHA_WEBHOOK_SECRET"
+
+[[repo]]
+name = "handl-lang/kit-torch"
+dir = "/home/luis/GitHub/handl-lang/kit-torch"
+secret_env = "BUPHA_WEBHOOK_SECRET"
+
+[[repo]]
+name = "handl-lang/lib-bytes"
+dir = "/home/luis/GitHub/handl-lang/lib-bytes"
+secret_env = "BUPHA_WEBHOOK_SECRET"
+
+[[repo]]
+name = "handl-lang/lib-cmp"
+dir = "/home/luis/GitHub/handl-lang/lib-cmp"
+secret_env = "BUPHA_WEBHOOK_SECRET"
+
+[[repo]]
+name = "handl-lang/lib-error"
+dir = "/home/luis/GitHub/handl-lang/lib-error"
+secret_env = "BUPHA_WEBHOOK_SECRET"
+
+[[repo]]
+name = "handl-lang/lib-mood"
+dir = "/home/luis/GitHub/handl-lang/lib-mood"
+secret_env = "BUPHA_WEBHOOK_SECRET"
+
+[[repo]]
+name = "handl-lang/lib-obj"
+dir = "/home/luis/GitHub/handl-lang/lib-obj"
+secret_env = "BUPHA_WEBHOOK_SECRET"
+
+[[repo]]
+name = "handl-lang/lib-posix"
+dir = "/home/luis/GitHub/handl-lang/lib-posix"
+secret_env = "BUPHA_WEBHOOK_SECRET"
+
+[[repo]]
+name = "handl-lang/lib-posix-c"
+dir = "/home/luis/GitHub/handl-lang/lib-posix-c"
+secret_env = "BUPHA_WEBHOOK_SECRET"
+
+[[repo]]
+name = "handl-lang/lib-posix-stub"
+dir = "/home/luis/GitHub/handl-lang/lib-posix-stub"
+secret_env = "BUPHA_WEBHOOK_SECRET"
+
+[[repo]]
+name = "handl-lang/lib-stdio"
+dir = "/home/luis/GitHub/handl-lang/lib-stdio"
+secret_env = "BUPHA_WEBHOOK_SECRET"
+
+[[repo]]
+name = "handl-lang/lib-stdio-c"
+dir = "/home/luis/GitHub/handl-lang/lib-stdio-c"
+secret_env = "BUPHA_WEBHOOK_SECRET"
+
+[[repo]]
+name = "handl-lang/lib-triton-qgemv"
+dir = "/home/luis/GitHub/handl-lang/lib-triton-qgemv"
+secret_env = "BUPHA_WEBHOOK_SECRET"
+
+[[repo]]
+name = "handl-lang/mlopt-product"
+dir = "/home/luis/GitHub/handl-lang/mlopt-product"
+secret_env = "BUPHA_WEBHOOK_SECRET"
+
+[[repo]]
+name = "handl-lang/research-mlopt"
+dir = "/home/luis/GitHub/handl-lang/research-mlopt"
 secret_env = "BUPHA_WH_HANDL_LANG_GRAPHOPT"
 # Runner override: the worktree has no .venv (uv-managed, gitignored) —
 # provision it first. `uv sync --frozen` needs no auth: the git deps
@@ -571,6 +672,14 @@ secret_env = "BUPHA_WH_HANDL_LANG_HOST_TENSOR"
 name = "handl-lang/kernel"
 dir = "~/GitHub/handl-lang/kernel"
 secret_env = "BUPHA_WH_HANDL_LANG_KERNEL"
+# Kernel keeps its gate at scripts/ci.sh, not ./ci.sh (same special
+# case as handl-lang/host) — without this override the fleet default
+# `bash ci.sh` fails on a missing file.
+[repo.runner]
+kind = "shell"
+token_env = "BUPHA_TOKEN"
+cancel_running = true
+cmd = "bash scripts/ci.sh"
 
 [[repo]]
 name = "handl-lang/kernelopt"
@@ -773,11 +882,6 @@ dir = "~/GitHub/handl-lang/lib-json-handl"
 secret_env = "BUPHA_WH_HANDL_LANG_LIB_JSON_HANDL"
 
 [[repo]]
-name = "handl-lang/lib-json-lib"
-dir = "~/GitHub/handl-lang/lib-json-lib"
-secret_env = "BUPHA_WH_HANDL_LANG_LIB_JSON_LIB"
-
-[[repo]]
 name = "handl-lang/lib-kernel-ir"
 dir = "~/GitHub/handl-lang/lib-kernel-ir"
 secret_env = "BUPHA_WEBHOOK_SECRET"
@@ -846,16 +950,6 @@ secret_env = "BUPHA_WH_HANDL_LANG_LIB_NOISE_STUB"
 name = "handl-lang/lib-option"
 dir = "~/GitHub/handl-lang/lib-option"
 secret_env = "BUPHA_WH_HANDL_LANG_LIB_OPTION"
-
-[[repo]]
-name = "handl-lang/lib-os-c"
-dir = "~/GitHub/handl-lang/lib-os-c"
-secret_env = "BUPHA_WH_HANDL_LANG_LIB_OS_C"
-
-[[repo]]
-name = "handl-lang/lib-os-stub"
-dir = "~/GitHub/handl-lang/lib-os-stub"
-secret_env = "BUPHA_WH_HANDL_LANG_LIB_OS_STUB"
 
 [[repo]]
 name = "handl-lang/lib-otlp"
@@ -968,21 +1062,6 @@ dir = "~/GitHub/handl-lang/lib-tensor"
 secret_env = "BUPHA_WH_HANDL_LANG_LIB_TENSOR"
 
 [[repo]]
-name = "handl-lang/lib-time"
-dir = "~/GitHub/handl-lang/lib-time"
-secret_env = "BUPHA_WH_HANDL_LANG_LIB_TIME"
-
-[[repo]]
-name = "handl-lang/lib-time-c"
-dir = "~/GitHub/handl-lang/lib-time-c"
-secret_env = "BUPHA_WH_HANDL_LANG_LIB_TIME_C"
-
-[[repo]]
-name = "handl-lang/lib-time-stub"
-dir = "~/GitHub/handl-lang/lib-time-stub"
-secret_env = "BUPHA_WH_HANDL_LANG_LIB_TIME_STUB"
-
-[[repo]]
 name = "handl-lang/lib-tls"
 dir = "~/GitHub/handl-lang/lib-tls"
 secret_env = "BUPHA_WH_HANDL_LANG_LIB_TLS"
@@ -1093,36 +1172,6 @@ dir = "~/GitHub/handl-lang/pitch-2026-lotufo"
 secret_env = "BUPHA_WEBHOOK_SECRET"
 
 [[repo]]
-name = "handl-lang/sdkgen-c"
-dir = "~/GitHub/handl-lang/sdkgen-c"
-secret_env = "BUPHA_WEBHOOK_SECRET"
-
-[[repo]]
-name = "handl-lang/sdkgen-cli"
-dir = "~/GitHub/handl-lang/sdkgen-cli"
-secret_env = "BUPHA_WEBHOOK_SECRET"
-
-[[repo]]
-name = "handl-lang/sdkgen-file"
-dir = "~/GitHub/handl-lang/sdkgen-file"
-secret_env = "BUPHA_WEBHOOK_SECRET"
-
-[[repo]]
-name = "handl-lang/sdkgen-python"
-dir = "~/GitHub/handl-lang/sdkgen-python"
-secret_env = "BUPHA_WEBHOOK_SECRET"
-
-[[repo]]
-name = "handl-lang/sdkgen-webidl"
-dir = "~/GitHub/handl-lang/sdkgen-webidl"
-secret_env = "BUPHA_WEBHOOK_SECRET"
-
-[[repo]]
-name = "handl-lang/slidev-theme"
-dir = "~/GitHub/handl-lang/slidev-theme"
-secret_env = "BUPHA_WEBHOOK_SECRET"
-
-[[repo]]
 name = "luisfuturist/blog"
 dir = "~/GitHub/luisfuturist/blog"
 secret_env = "BUPHA_WH_LUISFUTURIST_BLOG"
@@ -1131,6 +1180,7 @@ kind = "shell"
 token_env = "BUPHA_TOKEN"
 cancel_running = true
 cmd = "bash scripts/ci.sh"
+
 [[repo]]
 name = "handl-lang/engine-exec-cranelift"
 dir = "/home/luis/GitHub/handl-lang/engine-exec-cranelift"
@@ -1264,6 +1314,46 @@ secret_env = "BUPHA_WH_HANDL_LANG_LIB_TEST"
 # supersede semantics (rejected with queue = "all").
 # LEGACY (ADR-0006): cancel_running/lease semantics are queue policy —
 # home TBD (ci-job contract, bupha T-051). Runner KIND stays bupha's.
+
+[[repo]]
+name = "handl-lang/slidev-theme-handl"
+dir = "/home/luis/GitHub/handl-lang/slidev-theme-handl"
+secret_env = "BUPHA_WEBHOOK_SECRET"
+
+[[repo]]
+name = "handl-lang/source-onnx"
+dir = "/home/luis/GitHub/handl-lang/source-onnx"
+secret_env = "BUPHA_WEBHOOK_SECRET"
+
+[[repo]]
+name = "handl-lang/test"
+dir = "/home/luis/GitHub/handl-lang/test"
+secret_env = "BUPHA_WEBHOOK_SECRET"
+
+[[repo]]
+name = "handl-lang/tool-sdkgen-c"
+dir = "/home/luis/GitHub/handl-lang/tool-sdkgen-c"
+secret_env = "BUPHA_WEBHOOK_SECRET"
+
+[[repo]]
+name = "handl-lang/tool-sdkgen-cli"
+dir = "/home/luis/GitHub/handl-lang/tool-sdkgen-cli"
+secret_env = "BUPHA_WEBHOOK_SECRET"
+
+[[repo]]
+name = "handl-lang/tool-sdkgen-file"
+dir = "/home/luis/GitHub/handl-lang/tool-sdkgen-file"
+secret_env = "BUPHA_WEBHOOK_SECRET"
+
+[[repo]]
+name = "handl-lang/tool-sdkgen-python"
+dir = "/home/luis/GitHub/handl-lang/tool-sdkgen-python"
+secret_env = "BUPHA_WEBHOOK_SECRET"
+
+[[repo]]
+name = "handl-lang/tool-sdkgen-webidl"
+dir = "/home/luis/GitHub/handl-lang/tool-sdkgen-webidl"
+secret_env = "BUPHA_WEBHOOK_SECRET"
 [runner]
 kind = "shell"
 token_env = "BUPHA_TOKEN"
