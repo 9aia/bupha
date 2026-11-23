@@ -45,8 +45,7 @@ use bupha_runner::{RunCtx, RunHandle, Runner};
 use bupha_secret_cuora::CuoraSecrets;
 use bupha_shell::ShellRunner;
 use bupha_status::StatusSink;
-use bupha_telemetry::{NoopTelemetry, RunEvent, Telemetry};
-use bupha_telemetry_otel::OtelTelemetry;
+use crate::telemetry::{NoopTelemetry, PromTelemetry, RunEvent, Telemetry};
 use bupha_trigger::{Emit, Push, Source, Stop, Trigger, Verdict};
 use hypha_dotenv::DotenvSecrets;
 use hypha_secret::Secrets;
@@ -63,6 +62,7 @@ use webhook::WebhookSource;
 /// through the same `run_job` pipeline; used by
 /// `tamias-driver-bupha worker`.
 pub mod entity_worker;
+pub mod telemetry;
 /// Standalone/dev-mode ingress helpers (ADR-0007): the `Tunnel`
 /// port + cloudflared impl, and the `/hook` webhook `Source`.
 pub mod tunnel;
@@ -810,7 +810,7 @@ pub fn build_telemetry(cfg: &Config) -> Arc<dyn Telemetry> {
                 .clone()
                 .map(PathBuf::from)
                 .unwrap_or_else(|| PathBuf::from(&cfg.worktree.base).join("bupha.prom"));
-            Arc::new(OtelTelemetry::new(path))
+            Arc::new(PromTelemetry::new(path))
         }
         other => {
             eprintln!("unknown telemetry kind '{other}' (none|otel)");
