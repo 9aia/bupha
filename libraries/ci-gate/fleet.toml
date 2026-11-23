@@ -1355,6 +1355,126 @@ secret_env = "BUPHA_WEBHOOK_SECRET"
 name = "handl-lang/tool-sdkgen-webidl"
 dir = "/home/luis/GitHub/handl-lang/tool-sdkgen-webidl"
 secret_env = "BUPHA_WEBHOOK_SECRET"
+
+[[repo]]
+name = "handl-lang/engine-sdkgen-c"
+dir = "/home/luis/GitHub/handl-lang/engine-codegen-c"
+secret_env = "BUPHA_WH_HANDL_LANG_ENGINE_SDKGEN_C"
+
+[[repo]]
+name = "handl-lang/engine-sdkgen-cli"
+dir = "/home/luis/GitHub/handl-lang/engine-codegen-cli"
+secret_env = "BUPHA_WH_HANDL_LANG_ENGINE_SDKGEN_CLI"
+
+[[repo]]
+name = "handl-lang/engine-sdkgen-file"
+dir = "/home/luis/GitHub/handl-lang/engine-codegen-file"
+secret_env = "BUPHA_WH_HANDL_LANG_ENGINE_SDKGEN_FILE"
+
+[[repo]]
+name = "handl-lang/engine-sdkgen-python"
+dir = "/home/luis/GitHub/handl-lang/engine-codegen-python"
+secret_env = "BUPHA_WH_HANDL_LANG_ENGINE_SDKGEN_PYTHON"
+
+[[repo]]
+name = "handl-lang/engine-sdkgen-webidl"
+dir = "/home/luis/GitHub/handl-lang/engine-codegen-webidl"
+secret_env = "BUPHA_WH_HANDL_LANG_ENGINE_SDKGEN_WEBIDL"
+
+[[repo]]
+name = "handl-lang/engine-typecheck-handl"
+dir = "/home/luis/GitHub/handl-lang/engine-typecheck-handl"
+secret_env = "BUPHA_WH_HANDL_LANG_ENGINE_TYPECHECK_HANDL"
+
+[[repo]]
+name = "handl-lang/engine-watch"
+dir = "/home/luis/GitHub/handl-lang/engine-watch"
+secret_env = "BUPHA_WH_HANDL_LANG_ENGINE_WATCH"
+
+[[repo]]
+name = "handl-lang/kit-cli-app"
+dir = "/home/luis/GitHub/handl-lang/kit-cli-app"
+secret_env = "BUPHA_WH_HANDL_LANG_KIT_CLI_APP"
+
+[[repo]]
+name = "handl-lang/kit-web-browser-iterop"
+dir = "/home/luis/GitHub/handl-lang/kit-web-browser-iterop"
+secret_env = "BUPHA_WH_HANDL_LANG_KIT_WEB_BROWSER_ITEROP"
+
+[[repo]]
+name = "handl-lang/kit-web-server"
+dir = "/home/luis/GitHub/handl-lang/kit-web-server"
+secret_env = "BUPHA_WH_HANDL_LANG_KIT_WEB_SERVER"
+
+[[repo]]
+name = "handl-lang/kit-web-worker-iterop"
+dir = "/home/luis/GitHub/handl-lang/kit-web-worker-iterop"
+secret_env = "BUPHA_WH_HANDL_LANG_KIT_WEB_WORKER_ITEROP"
+
+[[repo]]
+name = "handl-lang/lib-concurrent-js"
+dir = "/home/luis/GitHub/handl-lang/lib-concurrent-js"
+secret_env = "BUPHA_WH_HANDL_LANG_LIB_CONCURRENT_JS"
+
+[[repo]]
+name = "handl-lang/lib-http-middleware"
+dir = "/home/luis/GitHub/handl-lang/lib-http-middleware"
+secret_env = "BUPHA_WH_HANDL_LANG_LIB_HTTP_MIDDLEWARE"
+
+[[repo]]
+name = "handl-lang/lib-http-ratelimit"
+dir = "/home/luis/GitHub/handl-lang/lib-http-ratelimit"
+secret_env = "BUPHA_WH_HANDL_LANG_LIB_HTTP_RATELIMIT"
+
+[[repo]]
+name = "handl-lang/lib-http-route"
+dir = "/home/luis/GitHub/handl-lang/lib-http-route"
+secret_env = "BUPHA_WH_HANDL_LANG_LIB_HTTP_ROUTE"
+
+[[repo]]
+name = "handl-lang/lib-http-static"
+dir = "/home/luis/GitHub/handl-lang/lib-http-static"
+secret_env = "BUPHA_WH_HANDL_LANG_LIB_HTTP_STATIC"
+
+[[repo]]
+name = "handl-lang/lib-json-c"
+dir = "/home/luis/GitHub/handl-lang/lib-json-c"
+secret_env = "BUPHA_WH_HANDL_LANG_LIB_JSON_C"
+
+[[repo]]
+name = "handl-lang/lib-json-js"
+dir = "/home/luis/GitHub/handl-lang/lib-json-js"
+secret_env = "BUPHA_WH_HANDL_LANG_LIB_JSON_JS"
+
+[[repo]]
+name = "handl-lang/lib-log"
+dir = "/home/luis/GitHub/handl-lang/lib-log"
+secret_env = "BUPHA_WH_HANDL_LANG_LIB_LOG"
+
+[[repo]]
+name = "handl-lang/lib-log-c"
+dir = "/home/luis/GitHub/handl-lang/lib-log-c"
+secret_env = "BUPHA_WH_HANDL_LANG_LIB_LOG_C"
+
+[[repo]]
+name = "handl-lang/lib-log-js"
+dir = "/home/luis/GitHub/handl-lang/lib-log-js"
+secret_env = "BUPHA_WH_HANDL_LANG_LIB_LOG_JS"
+
+[[repo]]
+name = "handl-lang/lib-mock"
+dir = "/home/luis/GitHub/handl-lang/lib-mock"
+secret_env = "BUPHA_WH_HANDL_LANG_LIB_MOCK"
+
+[[repo]]
+name = "handl-lang/playground"
+dir = "/home/luis/GitHub/handl-lang/playground"
+secret_env = "BUPHA_WH_HANDL_LANG_PLAYGROUND"
+
+[[repo]]
+name = "handl-lang/workspace"
+dir = "/home/luis/GitHub/handl-lang/workspace"
+secret_env = "BUPHA_WH_HANDL_LANG_WORKSPACE"
 [runner]
 kind = "shell"
 token_env = "BUPHA_TOKEN"

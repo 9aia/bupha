@@ -205,6 +205,30 @@ capabilities:
     - BUPHA_WH_HANDL_LANG_LIB_WS_WHATWG_WASM
     - BUPHA_WH_LUISFUTURIST_BLOG
     - PEREGRIN_HUB_TOKEN
+    - BUPHA_WH_HANDL_LANG_ENGINE_SDKGEN_C
+    - BUPHA_WH_HANDL_LANG_ENGINE_SDKGEN_CLI
+    - BUPHA_WH_HANDL_LANG_ENGINE_SDKGEN_FILE
+    - BUPHA_WH_HANDL_LANG_ENGINE_SDKGEN_PYTHON
+    - BUPHA_WH_HANDL_LANG_ENGINE_SDKGEN_WEBIDL
+    - BUPHA_WH_HANDL_LANG_ENGINE_TYPECHECK_HANDL
+    - BUPHA_WH_HANDL_LANG_ENGINE_WATCH
+    - BUPHA_WH_HANDL_LANG_KIT_CLI_APP
+    - BUPHA_WH_HANDL_LANG_KIT_WEB_BROWSER_ITEROP
+    - BUPHA_WH_HANDL_LANG_KIT_WEB_SERVER
+    - BUPHA_WH_HANDL_LANG_KIT_WEB_WORKER_ITEROP
+    - BUPHA_WH_HANDL_LANG_LIB_CONCURRENT_JS
+    - BUPHA_WH_HANDL_LANG_LIB_HTTP_MIDDLEWARE
+    - BUPHA_WH_HANDL_LANG_LIB_HTTP_RATELIMIT
+    - BUPHA_WH_HANDL_LANG_LIB_HTTP_ROUTE
+    - BUPHA_WH_HANDL_LANG_LIB_HTTP_STATIC
+    - BUPHA_WH_HANDL_LANG_LIB_JSON_C
+    - BUPHA_WH_HANDL_LANG_LIB_JSON_JS
+    - BUPHA_WH_HANDL_LANG_LIB_LOG
+    - BUPHA_WH_HANDL_LANG_LIB_LOG_C
+    - BUPHA_WH_HANDL_LANG_LIB_LOG_JS
+    - BUPHA_WH_HANDL_LANG_LIB_MOCK
+    - BUPHA_WH_HANDL_LANG_PLAYGROUND
+    - BUPHA_WH_HANDL_LANG_WORKSPACE
 nodes:
 # --- ingress: verified forge pushes + pull requests --------------------
 - id: ci.ingress.webhook
@@ -677,6 +701,54 @@ nodes:
 # `${event.type}` keeps push and pull_request kinds distinct;
 # `event.match.1` = clone_url, `event.match.2` = sha (same positions
 # for both — see ci.enqueue.pr for the PR ref convention).
+    - name: handl-lang/engine-sdkgen-c
+      secret_env: BUPHA_WH_HANDL_LANG_ENGINE_SDKGEN_C
+    - name: handl-lang/engine-sdkgen-cli
+      secret_env: BUPHA_WH_HANDL_LANG_ENGINE_SDKGEN_CLI
+    - name: handl-lang/engine-sdkgen-file
+      secret_env: BUPHA_WH_HANDL_LANG_ENGINE_SDKGEN_FILE
+    - name: handl-lang/engine-sdkgen-python
+      secret_env: BUPHA_WH_HANDL_LANG_ENGINE_SDKGEN_PYTHON
+    - name: handl-lang/engine-sdkgen-webidl
+      secret_env: BUPHA_WH_HANDL_LANG_ENGINE_SDKGEN_WEBIDL
+    - name: handl-lang/engine-typecheck-handl
+      secret_env: BUPHA_WH_HANDL_LANG_ENGINE_TYPECHECK_HANDL
+    - name: handl-lang/engine-watch
+      secret_env: BUPHA_WH_HANDL_LANG_ENGINE_WATCH
+    - name: handl-lang/kit-cli-app
+      secret_env: BUPHA_WH_HANDL_LANG_KIT_CLI_APP
+    - name: handl-lang/kit-web-browser-iterop
+      secret_env: BUPHA_WH_HANDL_LANG_KIT_WEB_BROWSER_ITEROP
+    - name: handl-lang/kit-web-server
+      secret_env: BUPHA_WH_HANDL_LANG_KIT_WEB_SERVER
+    - name: handl-lang/kit-web-worker-iterop
+      secret_env: BUPHA_WH_HANDL_LANG_KIT_WEB_WORKER_ITEROP
+    - name: handl-lang/lib-concurrent-js
+      secret_env: BUPHA_WH_HANDL_LANG_LIB_CONCURRENT_JS
+    - name: handl-lang/lib-http-middleware
+      secret_env: BUPHA_WH_HANDL_LANG_LIB_HTTP_MIDDLEWARE
+    - name: handl-lang/lib-http-ratelimit
+      secret_env: BUPHA_WH_HANDL_LANG_LIB_HTTP_RATELIMIT
+    - name: handl-lang/lib-http-route
+      secret_env: BUPHA_WH_HANDL_LANG_LIB_HTTP_ROUTE
+    - name: handl-lang/lib-http-static
+      secret_env: BUPHA_WH_HANDL_LANG_LIB_HTTP_STATIC
+    - name: handl-lang/lib-json-c
+      secret_env: BUPHA_WH_HANDL_LANG_LIB_JSON_C
+    - name: handl-lang/lib-json-js
+      secret_env: BUPHA_WH_HANDL_LANG_LIB_JSON_JS
+    - name: handl-lang/lib-log
+      secret_env: BUPHA_WH_HANDL_LANG_LIB_LOG
+    - name: handl-lang/lib-log-c
+      secret_env: BUPHA_WH_HANDL_LANG_LIB_LOG_C
+    - name: handl-lang/lib-log-js
+      secret_env: BUPHA_WH_HANDL_LANG_LIB_LOG_JS
+    - name: handl-lang/lib-mock
+      secret_env: BUPHA_WH_HANDL_LANG_LIB_MOCK
+    - name: handl-lang/playground
+      secret_env: BUPHA_WH_HANDL_LANG_PLAYGROUND
+    - name: handl-lang/workspace
+      secret_env: BUPHA_WH_HANDL_LANG_WORKSPACE
 - id: ci.route
   driver: shell
   on:
