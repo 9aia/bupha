@@ -29,6 +29,25 @@ Runners: `shell`/`script`, `dagger`, `ssh`, `container`, `gha`
 (native `.github/workflows` dialect), `http` (remote `bupha agent`).
 Secrets resolve env → `cuora://bupha/<NAME>` → `~/.config/bupha/env`.
 
+## Boundary
+
+Three layers, deliberately split:
+
+- **Ingress** — webhook/forge normalization is a peregrin campaign
+  (`github-webhook` driver → `ci-job` entities). bupha's own `github`
+  source is the standalone/dev fallback, not the production path; in
+  production bupha never parses forge payloads.
+- **bupha** — the per-push runner adapter: queue, detached
+  worktree@sha, runner, and forge status write-back *through
+  `lasius-forge`* (the shared port — bupha doesn't shell `gh` itself).
+  No gate semantics live here.
+- **Gate semantics** — the repo's committed `workflows/gate.yaml`, a
+  peregrin campaign composing `tamias:handl-gates//…` fragments. The
+  gate's `run.result` artifact (GH Checks-style
+  status/conclusion/output) is the contract: bupha maps `conclusion`
+  → forge commit status. `ci.sh` is being retired in favor of
+  `gate.yaml`.
+
 ## Quickstart
 
 ```sh

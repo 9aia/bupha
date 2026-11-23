@@ -130,7 +130,16 @@ isolation, pipeline execution, forge status write-back. Neighbors:
   content integration (packs, drivers, provider units).
 - **peregrin** — orchestration; production forge ingress is a
   peregrin campaign listener normalizing deliveries into
-  `ci-job` entities (ADR-0007).
+  `ci-job` entities (ADR-0007). peregrin also owns all gate
+  *semantics*: the repo's `workflows/gate.yaml` campaign; the
+  `run.result` artifact is the contract (bupha maps `conclusion` →
+  forge commit status; `ci.sh` is retiring). bupha's own `github`
+  source is the standalone/dev fallback — in production bupha never
+  parses forge payloads.
+- **lasius** — the shared ports: `lasius-forge` (commit-status
+  writes, check reads, PR ops) and `lasius-vcs`. Forge status
+  write-back goes *through* `lasius-forge` — bupha doesn't shell
+  `gh` itself; lasius owns the forge API surface, not CI semantics.
 - **hypha** — the entity plane; `ci-job` durable queue state lives
   there via `bupha-plane`.
 - **cuora** — secrets (`cuora://bupha/<NAME>` is canonical).
