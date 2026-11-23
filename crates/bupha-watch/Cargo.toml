@@ -13,13 +13,13 @@ bupha-core.workspace = true
 lasius-vcs.workspace = true
 lasius-vcs-git.workspace = true
 bupha-queue.workspace = true
-bupha-secret-cuora.workspace = true
-# Secrets port + fallback impl — hypha crates (git dep, same rule
-# as hypha-node-api below; the bupha-{secret,keyring,dotenv} crates
-# were retired in T-077). The OS-keyring leg was dropped post-T-077:
-# env → cuora → ~/.config/bupha/env is the whole chain now.
-hypha-secret = { git = "https://github.com/9aia/hypha.git", branch = "main" }
-hypha-dotenv = { git = "https://github.com/9aia/hypha.git", branch = "main" }
+# Secrets port + impls live in cuora now (P-043 — the forked
+# hypha-secret*/bupha-secret-cuora crates are retired). The
+# OS-keyring leg was dropped post-T-077: env → cuora →
+# ~/.config/bupha/env is the whole chain now.
+cuora-secret = { git = "ssh://git@github.com/9aia/cuora.git", rev = "f81164366bd436a7d4cf204c6e7a83555f50302f" }
+cuora-secret-cuora = { git = "ssh://git@github.com/9aia/cuora.git", rev = "f81164366bd436a7d4cf204c6e7a83555f50302f" }
+cuora-secret-dotenv = { git = "ssh://git@github.com/9aia/cuora.git", rev = "f81164366bd436a7d4cf204c6e7a83555f50302f" }
 bupha-trigger.workspace = true
 bupha-status.workspace = true
 bupha-runner.workspace = true

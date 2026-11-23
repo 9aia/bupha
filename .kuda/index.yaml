@@ -25,7 +25,6 @@ modules:
 - bupha-plane
 - bupha-queue
 - bupha-runner
-- bupha-secret-cuora
 - bupha-shell
 - bupha-ssh
 - bupha-status
@@ -41,7 +40,7 @@ commands:
 - cargo check
 - cargo test --workspace
 tree_digest: 38be2d0a6edf7017532376367691545d02712a68
-files_total: 216
+files_total: 213
 provenance:
   files:
   - Cargo.toml
@@ -69,7 +68,6 @@ provenance:
   - crates/bupha-plane/Cargo.toml
   - crates/bupha-queue/Cargo.toml
   - crates/bupha-runner/Cargo.toml
-  - crates/bupha-secret-cuora/Cargo.toml
   - crates/bupha-shell/Cargo.toml
   - crates/bupha-ssh/Cargo.toml
   - crates/bupha-status/Cargo.toml
@@ -105,7 +103,6 @@ provenance:
   - fcdab77747a105b6a9ccd61f0074664e7efb925d
   - 4067514b00d192c5f7b55d0612da1930e6ad3f73
   - 4fefe465ba6004fda1b42f7c3358502f9fdbbc1f
-  - a6d87b2f427fd7e811220b74e1a94c9ea88210bf
   - 6dce52587f4d41a91e9f578dddf2fec383a2f3a2
   - 29f876e5787cf84ffefed9baa070cee30bda8972
   - 72d19ee54274002b46b4eb143502f0a422bc6b9b

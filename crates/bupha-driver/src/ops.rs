@@ -453,25 +453,13 @@ pub fn install() -> &'static str {
 
 // --- secrets -----------------------------------------------------------------
 
-/// `~/.config/bupha/env` — the dotenv leg of the secret chain (same
-/// file the provider unit's `env_file` loads).
-fn env_file() -> PathBuf {
-    config_dir().join("env")
-}
-
-/// Secret resolution chain, mirroring `bupha`'s own `secret()`
-/// (T-056 — cuora canonical; keyring leg dropped post-T-077):
-/// env var → cuora broker (`cuora://bupha/<NAME>` via the `cuora`
-/// CLI) → `~/.config/bupha/env` (the dev-mode / no-cuora fallback,
-/// also the provider unit's `EnvironmentFile`). Values are used
-/// in-flight only — never printed, never written to configs.
+/// Secret resolution chain — `bupha_watch::secret`, the same
+/// env → cuora (`cuora://bupha/<NAME>` + `secrets-ci-webhooks`
+/// pack fallback) → `~/.config/bupha/env` legs `bupha` resolves
+/// through (T-056). Values are used in-flight only — never printed,
+/// never written to configs.
 fn secret(name: &str) -> Option<String> {
-    use hypha_secret::Secrets;
-    std::env::var(name)
-        .ok()
-        .filter(|v| !v.is_empty())
-        .or_else(|| bupha_secret_cuora::CuoraSecrets::default().get(name))
-        .or_else(|| hypha_dotenv::DotenvSecrets { path: env_file() }.get(name))
+    bupha_watch::secret(name)
 }
 
 fn missing_secret(name: &str) -> String {

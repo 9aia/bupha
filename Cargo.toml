@@ -18,7 +18,6 @@ members = [
     "crates/bupha-gha",
     "crates/bupha-gha-runner",
     "crates/bupha-queue",
-    "crates/bupha-secret-cuora",
     "crates/bupha-config-file",
     "crates/bupha-cache",
     "crates/bupha-cache-sccache",
@@ -66,7 +65,6 @@ lasius-vcs-git = { git = "ssh://git@github.com/9aia/lasius.git", rev = "52d8150b
 bupha-gha = { path = "crates/bupha-gha", version = "0.2.0" }
 bupha-gha-runner = { path = "crates/bupha-gha-runner", version = "0.2.0" }
 bupha-queue = { path = "crates/bupha-queue", version = "0.2.0" }
-bupha-secret-cuora = { path = "crates/bupha-secret-cuora", version = "0.2.0" }
 bupha-config-file = { path = "crates/bupha-config-file", version = "0.2.0" }
 bupha-cache = { path = "crates/bupha-cache", version = "0.2.0" }
 bupha-cache-sccache = { path = "crates/bupha-cache-sccache", version = "0.2.0" }

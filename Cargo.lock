@@ -333,14 +333,13 @@ dependencies = [
  "bupha-http",
  "bupha-queue",
  "bupha-runner",
- "bupha-secret-cuora",
  "bupha-telemetry",
  "bupha-trigger",
  "bupha-watch",
  "clap",
  "clap-markdown",
- "hypha-keyring",
- "hypha-secret",
+ "cuora-secret",
+ "cuora-secret-keyring",
  "hypha-systemd",
  "lasius-vcs",
  "lasius-vcs-git",
@@ -456,13 +455,10 @@ dependencies = [
  "bupha-gha-runner",
  "bupha-github",
  "bupha-queue",
- "bupha-secret-cuora",
  "bupha-watch",
  "clap",
  "hex",
  "hmac",
- "hypha-dotenv",
- "hypha-secret",
  "hypha-systemd",
  "pavo-driver-kit",
  "pavo-protocol",
@@ -568,14 +564,6 @@ name = "bupha-runner"
 version = "0.2.0"
 
 [[package]]
-name = "bupha-secret-cuora"
-version = "0.2.0"
-dependencies = [
- "hypha-secret",
- "hypha-secret-cuora",
-]
-
-[[package]]
 name = "bupha-shell"
 version = "0.2.0"
 dependencies = [
@@ -648,7 +636,6 @@ dependencies = [
  "bupha-plane",
  "bupha-queue",
  "bupha-runner",
- "bupha-secret-cuora",
  "bupha-shell",
  "bupha-ssh",
  "bupha-status",
@@ -657,9 +644,10 @@ dependencies = [
  "bupha-telemetry-otel",
  "bupha-trigger",
  "chrono",
- "hypha-dotenv",
+ "cuora-secret",
+ "cuora-secret-cuora",
+ "cuora-secret-dotenv",
  "hypha-node-api",
- "hypha-secret",
  "lasius-vcs",
  "lasius-vcs-git",
  "serde_json",
@@ -1002,6 +990,36 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "261af4dc7a06ea8a527a8717d8cbba3417530d6ea14e1edb3de6b67806be474f"
 dependencies = [
  "cmov",
+]
+
+[[package]]
+name = "cuora-secret"
+version = "1.0.4"
+source = "git+ssh://git@github.com/9aia/cuora.git?rev=f81164366bd436a7d4cf204c6e7a83555f50302f#f81164366bd436a7d4cf204c6e7a83555f50302f"
+
+[[package]]
+name = "cuora-secret-cuora"
+version = "1.0.4"
+source = "git+ssh://git@github.com/9aia/cuora.git?rev=f81164366bd436a7d4cf204c6e7a83555f50302f#f81164366bd436a7d4cf204c6e7a83555f50302f"
+dependencies = [
+ "cuora-secret",
+ "serde_json",
+]
+
+[[package]]
+name = "cuora-secret-dotenv"
+version = "1.0.4"
+source = "git+ssh://git@github.com/9aia/cuora.git?rev=f81164366bd436a7d4cf204c6e7a83555f50302f#f81164366bd436a7d4cf204c6e7a83555f50302f"
+dependencies = [
+ "cuora-secret",
+]
+
+[[package]]
+name = "cuora-secret-keyring"
+version = "1.0.4"
+source = "git+ssh://git@github.com/9aia/cuora.git?rev=f81164366bd436a7d4cf204c6e7a83555f50302f#f81164366bd436a7d4cf204c6e7a83555f50302f"
+dependencies = [
+ "cuora-secret",
 ]
 
 [[package]]
@@ -1721,14 +1739,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "hypha-dotenv"
-version = "0.1.0"
-source = "git+https://github.com/9aia/hypha.git?branch=main#1e39f7f74490d9fb8f15db8841216dd3a7c00c46"
-dependencies = [
- "hypha-secret",
-]
-
-[[package]]
 name = "hypha-http"
 version = "0.1.0"
 source = "git+https://github.com/9aia/hypha.git?branch=main#1e39f7f74490d9fb8f15db8841216dd3a7c00c46"
@@ -1753,14 +1763,6 @@ dependencies = [
  "tokio",
  "tracing",
  "uuid",
-]
-
-[[package]]
-name = "hypha-keyring"
-version = "0.1.0"
-source = "git+https://github.com/9aia/hypha.git?branch=main#1e39f7f74490d9fb8f15db8841216dd3a7c00c46"
-dependencies = [
- "hypha-secret",
 ]
 
 [[package]]
@@ -1807,20 +1809,6 @@ dependencies = [
  "serde_json",
  "thiserror 2.0.21",
  "web-push",
-]
-
-[[package]]
-name = "hypha-secret"
-version = "0.1.0"
-source = "git+https://github.com/9aia/hypha.git?branch=main#1e39f7f74490d9fb8f15db8841216dd3a7c00c46"
-
-[[package]]
-name = "hypha-secret-cuora"
-version = "0.1.0"
-source = "git+https://github.com/9aia/hypha.git?branch=main#1e39f7f74490d9fb8f15db8841216dd3a7c00c46"
-dependencies = [
- "hypha-secret",
- "serde_json",
 ]
 
 [[package]]

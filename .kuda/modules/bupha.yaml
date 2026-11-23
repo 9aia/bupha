@@ -212,14 +212,13 @@ deps:
 - bupha-http
 - bupha-queue
 - bupha-runner
-- bupha-secret-cuora
 - bupha-telemetry
 - bupha-trigger
 - bupha-watch
 - clap
 - clap-markdown
-- hypha-keyring
-- hypha-secret
+- cuora-secret
+- cuora-secret-keyring
 - hypha-systemd
 - lasius-vcs
 - lasius-vcs-git
@@ -233,16 +232,15 @@ deps:
 - bupha-github
 - bupha-queue
 - bupha-runner
-- bupha-secret-cuora
 - bupha-trigger
 - clap
-- hypha_keyring
-- hypha_secret
 - lasius_vcs
 - lasius_vcs_git
 - asyncio
 - typing
 - dagger
+- cuora_secret
+- cuora_secret_keyring
 notes: ''
 verify:
 - Cargo.toml

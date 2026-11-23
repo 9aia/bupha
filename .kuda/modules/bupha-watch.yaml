@@ -223,7 +223,6 @@ deps:
 - bupha-plane
 - bupha-queue
 - bupha-runner
-- bupha-secret-cuora
 - bupha-shell
 - bupha-ssh
 - bupha-status
@@ -232,9 +231,10 @@ deps:
 - bupha-telemetry-otel
 - bupha-trigger
 - chrono
-- hypha-dotenv
+- cuora-secret
+- cuora-secret-cuora
+- cuora-secret-dotenv
 - hypha-node-api
-- hypha-secret
 - lasius-vcs
 - lasius-vcs-git
 - serde_json
@@ -263,15 +263,15 @@ deps:
 - bupha-gha
 - bupha-github
 - bupha-history
-- bupha-secret-cuora
 - bupha-shell
 - bupha-telemetry-otel
-- hypha_dotenv
-- hypha_secret
 - lasius_vcs
 - lasius_vcs_git
 - tunnel
 - webhook
+- cuora_secret
+- cuora_secret_cuora
+- cuora_secret_dotenv
 notes: ''
 verify:
 - crates/bupha-watch/Cargo.toml

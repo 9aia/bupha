@@ -42,14 +42,14 @@ use bupha_github::{GitHubStatus, GitHubTrigger, LogStatus};
 use bupha_history::RunRecord;
 use bupha_queue::{JsonQueueStore, LocalClaim, PersistedQueue, QueueStore, TryClaim};
 use bupha_runner::{RunCtx, RunHandle, Runner};
-use bupha_secret_cuora::CuoraSecrets;
 use bupha_shell::ShellRunner;
 use bupha_status::StatusSink;
 use bupha_telemetry::{NoopTelemetry, RunEvent, Telemetry};
 use bupha_telemetry_otel::OtelTelemetry;
 use bupha_trigger::{Emit, Push, Source, Stop, Trigger, Verdict};
-use hypha_dotenv::DotenvSecrets;
-use hypha_secret::Secrets;
+use cuora_secret::Secrets;
+use cuora_secret_cuora::CuoraSecrets;
+use cuora_secret_dotenv::DotenvSecrets;
 use lasius_vcs::Vcs;
 use lasius_vcs_git::GitVcs;
 use std::collections::VecDeque;
@@ -202,6 +202,29 @@ pub fn cfg_dir() -> PathBuf {
     base.join("bupha")
 }
 
+/// Ref namespace — every bupha secret name lives under
+/// `cuora://bupha/…` so `cuora list` shows the whole fleet surface.
+pub const CUORA_SCOPE: &str = "bupha";
+/// Sealed-pack fallback scope — the `secrets-ci-webhooks` tamias
+/// pack holding the `BUPHA_WH_*` webhook secrets (vault-less,
+/// age-sealed). Consulted only when `cuora://bupha/<NAME>` misses.
+pub const CUORA_PACK_SCOPE: &str = "secrets-ci-webhooks";
+/// Env knobs the cuora leg reads — the `<PRODUCT>_CUORA_*`
+/// convention (binary override for tests, transport selector).
+pub const CUORA_BIN_ENV: &str = "BUPHA_CUORA_BIN";
+pub const CUORA_TRANSPORT_ENV: &str = "BUPHA_CUORA_TRANSPORT";
+
+/// The cuora leg of [`secret`] — `cuora://bupha/<NAME>` with the
+/// `secrets-ci-webhooks` sealed-pack fallback (vault first, so a
+/// name in both keeps the vault value). Built per call like the
+/// ex-`CuoraSecrets::default()`: the env knobs are read fresh so
+/// tests — and operators mid-process — can repoint the binary.
+pub fn cuora_store() -> CuoraSecrets {
+    CuoraSecrets::from_env(CUORA_SCOPE, CUORA_BIN_ENV, CUORA_TRANSPORT_ENV).with_fallbacks(vec![
+        CuoraSecrets::from_env(CUORA_PACK_SCOPE, CUORA_BIN_ENV, CUORA_TRANSPORT_ENV),
+    ])
+}
+
 /// Secret resolution chain (T-056 — cuora is canonical; the OS
 /// keyring leg was dropped post-T-077 — `deploy env` migrates
 /// pre-cuora keyring entries into cuora):
@@ -214,13 +237,8 @@ pub fn secret(name: &str) -> Option<String> {
     std::env::var(name)
         .ok()
         .filter(|v| !v.is_empty())
-        .or_else(|| CuoraSecrets::default().get(name))
-        .or_else(|| {
-            DotenvSecrets {
-                path: cfg_dir().join("env"),
-            }
-            .get(name)
-        })
+        .or_else(|| cuora_store().get(name))
+        .or_else(|| DotenvSecrets::new(cfg_dir().join("env")).get(name))
 }
 
 /// Webhook-secret env NAMES: the trigger's global plus each repo's
@@ -272,7 +290,7 @@ tok=""
 # Leg 1 — process env (cuora run / unit EnvironmentFile / shell).
 tok=$(printenv "$name" 2>/dev/null || true)
 # Leg 2 — cuora broker (canonical store; BUPHA_CUORA_BIN is the same
-# override knob bupha-secret-cuora reads).
+# override knob the cuora leg reads).
 if [ -z "$tok" ]; then
   cuora_bin="${BUPHA_CUORA_BIN:-cuora}"
   if command -v "$cuora_bin" >/dev/null 2>&1; then
@@ -1514,7 +1532,7 @@ mod tests {
         assert!(out.contains("username=x-access-token"), "{out}");
         assert!(out.contains("password=env-leg-fake-token"), "{out}");
         // Leg 2 — cuora (stubbed binary, same BUPHA_CUORA_BIN seam
-        // bupha-secret-cuora reads).
+        // cuora leg reads).
         let cuora = tmp.join("cuora-stub");
         std::fs::write(&cuora, "#!/bin/sh\necho cuora-leg-fake-token\n").unwrap();
         #[cfg(unix)]
