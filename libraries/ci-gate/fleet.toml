@@ -1359,10 +1359,13 @@ secret_env = "BUPHA_WEBHOOK_SECRET"
 kind = "shell"
 token_env = "BUPHA_TOKEN"
 cancel_running = true
-# Default gate for repos without a [repo.runner] override — the
-# legacy ci-gate campaign's implicit job (`bash ci.sh`, not the
-# shell impl's ./ci.sh default: no exec-bit requirement).
-cmd = "bash ci.sh"
+# Default gate for repos without a [repo.runner] override —
+# workflows/gate.yaml (the handl-gates bundle campaign, verdict via
+# run-result .conclusion) when the repo carries one; ci.sh fallback
+# for unmigrated repos. Artifacts land under
+# ~/.local/share/bupha/gate-results/<repo>/ — never inside the
+# worktree.
+cmd = "RDIR=\"$HOME/.local/share/bupha/gate-results/$(basename \"$PWD\")\"; mkdir -p \"$RDIR\"; if [ -f workflows/gate.yaml ]; then GATE_REPO=\"$PWD\" GATE_RESULTS=\"$RDIR/results.jsonl\" \"$HOME/.local/bin/peregrin\" campaign run workflows/gate.yaml --result \"$RDIR/result.json\" >/dev/null 2>&1 && jq -e '.conclusion == \"success\"' \"$RDIR/result.json\" >/dev/null; elif [ -f ci.sh ]; then bash ci.sh; else echo \"no workflows/gate.yaml or ci.sh\"; exit 1; fi"
 
 # Commit statuses post back to github under this context
 # (per-job contexts become "<context>/<job>").
