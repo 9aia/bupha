@@ -157,3 +157,13 @@ explanation) → GitHub Pages at `9aia.com/bupha`; plus `comparison.md`
 (the GHA comparison table the README links). `cypera gen` (driven by `cypera.toml`)
 renders cli/config/crate-map/crate-api from source — keep `lib.rs`
 module docs accurate.
+
+## Specs
+
+`specs/<name>.toml` is this repo's mimus-standard conformance spec —
+approval-gated. Any change requires a live org proposal
+(`proposal-NNNN`, status open|done) referenced in the spec header or
+commit range, and no coverage regression vs merge-base. Guard:
+workspace `../../scripts/spec-guard.py`; sweep:
+`../../scripts/standard.sh`; regenerate coverage only via
+`../../scripts/gen-repo-specs.py`.
