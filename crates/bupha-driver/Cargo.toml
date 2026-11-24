@@ -37,14 +37,9 @@ hypha-systemd = { git = "https://github.com/9aia/hypha.git", branch = "main" }
 # bupha-github; the secret chain reuses the same three stores
 # `bupha` resolves through.
 bupha-github.workspace = true
-# `host` verb — the watcher engine, shared verbatim with `bupha watch`.
+# `host` verb — the watcher engine, shared verbatim with `bupha watch`;
+# its `secret()` is the one secret chain (env → cuora → env file).
 bupha-watch.workspace = true
-# Secrets port + impls live in hypha now (T-077) — git deps, same
-# rule as bupha-watch's hypha-node-api. No keyring: the chain is
-# env → cuora → ~/.config/bupha/env.
-hypha-secret = { git = "https://github.com/9aia/hypha.git", branch = "main" }
-hypha-dotenv = { git = "https://github.com/9aia/hypha.git", branch = "main" }
-bupha-secret-cuora.workspace = true
 serde = { version = "1", features = ["derive"] }
 serde_json.workspace = true
 serde_norway = "0.9"

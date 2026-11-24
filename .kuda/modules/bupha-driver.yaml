@@ -209,11 +209,8 @@ deps:
 - bupha-core
 - bupha-github
 - bupha-queue
-- bupha-secret-cuora
 - bupha-watch
 - clap
-- hypha-dotenv
-- hypha-secret
 - hypha-systemd
 - pavo-driver-kit
 - pavo-protocol
@@ -232,7 +229,6 @@ deps:
 - sha2
 - serde_json
 - serde
-- hypha_secret
 - bupha-config-file
 - bupha-core
 - clap

@@ -27,11 +27,10 @@ use bupha_core::Config;
 use bupha_github::GitHubAdmin;
 use bupha_queue::{JsonQueueStore, QueueStore};
 use bupha_runner::RunCtx;
-use bupha_secret_cuora::CuoraSecrets;
 use bupha_trigger::ForgeAdmin;
 use clap::{Parser, Subcommand};
-use hypha_keyring::KeyringSecrets;
-use hypha_secret::Secrets;
+use cuora_secret::Secrets;
+use cuora_secret_keyring::KeyringSecrets;
 use lasius_vcs::Vcs;
 use lasius_vcs_git::GitVcs;
 
@@ -1001,10 +1000,8 @@ fn cmd_deploy(cfg: &Config, sub: &DeploySub, cli_config: Option<String>) {
             // keyring entries (service="bupha") get a one-shot read
             // here so they aren't orphaned. Whatever cuora can't
             // take stays in the env file the operator fills in.
-            let cuora = CuoraSecrets::shared_default();
-            let keyring = KeyringSecrets {
-                service: "bupha".into(),
-            };
+            let cuora = bupha_watch::cuora_store();
+            let keyring = KeyringSecrets::new("bupha");
             for name in names {
                 // An empty env var doesn't count — the runtime chain
                 // filters it the same way, so a keyring entry below
