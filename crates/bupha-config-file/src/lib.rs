@@ -4,11 +4,16 @@
 //! `~/.config/bupha/bupha.*`, YAML preferred within each directory.
 //! The per-syntax adapters are gone (`bupha-config-toml`/`-yaml`
 //! deleted); parsing dispatches through [`scarab_config::ConfigFormat`]
-//! impls local to this crate, preserving the old adapter semantics:
-//! `.yaml`/`.yml` parse as YAML (serde_norway transcode), **every**
-//! other extension — including extensionless and unknown — parses as
-//! TOML (the `is_yaml` back-compat rule for explicit paths), and
-//! parsed `Config`s get `~` expanded in local-path fields
+//! impls local to this crate — they must stay local because
+//! `bupha_core::Config` is deserialize-only and scarab's blanket
+//! format impls require `Serialize` for `render` (P-045). The syntax
+//! itself is the org standard: `serde_yaml_ng` for YAML (what
+//! `scarab-config-yaml` uses — `serde_norway` is retired here) and
+//! `toml` for TOML, preserving the old adapter semantics:
+//! `.yaml`/`.yml` parse as YAML, **every** other extension —
+//! including extensionless and unknown — parses as TOML (the
+//! `is_yaml` back-compat rule for explicit paths), and parsed
+//! `Config`s get `~` expanded in local-path fields
 //! (`Config::expand_tilde`).
 //!
 //! [`load_file`] stays the entry point for callers that enumerate
@@ -58,10 +63,9 @@ impl ConfigFormat<Config> for Toml {
     }
 }
 
-/// YAML syntax — `serde_norway` transcode (`Value` → `Config`, the
-/// same `Config` shape as TOML) + `Config::expand_tilde`, exactly
-/// what `bupha-config-yaml`'s `YamlSource` did. Claims `yaml` before
-/// `yml` so `bupha.yaml` wins over `bupha.yml` on ties.
+/// YAML syntax — `serde_yaml_ng`, the same parser
+/// `scarab-config-yaml` uses, + `Config::expand_tilde`. Claims
+/// `yaml` before `yml` so `bupha.yaml` wins over `bupha.yml` on ties.
 struct Yaml;
 
 impl ConfigFormat<Config> for Yaml {
@@ -70,8 +74,7 @@ impl ConfigFormat<Config> for Yaml {
     }
 
     fn parse(&self, text: &str) -> Result<Config, String> {
-        let v: serde_norway::Value = serde_norway::from_str(text).map_err(|e| e.to_string())?;
-        let mut cfg: Config = serde_norway::from_value(v).map_err(|e| e.to_string())?;
+        let mut cfg: Config = serde_yaml_ng::from_str(text).map_err(|e| e.to_string())?;
         cfg.expand_tilde();
         Ok(cfg)
     }

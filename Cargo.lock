@@ -413,7 +413,7 @@ dependencies = [
  "bupha-core",
  "scarab-config",
  "scarab-config-file",
- "serde_norway",
+ "serde_yaml_ng",
  "toml",
 ]
 
@@ -3006,7 +3006,7 @@ checksum = "9774ba4a74de5f7b1c1451ed6cd5285a32eddb5cccb8cc655a4e50009e06477f"
 [[package]]
 name = "scarab-config"
 version = "0.1.0"
-source = "git+ssh://git@github.com/9aia/scarab.git?rev=9364df88fad0ca46bd838467717a823893f47438#9364df88fad0ca46bd838467717a823893f47438"
+source = "git+ssh://git@github.com/9aia/scarab.git?rev=a68fed26d8cea1bdd6fc7d6927bcc33c85e240c1#a68fed26d8cea1bdd6fc7d6927bcc33c85e240c1"
 dependencies = [
  "serde_json",
 ]
@@ -3014,7 +3014,7 @@ dependencies = [
 [[package]]
 name = "scarab-config-file"
 version = "0.1.0"
-source = "git+ssh://git@github.com/9aia/scarab.git?rev=9364df88fad0ca46bd838467717a823893f47438#9364df88fad0ca46bd838467717a823893f47438"
+source = "git+ssh://git@github.com/9aia/scarab.git?rev=a68fed26d8cea1bdd6fc7d6927bcc33c85e240c1#a68fed26d8cea1bdd6fc7d6927bcc33c85e240c1"
 dependencies = [
  "scarab-config",
  "scarab-config-toml",
@@ -3026,7 +3026,7 @@ dependencies = [
 [[package]]
 name = "scarab-config-toml"
 version = "0.1.0"
-source = "git+ssh://git@github.com/9aia/scarab.git?rev=9364df88fad0ca46bd838467717a823893f47438#9364df88fad0ca46bd838467717a823893f47438"
+source = "git+ssh://git@github.com/9aia/scarab.git?rev=a68fed26d8cea1bdd6fc7d6927bcc33c85e240c1#a68fed26d8cea1bdd6fc7d6927bcc33c85e240c1"
 dependencies = [
  "scarab-config",
  "serde",
@@ -3036,7 +3036,7 @@ dependencies = [
 [[package]]
 name = "scarab-config-yaml"
 version = "0.1.0"
-source = "git+ssh://git@github.com/9aia/scarab.git?rev=9364df88fad0ca46bd838467717a823893f47438#9364df88fad0ca46bd838467717a823893f47438"
+source = "git+ssh://git@github.com/9aia/scarab.git?rev=a68fed26d8cea1bdd6fc7d6927bcc33c85e240c1#a68fed26d8cea1bdd6fc7d6927bcc33c85e240c1"
 dependencies = [
  "scarab-config",
  "serde",
