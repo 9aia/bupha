@@ -30,6 +30,7 @@ members = [
     "crates/bupha-watch",
     "crates/bupha-driver",
     "crates/bupha-plane",
+    "crates/bupha-peregrin",
 ]
 
 [workspace.package]
@@ -82,3 +83,4 @@ bupha-watch = { path = "crates/bupha-watch", version = "0.2.0" }
 bupha-driver = { path = "crates/bupha-driver", version = "0.2.0" }
 bupha = { path = "crates/bupha-cli", version = "0.2.0" }
 bupha-plane = { path = "crates/bupha-plane", version = "0.2.0" }
+bupha-peregrin = { path = "crates/bupha-peregrin", version = "0.2.0" }

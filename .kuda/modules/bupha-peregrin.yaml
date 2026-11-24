@@ -1,0 +1,171 @@
+name: bupha-peregrin
+path: crates/bupha-peregrin/Cargo.toml
+purpose: peregrin-side ci-job integration — entity plane composition, fleet specs, hub rehydrate, kind policy (P-047, the bupha↔hypha/peregrin seam)
+api:
+- name: CiJobKindPolicy
+  kind: type
+  file: crates/bupha-peregrin/src/policy.rs
+  line: 27
+  module: bupha-peregrin
+- name: apply_index
+  kind: function
+  file: crates/bupha-peregrin/src/rehydrate.rs
+  line: 71
+  module: bupha-peregrin
+- name: apply_index_reads_only_own_bucket_and_kind
+  kind: function
+  file: crates/bupha-peregrin/src/rehydrate.rs
+  line: 122
+  module: bupha-peregrin
+- name: bupha-peregrin
+  kind: module
+  file: crates/bupha-peregrin/Cargo.toml
+  line: 1
+  module: bupha-peregrin
+- name: ci_job_kind_policies
+  kind: function
+  file: crates/bupha-peregrin/src/policy.rs
+  line: 52
+  module: bupha-peregrin
+- name: ci_job_plane
+  kind: function
+  file: crates/bupha-peregrin/src/plane.rs
+  line: 29
+  module: bupha-peregrin
+- name: claims_ci_ops_without_lock_gating
+  kind: function
+  file: crates/bupha-peregrin/src/policy.rs
+  line: 67
+  module: bupha-peregrin
+- name: collect_path
+  kind: function
+  file: crates/bupha-peregrin/src/fleet.rs
+  line: 96
+  module: bupha-peregrin
+- name: columns_and_extras_stay_generic
+  kind: function
+  file: crates/bupha-peregrin/src/policy.rs
+  line: 125
+  module: bupha-peregrin
+- name: entity
+  kind: function
+  file: crates/bupha-peregrin/src/rehydrate.rs
+  line: 112
+  module: bupha-peregrin
+- name: entity_kinds
+  kind: function
+  file: crates/bupha-peregrin/src/policy.rs
+  line: 30
+  module: bupha-peregrin
+- name: fleet
+  kind: module
+  file: crates/bupha-peregrin/src/lib.rs
+  line: 42
+  module: bupha-peregrin
+- name: fleet_specs
+  kind: function
+  file: crates/bupha-peregrin/src/fleet.rs
+  line: 31
+  module: bupha-peregrin
+- name: job_doc
+  kind: function
+  file: crates/bupha-peregrin/src/rehydrate.rs
+  line: 99
+  module: bupha-peregrin
+- name: op_kind
+  kind: function
+  file: crates/bupha-peregrin/src/policy.rs
+  line: 38
+  module: bupha-peregrin
+- name: op_kind_classification
+  kind: function
+  file: crates/bupha-peregrin/src/policy.rs
+  line: 97
+  module: bupha-peregrin
+- name: owns_op
+  kind: function
+  file: crates/bupha-peregrin/src/policy.rs
+  line: 34
+  module: bupha-peregrin
+- name: plane
+  kind: module
+  file: crates/bupha-peregrin/src/lib.rs
+  line: 43
+  module: bupha-peregrin
+- name: policy
+  kind: module
+  file: crates/bupha-peregrin/src/lib.rs
+  line: 44
+  module: bupha-peregrin
+- name: registry_routes_ci_ops_to_ci_policy
+  kind: function
+  file: crates/bupha-peregrin/src/policy.rs
+  line: 116
+  module: bupha-peregrin
+- name: rehydrate
+  kind: module
+  file: crates/bupha-peregrin/src/lib.rs
+  line: 45
+  module: bupha-peregrin
+- name: rehydrate
+  kind: function
+  file: crates/bupha-peregrin/src/rehydrate.rs
+  line: 38
+  module: bupha-peregrin
+- name: rehydrate_without_target_is_a_noop
+  kind: function
+  file: crates/bupha-peregrin/src/rehydrate.rs
+  line: 165
+  module: bupha-peregrin
+- name: tests
+  kind: module
+  file: crates/bupha-peregrin/src/policy.rs
+  line: 59
+  module: bupha-peregrin
+- name: tests
+  kind: module
+  file: crates/bupha-peregrin/src/rehydrate.rs
+  line: 90
+  module: bupha-peregrin
+deps:
+- bupha-config-file
+- bupha-plane
+- hypha-http
+- hypha-node-api
+- hypha-sync
+- serde_json
+- tokio
+- tracing
+- hypha_sync
+- serde_json
+- bupha-plane
+- fleet
+- plane
+- policy
+- rehydrate
+notes: ''
+verify:
+- crates/bupha-peregrin/Cargo.toml
+- crates/bupha-peregrin/src/fleet.rs
+- crates/bupha-peregrin/src/lib.rs
+- crates/bupha-peregrin/src/plane.rs
+- crates/bupha-peregrin/src/policy.rs
+- crates/bupha-peregrin/src/rehydrate.rs
+provenance:
+  files:
+  - crates/bupha-peregrin/Cargo.toml
+  - crates/bupha-peregrin/src/fleet.rs
+  - crates/bupha-peregrin/src/lib.rs
+  - crates/bupha-peregrin/src/plane.rs
+  - crates/bupha-peregrin/src/policy.rs
+  - crates/bupha-peregrin/src/rehydrate.rs
+  hashes:
+  - 0781d769df6c1a70c93b2565500d837dabb427cc
+  - 8b23c29902b821b8c81cbdae7fdadaf62c78df9f
+  - 43f5d4d7fa323f9aa5158c8ae61109fd2fceffaa
+  - 1775c70e30825b826a84bedc644c8751856d80fd
+  - 8308d498ab999122e2ef0e2b61615406ba722a1b
+  - 2403319bd3fda8abcce8dc45f209dc42e0d0b0de
+  commit_sha: 52aff40ab611056b16210d577434721981458520
+  generated_at: '1795531933'
+  generator: kuda-template/0.1.4
