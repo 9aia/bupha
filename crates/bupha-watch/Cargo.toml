@@ -40,8 +40,7 @@ bupha-access.workspace = true
 bupha-access-file.workspace = true
 bupha-access-forge.workspace = true
 bupha-audit-file.workspace = true
-bupha-telemetry.workspace = true
-bupha-telemetry-otel.workspace = true
+lampy-metrics-file.workspace = true
 bupha-history.workspace = true
 bupha-plane.workspace = true
 # The entity-plane worker (`entity_worker`) speaks the node↔hub

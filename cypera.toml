@@ -18,7 +18,6 @@ order = ["domain", "port", "adapter", "binary"]
 "bupha-secret" = "port"
 "bupha-cache" = "port"
 "bupha-access" = "port"
-"bupha-telemetry" = "port"
 "bupha-attest" = "port"
 "bupha-queue-lease" = "port"
 

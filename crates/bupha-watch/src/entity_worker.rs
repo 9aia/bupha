@@ -28,7 +28,7 @@ use bupha_plane::job::{CiJob, JobState, CI_JOB_KIND};
 use bupha_queue::{Fence, TryClaim};
 use bupha_runner::Runner;
 use bupha_status::StatusSink;
-use bupha_telemetry::{RunEvent, Telemetry};
+use crate::telemetry::{RunEvent, Telemetry};
 use hypha_node_api::api::{EntityApi, OpResult};
 use hypha_node_api::dto::{EntityDto, EntityOp};
 use serde_json::{json, Value};

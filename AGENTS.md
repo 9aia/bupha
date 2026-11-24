@@ -95,7 +95,7 @@ trait with impl crates:
 | `bupha-history` | bounded `history.jsonl` run log |
 | `bupha-cache` + `-sccache` | artifact-cache port + sccache impl |
 | `bupha-config-file` | `bupha.toml`/`bupha.yaml` config impl (`~/` expansion on local paths) |
-| `bupha-telemetry` + `-otel` | opt-in OTEL layer over `tracing` |
+| `bupha-watch::telemetry` | domain `RunEvent`/`Telemetry` port — OpenMetrics textfile sink is `lampy-metrics-file` (9aia/lampy, P-042) |
 | `bupha-http` | `bupha agent` wire — remote job submit/worktree/status over HTTP |
 | `libraries/` | tamias packs — `bupha` (command), `ci-gate`, `ci-ingress`, `docs-deploy`, `gha-runner` (`type: bupha` bundles) |
 | `modules/dagger/` | shared pipeline module (Python SDK) |

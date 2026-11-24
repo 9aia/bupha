@@ -334,7 +334,6 @@ dependencies = [
  "bupha-queue",
  "bupha-runner",
  "bupha-secret-cuora",
- "bupha-telemetry",
  "bupha-trigger",
  "bupha-watch",
  "clap",
@@ -611,17 +610,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "bupha-telemetry"
-version = "0.2.0"
-
-[[package]]
-name = "bupha-telemetry-otel"
-version = "0.2.0"
-dependencies = [
- "bupha-telemetry",
-]
-
-[[package]]
 name = "bupha-trigger"
 version = "0.2.0"
 
@@ -653,13 +641,12 @@ dependencies = [
  "bupha-ssh",
  "bupha-status",
  "bupha-sturn",
- "bupha-telemetry",
- "bupha-telemetry-otel",
  "bupha-trigger",
  "chrono",
  "hypha-dotenv",
  "hypha-node-api",
  "hypha-secret",
+ "lampy-metrics-file",
  "lasius-vcs",
  "lasius-vcs-git",
  "serde_json",
@@ -2120,6 +2107,11 @@ dependencies = [
  "cfg-if",
  "cpufeatures 0.3.1",
 ]
+
+[[package]]
+name = "lampy-metrics-file"
+version = "0.1.0"
+source = "git+ssh://git@github.com/9aia/lampy.git?rev=04c89924413c5e169e5b6c48d7e5897be53be85c#04c89924413c5e169e5b6c48d7e5897be53be85c"
 
 [[package]]
 name = "lasius-vcs"

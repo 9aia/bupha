@@ -6,8 +6,6 @@ members = [
     "crates/bupha-history",
     "crates/bupha-attest",
     "crates/bupha-container",
-    "crates/bupha-telemetry-otel",
-    "crates/bupha-telemetry",
     "crates/bupha-access-forge",
     "crates/bupha-access-file",
     "crates/bupha-access",
@@ -54,8 +52,10 @@ bupha-access = { path = "crates/bupha-access", version = "0.2.0" }
 bupha-access-file = { path = "crates/bupha-access-file", version = "0.2.0" }
 bupha-audit-file = { path = "crates/bupha-audit-file", version = "0.2.0" }
 bupha-access-forge = { path = "crates/bupha-access-forge", version = "0.2.0" }
-bupha-telemetry = { path = "crates/bupha-telemetry", version = "0.2.0" }
-bupha-telemetry-otel = { path = "crates/bupha-telemetry-otel", version = "0.2.0" }
+# Telemetry expertise lives in 9aia/lampy (P-042) — the OpenMetrics
+# textfile sink is lampy-metrics-file; bupha keeps only its domain
+# RunEvent/Telemetry port in bupha-watch::telemetry.
+lampy-metrics-file = { git = "ssh://git@github.com/9aia/lampy.git", rev = "04c89924413c5e169e5b6c48d7e5897be53be85c", version = "0.1.0" }
 bupha-container = { path = "crates/bupha-container", version = "0.2.0" }
 bupha-attest = { path = "crates/bupha-attest", version = "0.2.0" }
 bupha-history = { path = "crates/bupha-history", version = "0.2.0" }
