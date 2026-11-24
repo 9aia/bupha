@@ -10,7 +10,7 @@ categories = ["development-tools"]
 
 [dependencies]
 bupha-core.workspace = true
-scarab-config = { git = "ssh://git@github.com/9aia/scarab.git", rev = "9364df88fad0ca46bd838467717a823893f47438", version = "0.1" }
-scarab-config-file = { git = "ssh://git@github.com/9aia/scarab.git", rev = "9364df88fad0ca46bd838467717a823893f47438", version = "0.1" }
-serde_norway = "0.9"
+scarab-config = { git = "ssh://git@github.com/9aia/scarab.git", rev = "a68fed26d8cea1bdd6fc7d6927bcc33c85e240c1", version = "0.1" }
+scarab-config-file = { git = "ssh://git@github.com/9aia/scarab.git", rev = "a68fed26d8cea1bdd6fc7d6927bcc33c85e240c1", version = "0.1" }
+serde_yaml_ng = "0.10"
 toml.workspace = true
