@@ -60,9 +60,14 @@ capabilities:
     - BUPHA_WH_9AIA_CICADA
     - BUPHA_WH_9AIA_CUORA
     - BUPHA_WH_9AIA_CYPERA
+    - BUPHA_WH_9AIA_DELPHIS
+    - BUPHA_WH_9AIA_GITHUB
+    - BUPHA_WH_9AIA_GITHUB_IO
     - BUPHA_WH_9AIA_HYPHA
     - BUPHA_WH_9AIA_KUDA
+    - BUPHA_WH_9AIA_LAMPY
     - BUPHA_WH_9AIA_LASIUS
+    - BUPHA_WH_9AIA_MIMUS
     - BUPHA_WH_9AIA_MYCENA
     - BUPHA_WH_9AIA_MYCO
     - BUPHA_WH_9AIA_PACHIRA
@@ -71,9 +76,12 @@ capabilities:
     - BUPHA_WH_9AIA_PROJECT
     - BUPHA_WH_9AIA_SCARAB
     - BUPHA_WH_9AIA_SEPIA
+    - BUPHA_WH_9AIA_SLIDEV_THEME_9AIA
     - BUPHA_WH_9AIA_STURN
     - BUPHA_WH_9AIA_TAMIAS
+    - BUPHA_WH_9AIA_TARDIGRADA
     - BUPHA_WH_9AIA_TARSI
+    - BUPHA_WH_9AIA_VITEPRESS_THEME_9AIA
     - BUPHA_WH_HANDL_LANG_DOCS
     - BUPHA_WH_HANDL_LANG_ENGINE_EXEC
     - BUPHA_WH_HANDL_LANG_ENGINE_EXEC_BYTECODE
@@ -295,6 +303,22 @@ nodes:
       secret_env: BUPHA_WH_9AIA_PACHIRA
     - name: 9aia/project
       secret_env: BUPHA_WH_9AIA_PROJECT
+    - name: 9aia/mimus
+      secret_env: BUPHA_WH_9AIA_MIMUS
+    - name: 9aia/lampy
+      secret_env: BUPHA_WH_9AIA_LAMPY
+    - name: 9aia/delphis
+      secret_env: BUPHA_WH_9AIA_DELPHIS
+    - name: 9aia/tardigrada
+      secret_env: BUPHA_WH_9AIA_TARDIGRADA
+    - name: 9aia/slidev-theme-9aia
+      secret_env: BUPHA_WH_9AIA_SLIDEV_THEME_9AIA
+    - name: 9aia/vitepress-theme-9aia
+      secret_env: BUPHA_WH_9AIA_VITEPRESS_THEME_9AIA
+    - name: 9aia/9aia.github.io
+      secret_env: BUPHA_WH_9AIA_GITHUB_IO
+    - name: 9aia/.github
+      secret_env: BUPHA_WH_9AIA_GITHUB
     - name: handl-lang/automation
       secret_env: BUPHA_WEBHOOK_SECRET
     - name: handl-lang/discovery

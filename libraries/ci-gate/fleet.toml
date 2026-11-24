@@ -309,6 +309,107 @@ kind = "shell"
 token_env = "BUPHA_TOKEN"
 cancel_running = true
 cmd = "bash scripts/ci.sh"
+# Remaining 9aia clones onboarded to the gate — each carries
+# scripts/ci.sh (real check floor + the 9aia-standard conformance
+# leg). Webhook secrets resolve cuora-first as
+# cuora://bupha/<secret_env>; repos whose secret/hook isn't
+# provisioned yet simply never see verified deliveries.
+
+[[repo]]
+name = "9aia/mimus"
+dir = "~/GitHub/9aia/workspace/repos/mimus"
+branch = "refs/heads/main"
+secret_env = "BUPHA_WH_9AIA_MIMUS"
+retry = 3
+[repo.runner]
+kind = "shell"
+token_env = "BUPHA_TOKEN"
+cancel_running = true
+cmd = "bash scripts/ci.sh"
+
+[[repo]]
+name = "9aia/lampy"
+dir = "~/GitHub/9aia/workspace/repos/lampy"
+branch = "refs/heads/main"
+secret_env = "BUPHA_WH_9AIA_LAMPY"
+retry = 3
+[repo.runner]
+kind = "shell"
+token_env = "BUPHA_TOKEN"
+cancel_running = true
+cmd = "bash scripts/ci.sh"
+
+[[repo]]
+name = "9aia/delphis"
+dir = "~/GitHub/9aia/workspace/repos/delphis"
+branch = "refs/heads/main"
+secret_env = "BUPHA_WH_9AIA_DELPHIS"
+retry = 3
+[repo.runner]
+kind = "shell"
+token_env = "BUPHA_TOKEN"
+cancel_running = true
+cmd = "bash scripts/ci.sh"
+
+[[repo]]
+name = "9aia/tardigrada"
+dir = "~/GitHub/9aia/workspace/repos/tardigrada"
+branch = "refs/heads/main"
+secret_env = "BUPHA_WH_9AIA_TARDIGRADA"
+retry = 3
+[repo.runner]
+kind = "shell"
+token_env = "BUPHA_TOKEN"
+cancel_running = true
+cmd = "bash scripts/ci.sh"
+
+[[repo]]
+name = "9aia/slidev-theme-9aia"
+dir = "~/GitHub/9aia/workspace/repos/slidev-theme-9aia"
+branch = "refs/heads/main"
+secret_env = "BUPHA_WH_9AIA_SLIDEV_THEME_9AIA"
+retry = 3
+[repo.runner]
+kind = "shell"
+token_env = "BUPHA_TOKEN"
+cancel_running = true
+cmd = "bash scripts/ci.sh"
+
+[[repo]]
+name = "9aia/vitepress-theme-9aia"
+dir = "~/GitHub/9aia/workspace/repos/vitepress-theme-9aia"
+branch = "refs/heads/main"
+secret_env = "BUPHA_WH_9AIA_VITEPRESS_THEME_9AIA"
+retry = 3
+[repo.runner]
+kind = "shell"
+token_env = "BUPHA_TOKEN"
+cancel_running = true
+cmd = "bash scripts/ci.sh"
+
+[[repo]]
+name = "9aia/9aia.github.io"
+dir = "~/GitHub/9aia/workspace/repos/9aia.github.io"
+branch = "refs/heads/main"
+secret_env = "BUPHA_WH_9AIA_GITHUB_IO"
+retry = 3
+[repo.runner]
+kind = "shell"
+token_env = "BUPHA_TOKEN"
+cancel_running = true
+cmd = "bash scripts/ci.sh"
+
+[[repo]]
+name = "9aia/.github"
+dir = "~/GitHub/9aia/workspace/repos/.github"
+branch = "refs/heads/main"
+secret_env = "BUPHA_WH_9AIA_GITHUB"
+retry = 3
+[repo.runner]
+kind = "shell"
+token_env = "BUPHA_TOKEN"
+cancel_running = true
+cmd = "bash scripts/ci.sh"
 
 [[repo]]
 name = "handl-lang/automation"
