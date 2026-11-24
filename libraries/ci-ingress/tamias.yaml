@@ -3,7 +3,7 @@
 # the bundle's main.yaml is a complete campaign (ingress webhook node
 # included — see below).
 name: ci-ingress
-version: "0.3.7"
+version: "0.3.8"
 # `peregrin-bundle` routes install/deploy/uninstall through
 # `tamias-driver-peregrin` (capabilities: types ["peregrin-bundle"]).
 type: peregrin-bundle
