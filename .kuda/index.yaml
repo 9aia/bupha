@@ -22,6 +22,7 @@ modules:
 - bupha-github
 - bupha-history
 - bupha-http
+- bupha-peregrin
 - bupha-plane
 - bupha-queue
 - bupha-runner
@@ -63,6 +64,7 @@ provenance:
   - crates/bupha-github/Cargo.toml
   - crates/bupha-history/Cargo.toml
   - crates/bupha-http/Cargo.toml
+  - crates/bupha-peregrin/Cargo.toml
   - crates/bupha-plane/Cargo.toml
   - crates/bupha-queue/Cargo.toml
   - crates/bupha-runner/Cargo.toml
