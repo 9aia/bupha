@@ -222,9 +222,9 @@ provenance:
   - crates/bupha-core/tests/domain.rs
   hashes:
   - 2949c06c8e71ef5da170506ce9cd8dfbb7312ce3
-  - 8c16078e512e0c43ad0538e818b1246643ad7fee
+  - 5efcde3ed46089044952d85be579aa66567fa25f
   - eaf5e74313b7393277e9a2bb3b2fa036cdfc2d3f
   - 27f3b186cfd507f196f593e93b8f6706159e33fd
-  commit_sha: ab48619e512f9982a8476770f063a197217d16db
-  generated_at: '1794607359'
+  commit_sha: 1ecb4583cdbe6759823bc0af73a6093b872575d1
+  generated_at: '1795527282'
   generator: kuda-template/0.1.4

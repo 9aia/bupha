@@ -7,9 +7,19 @@ api:
   file: docs/explanation/architecture.md
   line: 1
   module: docs
+- name: Boundaries
+  kind: record
+  file: docs/explanation/boundaries.md
+  line: 1
+  module: docs
 - name: Command-Line Help for `bupha`
   kind: record
   file: docs/reference/cli.md
+  line: 1
+  module: docs
+- name: Concepts
+  kind: record
+  file: docs/explanation/concepts.md
   line: 1
   module: docs
 - name: Config — `bupha.yaml` / `bupha.toml`
@@ -27,6 +37,11 @@ api:
   file: docs/explanation/crate-scope-audit.md
   line: 1
   module: docs
+- name: Decisions
+  kind: record
+  file: docs/explanation/decisions.md
+  line: 1
+  module: docs
 - name: Distributed runners
   kind: record
   file: docs/how-to/distributed-runners.md
@@ -37,9 +52,14 @@ api:
   file: docs/explanation/gha-dogfood.md
   line: 1
   module: docs
+- name: 'Flow: a push becomes a commit status'
+  kind: record
+  file: docs/explanation/flow.md
+  line: 1
+  module: docs
 - name: Getting started
   kind: record
-  file: docs/getting-started.md
+  file: docs/tutorials/getting-started.md
   line: 1
   module: docs
 - name: 'How-to: bupha as a GitHub self-hosted runner'
@@ -82,11 +102,6 @@ api:
   file: docs/explanation/release-model.md
   line: 1
   module: docs
-- name: 'Tutorial: your first bupha run'
-  kind: record
-  file: docs/tutorials/first-run.md
-  line: 1
-  module: docs
 - name: bupha vs hosted CI
   kind: record
   file: docs/comparison.md
@@ -95,25 +110,28 @@ api:
 deps: []
 notes: ''
 verify:
+- docs/.vitepress/theme/index.ts
 - docs/package.json
 - docs/comparison.md
 - docs/explanation/architecture.md
+- docs/explanation/boundaries.md
+- docs/explanation/concepts.md
 - docs/explanation/crate-scope-audit.md
+- docs/explanation/decisions.md
+- docs/explanation/flow.md
 - docs/explanation/gha-dogfood.md
-- docs/explanation/release-model.md
-- docs/gen-api-index.py
-- docs/getting-started.md
-- docs/how-to/distributed-runners.md
-- docs/how-to/gha-action.md
 provenance:
   files:
+  - docs/.vitepress/theme/index.ts
   - docs/comparison.md
   - docs/explanation/architecture.md
+  - docs/explanation/boundaries.md
+  - docs/explanation/concepts.md
   - docs/explanation/crate-scope-audit.md
+  - docs/explanation/decisions.md
+  - docs/explanation/flow.md
   - docs/explanation/gha-dogfood.md
   - docs/explanation/release-model.md
-  - docs/gen-api-index.py
-  - docs/getting-started.md
   - docs/how-to/distributed-runners.md
   - docs/how-to/gha-action.md
   - docs/how-to/gha-runner.md
@@ -128,30 +146,33 @@ provenance:
   - docs/reference/cli.md
   - docs/reference/config.md
   - docs/reference/crate-api.md
-  - docs/tutorials/first-run.md
+  - docs/tutorials/getting-started.md
   hashes:
+  - 73ba647e82ab0f8fec74d915003400b21fa6898b
   - 7359b1f8396d488dab45743b48a392e5184d19f7
-  - 636be719640f4724551abf21e421d22c73513187
+  - ce85fc8cfefb6c8108f1c7ab366267c1da2b76fd
+  - 4afcc1a78f0850465483c493e76dafd504ed1821
+  - 5a2553d6860d478a01e92ac93bc6f0985702c36b
   - fc1dd65a93395187c5da2d1b93f2e6d49ebc1f4b
+  - 3b0c91700dc5f1397a8bcb901c764437d2b8dc7e
+  - 5efa543cb082a0d6886be1287532ccdecb04483c
   - 5ecfe0b9163e6868dcf8d390163ec27811ec49ea
-  - caec710e66af88203bbbc05003fdedb88b4f5688
-  - 4190ba42e1402d3b750ddb42650ef4322a0ffda5
-  - c47ad1bad88b866750e50b966f2b87c8739f6f37
+  - 2e2a90beb82f494f04e2f4bfbb22e31547f920eb
   - 7bcc794bfa1307805c13e861ceb247e13b897758
   - 85a81d1926a0be03172e1a0f342e92e816898ac2
   - 193f92ff4abaef3fc8dcb0ac213b6120b546a276
-  - 49781ef670a415bb6f3eedccb144f902dcfc6eae
-  - 4ee7f2b425b4393d662c8e6d54a59b6272e22a6a
+  - f36547e2b1c1ac010ec002b795f204a2cce18876
+  - cafb09256b6d854f78b3e925297e5ef1826c0ab2
   - 9f415335d0209dc3403bb02e16cdba4015a256dc
-  - 4831a71b4f2cf04bff365e8b1297a035f629ab5c
+  - 7a51ab48b080fd59222a6c0cd3e3c5ff3c124844
   - 1155f707f866423f1f1a25c2d775ed21b735fb86
-  - 050d741da5632806c2303eab66cbcc188af7fce9
-  - d24fd0bdc021618e7bebf47b2bd5886423e516ee
+  - 78b09a04e9ec1122a6a46724286884efea16b290
+  - 4f0b8ff4148be43a70da1a9452321b7b7eab4c73
   - 175fa4f47aecdc02e902d243a1c29914eb2ee258
   - d6637da10c0098a2d0618ab8a8f961d3f653fdfc
-  - 2dc7d403ff00f4784283f1ace1967b1c27480435
+  - b456a469beec18b1d1cca527eeae11ded5bc49eb
   - a1679f46dca8b87aa05359c05069cf6a800a7ae5
-  - 4c73c44b1aee2fc8900f4d3fc2e4a4688777fd1c
-  commit_sha: 08a1d1c4add95b30d10e6f51353def4e8f3e3a52
-  generated_at: '1794759786'
+  - c6c22819f1efa891ab6f39f67ae3d97953ad2db7
+  commit_sha: 1ecb4583cdbe6759823bc0af73a6093b872575d1
+  generated_at: '1795527282'
   generator: kuda-template/0.1.4

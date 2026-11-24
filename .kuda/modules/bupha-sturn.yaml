@@ -222,8 +222,8 @@ provenance:
   - crates/bupha-sturn/tests/wal.rs
   hashes:
   - 3ab4e5c0ef5a9ba093bbecec61fba19bedab49ed
-  - 449ff8faef67ee59f34e0d782f37173be431c02e
+  - 11d841083f2f6c307e948e554c82f3fa34df554f
   - 84df4414a588071a59e7b09011807a8dcd990b51
-  commit_sha: abb87b40721c7fe6faf27a74f32e3eb702f4c32f
-  generated_at: '1794440686'
+  commit_sha: 1ecb4583cdbe6759823bc0af73a6093b872575d1
+  generated_at: '1795527282'
   generator: kuda-template/0.1.4

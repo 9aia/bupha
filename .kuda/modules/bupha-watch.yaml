@@ -2,6 +2,26 @@ name: bupha-watch
 path: crates/bupha-watch/Cargo.toml
 purpose: bupha watcher engine host — trigger → queue → runner → status pipeline shared by `bupha watch` and `tamias-driver-bupha host`
 api:
+- name: CUORA_BIN_ENV
+  kind: const
+  file: crates/bupha-watch/src/lib.rs
+  line: 214
+  module: bupha-watch
+- name: CUORA_PACK_SCOPE
+  kind: const
+  file: crates/bupha-watch/src/lib.rs
+  line: 211
+  module: bupha-watch
+- name: CUORA_SCOPE
+  kind: const
+  file: crates/bupha-watch/src/lib.rs
+  line: 207
+  module: bupha-watch
+- name: CUORA_TRANSPORT_ENV
+  kind: const
+  file: crates/bupha-watch/src/lib.rs
+  line: 215
+  module: bupha-watch
 - name: CancelExec
   kind: type
   file: crates/bupha-watch/src/entity_worker.rs
@@ -10,7 +30,7 @@ api:
 - name: ChildSlot
   kind: type
   file: crates/bupha-watch/src/lib.rs
-  line: 342
+  line: 360
   module: bupha-watch
 - name: ClaimFilter
   kind: type
@@ -60,7 +80,7 @@ api:
 - name: FORK_CREDENTIAL_HELPER
   kind: const
   file: crates/bupha-watch/src/lib.rs
-  line: 257
+  line: 275
   module: bupha-watch
 - name: FailWait
   kind: type
@@ -85,7 +105,7 @@ api:
 - name: FetchTarget
   kind: type
   file: crates/bupha-watch/src/lib.rs
-  line: 378
+  line: 396
   module: bupha-watch
 - name: G
   kind: type
@@ -100,7 +120,7 @@ api:
 - name: Ingest
   kind: type
   file: crates/bupha-watch/src/lib.rs
-  line: 676
+  line: 694
   module: bupha-watch
 - name: Inner
   kind: type
@@ -115,7 +135,7 @@ api:
 - name: JobEnd
   kind: type
   file: crates/bupha-watch/src/lib.rs
-  line: 365
+  line: 383
   module: bupha-watch
 - name: JobExec
   kind: trait
@@ -132,6 +152,11 @@ api:
   file: crates/bupha-watch/src/webhook.rs
   line: 27
   module: bupha-watch
+- name: NoopTelemetry
+  kind: type
+  file: crates/bupha-watch/src/telemetry.rs
+  line: 40
+  module: bupha-watch
 - name: PathGuard
   kind: type
   file: crates/bupha-watch/tests/tunnel.rs
@@ -140,12 +165,27 @@ api:
 - name: Poll
   kind: type
   file: crates/bupha-watch/src/lib.rs
-  line: 537
+  line: 555
+  module: bupha-watch
+- name: PromTelemetry
+  kind: type
+  file: crates/bupha-watch/src/telemetry.rs
+  line: 49
+  module: bupha-watch
+- name: RunEvent
+  kind: type
+  file: crates/bupha-watch/src/telemetry.rs
+  line: 17
   module: bupha-watch
 - name: Shared
   kind: type
   file: crates/bupha-watch/src/lib.rs
-  line: 648
+  line: 666
+  module: bupha-watch
+- name: SharedTelemetry
+  kind: type
+  file: crates/bupha-watch/src/telemetry.rs
+  line: 86
   module: bupha-watch
 - name: SkipExec
   kind: type
@@ -157,52 +197,12 @@ api:
   file: crates/bupha-watch/src/entity_worker.rs
   line: 705
   module: bupha-watch
-- name: Tunnel
+- name: Telemetry
   kind: trait
-  file: crates/bupha-watch/src/tunnel.rs
-  line: 14
+  file: crates/bupha-watch/src/telemetry.rs
+  line: 34
   module: bupha-watch
-- name: WatchExec
-  kind: type
-  file: crates/bupha-watch/src/entity_worker.rs
-  line: 503
-  module: bupha-watch
-- name: WebhookSource
-  kind: type
-  file: crates/bupha-watch/src/webhook.rs
-  line: 60
-  module: bupha-watch
-- name: Worker
-  kind: type
-  file: crates/bupha-watch/src/lib.rs
-  line: 345
-  module: bupha-watch
-- name: args_of
-  kind: function
-  file: crates/bupha-watch/tests/tunnel.rs
-  line: 76
-  module: bupha-watch
-- name: attest_run
-  kind: function
-  file: crates/bupha-watch/src/lib.rs
-  line: 921
-  module: bupha-watch
-- name: attest_run_links_only_with_url_base
-  kind: function
-  file: crates/bupha-watch/src/lib.rs
-  line: 1620
-  module: bupha-watch
-- name: build_attest
-  kind: function
-  file: crates/bupha-watch/src/lib.rs
-  line: 822
-  module: bupha-watch
-- name: build_audit
-  kind: function
-  file: crates/bupha-watch/src/lib.rs
-  line: 852
-  module: bupha-watch
-api_omitted: 128
+api_omitted: 142
 deps:
 - bupha-access
 - bupha-access-file
@@ -227,14 +227,13 @@ deps:
 - bupha-ssh
 - bupha-status
 - bupha-sturn
-- bupha-telemetry
-- bupha-telemetry-otel
 - bupha-trigger
 - chrono
 - cuora-secret
 - cuora-secret-cuora
 - cuora-secret-dotenv
 - hypha-node-api
+- lampy-metrics-file
 - lasius-vcs
 - lasius-vcs-git
 - serde_json
@@ -247,9 +246,9 @@ deps:
 - bupha-queue
 - bupha-runner
 - bupha-status
-- bupha-telemetry
 - serde_json
 - bupha-trigger
+- lampy_metrics_file
 - bupha-access
 - bupha-access-file
 - bupha-access-forge
@@ -264,19 +263,19 @@ deps:
 - bupha-github
 - bupha-history
 - bupha-shell
-- bupha-telemetry-otel
+- cuora_secret
+- cuora_secret_cuora
+- cuora_secret_dotenv
 - lasius_vcs
 - lasius_vcs_git
 - tunnel
 - webhook
-- cuora_secret
-- cuora_secret_cuora
-- cuora_secret_dotenv
 notes: ''
 verify:
 - crates/bupha-watch/Cargo.toml
 - crates/bupha-watch/src/entity_worker.rs
 - crates/bupha-watch/src/lib.rs
+- crates/bupha-watch/src/telemetry.rs
 - crates/bupha-watch/src/tunnel.rs
 - crates/bupha-watch/src/webhook.rs
 - crates/bupha-watch/tests/tunnel.rs
@@ -285,16 +284,18 @@ provenance:
   - crates/bupha-watch/Cargo.toml
   - crates/bupha-watch/src/entity_worker.rs
   - crates/bupha-watch/src/lib.rs
+  - crates/bupha-watch/src/telemetry.rs
   - crates/bupha-watch/src/tunnel.rs
   - crates/bupha-watch/src/webhook.rs
   - crates/bupha-watch/tests/tunnel.rs
   hashes:
-  - 266224915f8ff4c7c2cad0aba28a95b57a819a43
-  - 97eb09b28dc045ca4cf80fe44a341a30db1deac0
-  - 75ca7cd24ed50e3088a412eb4a179c510667ce3a
+  - 16fc33076518306f120f98d18ea6839961d96e40
+  - addbb3972c5a84da5ddd6887288e456193f04573
+  - a55802a3781e95583452738746e6a2e149507558
+  - 5c29bb8c52105d06099aa2dc41932eb2cad41bd1
   - 0ebbe5f4cbdcd4ef1d8da46e9120a81e1f81812b
   - 762216f0144384abf6afb630748d50671eaae648
   - 944cd3a5a8e3528b9208a5bb2eca27236ab0109c
-  commit_sha: ab48619e512f9982a8476770f063a197217d16db
-  generated_at: '1794607359'
+  commit_sha: 1ecb4583cdbe6759823bc0af73a6093b872575d1
+  generated_at: '1795527282'
   generator: kuda-template/0.1.4

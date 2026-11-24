@@ -5,27 +5,41 @@
 //! down. Deployed fleets get their units from `tamias deploy`
 //! (ADR-0006) — this module is the standalone/dev-mode path.
 //!
-//! The generic systemd machinery lives in `hypha-systemd` (T-077 —
-//! the `bupha-systemd`/`bupha-service` crates are retired); this
-//! module keeps only the bupha-shaped wrappers: unit naming
-//! (`bupha-watch.service`), the `bupha <verb> [--config]` ExecStart
-//! line, the `~/.config/bupha/env` skeleton, and journalctl logs.
+//! The generic systemd machinery lives in `tamias-deploy-systemd`
+//! (PL-025 — the `bupha-systemd`/`bupha-service` crates are retired,
+//! and hypha-systemd with them); this module keeps only the
+//! bupha-shaped wrappers: unit naming (`bupha-watch.service`), the
+//! `bupha <verb> [--config]` ExecStart line, the
+//! `~/.config/bupha/env` skeleton, and journalctl logs.
 
-use hypha_systemd as sys;
 use std::io;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
-/// Unit name without the `.service` suffix — hypha-systemd takes
+use tamias_deploy_systemd::{
+    unit_dir, unit_status as probe_status, LocalDeploy, ServiceSpec, SystemRunner,
+};
+
+fn to_io<E: std::fmt::Display>(e: E) -> io::Error {
+    io::Error::other(e.to_string())
+}
+
+/// The default per-user deployer — `~/.config/systemd/user` +
+/// the real `systemctl`/`journalctl` runner.
+fn deploy() -> LocalDeploy {
+    LocalDeploy::with_default(unit_dir(), Box::new(SystemRunner))
+}
+
+/// Unit name without the `.service` suffix — the deploy port takes
 /// the bare name and appends `.service` itself. Accepts either form.
 fn unit_name(unit: &str) -> &str {
     unit.strip_suffix(".service").unwrap_or(unit)
 }
 
-/// Render the user unit via `hypha-systemd`. `unit` is a systemd
-/// user service running `bupha {verb}` ("watch" for the listener,
-/// "worker" for a fleet puller); the watcher spawns the configured
-/// tunnel itself.
+/// Render the user unit via `tamias-deploy-systemd`. `unit` is a
+/// systemd user service running `bupha {verb}` ("watch" for the
+/// listener, "worker" for a fleet puller); the watcher spawns the
+/// configured tunnel itself.
 pub fn write_service_unit(
     unit: &str,
     bin: &Path,
@@ -38,39 +52,44 @@ pub fn write_service_unit(
         exec.push("--config".into());
         exec.push(c.display().to_string());
     }
-    sys::write_unit(
-        &sys::default_unit_dir(),
-        unit_name(unit),
-        &exec,
-        env_file,
-        &format!("bupha — headless CI {verb} (webhook -> queue -> runner)"),
-    )
+    let spec = ServiceSpec {
+        name: unit_name(unit).to_string(),
+        description: format!("bupha — headless CI {verb} (webhook -> queue -> runner)"),
+        exec,
+        env: vec![],
+        env_file: Some(env_file.display().to_string()),
+        restart: None,
+        restart_sec: None,
+        workdir: None,
+        after: vec![],
+    };
+    deploy().install(&spec).map_err(to_io)
 }
 
 /// systemctl --user daemon-reload + enable --now. Needs `loginctl
 /// enable-linger` (once) to survive logout/boot.
 pub fn enable_service(unit: &str) -> io::Result<()> {
-    sys::enable(unit_name(unit))
+    deploy().enable(unit_name(unit)).map_err(to_io)
 }
 
 /// systemctl --user disable --now — stop now, skip at login. Keeps
 /// the unit file so `enable_service` brings it back without a
 /// reinstall (unlike `disable_service`, which removes it).
 pub fn stop_service(unit: &str) -> io::Result<()> {
-    sys::disable(unit_name(unit))
+    deploy().disable(unit_name(unit)).map_err(to_io)
 }
 
 /// One-line "enabled=<state> active=<state>" for `service status` —
 /// is-enabled/is-active exit non-zero on disabled/inactive units,
 /// so failures report the state instead of throwing.
 pub fn unit_status(unit: &str) -> io::Result<String> {
-    Ok(sys::status(unit_name(unit)))
+    Ok(probe_status(unit_name(unit)))
 }
 
 /// systemctl --user restart — bounce the watcher; enablement and the
 /// unit file are untouched.
 pub fn restart_service(unit: &str) -> io::Result<()> {
-    sys::restart(unit_name(unit))
+    deploy().restart(unit_name(unit)).map_err(to_io)
 }
 
 /// `service logs` — journal tail for the unit. `follow` hands the
@@ -95,26 +114,18 @@ pub fn service_logs(unit: &str, follow: bool) -> io::Result<i32> {
 
 /// Disable + remove the user unit. Best-effort stop first — an absent
 /// or never-enabled unit still gets its file removed. The final
-/// daemon-reload stays strict (unlike `hypha_systemd::remove`'s
-/// tolerant one) so a dead user bus surfaces as an error instead of
-/// silently leaving systemd's view stale.
+/// daemon-reload stays strict so a dead user bus surfaces as an
+/// error instead of silently leaving systemd's view stale.
 pub fn disable_service(unit: &str) -> io::Result<PathBuf> {
     let name = unit_name(unit);
-    let _ = sys::disable(name);
-    let path = sys::unit_path(&sys::default_unit_dir(), name);
+    let d = deploy();
+    let _ = d.disable(name);
+    let path = d.unit_path(name).map_err(to_io)?;
     if path.exists() {
         std::fs::remove_file(&path)?;
     }
-    let st = Command::new("systemctl")
-        .args(["--user", "daemon-reload"])
-        .status()?;
-    if st.success() {
-        Ok(path)
-    } else {
-        Err(io::Error::other(format!(
-            "systemctl --user daemon-reload -> {st}"
-        )))
-    }
+    d.daemon_reload().map_err(to_io)?;
+    Ok(path)
 }
 
 /// Seed ~/.config/bupha/env with the secret names (empty values —

@@ -47,9 +47,24 @@ api:
   file: refs/sturn/wal/devin-prheal-ci
   line: 3
   module: sturn-wal
+- name: luis:claim@devin-t054-outbox#86f6410e
+  kind: record
+  file: refs/sturn/wal/devin-t054-outbox
+  line: 1
+  module: sturn-wal
+- name: luis:claim@devin-t054-outbox#bd7fcf3e
+  kind: record
+  file: refs/sturn/wal/devin-t054-outbox
+  line: 2
+  module: sturn-wal
 - name: luis:claim@gha-t048#ee1ea548
   kind: record
   file: refs/sturn/wal/gha-t048
+  line: 1
+  module: sturn-wal
+- name: luis:claim@pl-026#3c1067b0
+  kind: record
+  file: refs/sturn/wal/pl-026
   line: 1
   module: sturn-wal
 - name: luis:presence@bupha#301c51d8
@@ -62,6 +77,11 @@ api:
   file: refs/sturn/wal/devin-fix
   line: 2
   module: sturn-wal
+- name: luis:presence@devin-t054-outbox#416c686e
+  kind: record
+  file: refs/sturn/wal/devin-t054-outbox
+  line: 3
+  module: sturn-wal
 - name: luis:presence@gha-t048#3439bfd5
   kind: record
   file: refs/sturn/wal/gha-t048
@@ -73,18 +93,24 @@ verify:
 - refs/sturn/wal/bupha
 - refs/sturn/wal/devin-fix
 - refs/sturn/wal/devin-prheal-ci
+- refs/sturn/wal/devin-t054-outbox
 - refs/sturn/wal/gha-t048
+- refs/sturn/wal/pl-026
 provenance:
   files:
   - refs/sturn/wal/bupha
   - refs/sturn/wal/devin-fix
   - refs/sturn/wal/devin-prheal-ci
+  - refs/sturn/wal/devin-t054-outbox
   - refs/sturn/wal/gha-t048
+  - refs/sturn/wal/pl-026
   hashes:
   - 301c51d87ac6c9296108ec5c795c63e85fb95cd5
   - eafc028dd4fd98fb72ca80982f9214cedea12254
   - 883fad41dcbc9684472fc662f7a52933d755da0d
+  - 416c686ee861de49ebcd898d32a995dfd2beb95b
   - 3439bfd5c0ad32e69f3e96b5ba96cb2b90e95331
-  commit_sha: ab48619e512f9982a8476770f063a197217d16db
-  generated_at: '1794607359'
+  - 3c1067b0b6c4fc798f2f55b60e6fbd1fe2c8269d
+  commit_sha: 1ecb4583cdbe6759823bc0af73a6093b872575d1
+  generated_at: '1795527282'
   generator: kuda-template/0.1.4
