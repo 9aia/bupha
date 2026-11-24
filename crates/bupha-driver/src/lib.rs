@@ -137,6 +137,9 @@ pub fn dispatch(req: &Request) -> Response {
         Request::Submit { .. } => {
             Response::err("tamias-driver-bupha is read-only and implements no forms")
         }
+        // `invoke` — the manifest declares no actions; `ok:false`
+        // is the convention hosts read.
+        Request::Invoke { .. } => Response::err("tamias-driver-bupha implements no actions"),
         // Optional platform feeds — the manifest declares neither
         // `contributes.jobs` nor `contributes.notifications`, so per
         // convention the ops answer `ok:false` ("no feed").

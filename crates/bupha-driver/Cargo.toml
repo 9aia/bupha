@@ -58,16 +58,16 @@ clap = { version = "4", features = ["derive"] }
 # `version` is the crates.io fallback.
 # `rev` pins the surface-driver layer (`pavo_driver_kit::surface`)
 # the `cli`/`mcp` features and ops-manifest contract need.
-pavo-protocol = { git = "https://github.com/9aia/pavo", version = "0.1.0", rev = "1f5e37afdb0b66a1ef908c2cc2448248493399c2" }
+pavo-protocol = { git = "https://github.com/9aia/pavo", rev = "ca4079d123fe7533210ed698051f5c3a09000911", version = "0.1.0" }
 # Driver-authoring kit — serve loop, manifest/view/node builders,
 # and the `surface` layer (ops manifest → generated CLI + MCP).
 # Same git-dep rule as pavo-protocol above.
-pavo-driver-kit = { git = "https://github.com/9aia/pavo", version = "0.1.0", rev = "1f5e37afdb0b66a1ef908c2cc2448248493399c2" }
+pavo-driver-kit = { git = "https://github.com/9aia/pavo", rev = "ca4079d123fe7533210ed698051f5c3a09000911", version = "0.1.0" }
 
 [dev-dependencies]
 # Conformance gate — `cargo test` runs pavo's wire-contract suite
 # against this crate's own `tamias-driver-bupha serve` binary.
-pavo-testkit = { git = "https://github.com/9aia/pavo", rev = "1f5e37afdb0b66a1ef908c2cc2448248493399c2" }
+pavo-testkit = { git = "https://github.com/9aia/pavo", rev = "ca4079d123fe7533210ed698051f5c3a09000911" }
 # The engine e2e suite (moved from bupha-cli when the `bupha`
 # binary retired — T-012) signs webhook deliveries and posts them.
 hmac = "0.12"
