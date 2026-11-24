@@ -16,8 +16,8 @@ sink), `bupha-shell`/`bupha-dagger`/`bupha-ssh` (runners);
 bupha's: secrets resolve env → cuora (`bupha-secret-cuora`) →
 `hypha-dotenv` fallback (the keyring leg was dropped post-T-077 —
 `deploy env` migrates pre-cuora keyring entries into cuora), and systemd units go
-through `hypha-systemd` (T-077 — the `bupha-{secret,keyring,
-dotenv,service,systemd}` crates are retired);
+through `tamias-deploy-systemd` (PL-025 — the `bupha-{secret,keyring,
+dotenv,service,systemd}` and `hypha-{service,systemd}` crates are retired);
 `bupha` (package `bupha`, crate dir `bupha-cli`) is the engine
 lib — no `[[bin]]`: the `bupha` command ships as the tamias pack
 in `libraries/bupha` (`bins[]` shim → `tamias-driver-bupha cli` →

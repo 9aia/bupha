@@ -231,9 +231,9 @@ provenance:
   - crates/bupha-github/tests/github.rs
   hashes:
   - 9a8bdeb02a9e8896e60f63d221a83f115d8a5980
-  - 368cdd2df6f34a9d588e6943174638716972cc8c
+  - d22228c8a1fadeefa5d38e1d7082e768f3a26f20
   - a7e0de29cf0dd2f9cab25bf5c6f36d8dae70b673
   - 7ad49904a8b0c678609d1d4514372e246d371948
-  commit_sha: 255c0ebbd6460737dd3b15424b96c0d8ef08540a
-  generated_at: '1794549653'
+  commit_sha: 901c83ad79a723fc06b507da3c7ac9c0676b2326
+  generated_at: '1795446066'
   generator: kuda-template/0.1.4

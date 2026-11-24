@@ -60,7 +60,7 @@ api:
 - name: MIN_CONFIG
   kind: const
   file: crates/bupha-driver/src/data.rs
-  line: 242
+  line: 240
   module: bupha-driver
 - name: MIN_FLEET
   kind: const
@@ -214,12 +214,12 @@ deps:
 - clap
 - hypha-dotenv
 - hypha-secret
-- hypha-systemd
 - pavo-driver-kit
 - pavo-protocol
 - serde
 - serde_json
 - serde_norway
+- tamias-deploy-systemd
 - toml
 - ureq
 - bupha-gha-runner
@@ -269,11 +269,11 @@ provenance:
   - crates/bupha-driver/tests/verbs.rs
   - crates/bupha-driver/tests/watch.rs
   hashes:
-  - 8d588195b81dadd7e8024161eb89018f9fdf3c0d
-  - ed51e1e54e2387ffa046313bb9edd2fd4b6867f1
+  - 33a21518f0b5141169fe65fb71d91a44a7d42b66
+  - 2421d2fe691e1310852b88150a8e88c783966fde
   - 198a3778c07393c79598b08916cb8095bd165727
   - aeae9673ae611a66a0146a4227ead239022f61ed
-  - 5bb8bdd045df5ae7385cb034a2d0e688d8fa9e2d
+  - e5e8d09099562be9c29fe4742564ce043b672d19
   - b5184c15a968080a0368c974c66ae51d8c3fbf3c
   - 0da6b0651234e4ebbf8510aa9ff4f77ef22eb332
   - d8f6cbd1c8f342af984fc99785f7a9cb9bc54f85
@@ -286,6 +286,6 @@ provenance:
   - 12553a9dc152e7e0ffec4a06651592ed38d3ed23
   - fd852737ecb9227ba086e83d6212dc327ab9ac7b
   - a5bca4d891c4971f8071159624a0452a057e3efa
-  commit_sha: ab48619e512f9982a8476770f063a197217d16db
-  generated_at: '1794607359'
+  commit_sha: 901c83ad79a723fc06b507da3c7ac9c0676b2326
+  generated_at: '1795446066'
   generator: kuda-template/0.1.4

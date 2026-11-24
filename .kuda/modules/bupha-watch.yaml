@@ -290,11 +290,11 @@ provenance:
   - crates/bupha-watch/tests/tunnel.rs
   hashes:
   - 266224915f8ff4c7c2cad0aba28a95b57a819a43
-  - 97eb09b28dc045ca4cf80fe44a341a30db1deac0
-  - 75ca7cd24ed50e3088a412eb4a179c510667ce3a
+  - 159d6d0d214bf724da43b3312405aff6a33c3cd7
+  - c3b54c25d306744fee6b408e106f69fe80734e54
   - 0ebbe5f4cbdcd4ef1d8da46e9120a81e1f81812b
   - 762216f0144384abf6afb630748d50671eaae648
   - 944cd3a5a8e3528b9208a5bb2eca27236ab0109c
-  commit_sha: ab48619e512f9982a8476770f063a197217d16db
-  generated_at: '1794607359'
+  commit_sha: 901c83ad79a723fc06b507da3c7ac9c0676b2326
+  generated_at: '1795446066'
   generator: kuda-template/0.1.4

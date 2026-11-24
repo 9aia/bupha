@@ -341,11 +341,11 @@ dependencies = [
  "clap-markdown",
  "hypha-keyring",
  "hypha-secret",
- "hypha-systemd",
  "lasius-vcs",
  "lasius-vcs-git",
  "serde_json",
  "serde_norway",
+ "tamias-deploy-systemd",
  "toml",
  "ureq",
 ]
@@ -463,7 +463,6 @@ dependencies = [
  "hmac",
  "hypha-dotenv",
  "hypha-secret",
- "hypha-systemd",
  "pavo-driver-kit",
  "pavo-protocol",
  "pavo-testkit",
@@ -471,6 +470,7 @@ dependencies = [
  "serde_json",
  "serde_norway",
  "sha2",
+ "tamias-deploy-systemd",
  "toml",
  "ureq",
 ]
@@ -1153,6 +1153,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "dyn-clone"
+version = "1.0.20"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d0881ea181b1df73ff77ffaaf9c7544ecc11e82fba9b5f27b262a3c73a332555"
+
+[[package]]
 name = "ecdsa"
 version = "0.16.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1316,6 +1322,16 @@ name = "fiat-crypto"
 version = "0.2.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "28dea519a9695b9977216879a3ebfddf92f1c08c05d984f8996aecd6ecdc811d"
+
+[[package]]
+name = "filetime"
+version = "0.2.30"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e1255e7a9f1902190d4c10a75f2f7f495d3d3ce13e9ba26e6c48683a0f4dbed7"
+dependencies = [
+ "cfg-if",
+ "libc",
+]
 
 [[package]]
 name = "find-msvc-tools"
@@ -1821,19 +1837,6 @@ source = "git+https://github.com/9aia/hypha.git?branch=main#1e39f7f74490d9fb8f15
 dependencies = [
  "hypha-secret",
  "serde_json",
-]
-
-[[package]]
-name = "hypha-service"
-version = "0.1.0"
-source = "git+https://github.com/9aia/hypha.git?branch=main#1e39f7f74490d9fb8f15db8841216dd3a7c00c46"
-
-[[package]]
-name = "hypha-systemd"
-version = "0.1.0"
-source = "git+https://github.com/9aia/hypha.git?branch=main#1e39f7f74490d9fb8f15db8841216dd3a7c00c46"
-dependencies = [
- "hypha-service",
 ]
 
 [[package]]
@@ -2827,6 +2830,26 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "63b8176103e19a2643978565ca18b50549f6101881c443590420e4dc998a3c69"
 
 [[package]]
+name = "ref-cast"
+version = "1.0.27"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7e440fb4e4b4147295338efb76001ab9e4efc0e5839df2c47fc5ac2381d365c3"
+dependencies = [
+ "ref-cast-impl",
+]
+
+[[package]]
+name = "ref-cast-impl"
+version = "1.0.27"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "92ecd8964f8453721699a1ed72037b0db49ce2f5a5138486ee89bed6f67cdf3a"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 3.0.9",
+]
+
+[[package]]
 name = "regex"
 version = "1.13.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3050,6 +3073,31 @@ dependencies = [
 ]
 
 [[package]]
+name = "schemars"
+version = "1.2.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ab508826f74a77ca9d5aba6ff19b522583ee3eaf28a19384ff3d0e5835fadf6e"
+dependencies = [
+ "dyn-clone",
+ "ref-cast",
+ "schemars_derive",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "schemars_derive"
+version = "1.2.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e1c3a92094fa7d61aa124645844facb6b554dfc797136d0f5fd1f890e2bffc69"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "serde_derive_internals",
+ "syn 3.0.9",
+]
+
+[[package]]
 name = "scopeguard"
 version = "1.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3085,6 +3133,10 @@ name = "semver"
 version = "1.0.28"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8a7852d02fc848982e0c167ef163aaff9cd91dc640ba85e263cb1ce46fae51cd"
+dependencies = [
+ "serde",
+ "serde_core",
+]
 
 [[package]]
 name = "serde"
@@ -3110,6 +3162,17 @@ name = "serde_derive"
 version = "1.0.229"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e7a5d71263a5a7d47b41f6b3f06ba276f10cc18b0931f1799f710578e2309348"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 3.0.9",
+]
+
+[[package]]
+name = "serde_derive_internals"
+version = "0.30.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f852137cce035d6a4df67ccce505ff6b3e9fd3a10e3e52b24dc71e650bb1a9bd"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -3443,6 +3506,52 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 3.0.9",
+]
+
+[[package]]
+name = "tamias-core"
+version = "0.2.0"
+source = "git+https://github.com/9aia/tamias.git?rev=9e03e45b8a68dabccc38290f39e8b80523c20832#9e03e45b8a68dabccc38290f39e8b80523c20832"
+dependencies = [
+ "flate2",
+ "hex",
+ "schemars",
+ "semver",
+ "serde",
+ "serde_json",
+ "serde_yaml_ng",
+ "sha2",
+ "tar",
+ "thiserror 2.0.21",
+ "toml",
+]
+
+[[package]]
+name = "tamias-deploy"
+version = "0.2.1"
+source = "git+https://github.com/9aia/tamias.git?rev=9e03e45b8a68dabccc38290f39e8b80523c20832#9e03e45b8a68dabccc38290f39e8b80523c20832"
+dependencies = [
+ "tamias-core",
+]
+
+[[package]]
+name = "tamias-deploy-systemd"
+version = "0.2.1"
+source = "git+https://github.com/9aia/tamias.git?rev=9e03e45b8a68dabccc38290f39e8b80523c20832#9e03e45b8a68dabccc38290f39e8b80523c20832"
+dependencies = [
+ "tamias-core",
+ "tamias-deploy",
+]
+
+[[package]]
+name = "tar"
+version = "0.4.46"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3f6221d9a6003c78398e3b239969f352578258df48c8eb051caadae0015bc840"
+dependencies = [
+ "filetime",
+ "libc",
+ "xattr",
 ]
 
 [[package]]
@@ -4222,6 +4331,16 @@ name = "writeable"
 version = "0.6.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3ad82d2a33cdc9674dc7465672f271e096168fcdbe0f799d9e6db8c5892679dc"
+
+[[package]]
+name = "xattr"
+version = "1.7.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "963d6fab92d5504b971dc8bd90ca743c2575e590bc8071ea5bc571598667ae08"
+dependencies = [
+ "libc",
+ "rustix",
+]
 
 [[package]]
 name = "yoke"

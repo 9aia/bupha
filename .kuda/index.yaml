@@ -1,5 +1,5 @@
 name: bupha
-root: /home/luis/GitHub/9aia/workspace/repos/bupha
+root: /home/luis/.local/share/decoupling-chief/worktrees/pl-025/bupha
 purpose: '*The CI integration for [tamias](https://github.com/9aia/tamias) —'
 modules:
 - bupha
@@ -34,14 +34,12 @@ modules:
 - bupha-telemetry-otel
 - bupha-trigger
 - bupha-watch
-- docs
-- project
 - sturn-wal
 commands:
 - cargo check
 - cargo test --workspace
-tree_digest: 38be2d0a6edf7017532376367691545d02712a68
-files_total: 216
+tree_digest: b6c43e380c48ad3840d6473a59ed1507e44e6b94
+files_total: 138
 provenance:
   files:
   - Cargo.toml
@@ -91,12 +89,12 @@ provenance:
   - d46021a5cc4e28ee9eed1d7ca349dd222a5d8306
   - 1e8b72c77e68157b0bceb70cbb4e3ea5c6b4868e
   - 1ce58c0ddf98f4e695cbd71d19541ac6dc19034a
-  - c6d20f735ed0cb1e6b08e5f9b8a2a9c7b1093622
+  - ebf50f3f95a14fb744b6f70476a4078f69182477
   - 2554603bfe365d5bcc00501ca7b197239ae7512f
   - ed119b77d73632bed5f8699fe776993139cce885
   - 2949c06c8e71ef5da170506ce9cd8dfbb7312ce3
   - 6ebc856617d9589fc7fa9c6363696d2e543e5f0b
-  - 8d588195b81dadd7e8024161eb89018f9fdf3c0d
+  - 33a21518f0b5141169fe65fb71d91a44a7d42b66
   - 130920aec2d9f32d6f8c6d16b35230ba63ddc04f
   - 50261b87b50271a25bf73fe4037897a0d4e97a89
   - 9a8bdeb02a9e8896e60f63d221a83f115d8a5980
@@ -115,6 +113,6 @@ provenance:
   - 5049aec6b8565aa211bac21b52c0f690c0509d63
   - 266224915f8ff4c7c2cad0aba28a95b57a819a43
   - a787b6af9e98fd8cae6ece92467308d34e49bbce
-  commit_sha: 08a1d1c4add95b30d10e6f51353def4e8f3e3a52
-  generated_at: '1794759786'
+  commit_sha: 901c83ad79a723fc06b507da3c7ac9c0676b2326
+  generated_at: '1795446066'
   generator: kuda/0.1.0
