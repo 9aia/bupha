@@ -17,9 +17,9 @@ bupha-queue.workspace = true
 # hypha-secret*/bupha-secret-cuora crates are retired). The
 # OS-keyring leg was dropped post-T-077: env → cuora →
 # ~/.config/bupha/env is the whole chain now.
-cuora-secret = { git = "ssh://git@github.com/9aia/cuora.git", rev = "d979b0f40d06e82d0258121083d7d9c89660cb96" }
-cuora-secret-cuora = { git = "ssh://git@github.com/9aia/cuora.git", rev = "d979b0f40d06e82d0258121083d7d9c89660cb96" }
-cuora-secret-dotenv = { git = "ssh://git@github.com/9aia/cuora.git", rev = "d979b0f40d06e82d0258121083d7d9c89660cb96" }
+cuora-secret = { git = "ssh://git@github.com/9aia/cuora.git", rev = "c3a1e0a9601ec4dd8a3dbbe64c973a4d03418372" }
+cuora-secret-cuora = { git = "ssh://git@github.com/9aia/cuora.git", rev = "c3a1e0a9601ec4dd8a3dbbe64c973a4d03418372" }
+cuora-secret-dotenv = { git = "ssh://git@github.com/9aia/cuora.git", rev = "c3a1e0a9601ec4dd8a3dbbe64c973a4d03418372" }
 bupha-trigger.workspace = true
 bupha-status.workspace = true
 bupha-runner.workspace = true
