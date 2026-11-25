@@ -18,7 +18,7 @@
 # (docs branch here, main there), so the overlap costs a filtered
 # delivery, not a double run.
 name: docs-deploy
-version: "0.1.1"
+version: "0.1.2"
 type: bupha
 description: >-
   Push to refs/heads/docs → detached worktree at the pushed sha →

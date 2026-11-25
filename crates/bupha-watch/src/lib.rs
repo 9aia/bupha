@@ -25,6 +25,7 @@
 //! enqueues `ci-job` entities via `ci.enqueue` — the engine bits
 //! below (queues, runners, sinks) stay canonical either way.
 
+use crate::telemetry::{NoopTelemetry, PromTelemetry, RunEvent, Telemetry};
 use bupha_access::{Access, AllowAll};
 use bupha_access_file::FileAccess;
 use bupha_access_forge::ForgeAccess;
@@ -44,7 +45,6 @@ use bupha_queue::{JsonQueueStore, LocalClaim, PersistedQueue, QueueStore, TryCla
 use bupha_runner::{RunCtx, RunHandle, Runner};
 use bupha_shell::ShellRunner;
 use bupha_status::StatusSink;
-use crate::telemetry::{NoopTelemetry, PromTelemetry, RunEvent, Telemetry};
 use bupha_trigger::{Emit, Push, Source, Stop, Trigger, Verdict};
 use cuora_secret::Secrets;
 use cuora_secret_cuora::CuoraSecrets;

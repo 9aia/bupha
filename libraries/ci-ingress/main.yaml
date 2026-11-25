@@ -786,7 +786,15 @@ nodes:
   params:
     cmd: 'true'
     emit:
-      '0': "${event.type}.${event.payload.repo}.${event.payload.ref}.${event.payload.clone_url}.${event.payload.sha}"
+      # actor rides the type so `:job` lanes keep a forge-attested
+      # sender — the worker's [access] gate denies empty/unknown
+      # senders, and the typed hop's {stdout,rc,cmd} payload can't
+      # carry it. `author` (PR author) wins over `actor` (action
+      # sender) so a maintainer-synced fork PR can't launder its
+      # head through a trusted actor; pushes have no `author` and
+      # fall back to the pusher. Logins never contain '.', so `*`
+      # captures the identity whole.
+      '0': "${event.type}.${event.payload.repo}.${event.payload.ref}.${event.payload.author:-${event.payload.actor}}.${event.payload.clone_url}.${event.payload.sha}"
       default: route.unmatched
 
 # --- enqueue: push → POST /api/entities (kind="ci-job") -----------------
@@ -870,7 +878,13 @@ nodes:
         event: pull_request
         cloneUrl: "${event.payload.head_clone_url}"
         headRef: "${event.payload.ref}"
-        sender: "${event.payload.actor}"
+        # The PR AUTHOR, not the action's sender — a maintainer
+        # syncing/reopening a fork PR would otherwise launder an
+        # untrusted head through a trusted `actor`. The worker's
+        # [access] forge check gates on this.
+        # `author` falls back to `actor` on pre-`author` drivers —
+        # deploy-order safe (weaker gate, never a breakage).
+        sender: "${event.payload.author:-${event.payload.actor}}"
         deliveryId: "${event.payload.delivery_id}"
         queue: "${config.queue}"
         context: "${config.context}"
@@ -878,12 +892,13 @@ nodes:
 # --- enqueue: per-job lanes (`owner/name:job`, T-030) ------------------
 # `on:` matches event types only (no payload expressions), so a job
 # lane subscribes the TYPED event `ci.route` emits —
-# `push.<repo>.<ref>.<clone_url>.<sha>` pinned to the job's branch
-# (`**` re-joins clone_url's `.`-separated segments, the trailing `*`
-# is the sha → `${event.match.2}`). One node per lane: `key`/`ref`
-# are literals because the typed event's payload is the router's
-# `{stdout, rc, cmd}`, not the webhook payload — `sender`/
-# `deliveryId` don't survive the hop (the deterministic entity id
+# `push.<repo>.<ref>.<actor>.<clone_url>.<sha>` pinned to the job's
+# branch (`*` = actor, `**` re-joins clone_url's `.`-separated
+# segments, the trailing `*` is the sha → `${event.match.3}`;
+# `${event.match.1}` is the actor → `sender`). One node per lane:
+# `key`/`ref` are literals because the typed event's payload is the
+# router's `{stdout, rc, cmd}`, not the webhook payload —
+# `deliveryId` doesn't survive the hop (the deterministic entity id
 # `ci:{key}:{sha}:{attempt}` still dedups replays, and a spec-armed
 # plane overwrites queue/context/runner from the fleet spec anyway).
 #
@@ -895,12 +910,12 @@ nodes:
 #
 # To add a lane: declare `[[repo.jobs]]` in the owning bupha bundle's
 # fleet.toml, then copy this node with the lane's
-# `push.<repo>.<branch>.**.*` `on:` pattern, `key: "<repo>:<job>"`
+# `push.<repo>.<branch>.*.**.*` `on:` pattern, `key: "<repo>:<job>"`
 # and `ref: "<branch>"`.
 - id: ci.enqueue.job.9aia-bupha-docs
   driver: http
   on:
-  - push.9aia/bupha.refs/heads/docs.**.*
+  - push.9aia/bupha.refs/heads/docs.*.**.*
   max_fires: unlimited
   emits:
   - http.done
@@ -919,7 +934,8 @@ nodes:
         key: "9aia/bupha:docs"
         repo: "9aia/bupha"
         ref: "refs/heads/docs"
-        sha: "${event.match.2}"
+        sha: "${event.match.3}"
         event: push
+        sender: "${event.match.1}"
         queue: "${config.queue}"
         context: "${config.context}"

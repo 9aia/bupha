@@ -22,13 +22,16 @@ use std::io;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
+use crate::telemetry::{RunEvent, Telemetry};
+use bupha_access::{Access, AllowAll};
+use bupha_access_file::FileAccess;
+use bupha_access_forge::ForgeAccess;
 use bupha_attest::Attest;
 use bupha_core::{is_valid_sha, Config, WatchedRepo};
 use bupha_plane::job::{CiJob, JobState, CI_JOB_KIND};
 use bupha_queue::{Fence, TryClaim};
 use bupha_runner::Runner;
 use bupha_status::StatusSink;
-use crate::telemetry::{RunEvent, Telemetry};
 use hypha_node_api::api::{EntityApi, OpResult};
 use hypha_node_api::dto::{EntityDto, EntityOp};
 use serde_json::{json, Value};
@@ -474,6 +477,11 @@ impl TryClaim for EntityClaim<'_> {
 pub enum ExecEnd {
     /// Run completed locally; `false` = failed.
     Finished(bool),
+    /// The job's forge-attested `sender` failed the `[access]`
+    /// policy — settle terminally (`error`) without running
+    /// anything. Never `Skip`: release would requeue the job and
+    /// the next scan would claim it again, forever.
+    Denied,
     /// Lease lost or cancel observed mid-run — `run_job` killed the
     /// child; the loop decides complete-vs-abandon from the entity.
     ClaimLost,
@@ -514,6 +522,14 @@ pub struct WatchExec {
     /// materialized once from `[worker] fork_token_env` (`None` =
     /// fork fetches ride the box's existing git auth).
     fork_helper: Option<std::path::PathBuf>,
+    /// `[access]` policy — the same sender gate `bupha watch`'s
+    /// `ingest_push` applies, enforced here because the entity path
+    /// bypasses it: a ci-job enqueued by ANY client of the node
+    /// (webhook campaign, a leaked token, a hand POST) would
+    /// otherwise run its `sender`'s code unchecked. The `sender`
+    /// field is forge-attested at webhook ingest; the wire is a
+    /// trust boundary at every hop, so the check runs at exec too.
+    access: Arc<dyn Access>,
 }
 
 impl WatchExec {
@@ -538,6 +554,19 @@ impl WatchExec {
         let attest = build_attest(&cfg);
         let fork_helper = fork_credential_helper(&cfg);
         let _ = std::fs::create_dir_all(&cfg.worktree.base);
+        // Same construction as `bupha watch`'s ingest path — one
+        // policy, both doors.
+        let access: Arc<dyn Access> = match cfg.access.kind.as_str() {
+            "all" => Arc::new(AllowAll),
+            "file" => Arc::new(FileAccess {
+                allow: cfg.access.allow.clone(),
+            }),
+            "forge" => Arc::new(ForgeAccess::new(&cfg.trigger.api_base, &token)),
+            other => {
+                eprintln!("unknown access kind '{other}' (all|file|forge)");
+                std::process::exit(2);
+            }
+        };
         Self {
             cfg,
             watched,
@@ -549,6 +578,7 @@ impl WatchExec {
             child: Arc::new(Mutex::new(None)),
             worker: worker_id(),
             fork_helper,
+            access,
         }
     }
 }
@@ -589,6 +619,20 @@ impl JobExec for WatchExec {
             eprintln!("ci-job {}: no sink/runner for key {:?}", ej.id, repo.key);
             return ExecEnd::Skip;
         };
+        // Sender gate — the entity path's equivalent of
+        // `ingest_push`'s `access.allow`. Runs BEFORE any checkout or
+        // runner spawn: a denied sender's code never touches the
+        // box. `Denied` settles `error` (terminal, no auto-retry —
+        // only `failure` retries) so `ci.job.completed` consumers
+        // see a non-actionable result.
+        if !self.access.allow(&ej.job.sender, &repo.name) {
+            eprintln!(
+                "ci-job {}: sender {:?} denied for {}",
+                ej.id, ej.job.sender, repo.name
+            );
+            sink.post(sha, "error", "sender not allowed by access policy");
+            return ExecEnd::Denied;
+        }
         self.telemetry.event(&RunEvent::Started {
             repo: repo.key.clone(),
             sha: sha.to_string(),
@@ -721,6 +765,20 @@ fn settle(api: &dyn JobApi, exec: &dyn JobExec, ej: &EntityJob, held: HeldClaim)
         ExecEnd::Skip => {
             if let Err(e) = api.release(&held, "not runnable on this worker") {
                 eprintln!("ci.release {}: {e}", held.id);
+            }
+        }
+        ExecEnd::Denied => {
+            // Policy denial — terminal `error` (no auto-retry; only
+            // `failure` spawns attempt+1) with an honest description.
+            // The emit keeps `ci.job.completed` consumers informed;
+            // `error` is not `failure`, so heal-style consumers
+            // ignore it.
+            if let Err(e) =
+                api.complete(&held, "error", Some("sender not allowed by access policy"))
+            {
+                eprintln!("ci.complete {}: {e} — abandoning", held.id);
+            } else {
+                api.emit_completed(ej, "error");
             }
         }
         ExecEnd::Finished(ok) => {
@@ -1066,6 +1124,31 @@ mod tests {
         assert_eq!(
             api.emitted.lock().unwrap().as_slice(),
             &[("ci:o/n:abc1234def56:1".to_string(), "success".to_string())]
+        );
+    }
+
+    #[test]
+    fn denied_settles_error_terminal() {
+        let api = FakeApi::new();
+        api.insert(pending("o/n", "abc1234def56", 1));
+        let exec = FakeExec::new(ExecEnd::Denied);
+        let filter = filter_for(&["o/n"]);
+
+        assert_eq!(step(&filter, &api, &exec, &never), Step::Ran);
+        let job = api.get("ci:o/n:abc1234def56:1").unwrap();
+        assert_eq!(job.state, JobState::Error);
+        assert_eq!(job.result.as_deref(), Some("error"));
+        // `error` is terminal and does NOT auto-retry (only
+        // `failure` spawns attempt+1) — the denied job must not come
+        // back.
+        assert!(api
+            .list_jobs()
+            .unwrap()
+            .iter()
+            .all(|j| j.id != "ci:o/n:abc1234def56:2"));
+        assert_eq!(
+            api.emitted.lock().unwrap().as_slice(),
+            &[("ci:o/n:abc1234def56:1".to_string(), "error".to_string())]
         );
     }
 

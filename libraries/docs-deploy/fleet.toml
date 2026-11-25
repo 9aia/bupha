@@ -93,6 +93,14 @@ cmd = "bash scripts/deploy-docs.sh"
 token_env = "BUPHA_TOKEN"
 cancel_running = true
 
+# --- sender authorization -----------------------------------------------------
+#
+# Same gate as ci-gate's fleet.toml — the entity worker checks the
+# forge-attested sender against collaborator permissions before any
+# checkout/runner spawn. `forge` = admin/write/maintain only.
+[access]
+kind = "forge"
+
 # Commit statuses post back to github under this context —
 # `docs/deploy`, matching the context the retired GHA deploy
 # workflows and the peregrin docs-deploy campaign used, so the

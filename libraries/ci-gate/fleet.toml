@@ -1589,6 +1589,18 @@ cancel_running = true
 # worktree.
 cmd = "REPO=\"$(git remote get-url origin 2>/dev/null | sed -E 's#^(git@[^:]+:|(https?|ssh)://[^/]+/)##; s#\\.git$##')\"; case \"$REPO\" in *://*|/*|.*) REPO=\"$(basename \"$PWD\")\";; esac; RDIR=\"$HOME/.local/share/bupha/gate-results/$REPO\"; mkdir -p \"$RDIR\"; if [ -f workflows/gate.yaml ]; then GATE_REPO=\"$PWD\" GATE_RESULTS=\"$RDIR/results.jsonl\" \"$HOME/.local/bin/peregrin\" campaign run workflows/gate.yaml --result \"$RDIR/result.json\" >/dev/null 2>&1 && jq -e '.conclusion == \"success\"' \"$RDIR/result.json\" >/dev/null; elif [ -f ci.sh ]; then bash ci.sh; else echo \"no workflows/gate.yaml or ci.sh\"; exit 1; fi"
 
+# --- sender authorization -----------------------------------------------------
+#
+# Who may trigger a run — checked by the entity worker BEFORE any
+# checkout/runner spawn (`WatchExec::exec`), the same policy
+# `bupha watch`'s ingest applies. `forge` asks the forge's
+# collaborator-permission API: only admin/write/maintain senders run
+# code on this box — fork-PR and outside-contributor deliveries are
+# denied terminally (`error`, no auto-retry). Requires `BUPHA_TOKEN`
+# to read collaborator permissions on every watched org.
+[access]
+kind = "forge"
+
 # Commit statuses post back to github under this context
 # (per-job contexts become "<context>/<job>").
 [status]
