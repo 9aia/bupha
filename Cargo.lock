@@ -509,7 +509,7 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_path_to_error",
- "sha1",
+ "sha1 0.10.7",
  "sha2",
  "tiny_http",
  "ureq",
@@ -1008,13 +1008,13 @@ dependencies = [
 
 [[package]]
 name = "cuora-secret"
-version = "1.0.4"
-source = "git+ssh://git@github.com/9aia/cuora.git?rev=f81164366bd436a7d4cf204c6e7a83555f50302f#f81164366bd436a7d4cf204c6e7a83555f50302f"
+version = "2.0.0"
+source = "git+ssh://git@github.com/9aia/cuora.git?rev=2a2539a8d879a76aab95987ea532d054736dca22#2a2539a8d879a76aab95987ea532d054736dca22"
 
 [[package]]
 name = "cuora-secret-cuora"
-version = "1.0.4"
-source = "git+ssh://git@github.com/9aia/cuora.git?rev=f81164366bd436a7d4cf204c6e7a83555f50302f#f81164366bd436a7d4cf204c6e7a83555f50302f"
+version = "2.0.0"
+source = "git+ssh://git@github.com/9aia/cuora.git?rev=2a2539a8d879a76aab95987ea532d054736dca22#2a2539a8d879a76aab95987ea532d054736dca22"
 dependencies = [
  "cuora-secret",
  "serde_json",
@@ -1022,16 +1022,16 @@ dependencies = [
 
 [[package]]
 name = "cuora-secret-dotenv"
-version = "1.0.4"
-source = "git+ssh://git@github.com/9aia/cuora.git?rev=f81164366bd436a7d4cf204c6e7a83555f50302f#f81164366bd436a7d4cf204c6e7a83555f50302f"
+version = "2.0.0"
+source = "git+ssh://git@github.com/9aia/cuora.git?rev=2a2539a8d879a76aab95987ea532d054736dca22#2a2539a8d879a76aab95987ea532d054736dca22"
 dependencies = [
  "cuora-secret",
 ]
 
 [[package]]
 name = "cuora-secret-keyring"
-version = "1.0.4"
-source = "git+ssh://git@github.com/9aia/cuora.git?rev=f81164366bd436a7d4cf204c6e7a83555f50302f#f81164366bd436a7d4cf204c6e7a83555f50302f"
+version = "2.0.0"
+source = "git+ssh://git@github.com/9aia/cuora.git?rev=2a2539a8d879a76aab95987ea532d054736dca22#2a2539a8d879a76aab95987ea532d054736dca22"
 dependencies = [
  "cuora-secret",
 ]
@@ -1161,6 +1161,8 @@ version = "0.11.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f1dd6dbb5841937940781866fa1281a1ff7bd3bf827091440879f9994983d5c2"
 dependencies = [
+ "block-buffer 0.12.1",
+ "const-oid 0.10.3",
  "crypto-common 0.2.2",
 ]
 
@@ -2175,8 +2177,8 @@ dependencies = [
 
 [[package]]
 name = "lampy-metrics-file"
-version = "0.1.0"
-source = "git+ssh://git@github.com/9aia/lampy.git?rev=04c89924413c5e169e5b6c48d7e5897be53be85c#04c89924413c5e169e5b6c48d7e5897be53be85c"
+version = "0.2.0"
+source = "git+ssh://git@github.com/9aia/lampy.git?rev=7fc154c3d6e516221658414a6d1c7d9617792e3d#7fc154c3d6e516221658414a6d1c7d9617792e3d"
 
 [[package]]
 name = "lampy-telemetry"
@@ -2203,18 +2205,20 @@ dependencies = [
 
 [[package]]
 name = "lasius-vcs"
-version = "0.4.0"
-source = "git+ssh://git@github.com/9aia/lasius.git?rev=52d8150bc40070f130c14b114da396fc8f570cb6#52d8150bc40070f130c14b114da396fc8f570cb6"
+version = "0.5.0"
+source = "git+ssh://git@github.com/9aia/lasius.git?rev=622eae462da7a6fd31e94333a3c44aea81c4df49#622eae462da7a6fd31e94333a3c44aea81c4df49"
 dependencies = [
  "serde",
 ]
 
 [[package]]
 name = "lasius-vcs-git"
-version = "0.4.0"
-source = "git+ssh://git@github.com/9aia/lasius.git?rev=52d8150bc40070f130c14b114da396fc8f570cb6#52d8150bc40070f130c14b114da396fc8f570cb6"
+version = "0.5.0"
+source = "git+ssh://git@github.com/9aia/lasius.git?rev=622eae462da7a6fd31e94333a3c44aea81c4df49#622eae462da7a6fd31e94333a3c44aea81c4df49"
 dependencies = [
+ "flate2",
  "lasius-vcs",
+ "sha1 0.11.0",
 ]
 
 [[package]]
@@ -2606,7 +2610,7 @@ checksum = "f38d5652c16fde515bb1ecef450ab0f6a219d619a7274976324d5e377f7dceba"
 [[package]]
 name = "pavo-driver-kit"
 version = "0.1.0"
-source = "git+https://github.com/9aia/pavo?rev=ca4079d123fe7533210ed698051f5c3a09000911#ca4079d123fe7533210ed698051f5c3a09000911"
+source = "git+https://github.com/9aia/pavo?rev=f6235d10f990e9f7735d8a53495e94a57a640949#f6235d10f990e9f7735d8a53495e94a57a640949"
 dependencies = [
  "pavo-protocol",
  "serde",
@@ -2616,7 +2620,7 @@ dependencies = [
 [[package]]
 name = "pavo-protocol"
 version = "0.1.0"
-source = "git+https://github.com/9aia/pavo?rev=ca4079d123fe7533210ed698051f5c3a09000911#ca4079d123fe7533210ed698051f5c3a09000911"
+source = "git+https://github.com/9aia/pavo?rev=f6235d10f990e9f7735d8a53495e94a57a640949#f6235d10f990e9f7735d8a53495e94a57a640949"
 dependencies = [
  "serde",
  "serde_json",
@@ -2626,7 +2630,7 @@ dependencies = [
 [[package]]
 name = "pavo-testkit"
 version = "0.1.0"
-source = "git+https://github.com/9aia/pavo?rev=ca4079d123fe7533210ed698051f5c3a09000911#ca4079d123fe7533210ed698051f5c3a09000911"
+source = "git+https://github.com/9aia/pavo?rev=f6235d10f990e9f7735d8a53495e94a57a640949#f6235d10f990e9f7735d8a53495e94a57a640949"
 dependencies = [
  "pavo-protocol",
  "serde",
@@ -3126,16 +3130,16 @@ checksum = "9774ba4a74de5f7b1c1451ed6cd5285a32eddb5cccb8cc655a4e50009e06477f"
 
 [[package]]
 name = "scarab-config"
-version = "0.1.0"
-source = "git+ssh://git@github.com/9aia/scarab.git?rev=a68fed26d8cea1bdd6fc7d6927bcc33c85e240c1#a68fed26d8cea1bdd6fc7d6927bcc33c85e240c1"
+version = "0.2.0"
+source = "git+ssh://git@github.com/9aia/scarab.git?rev=23b6d45da9803d737ed951300542fa837d6e7347#23b6d45da9803d737ed951300542fa837d6e7347"
 dependencies = [
  "serde_json",
 ]
 
 [[package]]
 name = "scarab-config-file"
-version = "0.1.0"
-source = "git+ssh://git@github.com/9aia/scarab.git?rev=a68fed26d8cea1bdd6fc7d6927bcc33c85e240c1#a68fed26d8cea1bdd6fc7d6927bcc33c85e240c1"
+version = "0.2.0"
+source = "git+ssh://git@github.com/9aia/scarab.git?rev=23b6d45da9803d737ed951300542fa837d6e7347#23b6d45da9803d737ed951300542fa837d6e7347"
 dependencies = [
  "scarab-config",
  "scarab-config-toml",
@@ -3146,8 +3150,8 @@ dependencies = [
 
 [[package]]
 name = "scarab-config-toml"
-version = "0.1.0"
-source = "git+ssh://git@github.com/9aia/scarab.git?rev=a68fed26d8cea1bdd6fc7d6927bcc33c85e240c1#a68fed26d8cea1bdd6fc7d6927bcc33c85e240c1"
+version = "0.2.0"
+source = "git+ssh://git@github.com/9aia/scarab.git?rev=23b6d45da9803d737ed951300542fa837d6e7347#23b6d45da9803d737ed951300542fa837d6e7347"
 dependencies = [
  "scarab-config",
  "serde",
@@ -3156,8 +3160,8 @@ dependencies = [
 
 [[package]]
 name = "scarab-config-yaml"
-version = "0.1.0"
-source = "git+ssh://git@github.com/9aia/scarab.git?rev=a68fed26d8cea1bdd6fc7d6927bcc33c85e240c1#a68fed26d8cea1bdd6fc7d6927bcc33c85e240c1"
+version = "0.2.0"
+source = "git+ssh://git@github.com/9aia/scarab.git?rev=23b6d45da9803d737ed951300542fa837d6e7347#23b6d45da9803d737ed951300542fa837d6e7347"
 dependencies = [
  "scarab-config",
  "serde",
@@ -3362,6 +3366,17 @@ dependencies = [
  "cfg-if",
  "cpufeatures 0.2.17",
  "digest 0.10.7",
+]
+
+[[package]]
+name = "sha1"
+version = "0.11.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "aacc4cc499359472b4abe1bf11d0b12e688af9a805fa5e3016f9a386dc2d0214"
+dependencies = [
+ "cfg-if",
+ "cpufeatures 0.3.1",
+ "digest 0.11.3",
 ]
 
 [[package]]
@@ -3611,8 +3626,8 @@ dependencies = [
 
 [[package]]
 name = "tamias-core"
-version = "0.2.0"
-source = "git+https://github.com/9aia/tamias.git?rev=9e03e45b8a68dabccc38290f39e8b80523c20832#9e03e45b8a68dabccc38290f39e8b80523c20832"
+version = "0.3.0"
+source = "git+https://github.com/9aia/tamias.git?rev=ddc61e5b13d7f0b39ea3bfd950be18b1a48ddc38#ddc61e5b13d7f0b39ea3bfd950be18b1a48ddc38"
 dependencies = [
  "flate2",
  "hex",
@@ -3629,16 +3644,16 @@ dependencies = [
 
 [[package]]
 name = "tamias-deploy"
-version = "0.2.1"
-source = "git+https://github.com/9aia/tamias.git?rev=9e03e45b8a68dabccc38290f39e8b80523c20832#9e03e45b8a68dabccc38290f39e8b80523c20832"
+version = "0.3.0"
+source = "git+https://github.com/9aia/tamias.git?rev=ddc61e5b13d7f0b39ea3bfd950be18b1a48ddc38#ddc61e5b13d7f0b39ea3bfd950be18b1a48ddc38"
 dependencies = [
  "tamias-core",
 ]
 
 [[package]]
 name = "tamias-deploy-systemd"
-version = "0.2.1"
-source = "git+https://github.com/9aia/tamias.git?rev=9e03e45b8a68dabccc38290f39e8b80523c20832#9e03e45b8a68dabccc38290f39e8b80523c20832"
+version = "0.3.0"
+source = "git+https://github.com/9aia/tamias.git?rev=ddc61e5b13d7f0b39ea3bfd950be18b1a48ddc38#ddc61e5b13d7f0b39ea3bfd950be18b1a48ddc38"
 dependencies = [
  "tamias-core",
  "tamias-deploy",

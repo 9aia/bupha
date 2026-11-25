@@ -55,14 +55,14 @@ bupha-access-forge = { path = "crates/bupha-access-forge", version = "0.3.0" }
 # Telemetry expertise lives in 9aia/lampy (P-042) — the OpenMetrics
 # textfile sink is lampy-metrics-file; bupha keeps only its domain
 # RunEvent/Telemetry port in bupha-watch::telemetry.
-lampy-metrics-file = { git = "ssh://git@github.com/9aia/lampy.git", rev = "04c89924413c5e169e5b6c48d7e5897be53be85c", version = "0.1.0" }
+lampy-metrics-file = { git = "ssh://git@github.com/9aia/lampy.git", rev = "7fc154c3d6e516221658414a6d1c7d9617792e3d", version = "0.2.0" }
 bupha-container = { path = "crates/bupha-container", version = "0.3.0" }
 bupha-attest = { path = "crates/bupha-attest", version = "0.3.0" }
 bupha-history = { path = "crates/bupha-history", version = "0.3.0" }
 bupha-core = { path = "crates/bupha-core", version = "0.3.0" }
 bupha-trigger = { path = "crates/bupha-trigger", version = "0.3.0" }
-lasius-vcs = { git = "ssh://git@github.com/9aia/lasius.git", rev = "52d8150bc40070f130c14b114da396fc8f570cb6" }
-lasius-vcs-git = { git = "ssh://git@github.com/9aia/lasius.git", rev = "52d8150bc40070f130c14b114da396fc8f570cb6" }
+lasius-vcs = { git = "ssh://git@github.com/9aia/lasius.git", rev = "622eae462da7a6fd31e94333a3c44aea81c4df49" }
+lasius-vcs-git = { git = "ssh://git@github.com/9aia/lasius.git", rev = "622eae462da7a6fd31e94333a3c44aea81c4df49" }
 bupha-gha = { path = "crates/bupha-gha", version = "0.3.0" }
 bupha-gha-runner = { path = "crates/bupha-gha-runner", version = "0.3.0" }
 bupha-queue = { path = "crates/bupha-queue", version = "0.3.0" }

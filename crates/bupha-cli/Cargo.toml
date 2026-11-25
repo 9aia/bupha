@@ -23,13 +23,13 @@ bupha-queue.workspace = true
 # Secrets port + impls live in cuora now (P-043) — git deps, same
 # rule as bupha-watch's cuora-secret. The OS-keyring leg is only
 # read here, for the `deploy env` keyring→cuora migration.
-cuora-secret = { git = "ssh://git@github.com/9aia/cuora.git", rev = "f81164366bd436a7d4cf204c6e7a83555f50302f" }
-cuora-secret-keyring = { git = "ssh://git@github.com/9aia/cuora.git", rev = "f81164366bd436a7d4cf204c6e7a83555f50302f" }
+cuora-secret = { git = "ssh://git@github.com/9aia/cuora.git", rev = "2a2539a8d879a76aab95987ea532d054736dca22" }
+cuora-secret-keyring = { git = "ssh://git@github.com/9aia/cuora.git", rev = "2a2539a8d879a76aab95987ea532d054736dca22" }
 # systemd unit machinery lives in tamias-deploy-systemd (PL-025 —
 # the bupha-{service,systemd} and hypha-{service,systemd} crates are
 # retired); the bupha-shaped wrappers (unit naming, env skeleton,
 # journalctl logs) are the local `deploy` module.
-tamias-deploy-systemd = { git = "https://github.com/9aia/tamias.git", rev = "9e03e45b8a68dabccc38290f39e8b80523c20832" }
+tamias-deploy-systemd = { git = "https://github.com/9aia/tamias.git", rev = "ddc61e5b13d7f0b39ea3bfd950be18b1a48ddc38" }
 bupha-config-file.workspace = true
 bupha-runner.workspace = true
 bupha-http.workspace = true
