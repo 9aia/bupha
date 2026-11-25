@@ -1,0 +1,9 @@
+# Code owners — changes to these paths require owner review before merge.
+# Enforced by the "guard quality-gate paths" ruleset (infra/github).
+# NOTE: direct pushes bypass review entirely — pair with a ruleset.
+
+# CI definition — workflow changes can weaken or bypass gates.
+/.github/workflows/  @9aia/trusted-contributors
+
+# Org policy-as-code — Pulumi programs, infra definitions.
+/infra/  @9aia/trusted-contributors
