@@ -31,7 +31,6 @@ outside itself; `bupha-cli` is the engine lib + clap tree
 | `bupha-queue` | port | QueueStore port: queue persistence |
 | `bupha-runner` | port | Runner port: how a job becomes a spawned process |
 | `bupha-status` | port | StatusSink port: where run outcomes are reported |
-| `bupha-telemetry` | port | Telemetry port: fire-and-forget pipeline events |
 | `bupha-trigger` | port | Source port: where pushes come from — forge webhooks, WAL polls, … |
 | `bupha-access-file` | adapter | Access adapter: allowlist of forge logins from config |
 | `bupha-access-forge` | adapter | Access adapter: forge collaborator-permission check |
@@ -48,12 +47,11 @@ outside itself; `bupha-cli` is the engine lib + clap tree
 | `bupha-github` | adapter | GitHub impl: push-webhook trigger + commit-status sink |
 | `bupha-history` | adapter | Run-history adapter: JSONL records per finished run |
 | `bupha-http` | adapter | Runner impl: remote execution via HTTP agent (tar worktree + poll) |
+| `bupha-peregrin` | adapter | peregrin-side ci-job integration — entity plane composition, fleet specs, hub rehydrate, kind policy (P-047, the bupha↔hypha/peregrin seam) |
 | `bupha-plane` | adapter | ci-job entity plane — hypha EntityPlane impl for the bupha↔hypha/peregrin seam (P-002) |
-| `bupha-secret-cuora` | adapter | Secret impl: cuora broker via the cuora CLI (canonical secrets story, T-056) |
 | `bupha-shell` | adapter | Runner impl: bash -c &lt;cmd&gt; per job — no containers |
 | `bupha-ssh` | adapter | Runner impl: remote execution over ssh (rsync worktree + run) |
 | `bupha-sturn` | adapter | sturn source impl: reads refs/sturn/* WAL state out of a clone via git plumbing |
-| `bupha-telemetry-otel` | adapter | Telemetry adapter: OpenMetrics textfile for Prometheus |
 | `bupha-watch` | adapter | bupha watcher engine host — trigger → queue → runner → status pipeline shared by `bupha watch` and `tamias-driver-bupha host` |
 | `bupha` | binary | bupha — queue engine for event-driven jobs: shipped as CI |
 
