@@ -84,11 +84,12 @@ trait with impl crates:
 | `bupha-trigger` / `bupha-sturn` | `Source` port + impls — GitHub webhook deliveries and the sturn WAL poller |
 | `bupha-queue` | work-queue port (per-key lists + leases); `JsonQueueStore` dev impl, durable state is the `ci-job` entity plane |
 | `bupha-plane` | `hypha_http::EntityPlane` impl — the bupha↔hypha/peregrin seam for the `ci-job` plane |
+| `bupha-peregrin` | peregrin-side ci-job integration — entity plane composition, fleet specs, hub rehydrate, kind policy (P-047/PL-028) |
 | `bupha-runner` + `-shell`/`-dagger`/`-ssh`/`-container`/`-http`/`-gha` | `Runner` port + impls — local shell, dagger pipelines, remote ssh, podman/docker isolation, remote `bupha agent`, native GHA workflow dialect |
 | `bupha-gha-runner` | registers this box as a GitHub Actions self-hosted runner (own config, not `runner.kind`) |
 | `bupha-github` | forge impl — webhooks in, commit statuses out |
 | `bupha-status` | status-sink port |
-| `bupha-secret-cuora` | secrets port impl — env → `cuora://bupha/<NAME>` → `~/.config/bupha/env` |
+| `cuora-secret*` (git deps) | secrets chain — env → `cuora://bupha/<NAME>` (+ pack scope) → dotenv file (P-043; the `bupha-secret-*` crates are gone) |
 | `bupha-access` + `-file`/`-forge` | `Access` port — sender authorization (forge-attested `sender`, not self-reported) |
 | `bupha-attest` + `-file`/`-sigstore` | run attestation — sha/repo/runner/status/wall predicates |
 | `bupha-audit-file` | audit-event sink |
