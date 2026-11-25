@@ -32,7 +32,7 @@ bupha.workspace = true
 bupha-config-file.workspace = true
 bupha-queue.workspace = true
 # systemd probe for the units view — tamias-deploy-systemd since PL-025.
-tamias-deploy-systemd = { git = "https://github.com/9aia/tamias.git", rev = "ddc61e5b13d7f0b39ea3bfd950be18b1a48ddc38" }
+tamias-deploy-systemd = { git = "https://github.com/9aia/tamias.git", rev = "cbbc0e048cd5f28358245dd3555bee274b8da19d" }
 # tamias content-type surface (ops.rs): forge-hook REST calls reuse
 # bupha-github; the secret chain reuses the same three stores
 # `bupha` resolves through.

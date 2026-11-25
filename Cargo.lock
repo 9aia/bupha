@@ -1009,12 +1009,12 @@ dependencies = [
 [[package]]
 name = "cuora-secret"
 version = "2.0.0"
-source = "git+ssh://git@github.com/9aia/cuora.git?rev=2a2539a8d879a76aab95987ea532d054736dca22#2a2539a8d879a76aab95987ea532d054736dca22"
+source = "git+ssh://git@github.com/9aia/cuora.git?rev=d979b0f40d06e82d0258121083d7d9c89660cb96#d979b0f40d06e82d0258121083d7d9c89660cb96"
 
 [[package]]
 name = "cuora-secret-cuora"
 version = "2.0.0"
-source = "git+ssh://git@github.com/9aia/cuora.git?rev=2a2539a8d879a76aab95987ea532d054736dca22#2a2539a8d879a76aab95987ea532d054736dca22"
+source = "git+ssh://git@github.com/9aia/cuora.git?rev=d979b0f40d06e82d0258121083d7d9c89660cb96#d979b0f40d06e82d0258121083d7d9c89660cb96"
 dependencies = [
  "cuora-secret",
  "serde_json",
@@ -1023,7 +1023,7 @@ dependencies = [
 [[package]]
 name = "cuora-secret-dotenv"
 version = "2.0.0"
-source = "git+ssh://git@github.com/9aia/cuora.git?rev=2a2539a8d879a76aab95987ea532d054736dca22#2a2539a8d879a76aab95987ea532d054736dca22"
+source = "git+ssh://git@github.com/9aia/cuora.git?rev=d979b0f40d06e82d0258121083d7d9c89660cb96#d979b0f40d06e82d0258121083d7d9c89660cb96"
 dependencies = [
  "cuora-secret",
 ]
@@ -1031,7 +1031,7 @@ dependencies = [
 [[package]]
 name = "cuora-secret-keyring"
 version = "2.0.0"
-source = "git+ssh://git@github.com/9aia/cuora.git?rev=2a2539a8d879a76aab95987ea532d054736dca22#2a2539a8d879a76aab95987ea532d054736dca22"
+source = "git+ssh://git@github.com/9aia/cuora.git?rev=d979b0f40d06e82d0258121083d7d9c89660cb96#d979b0f40d06e82d0258121083d7d9c89660cb96"
 dependencies = [
  "cuora-secret",
 ]
@@ -2206,7 +2206,7 @@ dependencies = [
 [[package]]
 name = "lasius-vcs"
 version = "0.5.0"
-source = "git+ssh://git@github.com/9aia/lasius.git?rev=622eae462da7a6fd31e94333a3c44aea81c4df49#622eae462da7a6fd31e94333a3c44aea81c4df49"
+source = "git+ssh://git@github.com/9aia/lasius.git?rev=89e51894b9cd118141fe66d1c8c1d114c60d4ea5#89e51894b9cd118141fe66d1c8c1d114c60d4ea5"
 dependencies = [
  "serde",
 ]
@@ -2214,7 +2214,7 @@ dependencies = [
 [[package]]
 name = "lasius-vcs-git"
 version = "0.5.0"
-source = "git+ssh://git@github.com/9aia/lasius.git?rev=622eae462da7a6fd31e94333a3c44aea81c4df49#622eae462da7a6fd31e94333a3c44aea81c4df49"
+source = "git+ssh://git@github.com/9aia/lasius.git?rev=89e51894b9cd118141fe66d1c8c1d114c60d4ea5#89e51894b9cd118141fe66d1c8c1d114c60d4ea5"
 dependencies = [
  "flate2",
  "lasius-vcs",
@@ -3131,7 +3131,7 @@ checksum = "9774ba4a74de5f7b1c1451ed6cd5285a32eddb5cccb8cc655a4e50009e06477f"
 [[package]]
 name = "scarab-config"
 version = "0.2.0"
-source = "git+ssh://git@github.com/9aia/scarab.git?rev=23b6d45da9803d737ed951300542fa837d6e7347#23b6d45da9803d737ed951300542fa837d6e7347"
+source = "git+ssh://git@github.com/9aia/scarab.git?rev=4e32a347dd775efdccc675d0e1f4a10e7a26153f#4e32a347dd775efdccc675d0e1f4a10e7a26153f"
 dependencies = [
  "serde_json",
 ]
@@ -3139,7 +3139,7 @@ dependencies = [
 [[package]]
 name = "scarab-config-file"
 version = "0.2.0"
-source = "git+ssh://git@github.com/9aia/scarab.git?rev=23b6d45da9803d737ed951300542fa837d6e7347#23b6d45da9803d737ed951300542fa837d6e7347"
+source = "git+ssh://git@github.com/9aia/scarab.git?rev=4e32a347dd775efdccc675d0e1f4a10e7a26153f#4e32a347dd775efdccc675d0e1f4a10e7a26153f"
 dependencies = [
  "scarab-config",
  "scarab-config-toml",
@@ -3151,7 +3151,7 @@ dependencies = [
 [[package]]
 name = "scarab-config-toml"
 version = "0.2.0"
-source = "git+ssh://git@github.com/9aia/scarab.git?rev=23b6d45da9803d737ed951300542fa837d6e7347#23b6d45da9803d737ed951300542fa837d6e7347"
+source = "git+ssh://git@github.com/9aia/scarab.git?rev=4e32a347dd775efdccc675d0e1f4a10e7a26153f#4e32a347dd775efdccc675d0e1f4a10e7a26153f"
 dependencies = [
  "scarab-config",
  "serde",
@@ -3161,7 +3161,7 @@ dependencies = [
 [[package]]
 name = "scarab-config-yaml"
 version = "0.2.0"
-source = "git+ssh://git@github.com/9aia/scarab.git?rev=23b6d45da9803d737ed951300542fa837d6e7347#23b6d45da9803d737ed951300542fa837d6e7347"
+source = "git+ssh://git@github.com/9aia/scarab.git?rev=4e32a347dd775efdccc675d0e1f4a10e7a26153f#4e32a347dd775efdccc675d0e1f4a10e7a26153f"
 dependencies = [
  "scarab-config",
  "serde",
@@ -3627,7 +3627,7 @@ dependencies = [
 [[package]]
 name = "tamias-core"
 version = "0.3.0"
-source = "git+https://github.com/9aia/tamias.git?rev=ddc61e5b13d7f0b39ea3bfd950be18b1a48ddc38#ddc61e5b13d7f0b39ea3bfd950be18b1a48ddc38"
+source = "git+https://github.com/9aia/tamias.git?rev=cbbc0e048cd5f28358245dd3555bee274b8da19d#cbbc0e048cd5f28358245dd3555bee274b8da19d"
 dependencies = [
  "flate2",
  "hex",
@@ -3645,7 +3645,7 @@ dependencies = [
 [[package]]
 name = "tamias-deploy"
 version = "0.3.0"
-source = "git+https://github.com/9aia/tamias.git?rev=ddc61e5b13d7f0b39ea3bfd950be18b1a48ddc38#ddc61e5b13d7f0b39ea3bfd950be18b1a48ddc38"
+source = "git+https://github.com/9aia/tamias.git?rev=cbbc0e048cd5f28358245dd3555bee274b8da19d#cbbc0e048cd5f28358245dd3555bee274b8da19d"
 dependencies = [
  "tamias-core",
 ]
@@ -3653,7 +3653,7 @@ dependencies = [
 [[package]]
 name = "tamias-deploy-systemd"
 version = "0.3.0"
-source = "git+https://github.com/9aia/tamias.git?rev=ddc61e5b13d7f0b39ea3bfd950be18b1a48ddc38#ddc61e5b13d7f0b39ea3bfd950be18b1a48ddc38"
+source = "git+https://github.com/9aia/tamias.git?rev=cbbc0e048cd5f28358245dd3555bee274b8da19d#cbbc0e048cd5f28358245dd3555bee274b8da19d"
 dependencies = [
  "tamias-core",
  "tamias-deploy",
