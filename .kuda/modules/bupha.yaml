@@ -267,7 +267,7 @@ provenance:
   - modules/dagger/tests/test_self_patch.py
   - scripts/fleet-sync.py
   hashes:
-  - 696dffc9c6da6fd115d43e1930db44172486933d
+  - 80d345bd4d8182052fd0e2161ece2d3aa8cc7e51
   - 175a79a6f85a575fc22f6de6d1fe6fb87832a8ae
   - dfdf8a3bd06b49ea0844a47eb0366a4efb385afb
   - 4102762337a49a25a35bd6da2202b6c0536fe273
@@ -278,6 +278,6 @@ provenance:
   - b266b7f034f3d194f5cba16fd2bf6a51886ccf46
   - 509a3147960f3aa59978a55730803da3c2ff0850
   - 3680f987af70a8ab70fc9d6448b9c71858e830fc
-  commit_sha: 1ecb4583cdbe6759823bc0af73a6093b872575d1
-  generated_at: '1795527282'
+  commit_sha: 4f4687af9e4b3f7c578e7148a1dedd37e4daa4ac
+  generated_at: '1795566199'
   generator: kuda-template/0.1.4

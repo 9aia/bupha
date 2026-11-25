@@ -38,8 +38,8 @@ modules:
 commands:
 - cargo check
 - cargo test --workspace
-tree_digest: 11aa4897c8d8b26c82b43c99d2c38a13203c944e
-files_total: 213
+tree_digest: 40ff7460fe03325e465d129a1073fc6875443b28
+files_total: 219
 provenance:
   files:
   - Cargo.toml
@@ -76,7 +76,7 @@ provenance:
   - crates/bupha-watch/Cargo.toml
   - modules/dagger/dagger/pyproject.toml
   hashes:
-  - 696dffc9c6da6fd115d43e1930db44172486933d
+  - 80d345bd4d8182052fd0e2161ece2d3aa8cc7e51
   - f7f3505f9259302c2dcfd256cf02dbb03bfea361
   - faa9d3e3b2e30ebed8aecf8da83c4683f33024c8
   - d3b36ada9a99ed7e36e96e47a7beb1f5bf3fe348
@@ -88,16 +88,17 @@ provenance:
   - 1e8b72c77e68157b0bceb70cbb4e3ea5c6b4868e
   - 1ce58c0ddf98f4e695cbd71d19541ac6dc19034a
   - 175a79a6f85a575fc22f6de6d1fe6fb87832a8ae
-  - 2554603bfe365d5bcc00501ca7b197239ae7512f
+  - 2119b9397935d9191c4db9621029330a6c6b5eeb
   - ed119b77d73632bed5f8699fe776993139cce885
   - 2949c06c8e71ef5da170506ce9cd8dfbb7312ce3
   - 6ebc856617d9589fc7fa9c6363696d2e543e5f0b
-  - ea715c37313d53f8ca7df01378a79780586ac198
+  - d4f7bec5492631a7e71fcd0539d1c73d22744c38
   - 130920aec2d9f32d6f8c6d16b35230ba63ddc04f
   - 50261b87b50271a25bf73fe4037897a0d4e97a89
   - 9a8bdeb02a9e8896e60f63d221a83f115d8a5980
   - bd3c49c8020bf9cc448326c4af9bd71df1191fb1
   - 324f2f1667132e7b9ede9def54a162c77381e0ca
+  - 0781d769df6c1a70c93b2565500d837dabb427cc
   - fcdab77747a105b6a9ccd61f0074664e7efb925d
   - 4067514b00d192c5f7b55d0612da1930e6ad3f73
   - 4fefe465ba6004fda1b42f7c3358502f9fdbbc1f
@@ -108,6 +109,6 @@ provenance:
   - 5049aec6b8565aa211bac21b52c0f690c0509d63
   - 16fc33076518306f120f98d18ea6839961d96e40
   - a787b6af9e98fd8cae6ece92467308d34e49bbce
-  commit_sha: 1ecb4583cdbe6759823bc0af73a6093b872575d1
-  generated_at: '1795527282'
+  commit_sha: 4f4687af9e4b3f7c578e7148a1dedd37e4daa4ac
+  generated_at: '1795566199'
   generator: kuda/0.1.0

@@ -10,17 +10,17 @@ api:
 - name: FileSource
   kind: type
   file: crates/bupha-config-file/src/lib.rs
-  line: 34
+  line: 39
   module: bupha-config-file
 - name: NOT_FOUND
   kind: const
   file: crates/bupha-config-file/src/lib.rs
-  line: 27
+  line: 32
   module: bupha-config-file
 - name: Toml
   kind: type
   file: crates/bupha-config-file/src/lib.rs
-  line: 43
+  line: 48
   module: bupha-config-file
 - name: YAML
   kind: const
@@ -35,7 +35,7 @@ api:
 - name: Yaml
   kind: type
   file: crates/bupha-config-file/src/lib.rs
-  line: 65
+  line: 69
   module: bupha-config-file
 - name: bupha-config-file
   kind: module
@@ -50,7 +50,7 @@ api:
 - name: discovery_source
   kind: function
   file: crates/bupha-config-file/src/lib.rs
-  line: 127
+  line: 130
   module: bupha-config-file
 - name: explicit_path_and_missing_error
   kind: function
@@ -70,22 +70,22 @@ api:
 - name: extensions
   kind: function
   file: crates/bupha-config-file/src/lib.rs
-  line: 46
+  line: 51
   module: bupha-config-file
 - name: extensions
   kind: function
   file: crates/bupha-config-file/src/lib.rs
-  line: 68
+  line: 72
   module: bupha-config-file
 - name: formats
   kind: function
   file: crates/bupha-config-file/src/lib.rs
-  line: 86
+  line: 89
   module: bupha-config-file
 - name: load
   kind: function
   file: crates/bupha-config-file/src/lib.rs
-  line: 139
+  line: 142
   module: bupha-config-file
 - name: load
   kind: function
@@ -95,7 +95,7 @@ api:
 - name: load_file
   kind: function
   file: crates/bupha-config-file/src/lib.rs
-  line: 110
+  line: 113
   module: bupha-config-file
 - name: loads_via_env_var
   kind: function
@@ -110,27 +110,27 @@ api:
 - name: named_path
   kind: function
   file: crates/bupha-config-file/src/lib.rs
-  line: 94
+  line: 97
   module: bupha-config-file
 - name: parse
   kind: function
   file: crates/bupha-config-file/src/lib.rs
-  line: 50
+  line: 55
   module: bupha-config-file
 - name: parse
   kind: function
   file: crates/bupha-config-file/src/lib.rs
-  line: 72
+  line: 76
   module: bupha-config-file
 - name: render
   kind: function
   file: crates/bupha-config-file/src/lib.rs
-  line: 56
+  line: 61
   module: bupha-config-file
 - name: render
   kind: function
   file: crates/bupha-config-file/src/lib.rs
-  line: 79
+  line: 82
   module: bupha-config-file
 - name: scratch
   kind: function
@@ -156,7 +156,7 @@ deps:
 - bupha-core
 - scarab-config
 - scarab-config-file
-- serde_norway
+- serde_yaml_ng
 - toml
 - bupha-core
 - scarab_config
@@ -175,11 +175,11 @@ provenance:
   - crates/bupha-config-file/tests/load.rs
   - crates/bupha-config-file/tests/search.rs
   hashes:
-  - 2554603bfe365d5bcc00501ca7b197239ae7512f
-  - 481af19f26aa6cfae19df77dfeda6d1ddb444602
+  - 2119b9397935d9191c4db9621029330a6c6b5eeb
+  - a3f7acda5519621b8a57d777fc6617e4b53163a2
   - 2affba5183bfec8524b622ea94147cf7d2503a79
   - 7be8c4dae340b0cfd86f31c9f816bb4fc15ef5b4
   - 808579825141d8c833fcf582bc6a4e02d4f142d4
-  commit_sha: 1ecb4583cdbe6759823bc0af73a6093b872575d1
-  generated_at: '1795527282'
+  commit_sha: 4f4687af9e4b3f7c578e7148a1dedd37e4daa4ac
+  generated_at: '1795566199'
   generator: kuda-template/0.1.4

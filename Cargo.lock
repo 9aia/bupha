@@ -337,7 +337,7 @@ checksum = "72f5acc6cb2ba439de613abc23857ec3d78374d8ed5ac84e9d11336e87da8649"
 
 [[package]]
 name = "bupha"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "bupha-config-file",
  "bupha-core",
@@ -363,18 +363,18 @@ dependencies = [
 
 [[package]]
 name = "bupha-access"
-version = "0.2.0"
+version = "0.3.0"
 
 [[package]]
 name = "bupha-access-file"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "bupha-access",
 ]
 
 [[package]]
 name = "bupha-access-forge"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "bupha-access",
  "serde_json",
@@ -383,18 +383,18 @@ dependencies = [
 
 [[package]]
 name = "bupha-attest"
-version = "0.2.0"
+version = "0.3.0"
 
 [[package]]
 name = "bupha-attest-file"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "bupha-attest",
 ]
 
 [[package]]
 name = "bupha-attest-sigstore"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "bupha-attest",
  "bupha-attest-file",
@@ -402,7 +402,7 @@ dependencies = [
 
 [[package]]
 name = "bupha-audit-file"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "bupha-status",
  "serde_json",
@@ -410,18 +410,18 @@ dependencies = [
 
 [[package]]
 name = "bupha-cache"
-version = "0.2.0"
+version = "0.3.0"
 
 [[package]]
 name = "bupha-cache-sccache"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "bupha-cache",
 ]
 
 [[package]]
 name = "bupha-config-file"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "bupha-core",
  "scarab-config",
@@ -432,7 +432,7 @@ dependencies = [
 
 [[package]]
 name = "bupha-container"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "bupha-runner",
  "serde",
@@ -440,7 +440,7 @@ dependencies = [
 
 [[package]]
 name = "bupha-core"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "serde",
  "serde_json",
@@ -449,7 +449,7 @@ dependencies = [
 
 [[package]]
 name = "bupha-dagger"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "bupha-core",
  "bupha-runner",
@@ -459,7 +459,7 @@ dependencies = [
 
 [[package]]
 name = "bupha-driver"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "bupha",
  "bupha-config-file",
@@ -485,7 +485,7 @@ dependencies = [
 
 [[package]]
 name = "bupha-gha"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "bupha-core",
  "bupha-runner",
@@ -496,7 +496,7 @@ dependencies = [
 
 [[package]]
 name = "bupha-gha-runner"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "aes 0.8.4",
  "base64 0.22.1",
@@ -518,7 +518,7 @@ dependencies = [
 
 [[package]]
 name = "bupha-github"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "bupha-core",
  "bupha-status",
@@ -532,11 +532,11 @@ dependencies = [
 
 [[package]]
 name = "bupha-history"
-version = "0.2.0"
+version = "0.3.0"
 
 [[package]]
 name = "bupha-http"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "bupha-core",
  "bupha-runner",
@@ -551,7 +551,7 @@ dependencies = [
 
 [[package]]
 name = "bupha-peregrin"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "bupha-config-file",
  "bupha-plane",
@@ -565,7 +565,7 @@ dependencies = [
 
 [[package]]
 name = "bupha-plane"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "async-trait",
  "axum",
@@ -578,7 +578,7 @@ dependencies = [
 
 [[package]]
 name = "bupha-queue"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "bupha-core",
  "serde",
@@ -587,11 +587,11 @@ dependencies = [
 
 [[package]]
 name = "bupha-runner"
-version = "0.2.0"
+version = "0.3.0"
 
 [[package]]
 name = "bupha-shell"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "bupha-core",
  "bupha-runner",
@@ -601,7 +601,7 @@ dependencies = [
 
 [[package]]
 name = "bupha-ssh"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "bupha-core",
  "bupha-runner",
@@ -611,11 +611,11 @@ dependencies = [
 
 [[package]]
 name = "bupha-status"
-version = "0.2.0"
+version = "0.3.0"
 
 [[package]]
 name = "bupha-sturn"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "bupha-core",
  "bupha-trigger",
@@ -626,11 +626,11 @@ dependencies = [
 
 [[package]]
 name = "bupha-trigger"
-version = "0.2.0"
+version = "0.3.0"
 
 [[package]]
 name = "bupha-watch"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "bupha-access",
  "bupha-access-file",
