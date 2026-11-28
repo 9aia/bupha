@@ -17,8 +17,13 @@
 //! flush hands snapshots to) with `PEREGRIN_SNAPSHOT_TOKEN` as its
 //! bearer, passed in by the caller. `GET /api/entity-index` answers
 //! per-node buckets on a hub (and a one-row bucket on a bare node);
-//! only the bucket matching *this* node's id is read, so a
-//! peer-node target or another fleet member's rows can never leak in.
+//! only the bucket matching *this* node is read, so a peer-node
+//! target or another fleet member's rows can never leak in. Hub
+//! buckets key on the operator-chosen registry id (`PEREGRIN_NODES`
+//! `id=`), which the node cannot know — its self id is minted — so
+//! the caller passes both: the self id (bare-node/peer targets) and
+//! `PEREGRIN_SNAPSHOT_NODE` (the hub registry id, when set). First
+//! matching bucket wins.
 //! Runs before the listener binds — the hub cannot list (and
 //! reconcile-tombstone) entities the plane hasn't restored yet.
 //!
@@ -38,7 +43,7 @@ use serde_json::Value;
 pub async fn rehydrate(
     snapshot_target: Option<&str>,
     snapshot_token: Option<&str>,
-    node_id: &str,
+    node_ids: &[&str],
     plane: &Arc<CiJobPlane>,
 ) {
     let Some(target) = snapshot_target else {
@@ -47,7 +52,7 @@ pub async fn rehydrate(
     let api = HttpEntityApi::new(target, snapshot_token.map(str::to_string));
     match api.entity_index().await {
         Ok(index) => {
-            let inserted = apply_index(&index, node_id, plane);
+            let inserted = apply_index(&index, node_ids, plane);
             if inserted > 0 {
                 tracing::info!(
                     inserted,
@@ -65,12 +70,19 @@ pub async fn rehydrate(
     }
 }
 
-/// Feed the `ci-job` docs in `node_id`'s bucket to `plane.rehydrate`.
-/// Returns the inserted count. Other nodes' buckets and other kinds
-/// are ignored — entity ids are only unique per node.
-fn apply_index(index: &[EntityIndexDto], node_id: &str, plane: &Arc<CiJobPlane>) -> usize {
-    let Some(bucket) = index.iter().find(|b| b.node == node_id) else {
-        tracing::debug!(node = %node_id, "ci-job rehydrate: no entity-index bucket for this node");
+/// Feed the `ci-job` docs in the first bucket matching any of
+/// `node_ids` to `plane.rehydrate`. Returns the inserted count.
+/// Other nodes' buckets and other kinds are ignored — entity ids are
+/// only unique per node.
+fn apply_index(index: &[EntityIndexDto], node_ids: &[&str], plane: &Arc<CiJobPlane>) -> usize {
+    let Some(bucket) = node_ids
+        .iter()
+        .find_map(|id| index.iter().find(|b| b.node == *id))
+    else {
+        tracing::debug!(
+            node_ids = ?node_ids,
+            "ci-job rehydrate: no entity-index bucket for this node"
+        );
         return 0;
     };
     let docs: Vec<Value> = bucket
@@ -147,7 +159,7 @@ mod tests {
             },
         ];
         let plane = Arc::new(CiJobPlane::new());
-        let inserted = apply_index(&index, "node-a", &plane);
+        let inserted = apply_index(&index, &["node-a"], &plane);
         assert_eq!(inserted, 2);
         // node-b's ci-job and the campaign entity stayed out.
         let ctx = EntityContext::for_kinds(KindRegistry::new());
@@ -157,15 +169,35 @@ mod tests {
 
         // A node with no bucket rehydrates nothing.
         let other = Arc::new(CiJobPlane::new());
-        assert_eq!(apply_index(&index, "node-z", &other), 0);
+        assert_eq!(apply_index(&index, &["node-z"], &other), 0);
         assert_eq!(other.list(&ctx, None).await.len(), 0);
+    }
+
+    #[tokio::test]
+    async fn apply_index_accepts_hub_registry_id_as_bucket() {
+        // Hub deployments bucket entities under the operator-chosen
+        // `PEREGRIN_NODES` id, not the node's self id — the caller
+        // passes both and either may match.
+        let index = vec![EntityIndexDto {
+            node: "main".into(),
+            entities: vec![entity(
+                "ci:o/n:aaaa111:1",
+                CI_JOB_KIND,
+                job_doc("aaaa111", "pending"),
+            )],
+        }];
+        let plane = Arc::new(CiJobPlane::new());
+        // Self id alone misses the "main" bucket.
+        assert_eq!(apply_index(&index, &["node_45fd"], &plane), 0);
+        // Self id + registry id hits it.
+        assert_eq!(apply_index(&index, &["node_45fd", "main"], &plane), 1);
     }
 
     #[tokio::test]
     async fn rehydrate_without_target_is_a_noop() {
         let plane = Arc::new(CiJobPlane::new());
         let ctx = EntityContext::for_kinds(KindRegistry::new());
-        rehydrate(None, None, "node-a", &plane).await;
+        rehydrate(None, None, &["node-a"], &plane).await;
         assert_eq!(plane.list(&ctx, None).await.len(), 0);
     }
 }
