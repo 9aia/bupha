@@ -32,3 +32,4 @@
 - T-048 gha runner follow-ups — parallel matrix, actions/setup-\* + other uses:, if: conditions, needs.\*.outputs, per-gha-job commit statuses, timeout-minutes enforcement, multi-commit paths filters (PL-013 D-deferred) · owner:devin · created:2026-11-10 · #ci · #gha · done:2026-11-14
 - T-044 rotate CARGO\_REGISTRY\_TOKEN — was at .env 0644 (now 600); treat as exposed · pri:high · owner:human:Luis-Emidio · created:2026-11-03 · done:2026-11-14
 - T-076 peregrin campaign listener-run failures are silent — dead ingress invisible until shutdown (follow-up T-075) · created:2026-11-13 · links:T-075 · done:2026-11-14
+- T-078 ci-job entities don't survive node restarts — CiJobPlane is in-memory, rehydrate reads hub entity-index but hub projection contains zero ci-job docs (sync broken/kind not projected); every node restart silently drops the CI queue · pri:high · owner:devin · created:2026-11-28 · #ci · #durability · done:2026-11-28
